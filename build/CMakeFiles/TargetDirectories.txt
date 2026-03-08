@@ -1,0 +1,5 @@
+/home/lyes/GitHub/c-project/build/CMakeFiles/vn_testing.dir
+/home/lyes/GitHub/c-project/build/CMakeFiles/edit_cache.dir
+/home/lyes/GitHub/c-project/build/CMakeFiles/rebuild_cache.dir
+/home/lyes/GitHub/c-project/build/_deps/json-build/CMakeFiles/edit_cache.dir
+/home/lyes/GitHub/c-project/build/_deps/json-build/CMakeFiles/rebuild_cache.dir
