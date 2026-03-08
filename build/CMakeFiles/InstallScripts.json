@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/lyes/GitHub/c-project/build/cmake_install.cmake",
+		"/home/lyes/GitHub/c-project/build/_deps/json-build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

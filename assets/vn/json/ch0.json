@@ -1,0 +1,226 @@
+{
+  "chapter": 0,
+  "title": "Dreams and Dorms",
+  "entries": [
+    {
+      "speaker": "Loudspeaker",
+      "text": "It is now time for Hatsune Miku to head on stage!",
+      "type": "dialogue",
+      "background": "assets/vn/backgrounds/ch0/0.jpg",
+      "voice": "assets/vn/voices/ch0/0.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "I can't believe it…. I finally realised my dream! I'm a world famous idol!",
+      "type": "thought",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/1.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Okay, focus Miku, don't be stressed, breathe…",
+      "type": "thought",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/2.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "This is your first concert, you can't mess it up.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/3.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Ahem.. SEKA-",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/4.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": true
+    },
+    {
+      "speaker": "Teto",
+      "text": "SEKA-KA-KA-CAN YOU SHUT THE FUCK UP? I'm trying to SLEEP.",
+      "type": "dialogue",
+      "background": "assets/vn/backgrounds/ch0/1.jpg",
+      "voice": "assets/vn/voices/ch0/5.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Emm, sorr-",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/6.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": true
+    },
+    {
+      "speaker": "Teto",
+      "text": "You keep RUINING my sleep EVERY SINGLE FUCKING DAY OF THE WEEK.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/7.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Listen I really didn't-",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/8.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": true
+    },
+    {
+      "speaker": "Teto",
+      "text": "You're not even sleep talking, you're fucking sleep SINGING. WHO THE HELLS ♪ Sings in their Fucking Sleep! ♪",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/9.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Just let me-",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/10.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": true
+    },
+    {
+      "speaker": "Teto",
+      "text": "That's enough!!! This is the sixtyseventh time you're-",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/11.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": true
+    },
+    {
+      "speaker": "Miku",
+      "text": "Six Seven!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/12.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Teto",
+      "text": "... ",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Teto",
+      "text": "I'm reporting you to Marina Làoshí.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/13.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Your tones are wrong.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/14.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Teto",
+      "text": "AND YOU'RE TONE DEAF BECAUSE YOU CANT FUCKING SING!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/15.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Well… Hi, my name is Hatsune Miku…! This is my life, an ordinary student at BIT.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/16.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "As much as I would love to become a world famous singer, this is my life, just a regular college student.",
+      "type": "thought",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/17.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Well, it's now time to head to C Programming Practice class.",
+      "type": "thought",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/18.wav",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    }
+  ]
+}
