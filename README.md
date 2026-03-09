@@ -2,6 +2,14 @@
 
 A simple C++ SDL2 application that opens a graphical window with an interactive interface.
 
+If CMake reports that `build/CMakeCache.txt` was created in a different directory, remove the generated build folder and configure again:
+
+```bash
+rm -rf build
+cmake -S . -B build
+cmake --build build
+```
+
 ## Linux setup (Debian/Ubuntu)
 
 1. Install tools and SDL2:
@@ -16,7 +24,7 @@ cmake --build build
 
 3. Run:
 
-./build/bin/sdl_starter
+./build/bin/vn_testing
 
 ## Windows setup (recommended: vcpkg)
 
@@ -32,7 +40,7 @@ cmake --build build --config Release
 
 4. Run:
 
-build\Release\bin\sdl_starter.exe
+Run `vn_testing.exe` from the generated build output directory.
 
 ## macOS setup
 
@@ -47,7 +55,7 @@ cmake --build build
 
 3. Run:
 
-./build/bin/sdl_starter
+./build/bin/vn_testing
 
 ## Controls
 
@@ -77,4 +85,3 @@ cmake --build build
 - Rendering with hardware acceleration
 - Proper resource cleanup
 - CMake for cross-platform builds
-
