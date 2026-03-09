@@ -1,0 +1,26 @@
+{
+    "lyoo": {
+        "title": "[Underground BIT Host] Lyoo",
+        "assets": "lyoo",
+        "spd": 100,
+        "atk": 10,
+        "hp": 200,
+        "ability": "MoonSpiralDildoAttack"
+    },
+    "lyooPlotTwist": {
+        "title": "[Reinforcement Learning Assistant] Lyoo",
+        "assets": "lyoo",
+        "spd": 160,
+        "atk": 50,
+        "hp": 500,
+        "ability": "MoonSpiralDildoAttack"
+    },
+    "miku": {
+        "title": "IsraelGPT Syndrome Infected Hatsune Miku",
+        "assets": "miku",
+        "spd": 200,
+        "atk": 80,
+        "hp": 700,
+        "ability": "DianDongPower"
+    }
+}

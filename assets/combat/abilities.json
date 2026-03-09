@@ -1,0 +1,60 @@
+{
+    "ILoveEveryoneAndEverything": {
+        "name": "I Love Everyone And Everything",
+        "type": "heal",
+        "targetRule": "all_allies",
+        "flatHeal": 15,
+        "multiplier": 0.0,
+        "interactionType": "rhythm",
+        "presentationId": "heal_hearts"
+    },
+    "LetsSing": {
+        "name": "Let's Sing!",
+        "type": "attack",
+        "targetRule": "single_enemy",
+        "multiplier": 1.0,
+        "interactionType": "rhythm",
+        "presentationId": "musical_notes"
+    },
+    "SmackMyAssLikeADrum": {
+        "name": "Smack My Ass Like A Drum",
+        "type": "attack",
+        "targetRule": "single_enemy",
+        "multiplier": 1.2,
+        "interactionType": "rhythm",
+        "presentationId": "drum_attack"
+    },
+    "HeartsEverywhere": {
+        "name": "Hearts Everywhere",
+        "type": "heal",
+        "targetRule": "all_allies",
+        "flatHeal": 30,
+        "multiplier": 0.0,
+        "interactionType": "none",
+        "presentationId": "hearts_everywhere_ultimate"
+    },
+    "DianDongPower": {
+        "name": "DianDong Power",
+        "type": "attack",
+        "targetRule": "single_enemy",
+        "multiplier": 2.0,
+        "interactionType": "none",
+        "presentationId": "diandong_power_cutscene"
+    },
+    "NiagaraFalls": {
+        "name": "Niagara Falls",
+        "type": "attack",
+        "targetRule": "single_enemy",
+        "multiplier": 1.8,
+        "interactionType": "none",
+        "presentationId": "niagara_falls_ultimate"
+    },
+    "MoonSpiralDildoAttack": {
+        "name": "Moon Spiral Dildo Attack",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.0,
+        "interactionType": "parry",
+        "presentationId": "boss_attack_lyoo"
+    }
+}

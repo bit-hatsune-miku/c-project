@@ -18,6 +18,7 @@ struct ScriptEntry {
     EntryType type;
     std::string background;
     std::string voice;
+    std::string fontPath;
     std::string icon;
     int iconFrameCount;
     float iconFps;

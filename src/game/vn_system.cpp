@@ -1,6 +1,7 @@
 #include "vn_system.h"
 
 #include <algorithm>
+#include <cctype>
 #include <iostream>
 #include <vector>
 
@@ -36,6 +37,7 @@ SDL_Texture* gBackgroundTexture = nullptr;
 float gCharsPerSecond = 45.0f;
 float gTypeAccumulator = 0.0f;
 size_t gVisibleChars = 0;
+size_t gTotalVisibleChars = 0;
 bool gAutoAdvanceOnVoiceEnd = false;
 bool gAdvanceRequested = false;
 
@@ -135,6 +137,78 @@ void ensureFontLoaded() {
     }
 }
 
+int utf8CodepointLength(unsigned char c) {
+    if ((c & 0x80) == 0) return 1;
+    if ((c & 0xE0) == 0xC0) return 2;
+    if ((c & 0xF0) == 0xE0) return 3;
+    if ((c & 0xF8) == 0xF0) return 4;
+    return 1;
+}
+
+std::string toLowerCopy(const std::string& s) {
+    std::string out = s;
+    for (char& ch : out) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    return out;
+}
+
+bool parseHexColorTag(const std::string& tagLower, SDL_Color& outColor) {
+    const std::string prefix = "color=#";
+    if (tagLower.rfind(prefix, 0) != 0) {
+        return false;
+    }
+
+    const std::string hex = tagLower.substr(prefix.size());
+    if (hex.size() != 6 && hex.size() != 8) {
+        return false;
+    }
+
+    auto hexByte = [](const std::string& text, size_t offset) -> int {
+        return std::stoi(text.substr(offset, 2), nullptr, 16);
+    };
+
+    try {
+        outColor.r = static_cast<Uint8>(hexByte(hex, 0));
+        outColor.g = static_cast<Uint8>(hexByte(hex, 2));
+        outColor.b = static_cast<Uint8>(hexByte(hex, 4));
+        outColor.a = static_cast<Uint8>(hex.size() == 8 ? hexByte(hex, 6) : 255);
+    } catch (...) {
+        return false;
+    }
+
+    return true;
+}
+
+size_t countVisibleCharsIgnoringTags(const std::string& text) {
+    size_t count = 0;
+    size_t i = 0;
+    while (i < text.size()) {
+        if (text[i] == '<') {
+            const size_t close = text.find('>', i + 1);
+            if (close != std::string::npos) {
+                const std::string tagLower = toLowerCopy(text.substr(i + 1, close - i - 1));
+                if (tagLower == "b" || tagLower == "/b" ||
+                    tagLower == "i" || tagLower == "/i" ||
+                    tagLower == "/color" || tagLower == "br" || tagLower == "br/" ||
+                    tagLower.rfind("color=#", 0) == 0) {
+                    if (tagLower == "br" || tagLower == "br/") {
+                        ++count;
+                    }
+                    i = close + 1;
+                    continue;
+                }
+            }
+        }
+
+        const int len = std::max(1, utf8CodepointLength(static_cast<unsigned char>(text[i])));
+        i += static_cast<size_t>(len);
+        ++count;
+    }
+
+    return count;
+}
+
 void drawText(const std::string& text, const SDL_Color& color, const SDL_Rect& area, bool centered) {
     if (text.empty() || gFont == nullptr) {
         return;
@@ -162,6 +236,130 @@ void drawText(const std::string& text, const SDL_Color& color, const SDL_Rect& a
     SDL_RenderCopy(gRenderer, tex, nullptr, &dst);
     SDL_DestroyTexture(tex);
     SDL_FreeSurface(surface);
+}
+
+void drawRichText(const std::string& text, const SDL_Color& defaultColor, const SDL_Rect& area, size_t maxVisibleChars) {
+    if (text.empty() || gFont == nullptr || maxVisibleChars == 0) {
+        return;
+    }
+
+    int boldDepth = 0;
+    int italicDepth = 0;
+    std::vector<SDL_Color> colorStack;
+    colorStack.push_back(defaultColor);
+
+    int x = area.x;
+    int y = area.y;
+    const int maxX = area.x + area.w;
+    const int maxY = area.y + area.h;
+    const int lineSkip = TTF_FontLineSkip(gFont);
+
+    size_t visibleCount = 0;
+    size_t i = 0;
+
+    auto newline = [&]() {
+        x = area.x;
+        y += lineSkip;
+    };
+
+    auto isOutOfArea = [&]() {
+        return y + lineSkip > maxY;
+    };
+
+    while (i < text.size() && visibleCount < maxVisibleChars && !isOutOfArea()) {
+        if (text[i] == '<') {
+            const size_t close = text.find('>', i + 1);
+            if (close != std::string::npos) {
+                const std::string tagLower = toLowerCopy(text.substr(i + 1, close - i - 1));
+
+                if (tagLower == "b") {
+                    ++boldDepth;
+                    i = close + 1;
+                    continue;
+                }
+                if (tagLower == "/b") {
+                    boldDepth = std::max(0, boldDepth - 1);
+                    i = close + 1;
+                    continue;
+                }
+                if (tagLower == "i") {
+                    ++italicDepth;
+                    i = close + 1;
+                    continue;
+                }
+                if (tagLower == "/i") {
+                    italicDepth = std::max(0, italicDepth - 1);
+                    i = close + 1;
+                    continue;
+                }
+                if (tagLower == "br" || tagLower == "br/") {
+                    newline();
+                    ++visibleCount;
+                    i = close + 1;
+                    continue;
+                }
+                if (tagLower == "/color") {
+                    if (colorStack.size() > 1) {
+                        colorStack.pop_back();
+                    }
+                    i = close + 1;
+                    continue;
+                }
+
+                SDL_Color parsedColor{};
+                if (parseHexColorTag(tagLower, parsedColor)) {
+                    colorStack.push_back(parsedColor);
+                    i = close + 1;
+                    continue;
+                }
+            }
+        }
+
+        const int codeLen = std::max(1, utf8CodepointLength(static_cast<unsigned char>(text[i])));
+        const std::string glyph = text.substr(i, static_cast<size_t>(codeLen));
+        i += static_cast<size_t>(codeLen);
+
+        if (glyph == "\n") {
+            newline();
+            ++visibleCount;
+            continue;
+        }
+
+        int styleFlags = TTF_STYLE_NORMAL;
+        if (boldDepth > 0) styleFlags |= TTF_STYLE_BOLD;
+        if (italicDepth > 0) styleFlags |= TTF_STYLE_ITALIC;
+        TTF_SetFontStyle(gFont, styleFlags);
+
+        int glyphW = 0;
+        int glyphH = 0;
+        if (TTF_SizeUTF8(gFont, glyph.c_str(), &glyphW, &glyphH) != 0) {
+            ++visibleCount;
+            continue;
+        }
+
+        if (x + glyphW > maxX && x > area.x) {
+            newline();
+            if (isOutOfArea()) {
+                break;
+            }
+        }
+
+        SDL_Surface* surface = TTF_RenderUTF8_Blended(gFont, glyph.c_str(), colorStack.back());
+        if (surface != nullptr) {
+            SDL_Texture* tex = SDL_CreateTextureFromSurface(gRenderer, surface);
+            if (tex != nullptr) {
+                SDL_Rect dst{x, y, surface->w, surface->h};
+                SDL_RenderCopy(gRenderer, tex, nullptr, &dst);
+                SDL_DestroyTexture(tex);
+            }
+            SDL_FreeSurface(surface);
+        }
+
+        x += glyphW;
+        ++visibleCount;
+    }
+
+    TTF_SetFontStyle(gFont, TTF_STYLE_NORMAL);
 }
 #endif
 
@@ -326,6 +524,11 @@ void setTypewriterSpeed(float charsPerSecond) {
 
 void setText(const std::string& text) {
     gText = text;
+#ifdef VN_ENABLE_TTF
+    gTotalVisibleChars = countVisibleCharsIgnoringTags(gText);
+#else
+    gTotalVisibleChars = gText.size();
+#endif
 }
 
 void startLine() {
@@ -361,11 +564,11 @@ void showLine(
 }
 
 void update(float deltaSeconds) {
-    if (gVisibleChars < gText.size()) {
+    if (gVisibleChars < gTotalVisibleChars) {
         gTypeAccumulator += deltaSeconds * gCharsPerSecond;
         const size_t add = static_cast<size_t>(gTypeAccumulator);
         if (add > 0) {
-            gVisibleChars = std::min(gText.size(), gVisibleChars + add);
+            gVisibleChars = std::min(gTotalVisibleChars, gVisibleChars + add);
             gTypeAccumulator -= static_cast<float>(add);
         }
     }
@@ -428,9 +631,8 @@ void render() {
         drawText(gSpeakerName, nameColor, nameArea, true);
     }
 
-    std::string visible = gText.substr(0, gVisibleChars);
     SDL_Rect textArea{textStartX, box.y + 18, box.w - (textStartX - box.x) - 18, box.h - 24};
-    drawText(visible, textColor, textArea, false);
+    drawRichText(gText, textColor, textArea, gVisibleChars);
 #else
     (void)textStartX;
 #endif
@@ -438,7 +640,7 @@ void render() {
 
 void onSpacePressed() {
     if (!isLineFinished()) {
-        gVisibleChars = gText.size();
+        gVisibleChars = gTotalVisibleChars;
         return;
     }
 
@@ -446,7 +648,7 @@ void onSpacePressed() {
 }
 
 bool isLineFinished() {
-    return gVisibleChars >= gText.size();
+    return gVisibleChars >= gTotalVisibleChars;
 }
 
 bool isWaitingForAdvance() {
