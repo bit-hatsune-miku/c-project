@@ -37,7 +37,7 @@ int main() {
             vn::getDisplaySpeakerName(entry),
             entry.icon,
             entry.voice,
-            "", // font path (use default)
+            entry.fontPath,
             entry.autoAdvanceOnVoiceEnd,
             entry.iconFrameCount,
             entry.iconFps,
@@ -68,8 +68,7 @@ int main() {
         if (vn::consumeAdvanceRequest()) {
             entryIndex++;
             if (entryIndex >= script.entries.size()) {
-                // Loop back to the beginning (or could exit here)
-                entryIndex = 0;
+                break;
             }
 
             const auto& entry = script.entries[entryIndex];
@@ -78,7 +77,7 @@ int main() {
                 vn::getDisplaySpeakerName(entry),
                 entry.icon,
                 entry.voice,
-                "", // font path (use default)
+                entry.fontPath,
                 entry.autoAdvanceOnVoiceEnd,
                 entry.iconFrameCount,
                 entry.iconFps,

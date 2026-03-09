@@ -1,0 +1,46 @@
+{
+    "lyoo": {
+        "title": "Lyoo",
+        "assets": "lyoo",
+        "class": "healer",
+        "spd": 170,
+        "atk": 0,
+        "hp": 50,
+        "ability": "ILoveEveryoneAndEverything",
+        "ultimate": "HeartsEverywhere",
+        "ultimatePoints": 4
+    },
+    "miku": {
+        "title": "Miku",
+        "assets": "miku",
+        "class": "dps",
+        "spd": 134,
+        "hp": 40,
+        "atk": 20,
+        "ability": "LetsSing",
+        "ultimate": "DianDongPower",
+        "ultimatePoints": 3       
+    },
+    "cupcakke": {
+        "title": "CupcakKe",
+        "assets": "cupcakke",
+        "class": "dps",
+        "spd": 99,
+        "atk": 35,
+        "hp": 60,
+        "ability": "SmackMyAssLikeADrum",
+        "ultimate": "NiagaraFalls",
+        "ultimatePoints": 2       
+    },
+     "luotianyi": {
+        "title": "洛天依",
+        "assets": "luotianyi",
+        "class": "buffer",
+        "spd": 99,
+        "atk": 35,
+        "hp": 60,
+        "ability": "DalabengbaBandebeidiBuduobiluweng",
+        "ultimate": "KuntukutakatikaoteSuwaxilasong",
+        "ultimatePoints": 3      
+    }
+} 
