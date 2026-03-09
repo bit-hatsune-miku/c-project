@@ -1,0 +1,22 @@
+#ifndef BATTLE_LOADER_H
+#define BATTLE_LOADER_H
+
+#include <string>
+#include <unordered_map>
+
+#include "battle_manager.h"
+
+namespace battle::loader {
+
+bool readJsonFile(const std::string& path, std::string& outContents);
+std::string resolveAssetPath(const std::string& relativePath);
+
+bool loadBossDefinition(const std::string& bossKey, BossDefinition& outBoss);
+bool loadCharacterDefinition(const std::string& characterKey, CharacterDefinition& outCharacter);
+
+bool loadAbilityDefinition(const std::string& abilityId, AbilityDefinition& outAbility);
+bool loadAllAbilities(std::unordered_map<std::string, AbilityDefinition>& outAbilities);
+
+} // namespace battle::loader
+
+#endif // BATTLE_LOADER_H

@@ -51,6 +51,7 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
 
             entry.background = entryJson.value("background", "");
             entry.voice = entryJson.value("voice", "");
+            entry.fontPath = entryJson.value("fontPath", "");
             entry.icon = entryJson.value("icon", "");
             entry.iconFrameCount = entryJson.value("iconFrameCount", 1);
             entry.iconFps = entryJson.value("iconFps", 8.0f);
