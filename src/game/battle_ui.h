@@ -30,6 +30,7 @@ void drawBossHeaderUI(SDL_Renderer* renderer,
 
 void updateCharacterHp(int charIndex, int newHp, int maxHp);
 void updateBossHp(int newHp, int maxHp);
+void triggerCharacterDamageFlash(int charIndex);
 
 void shutdownFonts();
 

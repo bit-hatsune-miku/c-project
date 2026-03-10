@@ -30,8 +30,20 @@ struct CharacterHpTransitions {
     std::map<int, HpTransition> transitions;
 };
 
+struct DamageFlashState {
+    bool active = false;
+    float elapsed = 0.0f;
+    float duration = 1.0f;
+    Uint32 lastTickMs = 0;
+};
+
+struct CharacterDamageFlashes {
+    std::map<int, DamageFlashState> flashes;
+};
+
 CharacterHpTransitions gCharacterHpTransitions;
 HpTransition gBossHpTransition;
+CharacterDamageFlashes gCharacterDamageFlashes;
 
 void drawFilledCircle(SDL_Renderer* renderer, int cx, int cy, int radius, SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
@@ -248,6 +260,33 @@ void drawCharacterStatusUI(SDL_Renderer* renderer,
         const int iconX = baseIconX + (idx * (iconWidth + charSpacing));
         const int iconY = baseIconY;
 
+        // Apply shake effect if character is damaged
+        int finalIconX = iconX;
+        float damageAlpha = 0.0f;
+        auto damageIt = gCharacterDamageFlashes.flashes.find(idx);
+        if (damageIt != gCharacterDamageFlashes.flashes.end() && damageIt->second.active) {
+            DamageFlashState& flash = damageIt->second;
+            const Uint32 nowMs = SDL_GetTicks();
+            const float dt = (nowMs - flash.lastTickMs) / 1000.0f;
+            flash.elapsed += std::max(0.0f, dt);
+            flash.lastTickMs = nowMs;
+
+            const float t = easing::clamp01(flash.elapsed / flash.duration);
+            
+            // Shake effect - oscillate horizontally
+            const float shakeFrequency = 8.0f; // oscillations per second
+            const float shakeAmount = 6.0f; // pixels of movement
+            const float shakePhase = t * shakeFrequency * 3.14159f * 2.0f;
+            finalIconX = iconX + static_cast<int>(std::sin(shakePhase) * shakeAmount);
+            
+            // Red tint intensity - much more transparent, max 25% opacity
+            damageAlpha = (1.0f - t) * 0.25f;
+            
+            if (t >= 1.0f) {
+                flash.active = false;
+            }
+        }
+
         const std::string iconKey = character.key;
         auto iconIt = iconByAsset.find(iconKey);
         if (iconIt != iconByAsset.end() && iconIt->second != nullptr) {
@@ -255,7 +294,7 @@ void drawCharacterStatusUI(SDL_Renderer* renderer,
             int texH = 0;
             SDL_QueryTexture(iconIt->second, nullptr, nullptr, &texW, &texH);
 
-            const SDL_Rect dstRect{iconX, iconY, iconWidth, iconHeight};
+            const SDL_Rect dstRect{finalIconX, iconY, iconWidth, iconHeight};
             const float aspectDst = static_cast<float>(iconWidth) / iconHeight;
             const float aspectSrc = static_cast<float>(texW) / texH;
 
@@ -275,6 +314,18 @@ void drawCharacterStatusUI(SDL_Renderer* renderer,
             }
 
             SDL_RenderCopy(renderer, iconIt->second, &srcRect, &dstRect);
+            
+            // Apply red damage tint by rendering the icon again with color modulation
+            // This only affects non-transparent pixels
+            if (damageAlpha > 0.0f) {
+                // Calculate blended color: mix white with red based on damage intensity
+                const Uint8 redComponent = static_cast<Uint8>(255 - (damageAlpha * 100));
+                const Uint8 greenBlueComponent = static_cast<Uint8>(255 - (damageAlpha * 175));
+                
+                SDL_SetTextureColorMod(iconIt->second, redComponent, greenBlueComponent, greenBlueComponent);
+                SDL_RenderCopy(renderer, iconIt->second, &srcRect, &dstRect);
+                SDL_SetTextureColorMod(iconIt->second, 255, 255, 255);  // Reset to normal
+            }
         }
 
         const int hpBarY = iconY + iconHeight - hpBarHeight;
@@ -466,6 +517,14 @@ void updateBossHp(int newHp, int maxHp) {
         gBossHpTransition.maxHp = maxHp;
         gBossHpTransition.lastTickMs = SDL_GetTicks();
     }
+}
+
+void triggerCharacterDamageFlash(int charIndex) {
+    auto& flash = gCharacterDamageFlashes.flashes[charIndex];
+    flash.active = true;
+    flash.elapsed = 0.0f;
+    flash.duration = 1.0f;
+    flash.lastTickMs = SDL_GetTicks();
 }
 
 void shutdownFonts() {

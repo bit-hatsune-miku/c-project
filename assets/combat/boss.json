@@ -3,8 +3,8 @@
         "title": "[Underground BIT Host] Lyoo",
         "assets": "lyoo",
         "spd": 100,
-        "atk": 10,
-        "hp": 200,
+        "atk": 9,
+        "hp": 300,
         "ability": "MoonSpiralDildoAttack"
     },
     "lyooPlotTwist": {
