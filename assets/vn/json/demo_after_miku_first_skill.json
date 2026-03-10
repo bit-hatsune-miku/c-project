@@ -1,0 +1,66 @@
+{
+  "chapter": 0,
+  "title": "Demo After Miku First Skill",
+  "entries": [
+    {
+      "speaker": "Miku",
+      "text": "And what is the ball that just appeared below my icon?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "assets/combat/icons/miku.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "Juggle them balls in my mouth, deepthroat circus",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "assets/combat/icons/cupcakke.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "Those are your \"Ultimate Points\". You stack one for each ability you cast.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "assets/combat/icons/lyoo.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "Upon reaching enough \"Ultimate Points\" you will automatically cast your ultimate ability!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "assets/combat/icons/lyoo.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "Now, let's see if you're worthy of participating in the BIT Underground Idol Competition~",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "assets/combat/icons/lyoo.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    }
+  ]
+}

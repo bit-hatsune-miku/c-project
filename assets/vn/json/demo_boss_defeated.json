@@ -1,0 +1,18 @@
+{
+  "chapter": 0,
+  "title": "Demo Boss Defeated",
+  "entries": [
+    {
+      "speaker": "Miku",
+      "text": "Yatta!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "assets/combat/icons/miku.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    }
+  ]
+}

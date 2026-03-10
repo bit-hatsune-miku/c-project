@@ -45,6 +45,7 @@ void BattleCharacter::receiveDamage(int amount) {
         hp_ = 0;
     }
     ui::updateCharacterHp(partyIndex_, hp_, definition_.hp);
+    ui::triggerCharacterDamageFlash(partyIndex_);
 }
 
 void BattleCharacter::receiveHealing(int amount) {
