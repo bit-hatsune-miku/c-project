@@ -389,6 +389,19 @@ void drawShadowedWrappedTextInRect(SDL_Renderer* renderer, TTF_Font* font, const
                           SDL_FRect{rect.x + 2.0f, rect.y + 2.0f, rect.w, rect.h}, centerX);
     drawWrappedTextInRect(renderer, font, text, color, rect, centerX);
 }
+
+float measureTextWidth(TTF_Font* font, const std::string& text) {
+    if (font == nullptr || text.empty()) {
+        return 0.0f;
+    }
+
+    int width = 0;
+    if (TTF_SizeUTF8(font, text.c_str(), &width, nullptr) != 0) {
+        return 0.0f;
+    }
+
+    return static_cast<float>(width);
+}
 #endif
 
 bool pointInRect(float x, float y, const SDL_FRect& rect) {
@@ -1235,15 +1248,37 @@ void renderPauseMenuOverlay(SDL_Renderer* renderer, const MenuResources& resourc
                              selected ? SDL_Color{244, 250, 255, 255} : SDL_Color{140, 220, 252, 240},
                              selected ? SDL_Color{16, 56, 96, 255} : SDL_Color{10, 40, 72, 220});
 
+        SDL_FRect labelRect{buttonRect.x + 24.0f, buttonRect.y, buttonRect.w - 48.0f, buttonRect.h};
+
         if (selected) {
-            const SDL_FRect accentRect{buttonRect.x + 12.0f, buttonRect.y + 9.0f, 82.0f, buttonRect.h - 18.0f};
+            constexpr float kPauseAccentWidth = 82.0f;
+            constexpr float kPauseAccentGap = 18.0f;
+            const float textWidth =
+#ifdef VN_ENABLE_TTF
+                measureTextWidth(resources.itemFont, button.label);
+#else
+                0.0f;
+#endif
+            const float groupWidth = kPauseAccentWidth + kPauseAccentGap + textWidth;
+            const float groupX = buttonRect.x + (buttonRect.w - groupWidth) * 0.5f;
+            const SDL_FRect accentRect{groupX, buttonRect.y + 9.0f, kPauseAccentWidth, buttonRect.h - 18.0f};
             drawRoundedPanel(renderer, accentRect, accentRect.h * 0.5f, SDL_Color{194, 226, 246, 255});
+
+            if (textWidth > 0.0f) {
+                labelRect = SDL_FRect{
+                    accentRect.x + accentRect.w + kPauseAccentGap,
+                    buttonRect.y,
+                    textWidth,
+                    buttonRect.h
+                };
+            }
         }
 
 #ifdef VN_ENABLE_TTF
         drawShadowedTextInRect(renderer, resources.itemFont, button.label,
                                selected ? SDL_Color{16, 42, 68, 255} : SDL_Color{240, 248, 255, 255},
-                               SDL_FRect{buttonRect.x + 24.0f, buttonRect.y, buttonRect.w - 48.0f, buttonRect.h});
+                               labelRect,
+                               !selected);
 #endif
     }
 
