@@ -263,12 +263,6 @@ void SettingsMenuController::renderOverlay(SDL_Renderer* renderer, const MenuRes
     drawShadowedTextInRect(renderer, resources.titleFont, "System Settings",
                            SDL_Color{240, 248, 255, 255}, kSettingsTitleRect);
     drawTextInRect(renderer, resources.tinyFont != nullptr ? resources.tinyFont : resources.smallFont,
-                   "SYS-SET",
-                   SDL_Color{255, 126, 204, 255},
-                   SDL_FRect{kSettingsTitleBackdropRect.x + kSettingsTitleBackdropRect.w - 154.0f,
-                             kSettingsTitleBackdropRect.y + 10.0f, 108.0f, 24.0f},
-                   false);
-    drawTextInRect(renderer, resources.tinyFont != nullptr ? resources.tinyFont : resources.smallFont,
                    "ENTER TO TOGGLE DISPLAY MODE. DRAG OR TAP THE SLIDERS FOR VOICE AND TEXT SPEED.",
                    SDL_Color{198, 246, 255, 255},
                    SDL_FRect{kSettingsFooterBandRect.x + 12.0f, kSettingsFooterBandRect.y,
