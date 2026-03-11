@@ -1,5 +1,5 @@
 CMakeFiles/battle_testing.dir/src/battle_main.cpp.o: \
- /home/lyes/GitHub/c-project/src/battle_main.cpp \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/battle_main.cpp \
  /usr/include/stdc-predef.h /usr/include/c++/15.2.1/algorithm \
  /usr/include/c++/15.2.1/bits/stl_algobase.h \
  /usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/c++config.h \
@@ -357,13 +357,13 @@ CMakeFiles/battle_testing.dir/src/battle_main.cpp.o: \
  /usr/include/SDL2/SDL_version.h /usr/include/SDL2/SDL_locale.h \
  /usr/include/SDL2/SDL_misc.h /usr/include/SDL2/SDL_image.h \
  /usr/include/SDL2/SDL.h /usr/include/SDL2/SDL_ttf.h \
- /home/lyes/GitHub/c-project/src/window.h \
- /home/lyes/GitHub/c-project/src/game/battle_manager.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/window.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_manager.h \
  /usr/include/c++/15.2.1/unordered_map \
  /usr/include/c++/15.2.1/bits/unordered_map.h \
  /usr/include/c++/15.2.1/bits/hashtable.h \
  /usr/include/c++/15.2.1/bits/hashtable_policy.h \
- /home/lyes/GitHub/c-project/src/game/camera_3d.h \
- /home/lyes/GitHub/c-project/src/game/battle_ui.h \
- /home/lyes/GitHub/c-project/src/game/battle_manager.h \
- /home/lyes/GitHub/c-project/src/game/easing.h
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/camera_3d.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_ui.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_manager.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/easing.h

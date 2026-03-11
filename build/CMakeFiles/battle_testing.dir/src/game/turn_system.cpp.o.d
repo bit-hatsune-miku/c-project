@@ -1,8 +1,8 @@
 CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o: \
- /home/lyes/GitHub/c-project/src/game/turn_system.cpp \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/turn_system.cpp \
  /usr/include/stdc-predef.h \
- /home/lyes/GitHub/c-project/src/game/turn_system.h \
- /home/lyes/GitHub/c-project/src/game/battle_manager.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/turn_system.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_manager.h \
  /usr/include/c++/15.2.1/string \
  /usr/include/c++/15.2.1/bits/requires_hosted.h \
  /usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/c++config.h \

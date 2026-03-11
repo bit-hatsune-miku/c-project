@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <iostream>
 #include <vector>
 
@@ -18,6 +19,8 @@ namespace {
 SDL_Renderer* gRenderer = nullptr;
 int gWindowW = 1280;
 int gWindowH = 720;
+constexpr int kBaseWindowW = 1280;
+constexpr int kBaseWindowH = 720;
 
 std::string gSpeakerName;
 std::string gText;
@@ -35,11 +38,13 @@ int gIconCurrentFrame = 0;
 SDL_Texture* gBackgroundTexture = nullptr;
 
 float gCharsPerSecond = 45.0f;
+float gVoiceVolume = 0.85f;
 float gTypeAccumulator = 0.0f;
 size_t gVisibleChars = 0;
 size_t gTotalVisibleChars = 0;
 bool gAutoAdvanceOnVoiceEnd = false;
 bool gAdvanceRequested = false;
+bool gPaused = false;
 
 // Basic WAV playback via SDL audio queue (no external mixer needed)
 SDL_AudioDeviceID gAudioDevice = 0;
@@ -51,18 +56,21 @@ bool gImageInitialized = false;
 #ifdef VN_ENABLE_TTF
 TTF_Font* gFont = nullptr;
 int gFontSize = 28;
+int gBaseFontSize = 28;
 #endif
 
 SDL_Rect dialogueBoxRect() {
-    return SDL_Rect{40, gWindowH - 240, gWindowW - 80, 200};
+    const float scale = std::min(
+        static_cast<float>(gWindowW) / static_cast<float>(kBaseWindowW),
+        static_cast<float>(gWindowH) / static_cast<float>(kBaseWindowH)
+    );
+    const int marginX = static_cast<int>(std::lround(40.0f * scale));
+    const int boxH = static_cast<int>(std::lround(200.0f * scale));
+    const int bottomMargin = static_cast<int>(std::lround(40.0f * scale));
+    return SDL_Rect{marginX, gWindowH - bottomMargin - boxH, gWindowW - marginX * 2, boxH};
 }
 
-void stopAndFreeVoiceBuffer() {
-    if (gAudioDevice != 0) {
-        SDL_ClearQueuedAudio(gAudioDevice);
-    }
-    gVoicePlaying = false;
-
+void freeLoadedVoiceBuffer() {
     if (gLoadedWavBuffer != nullptr) {
         SDL_FreeWAV(gLoadedWavBuffer);
         gLoadedWavBuffer = nullptr;
@@ -70,10 +78,26 @@ void stopAndFreeVoiceBuffer() {
     }
 }
 
+void closeAudioDeviceIfOpen() {
+    if (gAudioDevice != 0) {
+        SDL_CloseAudioDevice(gAudioDevice);
+        gAudioDevice = 0;
+    }
+}
+
+void stopAndFreeVoiceBuffer() {
+    if (gAudioDevice != 0) {
+        SDL_ClearQueuedAudio(gAudioDevice);
+    }
+    gVoicePlaying = false;
+    freeLoadedVoiceBuffer();
+    closeAudioDeviceIfOpen();
+}
+
 void playVoiceIfAny() {
     stopAndFreeVoiceBuffer();
 
-    if (gVoicePath.empty()) {
+    if (gVoicePath.empty() || gVoiceVolume <= 0.0f) {
         return;
     }
 
@@ -83,12 +107,6 @@ void playVoiceIfAny() {
         return;
     }
 
-    // Close and reopen audio device to match the WAV file's format
-    if (gAudioDevice != 0) {
-        SDL_CloseAudioDevice(gAudioDevice);
-        gAudioDevice = 0;
-    }
-
     gAudioDevice = SDL_OpenAudioDevice(nullptr, 0, &wavSpec, nullptr, 0);
     if (gAudioDevice == 0) {
         std::cerr << "[VN] Could not open audio device: " << SDL_GetError() << "\n";
@@ -96,12 +114,25 @@ void playVoiceIfAny() {
         return;
     }
 
-    if (SDL_QueueAudio(gAudioDevice, gLoadedWavBuffer, gLoadedWavLength) != 0) {
-        std::cerr << "[VN] Could not queue audio: " << SDL_GetError() << "\n";
-        stopAndFreeVoiceBuffer();
-        return;
+    const int sdlVolume = static_cast<int>(std::clamp(gVoiceVolume, 0.0f, 1.0f) * SDL_MIX_MAXVOLUME);
+    if (sdlVolume >= SDL_MIX_MAXVOLUME) {
+        if (SDL_QueueAudio(gAudioDevice, gLoadedWavBuffer, gLoadedWavLength) != 0) {
+            std::cerr << "[VN] Could not queue audio: " << SDL_GetError() << "\n";
+            stopAndFreeVoiceBuffer();
+            return;
+        }
+    } else {
+        std::vector<Uint8> mixedBuffer(gLoadedWavLength, 0);
+        SDL_MixAudioFormat(mixedBuffer.data(), gLoadedWavBuffer, wavSpec.format, gLoadedWavLength, sdlVolume);
+
+        if (SDL_QueueAudio(gAudioDevice, mixedBuffer.data(), gLoadedWavLength) != 0) {
+            std::cerr << "[VN] Could not queue audio: " << SDL_GetError() << "\n";
+            stopAndFreeVoiceBuffer();
+            return;
+        }
     }
 
+    freeLoadedVoiceBuffer();
     SDL_PauseAudioDevice(gAudioDevice, 0);
     gVoicePlaying = true;
 }
@@ -361,6 +392,28 @@ void drawRichText(const std::string& text, const SDL_Color& defaultColor, const 
 
     TTF_SetFontStyle(gFont, TTF_STYLE_NORMAL);
 }
+
+void reloadScaledFont() {
+    if (gRenderer == nullptr) {
+        return;
+    }
+
+    const float scale = std::min(
+        static_cast<float>(gWindowW) / static_cast<float>(kBaseWindowW),
+        static_cast<float>(gWindowH) / static_cast<float>(kBaseWindowH)
+    );
+    const int scaledSize = std::max(8, static_cast<int>(std::lround(static_cast<float>(gBaseFontSize) * scale)));
+    if (scaledSize == gFontSize && gFont != nullptr) {
+        return;
+    }
+
+    gFontSize = scaledSize;
+    if (gFont != nullptr) {
+        TTF_CloseFont(gFont);
+        gFont = nullptr;
+    }
+    ensureFontLoaded();
+}
 #endif
 
 } // namespace
@@ -378,6 +431,7 @@ bool initialize(SDL_Renderer* renderer, int windowWidth, int windowHeight) {
     if (TTF_Init() == -1) {
         std::cerr << "[VN] TTF init failed: " << TTF_GetError() << "\n";
     }
+    reloadScaledFont();
     ensureFontLoaded();
 #else
     std::cout << "[VN] Built without SDL2_ttf. Text rendering is disabled until SDL2_ttf is installed.\n";
@@ -398,6 +452,14 @@ bool initialize(SDL_Renderer* renderer, int windowWidth, int windowHeight) {
     return gRenderer != nullptr;
 }
 
+void setViewportSize(int windowWidth, int windowHeight) {
+    gWindowW = std::max(1, windowWidth);
+    gWindowH = std::max(1, windowHeight);
+#ifdef VN_ENABLE_TTF
+    reloadScaledFont();
+#endif
+}
+
 void shutdown() {
     if (gIconTexture != nullptr) {
         SDL_DestroyTexture(gIconTexture);
@@ -410,11 +472,6 @@ void shutdown() {
     }
 
     stopAndFreeVoiceBuffer();
-
-    if (gAudioDevice != 0) {
-        SDL_CloseAudioDevice(gAudioDevice);
-        gAudioDevice = 0;
-    }
 
 #ifdef VN_ENABLE_TTF
     if (gFont != nullptr) {
@@ -501,14 +558,14 @@ void setVoice(const std::string& wavPath) {
 void setFont(const std::string& fontPath, int ptSize) {
     gFontPath = fontPath;
 #ifdef VN_ENABLE_TTF
-    gFontSize = std::max(8, ptSize);
+    gBaseFontSize = std::max(8, ptSize);
 
     if (gFont != nullptr) {
         TTF_CloseFont(gFont);
         gFont = nullptr;
     }
 
-    ensureFontLoaded();
+    reloadScaledFont();
 #else
     (void)ptSize;
 #endif
@@ -522,6 +579,18 @@ void setTypewriterSpeed(float charsPerSecond) {
     gCharsPerSecond = std::max(1.0f, charsPerSecond);
 }
 
+void setVoiceVolume(float volume01) {
+    gVoiceVolume = std::clamp(volume01, 0.0f, 1.0f);
+}
+
+float getTypewriterSpeed() {
+    return gCharsPerSecond;
+}
+
+float getVoiceVolume() {
+    return gVoiceVolume;
+}
+
 void setText(const std::string& text) {
     gText = text;
 #ifdef VN_ENABLE_TTF
@@ -532,6 +601,7 @@ void setText(const std::string& text) {
 }
 
 void startLine() {
+    gPaused = false;
     gVisibleChars = 0;
     gTypeAccumulator = 0.0f;
     gAdvanceRequested = false;
@@ -564,6 +634,10 @@ void showLine(
 }
 
 void update(float deltaSeconds) {
+    if (gPaused) {
+        return;
+    }
+
     if (gVisibleChars < gTotalVisibleChars) {
         gTypeAccumulator += deltaSeconds * gCharsPerSecond;
         const size_t add = static_cast<size_t>(gTypeAccumulator);
@@ -591,10 +665,30 @@ void update(float deltaSeconds) {
     }
 }
 
+void setPaused(bool paused) {
+    gPaused = paused;
+    if (gAudioDevice != 0 && gVoicePlaying) {
+        SDL_PauseAudioDevice(gAudioDevice, paused ? 1 : 0);
+    }
+}
+
+bool isPaused() {
+    return gPaused;
+}
+
+void stopVoicePlayback() {
+    stopAndFreeVoiceBuffer();
+}
+
 void render() {
     if (gRenderer == nullptr) {
         return;
     }
+
+    const float uiScale = std::min(
+        static_cast<float>(gWindowW) / static_cast<float>(kBaseWindowW),
+        static_cast<float>(gWindowH) / static_cast<float>(kBaseWindowH)
+    );
 
     if (gBackgroundTexture != nullptr) {
         SDL_Rect bgRect{0, 0, gWindowW, gWindowH};
@@ -610,14 +704,18 @@ void render() {
     SDL_SetRenderDrawColor(gRenderer, 225, 225, 235, 255);
     SDL_RenderDrawRect(gRenderer, &box);
 
-    int textStartX = box.x + 24;
+    const int textInsetX = static_cast<int>(std::lround(24.0f * uiScale));
+    const int textInsetY = static_cast<int>(std::lround(18.0f * uiScale));
+    const int iconInset = static_cast<int>(std::lround(16.0f * uiScale));
+    const int textBottomInset = static_cast<int>(std::lround(24.0f * uiScale));
+    int textStartX = box.x + textInsetX;
 
     if (gIconTexture != nullptr) {
-        const int iconSize = box.h - 32;
+        const int iconSize = box.h - iconInset * 2;
         SDL_Rect iconSrc{gIconCurrentFrame * gIconFrameWidth, 0, gIconFrameWidth, gIconFrameHeight};
-        SDL_Rect iconDst{box.x + 16, box.y + 16, iconSize, iconSize};
+        SDL_Rect iconDst{box.x + iconInset, box.y + iconInset, iconSize, iconSize};
         SDL_RenderCopy(gRenderer, gIconTexture, &iconSrc, &iconDst);
-        textStartX = iconDst.x + iconDst.w + 16;
+        textStartX = iconDst.x + iconDst.w + iconInset;
     }
 
 #ifdef VN_ENABLE_TTF
@@ -627,11 +725,19 @@ void render() {
     const SDL_Color nameColor{255, 255, 255, 255};  // Bright white for better readability
 
     if (!gSpeakerName.empty()) {
-        SDL_Rect nameArea{box.x + 12, box.y - 34, box.w - 24, 28};
+        const int nameInsetX = static_cast<int>(std::lround(12.0f * uiScale));
+        const int nameHeight = static_cast<int>(std::lround(28.0f * uiScale));
+        const int nameGap = static_cast<int>(std::lround(10.0f * uiScale));
+        SDL_Rect nameArea{box.x + nameInsetX, box.y - nameHeight - nameGap, box.w - nameInsetX * 2, nameHeight};
         drawText(gSpeakerName, nameColor, nameArea, true);
     }
 
-    SDL_Rect textArea{textStartX, box.y + 18, box.w - (textStartX - box.x) - 18, box.h - 24};
+    SDL_Rect textArea{
+        textStartX,
+        box.y + textInsetY,
+        box.w - (textStartX - box.x) - textInsetY,
+        box.h - textInsetY - textBottomInset
+    };
     drawRichText(gText, textColor, textArea, gVisibleChars);
 #else
     (void)textStartX;

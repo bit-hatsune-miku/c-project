@@ -1,6 +1,7 @@
 CMakeFiles/battle_testing.dir/src/game/easing.cpp.o: \
- /home/lyes/GitHub/c-project/src/game/easing.cpp \
- /usr/include/stdc-predef.h /home/lyes/GitHub/c-project/src/game/easing.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/easing.cpp \
+ /usr/include/stdc-predef.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/easing.h \
  /usr/include/c++/15.2.1/algorithm \
  /usr/include/c++/15.2.1/bits/stl_algobase.h \
  /usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/c++config.h \

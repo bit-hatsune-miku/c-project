@@ -1,7 +1,7 @@
 CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o: \
- /home/lyes/GitHub/c-project/src/game/battle_manager.cpp \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_manager.cpp \
  /usr/include/stdc-predef.h \
- /home/lyes/GitHub/c-project/src/game/battle_manager.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_manager.h \
  /usr/include/c++/15.2.1/string \
  /usr/include/c++/15.2.1/bits/requires_hosted.h \
  /usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/c++config.h \
@@ -116,9 +116,9 @@ CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o: \
  /usr/include/c++/15.2.1/bits/stl_vector.h \
  /usr/include/c++/15.2.1/bits/stl_bvector.h \
  /usr/include/c++/15.2.1/bits/vector.tcc \
- /home/lyes/GitHub/c-project/src/game/ability_system.h \
- /home/lyes/GitHub/c-project/src/game/battle_loader.h \
- /home/lyes/GitHub/c-project/src/game/battle_ui.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/ability_system.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_loader.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_ui.h \
  /usr/include/c++/15.2.1/map /usr/include/c++/15.2.1/bits/stl_tree.h \
  /usr/include/c++/15.2.1/bits/stl_map.h \
  /usr/include/c++/15.2.1/bits/stl_multimap.h /usr/include/SDL2/SDL.h \
@@ -292,7 +292,7 @@ CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o: \
  /usr/include/SDL2/SDL_system.h /usr/include/SDL2/SDL_timer.h \
  /usr/include/SDL2/SDL_version.h /usr/include/SDL2/SDL_locale.h \
  /usr/include/SDL2/SDL_misc.h \
- /home/lyes/GitHub/c-project/src/game/turn_system.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/game/turn_system.h \
  /usr/include/c++/15.2.1/algorithm \
  /usr/include/c++/15.2.1/bits/stl_algo.h \
  /usr/include/c++/15.2.1/bits/algorithmfwd.h \

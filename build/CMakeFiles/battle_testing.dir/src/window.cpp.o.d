@@ -1,10 +1,11 @@
 CMakeFiles/battle_testing.dir/src/window.cpp.o: \
- /home/lyes/GitHub/c-project/src/window.cpp /usr/include/stdc-predef.h \
- /home/lyes/GitHub/c-project/src/window.h /usr/include/SDL2/SDL.h \
- /usr/include/SDL2/SDL_main.h /usr/include/SDL2/SDL_stdinc.h \
- /usr/include/SDL2/SDL_config.h /usr/include/SDL2/SDL_platform.h \
- /usr/include/SDL2/begin_code.h /usr/include/SDL2/close_code.h \
- /usr/include/SDL2/SDL_config_unix.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/window.cpp \
+ /usr/include/stdc-predef.h \
+ /home/tim/Desktop/Game_attempt_number2/c-project/src/window.h \
+ /usr/include/SDL2/SDL.h /usr/include/SDL2/SDL_main.h \
+ /usr/include/SDL2/SDL_stdinc.h /usr/include/SDL2/SDL_config.h \
+ /usr/include/SDL2/SDL_platform.h /usr/include/SDL2/begin_code.h \
+ /usr/include/SDL2/close_code.h /usr/include/SDL2/SDL_config_unix.h \
  /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/limits.h \
  /usr/lib/gcc/x86_64-pc-linux-gnu/15.2.1/include/syslimits.h \
  /usr/include/limits.h /usr/include/bits/libc-header-start.h \
