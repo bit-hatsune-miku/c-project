@@ -72,10 +72,29 @@ cmake --build build
 ## Project Structure
 
 ```
-├── CMakeLists.txt    - Cross-platform build configuration
+├── CMakeLists.txt         - Cross-platform build configuration
 ├── src/
-│   └── main.cpp      - C++ SDL2 application with event loop
-└── build/            - Build output directory (generated)
+│   ├── main.cpp           - App entry point, main loop, and shared UI helpers
+│   ├── main_menu.cpp      - Main menu rendering and input handling
+│   ├── pause_menu.cpp     - Pause menu and exit confirmation rendering/input
+│   ├── menu_shared.h      - Shared app/menu types and cross-file declarations
+│   ├── settings.cpp       - Settings screen controller, rendering, and input
+│   ├── settings.h         - Settings screen controller interface
+│   ├── window.cpp         - SDL window/renderer wrapper implementation
+│   ├── window.h           - SDL window/renderer wrapper interface
+│   ├── battle_main.cpp    - Battle test entry point
+│   ├── demo.cpp           - Demo entry point
+│   └── game/
+│       ├── vn_system.*    - Visual novel runtime and rendering
+│       ├── vn_script.*    - VN script loading/parsing
+│       ├── battle_*.*     - Battle loader, manager, and UI systems
+│       ├── ability_system.* - Combat ability definitions and logic
+│       ├── turn_system.*  - Turn order and turn flow logic
+│       ├── camera_3d.*    - 3D camera helpers for battle scenes
+│       └── easing.*       - Shared easing/animation helpers
+├── assets/                - VN art, audio, combat data, and sprites
+├── docs/                  - Design notes and rough planning docs
+└── build/                 - Build output directory (generated)
 ```
 
 ## What This Project Demonstrates
