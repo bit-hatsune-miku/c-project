@@ -17,6 +17,7 @@ class Window;
 enum class ScreenState {
     MainMenu,
     Settings,
+    BattleDemo,
     Playing,
     PauseMenu,
     PauseConfirmExit
@@ -25,6 +26,7 @@ enum class ScreenState {
 enum class MainMenuAction {
     Start,
     Load,
+    Battle,
     Settings,
     Exit
 };
@@ -34,6 +36,11 @@ enum class PauseAction {
     Load,
     Settings,
     ExitToMainMenu
+};
+
+enum class PauseContext {
+    Story,
+    Battle
 };
 
 enum class ConfirmAction {
@@ -79,6 +86,7 @@ struct AppState {
     MainMenuAction mainSelection = MainMenuAction::Start;
     SettingsItem settingsSelection = SettingsItem::DisplayMode;
     PauseAction pauseSelection = PauseAction::Continue;
+    PauseContext pauseContext = PauseContext::Story;
     ConfirmAction confirmSelection = ConfirmAction::Cancel;
     float menuIntroTime = 0.0f;
     float pauseIntroTime = 0.0f;
@@ -88,7 +96,7 @@ struct AppState {
     float noticeTimer = 0.0f;
 };
 
-inline constexpr float kMenuIntroMaxTime = 0.52f + 0.09f * 3.0f;
+inline constexpr float kMenuIntroMaxTime = 0.52f + 0.09f * 4.0f;
 inline constexpr float kPauseIntroMaxTime = 0.38f + 0.07f * 3.0f;
 
 std::string resolvePath(const std::string& relativePath);
@@ -132,12 +140,13 @@ void endReferenceLayout(SDL_Renderer* renderer);
 bool mapWindowPointToReference(float windowX, float windowY, int windowWidth, int windowHeight, SDL_FPoint& outPoint);
 
 void beginStory(AppState& state);
+void beginBattleDemo(AppState& state);
 
 void renderMainMenu(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
                     int windowWidth, int windowHeight);
 void handleMainMenuEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
 
-void openPauseMenu(AppState& state);
+void openPauseMenu(AppState& state, PauseContext context = PauseContext::Story);
 void renderPauseBackdrop(SDL_Renderer* renderer, int windowWidth, int windowHeight);
 void renderPauseScreen(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
                        int windowWidth, int windowHeight);

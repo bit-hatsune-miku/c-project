@@ -53,10 +53,10 @@ RM = /usr/bin/cmake -E rm -f
 EQUALS = =
 
 # The top-level source directory on which CMake was run.
-CMAKE_SOURCE_DIR = /home/tim/Desktop/Game_attempt_number2/c-project
+CMAKE_SOURCE_DIR = /home/tim/Desktop/GameForC/c-project
 
 # The top-level build directory on which CMake was run.
-CMAKE_BINARY_DIR = /home/tim/Desktop/Game_attempt_number2/c-project/build
+CMAKE_BINARY_DIR = /home/tim/Desktop/GameForC/c-project/build
 
 # Include any dependencies generated for this target.
 include CMakeFiles/battle_testing.dir/depend.make
@@ -73,130 +73,130 @@ CMakeFiles/battle_testing.dir/codegen:
 .PHONY : CMakeFiles/battle_testing.dir/codegen
 
 CMakeFiles/battle_testing.dir/src/battle_main.cpp.o: CMakeFiles/battle_testing.dir/flags.make
-CMakeFiles/battle_testing.dir/src/battle_main.cpp.o: /home/tim/Desktop/Game_attempt_number2/c-project/src/battle_main.cpp
+CMakeFiles/battle_testing.dir/src/battle_main.cpp.o: /home/tim/Desktop/GameForC/c-project/src/battle_main.cpp
 CMakeFiles/battle_testing.dir/src/battle_main.cpp.o: CMakeFiles/battle_testing.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/Game_attempt_number2/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/battle_testing.dir/src/battle_main.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/battle_main.cpp.o -MF CMakeFiles/battle_testing.dir/src/battle_main.cpp.o.d -o CMakeFiles/battle_testing.dir/src/battle_main.cpp.o -c /home/tim/Desktop/Game_attempt_number2/c-project/src/battle_main.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/GameForC/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_1) "Building CXX object CMakeFiles/battle_testing.dir/src/battle_main.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/battle_main.cpp.o -MF CMakeFiles/battle_testing.dir/src/battle_main.cpp.o.d -o CMakeFiles/battle_testing.dir/src/battle_main.cpp.o -c /home/tim/Desktop/GameForC/c-project/src/battle_main.cpp
 
 CMakeFiles/battle_testing.dir/src/battle_main.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/battle_testing.dir/src/battle_main.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/Game_attempt_number2/c-project/src/battle_main.cpp > CMakeFiles/battle_testing.dir/src/battle_main.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/GameForC/c-project/src/battle_main.cpp > CMakeFiles/battle_testing.dir/src/battle_main.cpp.i
 
 CMakeFiles/battle_testing.dir/src/battle_main.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/battle_testing.dir/src/battle_main.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/Game_attempt_number2/c-project/src/battle_main.cpp -o CMakeFiles/battle_testing.dir/src/battle_main.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/GameForC/c-project/src/battle_main.cpp -o CMakeFiles/battle_testing.dir/src/battle_main.cpp.s
 
 CMakeFiles/battle_testing.dir/src/window.cpp.o: CMakeFiles/battle_testing.dir/flags.make
-CMakeFiles/battle_testing.dir/src/window.cpp.o: /home/tim/Desktop/Game_attempt_number2/c-project/src/window.cpp
+CMakeFiles/battle_testing.dir/src/window.cpp.o: /home/tim/Desktop/GameForC/c-project/src/window.cpp
 CMakeFiles/battle_testing.dir/src/window.cpp.o: CMakeFiles/battle_testing.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/Game_attempt_number2/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/battle_testing.dir/src/window.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/window.cpp.o -MF CMakeFiles/battle_testing.dir/src/window.cpp.o.d -o CMakeFiles/battle_testing.dir/src/window.cpp.o -c /home/tim/Desktop/Game_attempt_number2/c-project/src/window.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/GameForC/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Building CXX object CMakeFiles/battle_testing.dir/src/window.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/window.cpp.o -MF CMakeFiles/battle_testing.dir/src/window.cpp.o.d -o CMakeFiles/battle_testing.dir/src/window.cpp.o -c /home/tim/Desktop/GameForC/c-project/src/window.cpp
 
 CMakeFiles/battle_testing.dir/src/window.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/battle_testing.dir/src/window.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/Game_attempt_number2/c-project/src/window.cpp > CMakeFiles/battle_testing.dir/src/window.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/GameForC/c-project/src/window.cpp > CMakeFiles/battle_testing.dir/src/window.cpp.i
 
 CMakeFiles/battle_testing.dir/src/window.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/battle_testing.dir/src/window.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/Game_attempt_number2/c-project/src/window.cpp -o CMakeFiles/battle_testing.dir/src/window.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/GameForC/c-project/src/window.cpp -o CMakeFiles/battle_testing.dir/src/window.cpp.s
 
 CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o: CMakeFiles/battle_testing.dir/flags.make
-CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o: /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_manager.cpp
+CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o: /home/tim/Desktop/GameForC/c-project/src/game/battle_manager.cpp
 CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o: CMakeFiles/battle_testing.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/Game_attempt_number2/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o -c /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_manager.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/GameForC/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_3) "Building CXX object CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.o -c /home/tim/Desktop/GameForC/c-project/src/game/battle_manager.cpp
 
 CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_manager.cpp > CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/GameForC/c-project/src/game/battle_manager.cpp > CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.i
 
 CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_manager.cpp -o CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/GameForC/c-project/src/game/battle_manager.cpp -o CMakeFiles/battle_testing.dir/src/game/battle_manager.cpp.s
 
 CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o: CMakeFiles/battle_testing.dir/flags.make
-CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o: /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_loader.cpp
+CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o: /home/tim/Desktop/GameForC/c-project/src/game/battle_loader.cpp
 CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o: CMakeFiles/battle_testing.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/Game_attempt_number2/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o -c /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_loader.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/GameForC/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_4) "Building CXX object CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.o -c /home/tim/Desktop/GameForC/c-project/src/game/battle_loader.cpp
 
 CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_loader.cpp > CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/GameForC/c-project/src/game/battle_loader.cpp > CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.i
 
 CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_loader.cpp -o CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/GameForC/c-project/src/game/battle_loader.cpp -o CMakeFiles/battle_testing.dir/src/game/battle_loader.cpp.s
 
 CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o: CMakeFiles/battle_testing.dir/flags.make
-CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o: /home/tim/Desktop/Game_attempt_number2/c-project/src/game/turn_system.cpp
+CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o: /home/tim/Desktop/GameForC/c-project/src/game/turn_system.cpp
 CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o: CMakeFiles/battle_testing.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/Game_attempt_number2/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o -c /home/tim/Desktop/Game_attempt_number2/c-project/src/game/turn_system.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/GameForC/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_5) "Building CXX object CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.o -c /home/tim/Desktop/GameForC/c-project/src/game/turn_system.cpp
 
 CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/Game_attempt_number2/c-project/src/game/turn_system.cpp > CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/GameForC/c-project/src/game/turn_system.cpp > CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.i
 
 CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/Game_attempt_number2/c-project/src/game/turn_system.cpp -o CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/GameForC/c-project/src/game/turn_system.cpp -o CMakeFiles/battle_testing.dir/src/game/turn_system.cpp.s
 
 CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o: CMakeFiles/battle_testing.dir/flags.make
-CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o: /home/tim/Desktop/Game_attempt_number2/c-project/src/game/ability_system.cpp
+CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o: /home/tim/Desktop/GameForC/c-project/src/game/ability_system.cpp
 CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o: CMakeFiles/battle_testing.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/Game_attempt_number2/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o -c /home/tim/Desktop/Game_attempt_number2/c-project/src/game/ability_system.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/GameForC/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_6) "Building CXX object CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o -c /home/tim/Desktop/GameForC/c-project/src/game/ability_system.cpp
 
 CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/Game_attempt_number2/c-project/src/game/ability_system.cpp > CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/GameForC/c-project/src/game/ability_system.cpp > CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.i
 
 CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/Game_attempt_number2/c-project/src/game/ability_system.cpp -o CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/GameForC/c-project/src/game/ability_system.cpp -o CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.s
 
 CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o: CMakeFiles/battle_testing.dir/flags.make
-CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o: /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_ui.cpp
+CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o: /home/tim/Desktop/GameForC/c-project/src/game/battle_ui.cpp
 CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o: CMakeFiles/battle_testing.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/Game_attempt_number2/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o -c /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_ui.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/GameForC/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.o -c /home/tim/Desktop/GameForC/c-project/src/game/battle_ui.cpp
 
 CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_ui.cpp > CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/GameForC/c-project/src/game/battle_ui.cpp > CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.i
 
 CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_ui.cpp -o CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/GameForC/c-project/src/game/battle_ui.cpp -o CMakeFiles/battle_testing.dir/src/game/battle_ui.cpp.s
 
 CMakeFiles/battle_testing.dir/src/game/easing.cpp.o: CMakeFiles/battle_testing.dir/flags.make
-CMakeFiles/battle_testing.dir/src/game/easing.cpp.o: /home/tim/Desktop/Game_attempt_number2/c-project/src/game/easing.cpp
+CMakeFiles/battle_testing.dir/src/game/easing.cpp.o: /home/tim/Desktop/GameForC/c-project/src/game/easing.cpp
 CMakeFiles/battle_testing.dir/src/game/easing.cpp.o: CMakeFiles/battle_testing.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/Game_attempt_number2/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/battle_testing.dir/src/game/easing.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/easing.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/easing.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/easing.cpp.o -c /home/tim/Desktop/Game_attempt_number2/c-project/src/game/easing.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/GameForC/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object CMakeFiles/battle_testing.dir/src/game/easing.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/easing.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/easing.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/easing.cpp.o -c /home/tim/Desktop/GameForC/c-project/src/game/easing.cpp
 
 CMakeFiles/battle_testing.dir/src/game/easing.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/battle_testing.dir/src/game/easing.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/Game_attempt_number2/c-project/src/game/easing.cpp > CMakeFiles/battle_testing.dir/src/game/easing.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/GameForC/c-project/src/game/easing.cpp > CMakeFiles/battle_testing.dir/src/game/easing.cpp.i
 
 CMakeFiles/battle_testing.dir/src/game/easing.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/battle_testing.dir/src/game/easing.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/Game_attempt_number2/c-project/src/game/easing.cpp -o CMakeFiles/battle_testing.dir/src/game/easing.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/GameForC/c-project/src/game/easing.cpp -o CMakeFiles/battle_testing.dir/src/game/easing.cpp.s
 
 CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o: CMakeFiles/battle_testing.dir/flags.make
-CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o: /home/tim/Desktop/Game_attempt_number2/c-project/src/game/camera_3d.cpp
+CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o: /home/tim/Desktop/GameForC/c-project/src/game/camera_3d.cpp
 CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o: CMakeFiles/battle_testing.dir/compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/Game_attempt_number2/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o -c /home/tim/Desktop/Game_attempt_number2/c-project/src/game/camera_3d.cpp
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=/home/tim/Desktop/GameForC/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_9) "Building CXX object CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o"
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o -MF CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o.d -o CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o -c /home/tim/Desktop/GameForC/c-project/src/game/camera_3d.cpp
 
 CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.i: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.i"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/Game_attempt_number2/c-project/src/game/camera_3d.cpp > CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.i
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E /home/tim/Desktop/GameForC/c-project/src/game/camera_3d.cpp > CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.i
 
 CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.s: cmake_force
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.s"
-	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/Game_attempt_number2/c-project/src/game/camera_3d.cpp -o CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.s
+	/usr/bin/c++ $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S /home/tim/Desktop/GameForC/c-project/src/game/camera_3d.cpp -o CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.s
 
 # Object files for target battle_testing
 battle_testing_OBJECTS = \
@@ -227,7 +227,7 @@ bin/battle_testing: CMakeFiles/battle_testing.dir/compiler_depend.ts
 bin/battle_testing: /usr/lib/libSDL2main.a
 bin/battle_testing: /usr/lib/libSDL2-2.0.so.0.3200.64
 bin/battle_testing: CMakeFiles/battle_testing.dir/link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/tim/Desktop/Game_attempt_number2/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Linking CXX executable bin/battle_testing"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=/home/tim/Desktop/GameForC/c-project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_10) "Linking CXX executable bin/battle_testing"
 	$(CMAKE_COMMAND) -E cmake_link_script CMakeFiles/battle_testing.dir/link.txt --verbose=$(VERBOSE)
 
 # Rule to build all files generated by this target.
@@ -239,6 +239,6 @@ CMakeFiles/battle_testing.dir/clean:
 .PHONY : CMakeFiles/battle_testing.dir/clean
 
 CMakeFiles/battle_testing.dir/depend:
-	cd /home/tim/Desktop/Game_attempt_number2/c-project/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/tim/Desktop/Game_attempt_number2/c-project /home/tim/Desktop/Game_attempt_number2/c-project /home/tim/Desktop/Game_attempt_number2/c-project/build /home/tim/Desktop/Game_attempt_number2/c-project/build /home/tim/Desktop/Game_attempt_number2/c-project/build/CMakeFiles/battle_testing.dir/DependInfo.cmake "--color=$(COLOR)" battle_testing
+	cd /home/tim/Desktop/GameForC/c-project/build && $(CMAKE_COMMAND) -E cmake_depends "Unix Makefiles" /home/tim/Desktop/GameForC/c-project /home/tim/Desktop/GameForC/c-project /home/tim/Desktop/GameForC/c-project/build /home/tim/Desktop/GameForC/c-project/build /home/tim/Desktop/GameForC/c-project/build/CMakeFiles/battle_testing.dir/DependInfo.cmake "--color=$(COLOR)" battle_testing
 .PHONY : CMakeFiles/battle_testing.dir/depend
 

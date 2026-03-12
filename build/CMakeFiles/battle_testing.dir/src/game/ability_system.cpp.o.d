@@ -1,7 +1,7 @@
 CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o: \
- /home/tim/Desktop/Game_attempt_number2/c-project/src/game/ability_system.cpp \
+ /home/tim/Desktop/GameForC/c-project/src/game/ability_system.cpp \
  /usr/include/stdc-predef.h \
- /home/tim/Desktop/Game_attempt_number2/c-project/src/game/ability_system.h \
+ /home/tim/Desktop/GameForC/c-project/src/game/ability_system.h \
  /usr/include/c++/15.2.1/vector \
  /usr/include/c++/15.2.1/bits/requires_hosted.h \
  /usr/include/c++/15.2.1/x86_64-pc-linux-gnu/bits/c++config.h \
@@ -58,7 +58,7 @@ CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o: \
  /usr/include/c++/15.2.1/bits/uses_allocator.h \
  /usr/include/c++/15.2.1/bits/uses_allocator_args.h \
  /usr/include/c++/15.2.1/tuple \
- /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_manager.h \
+ /home/tim/Desktop/GameForC/c-project/src/game/battle_manager.h \
  /usr/include/c++/15.2.1/string /usr/include/c++/15.2.1/bits/stringfwd.h \
  /usr/include/c++/15.2.1/bits/char_traits.h \
  /usr/include/c++/15.2.1/bits/postypes.h /usr/include/c++/15.2.1/cwchar \
@@ -119,7 +119,7 @@ CMakeFiles/battle_testing.dir/src/game/ability_system.cpp.o: \
  /usr/include/c++/15.2.1/bits/enable_special_members.h \
  /usr/include/c++/15.2.1/bits/node_handle.h \
  /usr/include/c++/15.2.1/bits/erase_if.h \
- /home/tim/Desktop/Game_attempt_number2/c-project/src/game/battle_ui.h \
+ /home/tim/Desktop/GameForC/c-project/src/game/battle_ui.h \
  /usr/include/c++/15.2.1/map /usr/include/c++/15.2.1/bits/stl_tree.h \
  /usr/include/c++/15.2.1/bits/stl_map.h \
  /usr/include/c++/15.2.1/bits/stl_multimap.h /usr/include/SDL2/SDL.h \

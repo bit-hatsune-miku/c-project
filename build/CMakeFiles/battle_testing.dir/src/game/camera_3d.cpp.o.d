@@ -1,7 +1,7 @@
 CMakeFiles/battle_testing.dir/src/game/camera_3d.cpp.o: \
- /home/tim/Desktop/Game_attempt_number2/c-project/src/game/camera_3d.cpp \
+ /home/tim/Desktop/GameForC/c-project/src/game/camera_3d.cpp \
  /usr/include/stdc-predef.h \
- /home/tim/Desktop/Game_attempt_number2/c-project/src/game/camera_3d.h \
+ /home/tim/Desktop/GameForC/c-project/src/game/camera_3d.h \
  /usr/include/SDL2/SDL.h /usr/include/SDL2/SDL_main.h \
  /usr/include/SDL2/SDL_stdinc.h /usr/include/SDL2/SDL_config.h \
  /usr/include/SDL2/SDL_platform.h /usr/include/SDL2/begin_code.h \

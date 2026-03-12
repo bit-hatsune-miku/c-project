@@ -43,10 +43,13 @@ public:
                        SDL_Color{255, 255, 255, 24}, SDL_Color{4, 8, 16, 138});
 
 #ifdef VN_ENABLE_TTF
-        drawShadowedTextInRect(renderer, resources.itemFont, "Exit To Main Menu?",
+        drawShadowedTextInRect(renderer, resources.itemFont,
+                               state.pauseContext == PauseContext::Battle ? "Exit Battle?" : "Exit To Main Menu?",
                                SDL_Color{240, 248, 255, 255}, kPauseConfirmTitleRect);
         drawShadowedWrappedTextInRect(renderer, resources.smallFont,
-                                      "You will lose the current chapter progress\nif you leave now.",
+                                      state.pauseContext == PauseContext::Battle
+                                          ? "You will lose the current battle progress\nif you leave now."
+                                          : "You will lose the current chapter progress\nif you leave now.",
                                       SDL_Color{236, 246, 252, 255}, kPauseConfirmBodyRect);
 #endif
 
@@ -132,13 +135,30 @@ private:
         state.noticeTimer = 2.6f;
     }
 
+    void exitBattleToMainMenu(AppState& state) const {
+        vn::setPaused(false);
+        vn::stopVoicePlayback();
+        state.pauseSelection = PauseAction::Continue;
+        state.pauseContext = PauseContext::Story;
+        state.confirmSelection = ConfirmAction::Cancel;
+        state.settingsReturnScreen = ScreenState::MainMenu;
+        state.screen = ScreenState::MainMenu;
+        state.mainSelection = MainMenuAction::Battle;
+        state.noticeText = "Current battle was discarded.";
+        state.noticeTimer = 2.6f;
+    }
+
     void activateConfirmAction(AppState& state) const {
         switch (state.confirmSelection) {
             case ConfirmAction::Cancel:
                 state.screen = ScreenState::PauseMenu;
                 break;
             case ConfirmAction::ExitToMainMenu:
-                exitStoryToMainMenu(state);
+                if (state.pauseContext == PauseContext::Battle) {
+                    exitBattleToMainMenu(state);
+                } else {
+                    exitStoryToMainMenu(state);
+                }
                 break;
         }
     }

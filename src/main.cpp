@@ -3,6 +3,7 @@
 #include <cmath>
 #include <filesystem>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -17,6 +18,7 @@
 #include "GameMenu/menu_shared.h"
 #include "Settings/settings.h"
 #include "window.h"
+#include "game/demo_battle_session.h"
 #include "game/vn_system.h"
 
 constexpr const char* kChapterScriptPath = "assets/vn/json/ch0.json";
@@ -571,10 +573,19 @@ void beginStory(AppState& state) {
 
     state.story.entryIndex = 0;
     state.pauseSelection = PauseAction::Continue;
+    state.pauseContext = PauseContext::Story;
     state.confirmSelection = ConfirmAction::Cancel;
     state.pauseIntroTime = 0.0f;
     state.screen = ScreenState::Playing;
     applyCurrentEntry(state.story, state.settings);
+}
+
+void beginBattleDemo(AppState& state) {
+    state.pauseSelection = PauseAction::Continue;
+    state.pauseContext = PauseContext::Battle;
+    state.confirmSelection = ConfirmAction::Cancel;
+    state.pauseIntroTime = 0.0f;
+    state.screen = ScreenState::BattleDemo;
 }
 
 void destroyMenuResources(MenuResources& resources) {
@@ -639,6 +650,7 @@ int main() {
     menuResources.menuCanvas = createRenderTarget(window.getRenderer(), kReferenceWidth, kReferenceHeight, kMenuCanvasScale);
     menuResources.titleLogo = loadTexture(window.getRenderer(), resolvePath(kMainMenuTitlePath));
     SettingsMenuController settingsMenu;
+    std::unique_ptr<battle::demo::Session> battleSession;
 
 #ifdef VN_ENABLE_TTF
     menuResources.titleFont = openBestAvailableFont({}, 52);
@@ -676,6 +688,14 @@ int main() {
                     settingsMenu.handleEvent(state, window, event, window.getWidth(), window.getHeight());
                     break;
 
+                case ScreenState::BattleDemo:
+                    if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
+                        openPauseMenu(state, PauseContext::Battle);
+                    } else if (battleSession != nullptr) {
+                        battleSession->handleEvent(event);
+                    }
+                    break;
+
                 case ScreenState::Playing:
                     if (event.type == SDL_KEYDOWN) {
                         if (event.key.keysym.sym == SDLK_ESCAPE) {
@@ -696,6 +716,24 @@ int main() {
                     handlePauseConfirmEvent(state, window, event, window.getWidth(), window.getHeight());
                     break;
             }
+        }
+
+        if (state.screen == ScreenState::BattleDemo && battleSession == nullptr) {
+            battleSession = std::make_unique<battle::demo::Session>();
+            if (!battleSession->initialize(window.getRenderer())) {
+                battleSession.reset();
+                state.screen = ScreenState::MainMenu;
+                state.pauseContext = PauseContext::Story;
+                state.mainSelection = MainMenuAction::Battle;
+                state.noticeText = "Battle demo failed to load.";
+                state.noticeTimer = 2.8f;
+            }
+        }
+
+        if (state.screen == ScreenState::MainMenu && battleSession != nullptr) {
+            battleSession->shutdown();
+            battleSession.reset();
+            state.pauseContext = PauseContext::Story;
         }
 
         const Uint64 now = SDL_GetPerformanceCounter();
@@ -719,7 +757,18 @@ int main() {
             state.pauseIntroTime = std::min(kPauseIntroMaxTime, state.pauseIntroTime + deltaSeconds);
         }
 
-        if (state.screen == ScreenState::Playing) {
+        if (state.screen == ScreenState::BattleDemo) {
+            if (battleSession != nullptr) {
+                battleSession->update(deltaSeconds);
+                if (battleSession->isFinished()) {
+                    battleSession->shutdown();
+                    battleSession.reset();
+                    state.screen = ScreenState::MainMenu;
+                    state.pauseContext = PauseContext::Story;
+                    state.mainSelection = MainMenuAction::Battle;
+                }
+            }
+        } else if (state.screen == ScreenState::Playing) {
             vn::update(deltaSeconds);
 
             if (vn::consumeAdvanceRequest()) {
@@ -739,9 +788,19 @@ int main() {
 
         const bool renderStoryBackdrop =
             state.screen == ScreenState::Playing ||
-            state.screen == ScreenState::PauseMenu ||
-            state.screen == ScreenState::PauseConfirmExit ||
-            (state.screen == ScreenState::Settings && state.settingsReturnScreen == ScreenState::PauseMenu);
+            ((state.screen == ScreenState::PauseMenu || state.screen == ScreenState::PauseConfirmExit) &&
+             state.pauseContext == PauseContext::Story) ||
+            (state.screen == ScreenState::Settings &&
+             state.settingsReturnScreen == ScreenState::PauseMenu &&
+             state.pauseContext == PauseContext::Story);
+
+        const bool renderBattleBackdrop =
+            battleSession != nullptr &&
+            (((state.screen == ScreenState::PauseMenu || state.screen == ScreenState::PauseConfirmExit) &&
+              state.pauseContext == PauseContext::Battle) ||
+             (state.screen == ScreenState::Settings &&
+              state.settingsReturnScreen == ScreenState::PauseMenu &&
+              state.pauseContext == PauseContext::Battle));
 
         if (renderStoryBackdrop) {
             vn::render();
@@ -751,9 +810,19 @@ int main() {
                 settingsMenu.render(window.getRenderer(), menuResources, state,
                                     window.getWidth(), window.getHeight(), true);
             }
+        } else if (renderBattleBackdrop) {
+            battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
+            if (state.screen == ScreenState::PauseMenu || state.screen == ScreenState::PauseConfirmExit) {
+                renderPauseScreen(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
+            } else if (state.screen == ScreenState::Settings && state.settingsReturnScreen == ScreenState::PauseMenu) {
+                settingsMenu.render(window.getRenderer(), menuResources, state,
+                                    window.getWidth(), window.getHeight(), true);
+            }
         } else if (state.screen == ScreenState::Settings) {
             settingsMenu.render(window.getRenderer(), menuResources, state,
                                 window.getWidth(), window.getHeight(), false);
+        } else if (state.screen == ScreenState::BattleDemo && battleSession != nullptr) {
+            battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
         } else {
             renderMainMenu(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
         }
@@ -761,6 +830,10 @@ int main() {
         window.present();
     }
 
+    if (battleSession != nullptr) {
+        battleSession->shutdown();
+        battleSession.reset();
+    }
     destroyMenuResources(menuResources);
     vn::shutdown();
     return 0;

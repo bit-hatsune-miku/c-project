@@ -24,7 +24,7 @@ cmake --build build
 
 3. Run:
 
-./build/bin/vn_testing
+./build/bin/OurUndergroundBITIdol
 
 ## Windows setup (recommended: vcpkg)
 
@@ -40,7 +40,7 @@ cmake --build build --config Release
 
 4. Run:
 
-Run `vn_testing.exe` from the generated build output directory.
+Run `OurUndergroundBITIdol.exe` from the generated build output directory.
 
 ## macOS setup
 
@@ -55,7 +55,7 @@ cmake --build build
 
 3. Run:
 
-./build/bin/vn_testing
+./build/bin/OurUndergroundBITIdol
 
 ## Controls
 
@@ -84,11 +84,11 @@ cmake --build build
 │   ├── window.cpp         - SDL window/renderer wrapper implementation
 │   ├── window.h           - SDL window/renderer wrapper interface
 │   ├── battle_main.cpp    - Battle test entry point
-│   ├── demo.cpp           - Demo entry point
+│   ├── demo.cpp           - Standalone wrapper for the shared demo battle flow
 │   ├── GameMenu/
 │   │   ├── main_menu.cpp          - Main menu rendering and input handling
-│   │   ├── pause_menu.cpp         - Pause menu rendering and input handling
-│   │   ├── exit_to_main_menu.cpp  - Pause-menu exit confirmation overlay and input
+│   │   ├── pause_menu.cpp         - Shared pause menu rendering and input for story and battle
+│   │   ├── exit_to_main_menu.cpp  - Shared exit confirmation overlay and input
 │   │   └── menu_shared.h          - Shared app/menu types and cross-file declarations
 │   ├── Settings/
 │   │   ├── settings.cpp           - Settings screen controller, rendering, and input
@@ -97,6 +97,7 @@ cmake --build build
 │       ├── vn_system.*    - Visual novel runtime and rendering
 │       ├── vn_script.*    - VN script loading/parsing
 │       ├── battle_*.*     - Battle loader, manager, and UI systems
+│       ├── demo_battle_session.* - Shared alpha battle flow used by the app and demo target
 │       ├── ability_system.* - Combat ability definitions and logic
 │       ├── turn_system.*  - Turn order and turn flow logic
 │       ├── camera_3d.*    - 3D camera helpers for battle scenes

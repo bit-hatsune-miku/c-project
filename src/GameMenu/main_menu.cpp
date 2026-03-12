@@ -35,11 +35,12 @@ struct MenuButton {
     SDL_FRect rect;
 };
 
-constexpr std::array<MenuButton, 4> kMenuButtons{{
+constexpr std::array<MenuButton, 5> kMenuButtons{{
     {MainMenuAction::Start, "Start", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 246.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
     {MainMenuAction::Load, "Load", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 320.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
-    {MainMenuAction::Settings, "Settings", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 394.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
-    {MainMenuAction::Exit, "Exit", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 468.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}}
+    {MainMenuAction::Battle, "Battle", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 394.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
+    {MainMenuAction::Settings, "Settings", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 468.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
+    {MainMenuAction::Exit, "Exit", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 542.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}}
 }};
 
 constexpr int actionIndex(MainMenuAction action) {
@@ -140,6 +141,9 @@ private:
             case MainMenuAction::Load:
                 state.noticeText = "Load is a dummy button for now. No save data yet.";
                 state.noticeTimer = 2.8f;
+                break;
+            case MainMenuAction::Battle:
+                beginBattleDemo(state);
                 break;
             case MainMenuAction::Settings:
                 state.settingsSelection = SettingsItem::DisplayMode;
