@@ -7,6 +7,7 @@
 #include <cmath>
 #include <map>
 #include <numeric>
+#include <utility>
 #include <vector>
 
 #ifdef BATTLE_ENABLE_TTF
@@ -14,36 +15,47 @@
 #endif
 
 namespace battle::ui {
+#ifdef BATTLE_ENABLE_TTF
+struct BattleHudFontCache {
+    std::map<int, TTF_Font*> fonts;
+
+    ~BattleHudFontCache() {
+        for (auto& [_, font] : fonts) {
+            if (font != nullptr) {
+                TTF_CloseFont(font);
+            }
+        }
+    }
+
+    TTF_Font* openBestAvailableFont(int ptSize) {
+        const std::vector<std::string> candidates = {
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/TTF/DejaVuSans.ttf"
+        };
+
+        for (const auto& path : candidates) {
+            TTF_Font* font = TTF_OpenFont(path.c_str(), ptSize);
+            if (font != nullptr) {
+                return font;
+            }
+        }
+        return nullptr;
+    }
+
+    TTF_Font* get(int ptSize) {
+        auto it = fonts.find(ptSize);
+        if (it != fonts.end()) {
+            return it->second;
+        }
+
+        TTF_Font* loaded = openBestAvailableFont(ptSize);
+        fonts[ptSize] = loaded;
+        return loaded;
+    }
+};
+#endif
+
 namespace {
-
-struct HpTransition {
-    bool active = false;
-    float elapsed = 0.0f;
-    float duration = 0.5f;
-    int oldHp = 0;
-    int newHp = 0;
-    int maxHp = 1;
-    Uint32 lastTickMs = 0;
-};
-
-struct CharacterHpTransitions {
-    std::map<int, HpTransition> transitions;
-};
-
-struct DamageFlashState {
-    bool active = false;
-    float elapsed = 0.0f;
-    float duration = 1.0f;
-    Uint32 lastTickMs = 0;
-};
-
-struct CharacterDamageFlashes {
-    std::map<int, DamageFlashState> flashes;
-};
-
-CharacterHpTransitions gCharacterHpTransitions;
-HpTransition gBossHpTransition;
-CharacterDamageFlashes gCharacterDamageFlashes;
 
 void drawFilledCircle(SDL_Renderer* renderer, int cx, int cy, int radius, SDL_Color color) {
     SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
@@ -56,38 +68,53 @@ void drawFilledCircle(SDL_Renderer* renderer, int cx, int cy, int radius, SDL_Co
     }
 }
 
+void drawCroppedTexture(SDL_Renderer* renderer, SDL_Texture* texture, const SDL_Rect& dstRect) {
+    if (renderer == nullptr || texture == nullptr) {
+        return;
+    }
+
+    int texW = 0;
+    int texH = 0;
+    SDL_QueryTexture(texture, nullptr, nullptr, &texW, &texH);
+    if (texW <= 0 || texH <= 0) {
+        return;
+    }
+
+    const float aspectDst = static_cast<float>(dstRect.w) / std::max(1, dstRect.h);
+    const float aspectSrc = static_cast<float>(texW) / texH;
+
+    SDL_Rect srcRect{};
+    if (aspectSrc > aspectDst) {
+        const int croppedW = static_cast<int>(texH * aspectDst);
+        srcRect.x = (texW - croppedW) / 2;
+        srcRect.y = 0;
+        srcRect.w = croppedW;
+        srcRect.h = texH;
+    } else {
+        const int croppedH = static_cast<int>(texW / aspectDst);
+        srcRect.x = 0;
+        srcRect.y = (texH - croppedH) / 2;
+        srcRect.w = texW;
+        srcRect.h = croppedH;
+    }
+
+    SDL_RenderCopy(renderer, texture, &srcRect, &dstRect);
+}
+
 #ifdef BATTLE_ENABLE_TTF
-std::map<int, TTF_Font*> gBattleFonts;
-
-TTF_Font* openBestAvailableBattleFont(int ptSize) {
-    const std::vector<std::string> candidates = {
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/TTF/DejaVuSans.ttf"
-    };
-
-    for (const auto& path : candidates) {
-        TTF_Font* font = TTF_OpenFont(path.c_str(), ptSize);
-        if (font != nullptr) {
-            return font;
-        }
-    }
-    return nullptr;
-}
-
-TTF_Font* getBattleFont(int ptSize) {
-    auto it = gBattleFonts.find(ptSize);
-    if (it != gBattleFonts.end()) {
-        return it->second;
+void drawTextCentered(BattleHudFontCache* fontCache,
+                      SDL_Renderer* renderer,
+                      const std::string& text,
+                      int centerX,
+                      int y,
+                      SDL_Color color,
+                      int fontSize) {
+    if (fontCache == nullptr || text.empty()) {
+        return;
     }
 
-    TTF_Font* loaded = openBestAvailableBattleFont(ptSize);
-    gBattleFonts[ptSize] = loaded;
-    return loaded;
-}
-
-void drawTextTtf(SDL_Renderer* renderer, const std::string& text, int centerX, int y, SDL_Color color, int fontSize) {
-    TTF_Font* font = getBattleFont(fontSize);
-    if (font == nullptr || text.empty()) {
+    TTF_Font* font = fontCache->get(fontSize);
+    if (font == nullptr) {
         return;
     }
 
@@ -108,9 +135,19 @@ void drawTextTtf(SDL_Renderer* renderer, const std::string& text, int centerX, i
     SDL_FreeSurface(surface);
 }
 
-void drawTextTtfAt(SDL_Renderer* renderer, const std::string& text, int x, int y, SDL_Color color, int fontSize) {
-    TTF_Font* font = getBattleFont(fontSize);
-    if (font == nullptr || text.empty()) {
+void drawTextAt(BattleHudFontCache* fontCache,
+                SDL_Renderer* renderer,
+                const std::string& text,
+                int x,
+                int y,
+                SDL_Color color,
+                int fontSize) {
+    if (fontCache == nullptr || text.empty()) {
+        return;
+    }
+
+    TTF_Font* font = fontCache->get(fontSize);
+    if (font == nullptr) {
         return;
     }
 
@@ -134,10 +171,210 @@ void drawTextTtfAt(SDL_Renderer* renderer, const std::string& text, int x, int y
 
 } // namespace
 
-void drawTurnOrderUI(SDL_Renderer* renderer,
-                     const TurnState& turnState,
-                     const std::map<std::string, SDL_Texture*>& iconByAsset,
-                     int activeActorIndex) {
+BattleHud::BattleHud() {
+#ifdef BATTLE_ENABLE_TTF
+    fontCache_ = new BattleHudFontCache();
+#endif
+}
+
+BattleHud::~BattleHud() {
+#ifdef BATTLE_ENABLE_TTF
+    delete fontCache_;
+    fontCache_ = nullptr;
+#endif
+}
+
+void BattleHud::reset() {
+    model_ = BattleHudModel{};
+    initialized_ = false;
+    bossHpTransition_ = HpTransition{};
+    characterHpTransitions_.clear();
+    characterDamageFlashes_.clear();
+}
+
+void BattleHud::syncFromManager(const BattleManager& manager) {
+    const BattleState& battleState = manager.getBattleState();
+
+    BattleHudModel nextModel;
+    nextModel.bossTitle = battleState.boss.title;
+    nextModel.bossCurrentHp = manager.getBossCurrentHp();
+    nextModel.bossMaxHp = manager.getBossMaxHp();
+    nextModel.turnState = manager.getTurnState();
+    nextModel.activeActorIndex = manager.getPreviewNextActorIndex();
+    nextModel.characters.reserve(battleState.party.size());
+
+    for (size_t i = 0; i < battleState.party.size(); ++i) {
+        const CharacterDefinition& character = battleState.party[i];
+        HudCharacterModel hudCharacter;
+        hudCharacter.key = character.key;
+        hudCharacter.title = character.title;
+        hudCharacter.currentHp = manager.getCharacterCurrentHp(static_cast<int>(i));
+        hudCharacter.maxHp = manager.getCharacterMaxHp(static_cast<int>(i));
+        hudCharacter.ultimateCharge = manager.getCharacterUltimateCharge(static_cast<int>(i));
+        hudCharacter.ultimateRequired = manager.getCharacterUltimateRequired(static_cast<int>(i));
+        nextModel.characters.push_back(std::move(hudCharacter));
+    }
+
+    characterHpTransitions_.resize(nextModel.characters.size());
+    characterDamageFlashes_.resize(nextModel.characters.size());
+
+    if (!initialized_) {
+        updateBossTransition(nextModel.bossCurrentHp, nextModel.bossMaxHp);
+        for (size_t i = 0; i < nextModel.characters.size(); ++i) {
+            updateCharacterTransition(static_cast<int>(i),
+                                      nextModel.characters[i].currentHp,
+                                      nextModel.characters[i].maxHp);
+        }
+    } else {
+        if (model_.bossCurrentHp != nextModel.bossCurrentHp || model_.bossMaxHp != nextModel.bossMaxHp) {
+            updateBossTransition(nextModel.bossCurrentHp, nextModel.bossMaxHp);
+        }
+
+        for (size_t i = 0; i < nextModel.characters.size(); ++i) {
+            const int previousHp = i < model_.characters.size() ? model_.characters[i].currentHp : nextModel.characters[i].currentHp;
+            const int previousMaxHp = i < model_.characters.size() ? model_.characters[i].maxHp : nextModel.characters[i].maxHp;
+
+            if (previousHp != nextModel.characters[i].currentHp || previousMaxHp != nextModel.characters[i].maxHp) {
+                updateCharacterTransition(static_cast<int>(i),
+                                          nextModel.characters[i].currentHp,
+                                          nextModel.characters[i].maxHp);
+                if (nextModel.characters[i].currentHp < previousHp) {
+                    triggerCharacterDamageFlash(static_cast<int>(i));
+                }
+            }
+        }
+    }
+
+    model_ = std::move(nextModel);
+    initialized_ = true;
+}
+
+void BattleHud::draw(SDL_Renderer* renderer,
+                     int screenW,
+                     int screenH,
+                     const std::map<std::string, SDL_Texture*>& iconByAsset) {
+    if (!initialized_ || renderer == nullptr) {
+        return;
+    }
+
+    drawTurnOrder(renderer, iconByAsset);
+    drawBossHeader(renderer, screenW);
+    drawCharacterStatus(renderer, screenW, screenH, iconByAsset);
+}
+
+void BattleHud::updateBossTransition(int newHp, int maxHp) {
+    if (!initialized_ && bossHpTransition_.fromHp == 0 && bossHpTransition_.toHp == 0) {
+        bossHpTransition_.fromHp = newHp;
+        bossHpTransition_.toHp = newHp;
+        bossHpTransition_.maxHp = std::max(1, maxHp);
+        return;
+    }
+
+    if (bossHpTransition_.toHp == newHp && bossHpTransition_.maxHp == std::max(1, maxHp)) {
+        return;
+    }
+
+    bossHpTransition_.active = true;
+    bossHpTransition_.elapsed = 0.0f;
+    bossHpTransition_.duration = 0.5f;
+    bossHpTransition_.fromHp = bossHpTransition_.toHp;
+    bossHpTransition_.toHp = newHp;
+    bossHpTransition_.maxHp = std::max(1, maxHp);
+    bossHpTransition_.lastTickMs = SDL_GetTicks();
+}
+
+void BattleHud::updateCharacterTransition(int charIndex, int newHp, int maxHp) {
+    if (charIndex < 0 || static_cast<size_t>(charIndex) >= characterHpTransitions_.size()) {
+        return;
+    }
+
+    HpTransition& transition = characterHpTransitions_[static_cast<size_t>(charIndex)];
+    if (!initialized_ && transition.fromHp == 0 && transition.toHp == 0) {
+        transition.fromHp = newHp;
+        transition.toHp = newHp;
+        transition.maxHp = std::max(1, maxHp);
+        return;
+    }
+
+    if (transition.toHp == newHp && transition.maxHp == std::max(1, maxHp)) {
+        return;
+    }
+
+    transition.active = true;
+    transition.elapsed = 0.0f;
+    transition.duration = 0.5f;
+    transition.fromHp = transition.toHp;
+    transition.toHp = newHp;
+    transition.maxHp = std::max(1, maxHp);
+    transition.lastTickMs = SDL_GetTicks();
+}
+
+void BattleHud::triggerCharacterDamageFlash(int charIndex) {
+    if (charIndex < 0 || static_cast<size_t>(charIndex) >= characterDamageFlashes_.size()) {
+        return;
+    }
+
+    DamageFlashState& flash = characterDamageFlashes_[static_cast<size_t>(charIndex)];
+    flash.active = true;
+    flash.elapsed = 0.0f;
+    flash.duration = 1.0f;
+    flash.lastTickMs = SDL_GetTicks();
+}
+
+int BattleHud::getDisplayedHp(HpTransition& transition, int fallbackCurrentHp) {
+    if (!transition.active) {
+        return fallbackCurrentHp;
+    }
+
+    const Uint32 nowMs = SDL_GetTicks();
+    const float dt = (nowMs - transition.lastTickMs) / 1000.0f;
+    transition.elapsed += std::max(0.0f, dt);
+    transition.lastTickMs = nowMs;
+
+    const float t = easing::clamp01(transition.elapsed / std::max(0.001f, transition.duration));
+    const float eased = easing::easeOutCubic(t);
+    const float interpolatedHp = easing::lerp(static_cast<float>(transition.fromHp),
+                                              static_cast<float>(transition.toHp),
+                                              eased);
+
+    if (t >= 1.0f) {
+        transition.active = false;
+        transition.fromHp = transition.toHp;
+    }
+
+    return static_cast<int>(std::round(interpolatedHp));
+}
+
+float BattleHud::getDamageFlashAlpha(int charIndex, int& shakeOffsetX) {
+    shakeOffsetX = 0;
+    if (charIndex < 0 || static_cast<size_t>(charIndex) >= characterDamageFlashes_.size()) {
+        return 0.0f;
+    }
+
+    DamageFlashState& flash = characterDamageFlashes_[static_cast<size_t>(charIndex)];
+    if (!flash.active) {
+        return 0.0f;
+    }
+
+    const Uint32 nowMs = SDL_GetTicks();
+    const float dt = (nowMs - flash.lastTickMs) / 1000.0f;
+    flash.elapsed += std::max(0.0f, dt);
+    flash.lastTickMs = nowMs;
+
+    const float t = easing::clamp01(flash.elapsed / std::max(0.001f, flash.duration));
+    const float shakeFrequency = 8.0f;
+    const float shakeAmount = 6.0f;
+    const float shakePhase = t * shakeFrequency * 3.14159f * 2.0f;
+    shakeOffsetX = static_cast<int>(std::sin(shakePhase) * shakeAmount);
+
+    if (t >= 1.0f) {
+        flash.active = false;
+    }
+
+    return (1.0f - t) * 0.25f;
+}
+
+void BattleHud::drawTurnOrder(SDL_Renderer* renderer, const std::map<std::string, SDL_Texture*>& iconByAsset) {
     constexpr int cardWidth = 100;
     constexpr int cardHeight = 50;
     constexpr int cardSpacing = 4;
@@ -145,12 +382,12 @@ void drawTurnOrderUI(SDL_Renderer* renderer,
     constexpr int startY = 16;
     constexpr int maxCards = 10;
 
-    std::vector<int> sortedActorIndices(turnState.actors.size());
+    std::vector<int> sortedActorIndices(model_.turnState.actors.size());
     std::iota(sortedActorIndices.begin(), sortedActorIndices.end(), 0);
     std::sort(sortedActorIndices.begin(), sortedActorIndices.end(), [&](int lhs, int rhs) {
         constexpr float eps = 0.0001f;
-        const TurnActor& a = turnState.actors[static_cast<size_t>(lhs)];
-        const TurnActor& b = turnState.actors[static_cast<size_t>(rhs)];
+        const TurnActor& a = model_.turnState.actors[static_cast<size_t>(lhs)];
+        const TurnActor& b = model_.turnState.actors[static_cast<size_t>(rhs)];
         if (std::fabs(a.currentActionValue - b.currentActionValue) > eps) {
             return a.currentActionValue < b.currentActionValue;
         }
@@ -159,29 +396,26 @@ void drawTurnOrderUI(SDL_Renderer* renderer,
 
     const int cardCount = std::min(static_cast<int>(sortedActorIndices.size()), maxCards);
     const float animTime = SDL_GetTicks() / 1000.0f;
-    constexpr float cycleDuration = 1.0f;
-    const float phase = std::fmod(animTime, cycleDuration) / cycleDuration;
+    const float phase = std::fmod(animTime, 1.0f);
 
     for (int cardIndex = 0; cardIndex < cardCount; ++cardIndex) {
         const int actorIndex = sortedActorIndices[static_cast<size_t>(cardIndex)];
-        const TurnActor& actor = turnState.actors[static_cast<size_t>(actorIndex)];
+        const TurnActor& actor = model_.turnState.actors[static_cast<size_t>(actorIndex)];
+
         int cardX = startX;
-        if (actorIndex == activeActorIndex) {
-            // Smooth single bounce: move right, then settle back with slight overshoot.
+        if (actorIndex == model_.activeActorIndex) {
             float offset = 0.0f;
             if (phase < 0.35f) {
                 const float t = phase / 0.35f;
-                offset = battle::easing::lerp(0.0f, 10.0f, battle::easing::easeOutCubic(t));
+                offset = easing::lerp(0.0f, 10.0f, easing::easeOutCubic(t));
             } else if (phase < 0.75f) {
                 const float t = (phase - 0.35f) / 0.40f;
-                offset = battle::easing::lerp(10.0f, 0.0f, battle::easing::easeOutBack(t));
-            } else {
-                offset = 0.0f;
+                offset = easing::lerp(10.0f, 0.0f, easing::easeOutBack(t));
             }
             cardX = startX + static_cast<int>(std::round(offset));
         }
-        const int cardY = startY + cardIndex * (cardHeight + cardSpacing);
 
+        const int cardY = startY + cardIndex * (cardHeight + cardSpacing);
         SDL_Rect cardRect{cardX, cardY, cardWidth, cardHeight};
         SDL_SetRenderDrawColor(renderer, 30, 32, 40, 220);
         SDL_RenderFillRect(renderer, &cardRect);
@@ -191,34 +425,10 @@ void drawTurnOrderUI(SDL_Renderer* renderer,
         const std::string iconKey = (actor.type == ParticipantType::Boss) ? "boss_" + actor.key : actor.key;
         auto iconIt = iconByAsset.find(iconKey);
         if (iconIt != iconByAsset.end() && iconIt->second != nullptr) {
-            int texW = 0;
-            int texH = 0;
-            SDL_QueryTexture(iconIt->second, nullptr, nullptr, &texW, &texH);
-
-            const SDL_Rect dstRect{cardX, cardY, cardWidth, cardHeight};
-            const float aspectDst = static_cast<float>(cardWidth) / cardHeight;
-            const float aspectSrc = static_cast<float>(texW) / texH;
-
-            SDL_Rect srcRect;
-            if (aspectSrc > aspectDst) {
-                const int croppedW = static_cast<int>(texH * aspectDst);
-                srcRect.x = (texW - croppedW) / 2;
-                srcRect.y = 0;
-                srcRect.w = croppedW;
-                srcRect.h = texH;
-            } else {
-                const int croppedH = static_cast<int>(texW / aspectDst);
-                srcRect.x = 0;
-                srcRect.y = (texH - croppedH) / 2;
-                srcRect.w = texW;
-                srcRect.h = croppedH;
-            }
-
-            SDL_RenderCopy(renderer, iconIt->second, &srcRect, &dstRect);
+            drawCroppedTexture(renderer, iconIt->second, cardRect);
         }
 
-        const int av = static_cast<int>(actor.currentActionValue);
-        const std::string avText = std::to_string(av);
+        const std::string avText = std::to_string(static_cast<int>(actor.currentActionValue));
         const int bgWidth = static_cast<int>(avText.size()) * 10 + 8;
         const int textX = cardX + cardWidth - bgWidth;
         const int textY = cardY + cardHeight - 16;
@@ -227,18 +437,59 @@ void drawTurnOrderUI(SDL_Renderer* renderer,
         SDL_RenderFillRect(renderer, &avBg);
 
 #ifdef BATTLE_ENABLE_TTF
-        drawTextTtfAt(renderer, avText, textX, textY - 1, SDL_Color{230, 230, 230, 255}, 12);
+        drawTextAt(fontCache_, renderer, avText, textX, textY - 1, SDL_Color{230, 230, 230, 255}, 12);
 #endif
     }
 }
 
-void drawCharacterStatusUI(SDL_Renderer* renderer,
-                           int screenW,
-                           int screenH,
-                           const BattleManager& manager,
-                           const BattleState& battleState,
-                           const std::map<std::string, SDL_Texture*>& iconByAsset) {
-    if (battleState.party.empty()) {
+void BattleHud::drawBossHeader(SDL_Renderer* renderer, int screenW) {
+    constexpr int topPadding = 16;
+    constexpr int barTop = 62;
+    constexpr int barHeight = 28;
+
+    const int barWidth = std::min(screenW - 120, 900);
+    const int barX = (screenW - barWidth) / 2;
+
+    const int safeMaxHp = std::max(1, model_.bossMaxHp);
+    const int safeCurrentHp = std::clamp(model_.bossCurrentHp, 0, safeMaxHp);
+    const int displayHp = getDisplayedHp(bossHpTransition_, safeCurrentHp);
+
+#ifdef BATTLE_ENABLE_TTF
+    drawTextCentered(fontCache_, renderer, model_.bossTitle, screenW / 2, topPadding, SDL_Color{245, 245, 245, 255}, 32);
+#endif
+
+    SDL_Rect barBg{barX, barTop, barWidth, barHeight};
+    SDL_SetRenderDrawColor(renderer, 28, 20, 24, 220);
+    SDL_RenderFillRect(renderer, &barBg);
+
+    if (bossHpTransition_.active && bossHpTransition_.fromHp > bossHpTransition_.toHp) {
+        const int oldPercent = static_cast<int>(std::round((100.0f * bossHpTransition_.fromHp) / std::max(1, bossHpTransition_.maxHp)));
+        const int oldFillWidth = (barWidth * oldPercent) / 100;
+        SDL_Rect damageLayer{barX + 2, barTop + 2, std::max(0, oldFillWidth - 4), barHeight - 4};
+        SDL_SetRenderDrawColor(renderer, 100, 20, 20, 200);
+        SDL_RenderFillRect(renderer, &damageLayer);
+    }
+
+    const int hpPercent = static_cast<int>(std::round((100.0f * displayHp) / safeMaxHp));
+    const int fillWidth = (barWidth * hpPercent) / 100;
+    SDL_Rect barFill{barX + 2, barTop + 2, std::max(0, fillWidth - 4), barHeight - 4};
+    SDL_SetRenderDrawColor(renderer, 196, 54, 54, 240);
+    SDL_RenderFillRect(renderer, &barFill);
+
+    SDL_SetRenderDrawColor(renderer, 230, 230, 235, 255);
+    SDL_RenderDrawRect(renderer, &barBg);
+
+#ifdef BATTLE_ENABLE_TTF
+    drawTextCentered(fontCache_, renderer, std::to_string(hpPercent) + "%", screenW / 2, barTop + 3, SDL_Color{255, 255, 255, 255}, 22);
+#endif
+}
+
+void BattleHud::drawCharacterStatus(SDL_Renderer* renderer,
+                                    int screenW,
+                                    int screenH,
+                                    const std::map<std::string, SDL_Texture*>& iconByAsset) {
+    (void)screenW;
+    if (model_.characters.empty()) {
         return;
     }
 
@@ -251,142 +502,60 @@ void drawCharacterStatusUI(SDL_Renderer* renderer,
     constexpr int marginBottom = 30;
     constexpr int charSpacing = 30;
 
-    int baseIconX = marginLeft;
     const int baseIconY = screenH - iconHeight - marginBottom;
 
-    for (int idx = 0; idx < static_cast<int>(battleState.party.size()); ++idx) {
-        const CharacterDefinition& character = battleState.party[idx];
-
-        const int iconX = baseIconX + (idx * (iconWidth + charSpacing));
+    for (int idx = 0; idx < static_cast<int>(model_.characters.size()); ++idx) {
+        const HudCharacterModel& character = model_.characters[static_cast<size_t>(idx)];
+        const int iconX = marginLeft + (idx * (iconWidth + charSpacing));
         const int iconY = baseIconY;
 
-        // Apply shake effect if character is damaged
-        int finalIconX = iconX;
-        float damageAlpha = 0.0f;
-        auto damageIt = gCharacterDamageFlashes.flashes.find(idx);
-        if (damageIt != gCharacterDamageFlashes.flashes.end() && damageIt->second.active) {
-            DamageFlashState& flash = damageIt->second;
-            const Uint32 nowMs = SDL_GetTicks();
-            const float dt = (nowMs - flash.lastTickMs) / 1000.0f;
-            flash.elapsed += std::max(0.0f, dt);
-            flash.lastTickMs = nowMs;
+        int shakeOffsetX = 0;
+        const float damageAlpha = getDamageFlashAlpha(idx, shakeOffsetX);
+        const int finalIconX = iconX + shakeOffsetX;
 
-            const float t = easing::clamp01(flash.elapsed / flash.duration);
-            
-            // Shake effect - oscillate horizontally
-            const float shakeFrequency = 8.0f; // oscillations per second
-            const float shakeAmount = 6.0f; // pixels of movement
-            const float shakePhase = t * shakeFrequency * 3.14159f * 2.0f;
-            finalIconX = iconX + static_cast<int>(std::sin(shakePhase) * shakeAmount);
-            
-            // Red tint intensity - much more transparent, max 25% opacity
-            damageAlpha = (1.0f - t) * 0.25f;
-            
-            if (t >= 1.0f) {
-                flash.active = false;
-            }
-        }
-
-        const std::string iconKey = character.key;
-        auto iconIt = iconByAsset.find(iconKey);
+        auto iconIt = iconByAsset.find(character.key);
         if (iconIt != iconByAsset.end() && iconIt->second != nullptr) {
-            int texW = 0;
-            int texH = 0;
-            SDL_QueryTexture(iconIt->second, nullptr, nullptr, &texW, &texH);
-
             const SDL_Rect dstRect{finalIconX, iconY, iconWidth, iconHeight};
-            const float aspectDst = static_cast<float>(iconWidth) / iconHeight;
-            const float aspectSrc = static_cast<float>(texW) / texH;
+            drawCroppedTexture(renderer, iconIt->second, dstRect);
 
-            SDL_Rect srcRect;
-            if (aspectSrc > aspectDst) {
-                const int croppedW = static_cast<int>(texH * aspectDst);
-                srcRect.x = (texW - croppedW) / 2;
-                srcRect.y = 0;
-                srcRect.w = croppedW;
-                srcRect.h = texH;
-            } else {
-                const int croppedH = static_cast<int>(texW / aspectDst);
-                srcRect.x = 0;
-                srcRect.y = (texH - croppedH) / 2;
-                srcRect.w = texW;
-                srcRect.h = croppedH;
-            }
-
-            SDL_RenderCopy(renderer, iconIt->second, &srcRect, &dstRect);
-            
-            // Apply red damage tint by rendering the icon again with color modulation
-            // This only affects non-transparent pixels
             if (damageAlpha > 0.0f) {
-                // Calculate blended color: mix white with red based on damage intensity
                 const Uint8 redComponent = static_cast<Uint8>(255 - (damageAlpha * 100));
                 const Uint8 greenBlueComponent = static_cast<Uint8>(255 - (damageAlpha * 175));
-                
                 SDL_SetTextureColorMod(iconIt->second, redComponent, greenBlueComponent, greenBlueComponent);
-                SDL_RenderCopy(renderer, iconIt->second, &srcRect, &dstRect);
-                SDL_SetTextureColorMod(iconIt->second, 255, 255, 255);  // Reset to normal
+                drawCroppedTexture(renderer, iconIt->second, dstRect);
+                SDL_SetTextureColorMod(iconIt->second, 255, 255, 255);
             }
         }
 
         const int hpBarY = iconY + iconHeight - hpBarHeight;
-        const int currentHp = manager.getCharacterCurrentHp(idx);
-        const int maxHp = std::max(1, manager.getCharacterMaxHp(idx));
+        const int currentHp = std::clamp(character.currentHp, 0, std::max(1, character.maxHp));
+        const int maxHp = std::max(1, character.maxHp);
+        HpTransition& transition = characterHpTransitions_[static_cast<size_t>(idx)];
+        const int displayHp = getDisplayedHp(transition, currentHp);
 
-        // Background
         SDL_Rect hpBarBg{iconX, hpBarY, iconWidth, hpBarHeight};
         SDL_SetRenderDrawColor(renderer, 20, 20, 25, 200);
         SDL_RenderFillRect(renderer, &hpBarBg);
         SDL_SetRenderDrawColor(renderer, 40, 45, 60, 255);
         SDL_RenderDrawRect(renderer, &hpBarBg);
 
-        // Check for HP transition
-        auto transIt = gCharacterHpTransitions.transitions.find(idx);
-        if (transIt != gCharacterHpTransitions.transitions.end() && transIt->second.active) {
-            HpTransition& trans = transIt->second;
-            const Uint32 nowMs = SDL_GetTicks();
-            const float dt = (nowMs - trans.lastTickMs) / 1000.0f;
-            trans.elapsed += std::max(0.0f, dt);
-            trans.lastTickMs = nowMs;
-
-            const float t = easing::clamp01(trans.elapsed / trans.duration);
-            const float eased = easing::easeOutCubic(t);
-
-            // Interpolate HP
-            const float interpHp = easing::lerp(static_cast<float>(trans.oldHp), static_cast<float>(trans.newHp), eased);
-            const int displayHp = static_cast<int>(std::round(interpHp));
-
-            // Draw damage layer (darker red) showing lost HP
-            if (trans.oldHp > trans.newHp) {
-                const int oldPercent = std::clamp((trans.oldHp * 100) / trans.maxHp, 0, 100);
-                const int oldWidth = (oldPercent * iconWidth) / 100;
-                SDL_Rect damageLayer{iconX, hpBarY, oldWidth, hpBarHeight};
-                SDL_SetRenderDrawColor(renderer, 120, 40, 40, 180);
-                SDL_RenderFillRect(renderer, &damageLayer);
-            }
-
-            // Draw current HP (animating)
-            const int hpPercent = std::clamp((displayHp * 100) / trans.maxHp, 0, 100);
-            const int hpBarWidth = (hpPercent * iconWidth) / 100;
-            SDL_Rect hpBarFg{iconX, hpBarY, hpBarWidth, hpBarHeight};
-            SDL_SetRenderDrawColor(renderer, 76, 175, 80, 220);
-            SDL_RenderFillRect(renderer, &hpBarFg);
-
-            if (t >= 1.0f) {
-                trans.active = false;
-                trans.oldHp = trans.newHp;
-            }
-        } else {
-            // No transition, draw normally
-            const int hpPercent = std::clamp((currentHp * 100) / maxHp, 0, 100);
-            const int hpBarWidth = (hpPercent * iconWidth) / 100;
-            SDL_Rect hpBarFg{iconX, hpBarY, hpBarWidth, hpBarHeight};
-            SDL_SetRenderDrawColor(renderer, 76, 175, 80, 220);
-            SDL_RenderFillRect(renderer, &hpBarFg);
+        if (transition.active && transition.fromHp > transition.toHp) {
+            const int oldPercent = std::clamp((transition.fromHp * 100) / std::max(1, transition.maxHp), 0, 100);
+            const int oldWidth = (oldPercent * iconWidth) / 100;
+            SDL_Rect damageLayer{iconX, hpBarY, oldWidth, hpBarHeight};
+            SDL_SetRenderDrawColor(renderer, 120, 40, 40, 180);
+            SDL_RenderFillRect(renderer, &damageLayer);
         }
 
+        const int hpPercent = std::clamp((displayHp * 100) / maxHp, 0, 100);
+        const int hpBarWidth = (hpPercent * iconWidth) / 100;
+        SDL_Rect hpBarFg{iconX, hpBarY, hpBarWidth, hpBarHeight};
+        SDL_SetRenderDrawColor(renderer, 76, 175, 80, 220);
+        SDL_RenderFillRect(renderer, &hpBarFg);
+
         const int circlesStartY = iconY + iconHeight + 12;
-        const int maxUltimatePoints = std::max(1, manager.getCharacterUltimateRequired(idx));
-        const int currentUltimateCharge = std::clamp(manager.getCharacterUltimateCharge(idx), 0, maxUltimatePoints);
+        const int maxUltimatePoints = std::max(1, character.ultimateRequired);
+        const int currentUltimateCharge = std::clamp(character.ultimateCharge, 0, maxUltimatePoints);
 
         for (int i = 0; i < maxUltimatePoints; ++i) {
             const int circleX = iconX + (iconWidth / 2) - ((maxUltimatePoints - 1) * ultimateSpacing / 2) + i * ultimateSpacing;
@@ -401,141 +570,6 @@ void drawCharacterStatusUI(SDL_Renderer* renderer,
             SDL_RenderDrawRect(renderer, &circleRect);
         }
     }
-}
-
-void drawBossHeaderUI(SDL_Renderer* renderer,
-                      int screenW,
-                      const BattleState& battleState,
-                      int bossCurrentHp,
-                      int bossMaxHp) {
-    constexpr int topPadding = 16;
-    constexpr int barTop = 62;
-    constexpr int barHeight = 28;
-
-    const int barWidth = std::min(screenW - 120, 900);
-    const int barX = (screenW - barWidth) / 2;
-
-    const int safeMaxHp = std::max(1, bossMaxHp);
-    const int safeCurrentHp = std::clamp(bossCurrentHp, 0, safeMaxHp);
-
-#ifdef BATTLE_ENABLE_TTF
-    drawTextTtf(renderer, battleState.boss.title, screenW / 2, topPadding, SDL_Color{245, 245, 245, 255}, 32);
-#endif
-
-    SDL_Rect barBg{barX, barTop, barWidth, barHeight};
-    SDL_SetRenderDrawColor(renderer, 28, 20, 24, 220);
-    SDL_RenderFillRect(renderer, &barBg);
-
-    const Uint32 nowMs = SDL_GetTicks();
-    int displayHp = safeCurrentHp;
-
-    // Check for boss HP transition
-    if (gBossHpTransition.active) {
-        const float dt = (nowMs - gBossHpTransition.lastTickMs) / 1000.0f;
-        gBossHpTransition.elapsed += std::max(0.0f, dt);
-        gBossHpTransition.lastTickMs = nowMs;
-
-        const float t = easing::clamp01(gBossHpTransition.elapsed / gBossHpTransition.duration);
-        const float eased = easing::easeOutCubic(t);
-
-        // Interpolate HP
-        const float interpHp = easing::lerp(static_cast<float>(gBossHpTransition.oldHp), static_cast<float>(gBossHpTransition.newHp), eased);
-        displayHp = static_cast<int>(std::round(interpHp));
-
-        // Draw damage layer (darker red) showing lost HP
-        if (gBossHpTransition.oldHp > gBossHpTransition.newHp) {
-            const int oldPercent = static_cast<int>(std::round((100.0f * gBossHpTransition.oldHp) / gBossHpTransition.maxHp));
-            const int oldFillWidth = (barWidth * oldPercent) / 100;
-            SDL_Rect damageLayer{barX + 2, barTop + 2, std::max(0, oldFillWidth - 4), barHeight - 4};
-            SDL_SetRenderDrawColor(renderer, 100, 20, 20, 200);
-            SDL_RenderFillRect(renderer, &damageLayer);
-        }
-
-        if (t >= 1.0f) {
-            gBossHpTransition.active = false;
-            gBossHpTransition.oldHp = gBossHpTransition.newHp;
-        }
-    }
-
-    const int hpPercent = static_cast<int>(std::round((100.0f * displayHp) / safeMaxHp));
-    const int fillWidth = (barWidth * hpPercent) / 100;
-
-    SDL_Rect barFill{barX + 2, barTop + 2, std::max(0, fillWidth - 4), barHeight - 4};
-    SDL_SetRenderDrawColor(renderer, 196, 54, 54, 240);
-    SDL_RenderFillRect(renderer, &barFill);
-
-    SDL_SetRenderDrawColor(renderer, 230, 230, 235, 255);
-    SDL_RenderDrawRect(renderer, &barBg);
-
-#ifdef BATTLE_ENABLE_TTF
-    const std::string pctText = std::to_string(hpPercent) + "%";
-    drawTextTtf(renderer, pctText, screenW / 2, barTop + 3, SDL_Color{255, 255, 255, 255}, 22);
-#endif
-}
-
-void updateCharacterHp(int charIndex, int newHp, int maxHp) {
-    auto& trans = gCharacterHpTransitions.transitions[charIndex];
-    
-    // On first call or when not animating, set the baseline
-    if (!trans.active && trans.oldHp == 0 && trans.newHp == 0) {
-        trans.oldHp = newHp;
-        trans.newHp = newHp;
-        trans.maxHp = maxHp;
-        return;
-    }
-    
-    // Check if HP actually changed
-    int currentDisplayHp = trans.active ? trans.newHp : trans.oldHp;
-    if (currentDisplayHp != newHp) {
-        trans.active = true;
-        trans.elapsed = 0.0f;
-        trans.duration = 0.5f;
-        trans.oldHp = currentDisplayHp;
-        trans.newHp = newHp;
-        trans.maxHp = maxHp;
-        trans.lastTickMs = SDL_GetTicks();
-    }
-}
-
-void updateBossHp(int newHp, int maxHp) {
-    // On first call or when not animating, set the baseline
-    if (!gBossHpTransition.active && gBossHpTransition.oldHp == 0 && gBossHpTransition.newHp == 0) {
-        gBossHpTransition.oldHp = newHp;
-        gBossHpTransition.newHp = newHp;
-        gBossHpTransition.maxHp = maxHp;
-        return;
-    }
-    
-    // Check if HP actually changed
-    int currentDisplayHp = gBossHpTransition.active ? gBossHpTransition.newHp : gBossHpTransition.oldHp;
-    if (currentDisplayHp != newHp) {
-        gBossHpTransition.active = true;
-        gBossHpTransition.elapsed = 0.0f;
-        gBossHpTransition.duration = 0.5f;
-        gBossHpTransition.oldHp = currentDisplayHp;
-        gBossHpTransition.newHp = newHp;
-        gBossHpTransition.maxHp = maxHp;
-        gBossHpTransition.lastTickMs = SDL_GetTicks();
-    }
-}
-
-void triggerCharacterDamageFlash(int charIndex) {
-    auto& flash = gCharacterDamageFlashes.flashes[charIndex];
-    flash.active = true;
-    flash.elapsed = 0.0f;
-    flash.duration = 1.0f;
-    flash.lastTickMs = SDL_GetTicks();
-}
-
-void shutdownFonts() {
-#ifdef BATTLE_ENABLE_TTF
-    for (auto& [_, font] : gBattleFonts) {
-        if (font != nullptr) {
-            TTF_CloseFont(font);
-        }
-    }
-    gBattleFonts.clear();
-#endif
 }
 
 } // namespace battle::ui

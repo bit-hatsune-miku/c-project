@@ -1,5 +1,4 @@
 #include "ability_system.h"
-#include "../render/battle_ui.h"
 
 #include <algorithm>
 
@@ -27,7 +26,6 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
                 context.baseDamage * ability.multiplier * context.presentationMultiplier
             ));
             bossCurrentHp = std::max(0, bossCurrentHp - finalDamage);
-            ui::updateBossHp(bossCurrentHp, context.bossMaxHp);
             break;
         }
 

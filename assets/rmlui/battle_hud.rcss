@@ -1,0 +1,311 @@
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    color: #f5efe2;
+    background-color: transparent;
+    font-family: "DejaVu Sans";
+}
+
+#stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+@keyframes active-turn-bounce {
+    from {
+        transform: translateX(0px);
+    }
+    to {
+        transform: translateX(12px);
+    }
+}
+
+.boss-shell {
+    position: absolute;
+    top: 26px;
+    left: 0;
+    right: 0;
+    width: 620px;
+    height: 74px;
+    margin-left: auto;
+    margin-right: auto;
+    background-color: rgba(8, 14, 24, 214);
+    border: 1px #b36a38;
+    box-shadow: 0 0 18px rgba(255, 124, 61, 52);
+    overflow: hidden;
+}
+
+.boss-name {
+    position: absolute;
+    left: 26px;
+    top: 14px;
+    color: #fff5ec;
+    font-size: 29px;
+    letter-spacing: 1px;
+}
+
+.boss-percent {
+    position: absolute;
+    right: 24px;
+    top: 16px;
+    color: #fff1de;
+    font-size: 18px;
+    letter-spacing: 1px;
+}
+
+.boss-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    background-color: rgba(197, 77, 72, 90);
+}
+
+.boss-orbs {
+    position: absolute;
+    left: 26px;
+    bottom: 12px;
+    display: inline-flex;
+    gap: 6px;
+}
+
+.boss-orb {
+    width: 10px;
+    height: 10px;
+    background-color: rgba(28, 46, 72, 220);
+    border: 1px #d8ecf7;
+    border-radius: 10px;
+}
+
+.boss-orb.full {
+    background-color: #3db7ff;
+}
+
+.boss-orb.gold {
+    background-color: #f0cd4d;
+}
+
+.boss-orb.hidden {
+    display: none;
+}
+
+.turn-stack {
+    position: absolute;
+    top: 124px;
+    left: 26px;
+    width: 112px;
+    height: 390px;
+}
+
+.turn-card {
+    position: absolute;
+    left: 10px;
+    width: 78px;
+    height: 54px;
+    background-color: rgba(10, 20, 33, 228);
+    border: 1px #294561;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(73, 121, 173, 22);
+    overflow: hidden;
+}
+
+.turn-card.active {
+    border-color: #ff9d57;
+    box-shadow: 0 0 14px rgba(255, 157, 87, 46);
+    animation: 0.95s cubic-in-out infinite alternate active-turn-bounce;
+}
+
+.turn-card.boss {
+    border-color: #8a3e3a;
+}
+
+.turn-card-1 {
+    top: 18px;
+}
+
+.turn-card-2 {
+    top: 84px;
+}
+
+.turn-card-3 {
+    top: 150px;
+}
+
+.turn-card-4 {
+    top: 216px;
+}
+
+.turn-card-5 {
+    top: 282px;
+}
+
+.turn-card-accent {
+    position: absolute;
+    left: 0;
+    top: 10px;
+    width: 4px;
+    height: 34px;
+    background-color: #54bfdc;
+}
+
+.boss-accent {
+    background-color: #dc6154;
+}
+
+.turn-portrait {
+    position: absolute;
+    left: 9px;
+    top: -3px;
+    width: 62px;
+    height: 62px;
+}
+
+.party-rack {
+    position: absolute;
+    left: 32px;
+    bottom: 28px;
+    width: 1210px;
+    height: 188px;
+}
+
+.unit-card {
+    position: absolute;
+    width: 250px;
+    height: 170px;
+    background-color: rgba(9, 15, 25, 120);
+    border: 0;
+    overflow: hidden;
+}
+
+.unit-card.focus {
+    box-shadow: 0 0 28px rgba(255, 157, 87, 70);
+}
+
+.unit-card.ghost {
+    opacity: 0.96;
+}
+
+.unit-card-1 {
+    left: 0;
+    top: 0;
+}
+
+.unit-card-2 {
+    left: 280px;
+    top: 0;
+}
+
+.unit-card-3 {
+    left: 560px;
+    top: 0;
+}
+
+.unit-card-4 {
+    left: 840px;
+    top: 0;
+}
+
+.unit-portrait {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 170px;
+    height: 170px;
+}
+
+.unit-fade-left {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 64px;
+    height: 170px;
+    decorator: linear-gradient(to right, #070b14eb, #070b1400) border-box;
+}
+
+.unit-fade-right {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 64px;
+    height: 170px;
+    decorator: linear-gradient(to left, #070b14eb, #070b1400) border-box;
+}
+
+.unit-fade-bottom {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 72px;
+    decorator: linear-gradient(to top, #070b14e8, #070b1400) border-box;
+}
+
+.hp-track {
+    position: absolute;
+    left: 16px;
+    bottom: 16px;
+    width: 218px;
+    height: 10px;
+    background-color: #1c2531;
+    border: 1px #2f4868;
+}
+
+.hp-track-wide {
+    width: 218px;
+}
+
+.hp-fill {
+    display: block;
+    height: 100%;
+    width: 100%;
+    background-color: #48bf7b;
+}
+
+.unit-orbs {
+    position: absolute;
+    left: 16px;
+    bottom: 44px;
+    display: inline-flex;
+    gap: 6px;
+}
+
+.unit-orb {
+    width: 16px;
+    height: 16px;
+    background-color: rgba(28, 46, 72, 220);
+    border: 1px #d8ecf7;
+    border-radius: 10px;
+}
+
+.unit-orb.full {
+    background-color: #3db7ff;
+}
+
+.unit-orb.gold {
+    background-color: #f0cd4d;
+}
+
+.unit-orb.hidden {
+    display: none;
+}
+
+.unit-name {
+    position: absolute;
+    left: 16px;
+    top: 14px;
+    color: #eef2f8;
+    font-size: 18px;
+    letter-spacing: 2px;
+}
+
+.unit-power {
+    position: absolute;
+    right: 14px;
+    bottom: 38px;
+    color: #f4f5f7;
+    font-size: 24px;
+    letter-spacing: 1px;
+}

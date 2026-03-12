@@ -1,7 +1,6 @@
 #include "battle_manager.h"
 #include "ability_system.h"
 #include "battle_loader.h"
-#include "../render/battle_ui.h"
 #include "turn_system.h"
 
 #include <algorithm>
@@ -44,8 +43,6 @@ void BattleCharacter::receiveDamage(int amount) {
     if (hp_ < 0) {
         hp_ = 0;
     }
-    ui::updateCharacterHp(partyIndex_, hp_, definition_.hp);
-    ui::triggerCharacterDamageFlash(partyIndex_);
 }
 
 void BattleCharacter::receiveHealing(int amount) {
@@ -53,7 +50,6 @@ void BattleCharacter::receiveHealing(int amount) {
     if (hp_ > definition_.hp) {
         hp_ = definition_.hp;
     }
-    ui::updateCharacterHp(partyIndex_, hp_, definition_.hp);
 }
 
 int BattleCharacter::ultimateCharge() const {
@@ -114,12 +110,6 @@ bool BattleManager::initialize(const std::string& bossKey, const std::vector<std
 
     if (!loader::loadAllAbilities(abilities_)) {
         std::cerr << "[Battle] Warning: Failed to load abilities.\n";
-    }
-
-    // Initialize HP transition states
-    ui::updateBossHp(bossCurrentHp_, state_.boss.hp);
-    for (size_t i = 0; i < characters_.size(); ++i) {
-        ui::updateCharacterHp(static_cast<int>(i), characters_[i].hp(), characters_[i].maxHp());
     }
 
     initialized_ = true;
@@ -577,7 +567,6 @@ void BattleManager::executeTurn(size_t actorIndex) {
                 // Fallback
                 const int damage = normalizeDamage(character.definition().atk * 2);
                 bossCurrentHp_ = std::max(0, bossCurrentHp_ - damage);
-                ui::updateBossHp(bossCurrentHp_, state_.boss.hp);
                 character.consumeUltimate();
                 std::cout << prefix.str() << " casts ULTIMATE " << character.definition().ultimate
                           << " for " << damage << " dmg"
@@ -637,7 +626,6 @@ void BattleManager::executeTurn(size_t actorIndex) {
                 // Fallback
                 const int damage = normalizeDamage(character.definition().atk);
                 bossCurrentHp_ = std::max(0, bossCurrentHp_ - damage);
-                ui::updateBossHp(bossCurrentHp_, state_.boss.hp);
                 character.gainUltimatePoint();
 
                 std::cout << prefix.str() << " casts ability " << character.definition().ability
