@@ -24,7 +24,7 @@ cmake --build build
 
 3. Run:
 
-./build/bin/vn_testing
+./build/bin/OurUndergroundBITIdol
 
 ## Windows setup (recommended: vcpkg)
 
@@ -40,7 +40,7 @@ cmake --build build --config Release
 
 4. Run:
 
-Run `vn_testing.exe` from the generated build output directory.
+Run `OurUndergroundBITIdol.exe` from the generated build output directory.
 
 ## macOS setup
 
@@ -55,27 +55,56 @@ cmake --build build
 
 3. Run:
 
-./build/bin/vn_testing
+./build/bin/OurUndergroundBITIdol
 
 ## Controls
 
-- Close window button to quit
-- Press Escape to quit
+- Mouse hover/click works across the main menu, pause menu, settings, and exit confirmation
+- `W` / `S` or arrow keys move through menu items
+- `Enter` / `Space` confirms the current selection
+- `Escape` opens the pause menu during story playback and backs out of the exit confirmation
+- `F11` toggles fullscreen
+- Close window button quits the app
 
 ## Features
 
-- 800x600 graphical window with blue background
-- Event handling (window close, keyboard input)
+- Visual novel style main menu, pause menu, settings screen, and exit confirmation flow
+- Scripted story playback with typewriter text and voice-volume/text-speed settings
+- Mouse and keyboard driven menu navigation
 - Hardware-accelerated rendering
-- Simple and clean C++ code for beginners
+- Separate executable targets for the main VN app, battle test, and demo
+- Modular folder layout for shared menu code, settings UI, and gameplay systems
 
 ## Project Structure
 
 ```
-├── CMakeLists.txt    - Cross-platform build configuration
+├── CMakeLists.txt         - Cross-platform build configuration
 ├── src/
-│   └── main.cpp      - C++ SDL2 application with event loop
-└── build/            - Build output directory (generated)
+│   ├── main.cpp           - App entry point, main loop, and shared UI helpers
+│   ├── window.cpp         - SDL window/renderer wrapper implementation
+│   ├── window.h           - SDL window/renderer wrapper interface
+│   ├── battle_main.cpp    - Battle test entry point
+│   ├── demo.cpp           - Standalone wrapper for the shared demo battle flow
+│   ├── GameMenu/
+│   │   ├── main_menu.cpp          - Main menu rendering and input handling
+│   │   ├── pause_menu.cpp         - Shared pause menu rendering and input for story and battle
+│   │   ├── exit_to_main_menu.cpp  - Shared exit confirmation overlay and input
+│   │   └── menu_shared.h          - Shared app/menu types and cross-file declarations
+│   ├── Settings/
+│   │   ├── settings.cpp           - Settings screen controller, rendering, and input
+│   │   └── settings.h             - Settings screen controller interface
+│   └── game/
+│       ├── vn_system.*    - Visual novel runtime and rendering
+│       ├── vn_script.*    - VN script loading/parsing
+│       ├── battle_*.*     - Battle loader, manager, and UI systems
+│       ├── demo_battle_session.* - Shared alpha battle flow used by the app and demo target
+│       ├── ability_system.* - Combat ability definitions and logic
+│       ├── turn_system.*  - Turn order and turn flow logic
+│       ├── camera_3d.*    - 3D camera helpers for battle scenes
+│       └── easing.*       - Shared easing/animation helpers
+├── assets/                - VN art, audio, combat data, and sprites
+├── docs/                  - Design notes and rough planning docs
+└── build/                 - Build output directory (generated)
 ```
 
 ## What This Project Demonstrates

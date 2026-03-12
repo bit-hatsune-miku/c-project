@@ -8,6 +8,7 @@ namespace vn {
 
 bool initialize(SDL_Renderer* renderer, int windowWidth, int windowHeight);
 void shutdown();
+void setViewportSize(int windowWidth, int windowHeight);
 
 void setSpeakerName(const std::string& name);
 void setIcon(const std::string& imagePath, int frameCount = 1, float fps = 8.0f);
@@ -16,6 +17,9 @@ void setVoice(const std::string& wavPath);
 void setFont(const std::string& fontPath, int ptSize = 28);
 void setAutoAdvanceOnVoiceEnd(bool enabled = false);
 void setTypewriterSpeed(float charsPerSecond);
+void setVoiceVolume(float volume01);
+float getTypewriterSpeed();
+float getVoiceVolume();
 void setText(const std::string& text);
 
 void startLine();
@@ -32,6 +36,9 @@ void showLine(
 );
 
 void update(float deltaSeconds);
+void setPaused(bool paused);
+bool isPaused();
+void stopVoicePlayback();
 void render();
 void onSpacePressed();
 
