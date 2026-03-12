@@ -59,15 +59,21 @@ cmake --build build
 
 ## Controls
 
-- Close window button to quit
-- Press Escape to quit
+- Mouse hover/click works across the main menu, pause menu, settings, and exit confirmation
+- `W` / `S` or arrow keys move through menu items
+- `Enter` / `Space` confirms the current selection
+- `Escape` opens the pause menu during story playback and backs out of the exit confirmation
+- `F11` toggles fullscreen
+- Close window button quits the app
 
 ## Features
 
-- 800x600 graphical window with blue background
-- Event handling (window close, keyboard input)
+- Visual novel style main menu, pause menu, settings screen, and exit confirmation flow
+- Scripted story playback with typewriter text and voice-volume/text-speed settings
+- Mouse and keyboard driven menu navigation
 - Hardware-accelerated rendering
-- Simple and clean C++ code for beginners
+- Separate executable targets for the main VN app, battle test, and demo
+- Modular folder layout for shared menu code, settings UI, and gameplay systems
 
 ## Project Structure
 
@@ -75,15 +81,18 @@ cmake --build build
 ├── CMakeLists.txt         - Cross-platform build configuration
 ├── src/
 │   ├── main.cpp           - App entry point, main loop, and shared UI helpers
-│   ├── main_menu.cpp      - Main menu rendering and input handling
-│   ├── pause_menu.cpp     - Pause menu and exit confirmation rendering/input
-│   ├── menu_shared.h      - Shared app/menu types and cross-file declarations
-│   ├── settings.cpp       - Settings screen controller, rendering, and input
-│   ├── settings.h         - Settings screen controller interface
 │   ├── window.cpp         - SDL window/renderer wrapper implementation
 │   ├── window.h           - SDL window/renderer wrapper interface
 │   ├── battle_main.cpp    - Battle test entry point
 │   ├── demo.cpp           - Demo entry point
+│   ├── GameMenu/
+│   │   ├── main_menu.cpp          - Main menu rendering and input handling
+│   │   ├── pause_menu.cpp         - Pause menu rendering and input handling
+│   │   ├── exit_to_main_menu.cpp  - Pause-menu exit confirmation overlay and input
+│   │   └── menu_shared.h          - Shared app/menu types and cross-file declarations
+│   ├── Settings/
+│   │   ├── settings.cpp           - Settings screen controller, rendering, and input
+│   │   └── settings.h             - Settings screen controller interface
 │   └── game/
 │       ├── vn_system.*    - Visual novel runtime and rendering
 │       ├── vn_script.*    - VN script loading/parsing

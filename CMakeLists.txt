@@ -25,17 +25,18 @@ pkg_check_modules(SDL2_IMAGE QUIET SDL2_image)
 # Source files
 set(SOURCES
     src/main.cpp
-    src/main_menu.cpp
-    src/pause_menu.cpp
-    src/settings.cpp
+    src/GameMenu/main_menu.cpp
+    src/GameMenu/pause_menu.cpp
+    src/GameMenu/exit_to_main_menu.cpp
+    src/Settings/settings.cpp
     src/window.cpp
     src/game/vn_system.cpp
     src/game/vn_script.cpp
 )
 
 set(HEADERS
-    src/menu_shared.h
-    src/settings.h
+    src/GameMenu/menu_shared.h
+    src/Settings/settings.h
     src/window.h
     src/game/vn_system.h
     src/game/vn_script.h

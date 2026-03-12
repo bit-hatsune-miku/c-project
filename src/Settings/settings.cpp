@@ -5,8 +5,8 @@
 #include <cmath>
 #include <string>
 
-#include "game/vn_system.h"
-#include "window.h"
+#include "../game/vn_system.h"
+#include "../window.h"
 
 namespace {
 

@@ -4,7 +4,7 @@
 #include <cmath>
 #include <string>
 
-#include "window.h"
+#include "../window.h"
 
 namespace {
 
