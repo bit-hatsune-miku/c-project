@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/c++
 CXX_DEFINES = -DBATTLE_ENABLE_IMAGE=1 -DBATTLE_ENABLE_TTF=1
 
-CXX_INCLUDES = -I/usr/include/harfbuzz -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -I/usr/include/sysprof-6 -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/rav1e -I/usr/include/svt-av1 -I/usr/include/webp -I/home/tim/Desktop/Game_attempt_number2/c-project/build/_deps/json-src/include -isystem /usr/include/SDL2
+CXX_INCLUDES = -I/usr/include/harfbuzz -I/usr/include/glib-2.0 -I/usr/lib/glib-2.0/include -I/usr/include/sysprof-6 -I/usr/include/freetype2 -I/usr/include/libpng16 -I/usr/include/rav1e -I/usr/include/svt-av1 -I/usr/include/webp -I/home/tim/Desktop/GameForC/c-project/build/_deps/json-src/include -isystem /usr/include/SDL2
 
-CXX_FLAGS = -Wall -Wextra -Wpedantic -Wconversion -Wshadow -Wnon-virtual-dtor -std=gnu++17
+CXX_FLAGS = -std=gnu++17
 

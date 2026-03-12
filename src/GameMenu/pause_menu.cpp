@@ -42,25 +42,29 @@ struct PauseButton {
     SDL_FRect rect;
 };
 
-constexpr std::array<PauseButton, 4> kPauseButtons{{
+constexpr std::array<PauseButton, 4> kStoryPauseButtons{{
     {PauseAction::Continue, "Continue", SDL_FRect{kPauseButtonX, 356.0f, kPauseButtonWidth, 58.0f}},
     {PauseAction::Load, "Load", SDL_FRect{kPauseButtonX, 430.0f, kPauseButtonWidth, 58.0f}},
     {PauseAction::Settings, "Settings", SDL_FRect{kPauseButtonX, 504.0f, kPauseButtonWidth, 58.0f}},
     {PauseAction::ExitToMainMenu, "Exit", SDL_FRect{kPauseButtonX, 578.0f, kPauseButtonWidth, 58.0f}}
 }};
 
-constexpr int pauseActionIndex(PauseAction action) {
-    return static_cast<int>(action);
-}
+constexpr std::array<PauseButton, 3> kBattlePauseButtons{{
+    {PauseAction::Continue, "Continue", SDL_FRect{kPauseButtonX, 392.0f, kPauseButtonWidth, 58.0f}},
+    {PauseAction::Settings, "Settings", SDL_FRect{kPauseButtonX, 466.0f, kPauseButtonWidth, 58.0f}},
+    {PauseAction::ExitToMainMenu, "Exit", SDL_FRect{kPauseButtonX, 540.0f, kPauseButtonWidth, 58.0f}}
+}};
 
-constexpr PauseAction nextPauseAction(PauseAction action) {
-    return static_cast<PauseAction>((pauseActionIndex(action) + 1) % static_cast<int>(kPauseButtons.size()));
-}
+struct PauseButtonSet {
+    const PauseButton* data = nullptr;
+    std::size_t size = 0;
+};
 
-constexpr PauseAction previousPauseAction(PauseAction action) {
-    return static_cast<PauseAction>(
-        (pauseActionIndex(action) + static_cast<int>(kPauseButtons.size()) - 1) % static_cast<int>(kPauseButtons.size())
-    );
+PauseButtonSet activePauseButtons(const AppState& state) {
+    if (state.pauseContext == PauseContext::Battle) {
+        return PauseButtonSet{kBattlePauseButtons.data(), kBattlePauseButtons.size()};
+    }
+    return PauseButtonSet{kStoryPauseButtons.data(), kStoryPauseButtons.size()};
 }
 
 class PauseMenuController {
@@ -103,9 +107,9 @@ public:
         }
 
         if (event.key.keysym.sym == SDLK_UP || event.key.keysym.sym == SDLK_w) {
-            state.pauseSelection = previousPauseAction(state.pauseSelection);
+            state.pauseSelection = previousPauseAction(state, state.pauseSelection);
         } else if (event.key.keysym.sym == SDLK_DOWN || event.key.keysym.sym == SDLK_s) {
-            state.pauseSelection = nextPauseAction(state.pauseSelection);
+            state.pauseSelection = nextPauseAction(state, state.pauseSelection);
         } else if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER ||
                    event.key.keysym.sym == SDLK_SPACE) {
             activatePauseAction(state);
@@ -121,7 +125,8 @@ private:
     }
 
     SDL_FRect animatedPauseButtonRect(const AppState& state, std::size_t index) const {
-        SDL_FRect rect = kPauseButtons[index].rect;
+        const PauseButtonSet buttons = activePauseButtons(state);
+        SDL_FRect rect = buttons.data[index].rect;
         const float progress = easeOutBack(buttonProgress(state, index));
         const float shellProgress = smoothstep01(state.pauseIntroTime / kPauseIntroDuration);
         rect.x -= (1.0f - progress) * (kPauseIntroTravel + 18.0f * static_cast<float>(index));
@@ -130,23 +135,44 @@ private:
     }
 
     const PauseButton* findPauseButtonAt(const AppState& state, float x, float y) const {
-        for (std::size_t i = 0; i < kPauseButtons.size(); ++i) {
+        const PauseButtonSet buttons = activePauseButtons(state);
+        for (std::size_t i = 0; i < buttons.size; ++i) {
             if (pointInRect(x, y, animatedPauseButtonRect(state, i))) {
-                return &kPauseButtons[i];
+                return &buttons.data[i];
             }
         }
         return nullptr;
     }
 
-    void resumeStory(AppState& state) const {
+    PauseAction nextPauseAction(const AppState& state, PauseAction action) const {
+        const PauseButtonSet buttons = activePauseButtons(state);
+        for (std::size_t i = 0; i < buttons.size; ++i) {
+            if (buttons.data[i].action == action) {
+                return buttons.data[(i + 1) % buttons.size].action;
+            }
+        }
+        return buttons.data[0].action;
+    }
+
+    PauseAction previousPauseAction(const AppState& state, PauseAction action) const {
+        const PauseButtonSet buttons = activePauseButtons(state);
+        for (std::size_t i = 0; i < buttons.size; ++i) {
+            if (buttons.data[i].action == action) {
+                return buttons.data[(i + buttons.size - 1) % buttons.size].action;
+            }
+        }
+        return buttons.data[0].action;
+    }
+
+    void resumePausedMode(AppState& state) const {
         vn::setPaused(false);
-        state.screen = ScreenState::Playing;
+        state.screen = state.pauseContext == PauseContext::Battle ? ScreenState::BattleDemo : ScreenState::Playing;
     }
 
     void activatePauseAction(AppState& state) const {
         switch (state.pauseSelection) {
             case PauseAction::Continue:
-                resumeStory(state);
+                resumePausedMode(state);
                 break;
             case PauseAction::Load:
                 state.noticeText = "Load is still a dummy button. No save data yet.";
@@ -232,21 +258,26 @@ private:
                                SDL_Color{240, 248, 255, 255}, titleRect);
         drawTextInRect(renderer, resources.smallFont, "PAUSE MENU",
                        SDL_Color{110, 240, 255, 255}, sectionLabelRect, false);
-        drawShadowedWrappedTextInRect(renderer, resources.smallFont, "THE STORY IS FROZEN UNTIL YOU CONTINUE",
+        drawShadowedWrappedTextInRect(renderer, resources.smallFont,
+                                      state.pauseContext == PauseContext::Battle
+                                          ? "THE BATTLE IS FROZEN UNTIL YOU CONTINUE"
+                                          : "THE STORY IS FROZEN UNTIL YOU CONTINUE",
                                       SDL_Color{214, 246, 255, 255}, hintRect, false);
 #endif
 
+        const PauseButtonSet buttons = activePauseButtons(state);
         const SDL_Rect buttonClipRect{
             static_cast<int>(std::lround(shellRect.x + 8.0f)),
-            static_cast<int>(std::lround(kPauseButtons.front().rect.y + shellOffset - 8.0f)),
+            static_cast<int>(std::lround(buttons.data[0].rect.y + shellOffset - 8.0f)),
             static_cast<int>(std::lround(shellRect.w - 16.0f)),
-            static_cast<int>(std::lround((kPauseButtons.back().rect.y + kPauseButtons.back().rect.h + shellOffset) -
-                                         (kPauseButtons.front().rect.y + shellOffset - 8.0f) + 8.0f))
+            static_cast<int>(std::lround((buttons.data[buttons.size - 1].rect.y +
+                                          buttons.data[buttons.size - 1].rect.h + shellOffset) -
+                                         (buttons.data[0].rect.y + shellOffset - 8.0f) + 8.0f))
         };
         SDL_RenderSetClipRect(renderer, &buttonClipRect);
 
-        for (std::size_t i = 0; i < kPauseButtons.size(); ++i) {
-            const PauseButton& button = kPauseButtons[i];
+        for (std::size_t i = 0; i < buttons.size; ++i) {
+            const PauseButton& button = buttons.data[i];
             const bool selected = button.action == state.pauseSelection;
             const float visibleProgress = smoothstep01(buttonProgress(state, i));
             if (visibleProgress <= 0.0f) {
@@ -306,8 +337,9 @@ void renderPauseBackdrop(SDL_Renderer* renderer, int windowWidth, int windowHeig
     SDL_RenderFillRect(renderer, &bottomBand);
 }
 
-void openPauseMenu(AppState& state) {
+void openPauseMenu(AppState& state, PauseContext context) {
     state.pauseSelection = PauseAction::Continue;
+    state.pauseContext = context;
     state.confirmSelection = ConfirmAction::Cancel;
     state.pauseIntroTime = 0.0f;
     state.screen = ScreenState::PauseMenu;
