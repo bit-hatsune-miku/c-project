@@ -64,9 +64,12 @@ public:
         renderBackgroundCover(renderer, resources.background, windowWidth, windowHeight);
 
         const bool usingCanvas = beginMenuCanvas(renderer, resources.menuCanvas);
+        const bool usingReferenceLayout = !usingCanvas && beginReferenceLayout(renderer, windowWidth, windowHeight);
         renderOverlay(renderer, resources, state);
         if (usingCanvas) {
             endMenuCanvas(renderer, resources.menuCanvas, windowWidth, windowHeight);
+        } else if (usingReferenceLayout) {
+            endReferenceLayout(renderer);
         }
     }
 
