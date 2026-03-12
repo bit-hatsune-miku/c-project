@@ -1,23 +1,23 @@
 #include "window.h"
 #include <iostream>
 
-Window::Window(const std::string& title, int width, int height)
-    : width(width), height(height), open(true) {
-    
+Window::Window(const std::string& title, int windowWidth, int windowHeight)
+    : width(windowWidth), height(windowHeight), windowedWidth(windowWidth), windowedHeight(windowHeight), open(true) {
+
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL initialization failed: " << SDL_GetError() << std::endl;
         open = false;
         return;
     }
-    
+
     window = SDL_CreateWindow(
         title.c_str(),
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
-        width, height,
-        SDL_WINDOW_SHOWN
+        windowWidth, windowHeight,
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE
     );
-    
+
     if (!window) {
         std::cerr << "Window creation failed: " << SDL_GetError() << std::endl;
         open = false;
@@ -26,10 +26,18 @@ Window::Window(const std::string& title, int width, int height)
     
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     if (!renderer) {
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    }
+    if (!renderer) {
+        renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+    }
+    if (!renderer) {
         std::cerr << "Renderer creation failed: " << SDL_GetError() << std::endl;
         open = false;
         return;
     }
+
+    refreshSize();
 }
 
 Window::~Window() {
@@ -46,13 +54,27 @@ bool Window::isOpen() const {
     return open;
 }
 
+void Window::close() {
+    open = false;
+}
+
 void Window::handleEvent(const SDL_Event& event) {
     switch (event.type) {
         case SDL_QUIT:
             open = false;
             break;
+        case SDL_WINDOWEVENT:
+            if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
+                event.window.event == SDL_WINDOWEVENT_RESIZED) {
+                refreshSize();
+                if (!fullscreen) {
+                    windowedWidth = width;
+                    windowedHeight = height;
+                }
+            }
+            break;
         case SDL_KEYDOWN:
-            if (event.key.keysym.sym == SDLK_ESCAPE) {
+            if (escapeToQuitEnabled && event.key.keysym.sym == SDLK_ESCAPE) {
                 open = false;
             }
             break;
@@ -75,4 +97,45 @@ void Window::present() {
 void Window::clear(Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
     SDL_SetRenderDrawColor(renderer, r, g, b, a);
     SDL_RenderClear(renderer);
+}
+
+bool Window::setFullscreen(bool enabled) {
+    if (window == nullptr) {
+        return false;
+    }
+    if (fullscreen == enabled) {
+        refreshSize();
+        return true;
+    }
+
+    if (enabled) {
+        windowedWidth = width;
+        windowedHeight = height;
+    }
+
+    const Uint32 flags = enabled ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
+    if (SDL_SetWindowFullscreen(window, flags) != 0) {
+        std::cerr << "Failed to change fullscreen state: " << SDL_GetError() << std::endl;
+        return false;
+    }
+
+    fullscreen = enabled;
+    if (!enabled && windowedWidth > 0 && windowedHeight > 0) {
+        SDL_SetWindowSize(window, windowedWidth, windowedHeight);
+    }
+
+    refreshSize();
+    return true;
+}
+
+void Window::refreshSize() {
+    if (renderer != nullptr) {
+        if (SDL_GetRendererOutputSize(renderer, &width, &height) == 0) {
+            return;
+        }
+    }
+
+    if (window != nullptr) {
+        SDL_GetWindowSize(window, &width, &height);
+    }
 }
