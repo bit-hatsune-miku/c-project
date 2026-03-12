@@ -71,11 +71,7 @@ struct CameraIntroAnimation {
     float goalFocal = 0.0f;
 };
 
-struct DialogueLine {
-    std::string speaker;
-    std::string text;
-    std::string iconPath;
-};
+using DialogueLine = vn::ScriptEntry;
 
 void applyGoalCamera(Camera3D& camera) {
     camera.posX = kGoalCameraPosX;
@@ -145,6 +141,26 @@ std::string resolvePath(const std::string& relativePath) {
         }
     }
     return relativePath;
+}
+
+void showDialogueLine(const DialogueLine& line) {
+    const std::string speakerName = vn::getDisplaySpeakerName(line);
+    const std::string iconPath = line.icon.empty() ? std::string{} : resolvePath(line.icon);
+    const std::string backgroundPath = line.background.empty() ? std::string{} : resolvePath(line.background);
+    const std::string voicePath = line.voice.empty() ? std::string{} : resolvePath(line.voice);
+    const std::string fontPath = line.fontPath.empty() ? std::string{} : resolvePath(line.fontPath);
+
+    vn::showLine(
+        line.text,
+        speakerName,
+        iconPath,
+        voicePath,
+        fontPath,
+        line.autoAdvanceOnVoiceEnd,
+        line.iconFrameCount,
+        line.iconFps,
+        backgroundPath
+    );
 }
 
 SDL_Texture* createFloorTileTexture(SDL_Renderer* renderer) {
@@ -302,13 +318,7 @@ bool loadDialogueLinesFromScript(const std::string& jsonRelativePath, std::vecto
 
     outLines.clear();
     outLines.reserve(script.entries.size());
-    for (const vn::ScriptEntry& entry : script.entries) {
-        DialogueLine line;
-        line.speaker = vn::getDisplaySpeakerName(entry);
-        line.text = entry.text;
-        line.iconPath = entry.icon.empty() ? std::string{} : resolvePath(entry.icon);
-        outLines.push_back(std::move(line));
-    }
+    outLines.insert(outLines.end(), script.entries.begin(), script.entries.end());
 
     return !outLines.empty();
 }
@@ -487,7 +497,7 @@ public:
                     if (activeDialogueLines != nullptr &&
                         currentDialogueLine < static_cast<int>(activeDialogueLines->size())) {
                         const DialogueLine& line = (*activeDialogueLines)[static_cast<size_t>(currentDialogueLine)];
-                        vn::showLine(line.text, line.speaker, line.iconPath);
+                        showDialogueLine(line);
                     } else {
                         vn::showLine("", "", "");
                         dialogueClosing = true;
@@ -771,7 +781,7 @@ private:
 
         if (!activeDialogueLines->empty()) {
             const DialogueLine& line = (*activeDialogueLines)[0];
-            vn::showLine(line.text, line.speaker, line.iconPath);
+            showDialogueLine(line);
         }
     }
 

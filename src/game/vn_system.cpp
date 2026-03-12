@@ -48,6 +48,7 @@ bool gPaused = false;
 
 // Basic WAV playback via SDL audio queue (no external mixer needed)
 SDL_AudioDeviceID gAudioDevice = 0;
+SDL_AudioSpec gLoadedWavSpec{};
 Uint8* gLoadedWavBuffer = nullptr;
 Uint32 gLoadedWavLength = 0;
 bool gVoicePlaying = false;
@@ -94,47 +95,54 @@ void stopAndFreeVoiceBuffer() {
     closeAudioDeviceIfOpen();
 }
 
+bool queueLoadedVoiceBuffer() {
+    if (gAudioDevice == 0 || gLoadedWavBuffer == nullptr || gLoadedWavLength == 0) {
+        return false;
+    }
+
+    SDL_ClearQueuedAudio(gAudioDevice);
+
+    const int sdlVolume = static_cast<int>(std::clamp(gVoiceVolume, 0.0f, 1.0f) * SDL_MIX_MAXVOLUME);
+    if (sdlVolume <= 0) {
+        return true;
+    }
+
+    if (sdlVolume >= SDL_MIX_MAXVOLUME) {
+        return SDL_QueueAudio(gAudioDevice, gLoadedWavBuffer, gLoadedWavLength) == 0;
+    }
+
+    std::vector<Uint8> mixedBuffer(gLoadedWavLength, 0);
+    SDL_MixAudioFormat(mixedBuffer.data(), gLoadedWavBuffer, gLoadedWavSpec.format, gLoadedWavLength, sdlVolume);
+    return SDL_QueueAudio(gAudioDevice, mixedBuffer.data(), gLoadedWavLength) == 0;
+}
+
 void playVoiceIfAny() {
     stopAndFreeVoiceBuffer();
 
-    if (gVoicePath.empty() || gVoiceVolume <= 0.0f) {
+    if (gVoicePath.empty()) {
         return;
     }
 
-    SDL_AudioSpec wavSpec{};
-    if (SDL_LoadWAV(gVoicePath.c_str(), &wavSpec, &gLoadedWavBuffer, &gLoadedWavLength) == nullptr) {
+    if (SDL_LoadWAV(gVoicePath.c_str(), &gLoadedWavSpec, &gLoadedWavBuffer, &gLoadedWavLength) == nullptr) {
         std::cerr << "[VN] Could not load voice WAV: " << gVoicePath << " (" << SDL_GetError() << ")\n";
         return;
     }
 
-    gAudioDevice = SDL_OpenAudioDevice(nullptr, 0, &wavSpec, nullptr, 0);
+    gAudioDevice = SDL_OpenAudioDevice(nullptr, 0, &gLoadedWavSpec, nullptr, 0);
     if (gAudioDevice == 0) {
         std::cerr << "[VN] Could not open audio device: " << SDL_GetError() << "\n";
         stopAndFreeVoiceBuffer();
         return;
     }
 
-    const int sdlVolume = static_cast<int>(std::clamp(gVoiceVolume, 0.0f, 1.0f) * SDL_MIX_MAXVOLUME);
-    if (sdlVolume >= SDL_MIX_MAXVOLUME) {
-        if (SDL_QueueAudio(gAudioDevice, gLoadedWavBuffer, gLoadedWavLength) != 0) {
-            std::cerr << "[VN] Could not queue audio: " << SDL_GetError() << "\n";
-            stopAndFreeVoiceBuffer();
-            return;
-        }
-    } else {
-        std::vector<Uint8> mixedBuffer(gLoadedWavLength, 0);
-        SDL_MixAudioFormat(mixedBuffer.data(), gLoadedWavBuffer, wavSpec.format, gLoadedWavLength, sdlVolume);
-
-        if (SDL_QueueAudio(gAudioDevice, mixedBuffer.data(), gLoadedWavLength) != 0) {
-            std::cerr << "[VN] Could not queue audio: " << SDL_GetError() << "\n";
-            stopAndFreeVoiceBuffer();
-            return;
-        }
+    if (!queueLoadedVoiceBuffer()) {
+        std::cerr << "[VN] Could not queue audio: " << SDL_GetError() << "\n";
+        stopAndFreeVoiceBuffer();
+        return;
     }
 
-    freeLoadedVoiceBuffer();
     SDL_PauseAudioDevice(gAudioDevice, 0);
-    gVoicePlaying = true;
+    gVoicePlaying = gVoiceVolume > 0.0f;
 }
 
 #ifdef VN_ENABLE_TTF
@@ -527,13 +535,13 @@ void setIcon(const std::string& imagePath, int frameCount, float fps) {
 }
 
 void setBackground(const std::string& imagePath) {
-    if (imagePath.empty()) {
-        return;
-    }
-
     if (gBackgroundTexture != nullptr) {
         SDL_DestroyTexture(gBackgroundTexture);
         gBackgroundTexture = nullptr;
+    }
+
+    if (imagePath.empty()) {
+        return;
     }
 
     SDL_Surface* surface = nullptr;
@@ -581,6 +589,19 @@ void setTypewriterSpeed(float charsPerSecond) {
 
 void setVoiceVolume(float volume01) {
     gVoiceVolume = std::clamp(volume01, 0.0f, 1.0f);
+
+    if (gAudioDevice == 0 || gLoadedWavBuffer == nullptr || gLoadedWavLength == 0) {
+        return;
+    }
+
+    if (!queueLoadedVoiceBuffer()) {
+        std::cerr << "[VN] Could not re-queue audio after volume change: " << SDL_GetError() << "\n";
+        stopAndFreeVoiceBuffer();
+        return;
+    }
+
+    SDL_PauseAudioDevice(gAudioDevice, gPaused ? 1 : 0);
+    gVoicePlaying = gVoiceVolume > 0.0f;
 }
 
 float getTypewriterSpeed() {
@@ -658,6 +679,8 @@ void update(float deltaSeconds) {
 
     if (gVoicePlaying && gAudioDevice != 0 && SDL_GetQueuedAudioSize(gAudioDevice) == 0) {
         gVoicePlaying = false;
+        freeLoadedVoiceBuffer();
+        closeAudioDeviceIfOpen();
     }
 
     if (gAutoAdvanceOnVoiceEnd && !gVoicePlaying && isLineFinished()) {
