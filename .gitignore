@@ -1,4 +1,5 @@
 /build/
+/build-rmlui/
 /cmake-build-*/
 /out/
 /.cache/

@@ -19,6 +19,7 @@ public:
     void clear(Uint8 r = 24, Uint8 g = 24, Uint8 b = 32, Uint8 a = 255);
     void setEscapeToQuitEnabled(bool enabled) { escapeToQuitEnabled = enabled; }
     SDL_Renderer* getRenderer() const { return renderer; }
+    SDL_Window* getNativeWindow() const { return window; }
 
     int getWidth() const { return width; }
     int getHeight() const { return height; }

@@ -21,6 +21,28 @@
         "ultimate": "DianDongPower",
         "ultimatePoints": 3       
     },
+    "iroha": {
+        "title": "Iroha",
+        "assets": "iroha",
+        "class": "vanguard",
+        "spd": 142,
+        "hp": 72,
+        "atk": 18,
+        "ability": "LetsSing",
+        "ultimate": "DianDongPower",
+        "ultimatePoints": 4
+    },
+    "kaguya": {
+        "title": "Kaguya",
+        "assets": "kaguya",
+        "class": "buffer",
+        "spd": 128,
+        "hp": 54,
+        "atk": 24,
+        "ability": "LetsSing",
+        "ultimate": "NiagaraFalls",
+        "ultimatePoints": 3
+    },
     "cupcakke": {
         "title": "CupcakKe",
         "assets": "cupcakke",

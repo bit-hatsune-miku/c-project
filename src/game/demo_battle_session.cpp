@@ -437,9 +437,9 @@ public:
             floorTileTexture = nullptr;
         }
 
-        battle::ui::shutdownFonts();
         vn::stopVoicePlayback();
         vn::showLine("", "", "");
+        hud.reset();
 
         entities.clear();
         introDialogueLines.clear();
@@ -757,10 +757,8 @@ public:
             }
         }
 
-        const int activeActorIndex = manager.getPreviewNextActorIndex();
-        battle::ui::drawBossHeaderUI(renderer, screenWidth, battleState, manager.getBossCurrentHp(), manager.getBossMaxHp());
-        battle::ui::drawCharacterStatusUI(renderer, screenWidth, screenHeight, manager, battleState, iconByAsset);
-        battle::ui::drawTurnOrderUI(renderer, manager.getTurnState(), iconByAsset, activeActorIndex);
+        hud.syncFromManager(manager);
+        hud.draw(renderer, screenWidth, screenHeight, iconByAsset);
 
         if (dialogueInProgress && !dialogueClosing) {
             vn::render();
@@ -792,6 +790,7 @@ private:
     std::map<std::string, SDL_Texture*> textureByAsset;
     std::map<std::string, SDL_Texture*> iconByAsset;
     SDL_Texture* floorTileTexture = nullptr;
+    ui::BattleHud hud;
     Camera3D camera;
     CameraIntroAnimation cameraIntro;
     std::string lastTurnToken;

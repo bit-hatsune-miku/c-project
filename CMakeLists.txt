@@ -4,6 +4,8 @@ project(OurUndergroundBITIdol CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(ENABLE_RMLUI "Fetch and build RmlUi for the upcoming HUD migration." OFF)
+
 if(POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)
 endif()
@@ -15,6 +17,53 @@ FetchContent_Declare(
     URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
 )
 FetchContent_MakeAvailable(json)
+
+if (ENABLE_RMLUI)
+    find_package(OpenGL REQUIRED)
+    set(RMLUI_SAMPLES OFF CACHE BOOL "" FORCE)
+    set(RMLUI_TESTS OFF CACHE BOOL "" FORCE)
+    set(RMLUI_LUA_BINDINGS OFF CACHE BOOL "" FORCE)
+    set(RMLUI_PRECOMPILED_HEADERS OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        rmlui
+        GIT_REPOSITORY https://github.com/mikke89/RmlUi.git
+        GIT_TAG 6.2
+        GIT_SHALLOW TRUE
+    )
+    FetchContent_MakeAvailable(rmlui)
+
+    add_executable(battle_testing_rmlui
+        src/rmlui_battle_smoke.cpp
+        src/game/battle_manager.cpp
+        src/game/battle_loader.cpp
+        src/game/turn_system.cpp
+        src/game/ability_system.cpp
+        src/game/battle_ui.cpp
+        src/game/easing.cpp
+        src/game/camera_3d.cpp
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
+    )
+    target_include_directories(battle_testing_rmlui PRIVATE
+        ${SDL2_INCLUDE_DIRS}
+        ${rmlui_SOURCE_DIR}/Backends
+    )
+    target_compile_definitions(battle_testing_rmlui PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_link_libraries(battle_testing_rmlui PRIVATE
+        ${SDL2_LIBRARIES}
+        OpenGL::GL
+        nlohmann_json::nlohmann_json
+        RmlUi::RmlUi
+    )
+    if (SDL2_IMAGE_FOUND)
+        target_include_directories(battle_testing_rmlui PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+        target_compile_definitions(battle_testing_rmlui PRIVATE BATTLE_ENABLE_IMAGE=1)
+        target_link_libraries(battle_testing_rmlui PRIVATE ${SDL2_IMAGE_LIBRARIES})
+    endif()
+    set_target_properties(battle_testing_rmlui PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+endif()
 
 # Find packages
 find_package(SDL2 REQUIRED)

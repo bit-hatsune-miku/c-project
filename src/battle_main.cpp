@@ -576,6 +576,7 @@ int main(int argc, char** argv) {
     applyGoalCamera(camera);
 
     CameraIntroAnimation cameraIntro;
+    battle::ui::BattleHud hud;
     std::string lastTurnToken;
     bool freeViewEnabled = false;
     float cameraOscillationTime = 0.0f;
@@ -728,6 +729,7 @@ int main(int argc, char** argv) {
             }
         }
         const WorldEntity* focusedEntity = &entities[std::clamp(focusedEntityIndex, 0, static_cast<int>(entities.size() - 1))];
+        hud.syncFromManager(manager);
 
         window.clear(16, 18, 26, 255);
         SDL_Renderer* renderer = window.getRenderer();
@@ -811,26 +813,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        // Turn order UI
-        battle::ui::drawTurnOrderUI(renderer,
-                        manager.getTurnState(),
-                        iconByAsset,
-                        manager.getPreviewNextActorIndex());
-
-        // Boss header UI
-        battle::ui::drawBossHeaderUI(renderer,
-                         window.getWidth(),
-                         manager.getBattleState(),
-                         manager.getBossCurrentHp(),
-                         manager.getBossMaxHp());
-
-        // Character status UI
-        battle::ui::drawCharacterStatusUI(renderer,
-                          window.getWidth(),
-                          window.getHeight(),
-                          manager,
-                          manager.getBattleState(),
-                          iconByAsset);
+        hud.draw(renderer, window.getWidth(), window.getHeight(), iconByAsset);
 
         // Debug HUD: Camera info
         {
@@ -861,10 +844,6 @@ int main(int argc, char** argv) {
     if (floorTileTexture != nullptr) {
         SDL_DestroyTexture(floorTileTexture);
     }
-
-#ifdef BATTLE_ENABLE_TTF
-    battle::ui::shutdownFonts();
-#endif
 
 #ifdef BATTLE_ENABLE_IMAGE
     IMG_Quit();
