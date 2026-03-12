@@ -3,7 +3,7 @@
 
 #include <SDL2/SDL.h>
 
-#include "menu_shared.h"
+#include "../GameMenu/menu_shared.h"
 
 class Window;
 

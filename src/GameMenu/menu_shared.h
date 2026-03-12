@@ -10,7 +10,7 @@
 #include <SDL2/SDL_ttf.h>
 #endif
 
-#include "game/vn_script.h"
+#include "../game/vn_script.h"
 
 class Window;
 
@@ -141,6 +141,7 @@ void openPauseMenu(AppState& state);
 void renderPauseBackdrop(SDL_Renderer* renderer, int windowWidth, int windowHeight);
 void renderPauseScreen(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
                        int windowWidth, int windowHeight);
+void renderExitToMainMenuOverlay(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state);
 void handlePauseMenuEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
 void handlePauseConfirmEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
 

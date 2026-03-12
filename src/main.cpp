@@ -14,8 +14,8 @@
 #include <SDL2/SDL_image.h>
 #endif
 
-#include "menu_shared.h"
-#include "settings.h"
+#include "GameMenu/menu_shared.h"
+#include "Settings/settings.h"
 #include "window.h"
 #include "game/vn_system.h"
 
