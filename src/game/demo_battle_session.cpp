@@ -10,12 +10,12 @@
 #include <string>
 #include <vector>
 
-#include "battle_manager.h"
-#include "battle_ui.h"
-#include "camera_3d.h"
-#include "easing.h"
-#include "vn_script.h"
-#include "vn_system.h"
+#include "core/battle_manager.h"
+#include "render/battle_ui.h"
+#include "render/camera_3d.h"
+#include "core/easing.h"
+#include "vn/vn_script.h"
+#include "vn/vn_system.h"
 
 #ifdef BATTLE_ENABLE_IMAGE
 #include <SDL2/SDL_image.h>

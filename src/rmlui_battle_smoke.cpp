@@ -28,10 +28,10 @@
 
 #include "RmlUi_Platform_SDL.h"
 #include "RmlUi_Renderer_GL3.h"
-#include "game/battle_manager.h"
-#include "game/camera_3d.h"
-#include "game/easing.h"
-#include "game/turn_system.h"
+#include "game/core/battle_manager.h"
+#include "game/render/camera_3d.h"
+#include "game/core/easing.h"
+#include "game/core/turn_system.h"
 
 namespace {
 
@@ -168,7 +168,9 @@ std::string findFontPath() {
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
-        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf"
+        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
+        resolvePath("assets/rmlui/DejaVuSans.ttf"),
+        resolvePath("assets/rmlui/DejaVuSans-Bold.ttf")
     };
 
     for (const auto& path : candidates) {
@@ -264,13 +266,10 @@ void setOrbState(Rml::Element* orb, bool visible, bool filled, bool gold = false
     orb->SetClass("gold", filled && gold);
 }
 
-void updateBossOrbRow(Rml::ElementDocument* document, int currentHp, int maxHp) {
-    const int safeMaxHp = std::max(1, maxHp);
-    const float ratio = static_cast<float>(std::clamp(currentHp, 0, safeMaxHp)) / static_cast<float>(safeMaxHp);
-    const int filled = std::clamp(static_cast<int>(std::ceil(ratio * 6.0f)), 0, 6);
+void updateBossOrbRow(Rml::ElementDocument* document) {
     for (int i = 0; i < 6; ++i) {
         if (Rml::Element* orb = document->GetElementById("boss-orb-" + std::to_string(i + 1))) {
-            setOrbState(orb, true, i < filled, i == filled - 1 && filled > 0);
+            setOrbState(orb, true, false, false);
         }
     }
 }
@@ -309,7 +308,7 @@ void updateBattleHudDocument(Rml::ElementDocument* document, const battle::Battl
     if (Rml::Element* bossFill = document->GetElementById("boss-fill")) {
         bossFill->SetProperty("width", std::to_string(bossPercent) + "%");
     }
-    updateBossOrbRow(document, bossCurrentHp, bossMaxHp);
+    updateBossOrbRow(document);
 
     const std::vector<int> sortedActorIndices = getSortedTurnActorIndices(turnState);
     for (int slot = 0; slot < 5; ++slot) {
@@ -943,7 +942,8 @@ int main(int argc, char** argv) {
     SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
 
 #ifdef BATTLE_ENABLE_IMAGE
-    if ((IMG_Init(IMG_INIT_PNG | IMG_INIT_WEBP) & (IMG_INIT_PNG | IMG_INIT_WEBP)) == 0) {
+    const int requiredImageFlags = IMG_INIT_PNG | IMG_INIT_WEBP;
+    if ((IMG_Init(requiredImageFlags) & requiredImageFlags) != requiredImageFlags) {
         std::cerr << "SDL_image init failed: " << IMG_GetError() << "\n";
     }
 #endif
@@ -1163,8 +1163,13 @@ int main(int argc, char** argv) {
                 camera.screenCenterY = windowHeight * 0.5f;
                 if (!sceneRenderer.initialize(windowWidth, windowHeight, worldAssets)) {
                     running = false;
+                    break;
                 }
             }
+        }
+
+        if (!running) {
+            continue;
         }
 
         int previewActorIndex = manager.getPreviewNextActorIndex();

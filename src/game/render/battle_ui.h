@@ -2,6 +2,7 @@
 #define BATTLE_UI_H
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -53,14 +54,14 @@ private:
         int fromHp = 0;
         int toHp = 0;
         int maxHp = 1;
-        Uint32 lastTickMs = 0;
+        Uint64 lastTickMs = 0;
     };
 
     struct DamageFlashState {
         bool active = false;
         float elapsed = 0.0f;
         float duration = 1.0f;
-        Uint32 lastTickMs = 0;
+        Uint64 lastTickMs = 0;
     };
 
     void updateBossTransition(int newHp, int maxHp);
@@ -82,7 +83,7 @@ private:
     std::vector<DamageFlashState> characterDamageFlashes_;
 
 #ifdef BATTLE_ENABLE_TTF
-    BattleHudFontCache* fontCache_ = nullptr;
+    std::unique_ptr<BattleHudFontCache> fontCache_;
 #endif
 };
 

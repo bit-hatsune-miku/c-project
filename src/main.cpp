@@ -90,6 +90,8 @@ TTF_Font* openBestAvailableFont(const std::vector<std::string>& preferredPaths, 
     candidates.emplace_back("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
     candidates.emplace_back("/usr/share/fonts/TTF/DejaVuSans-Bold.ttf");
     candidates.emplace_back("/usr/share/fonts/TTF/DejaVuSans.ttf");
+    candidates.emplace_back(resolvePath("assets/rmlui/DejaVuSans-Bold.ttf"));
+    candidates.emplace_back(resolvePath("assets/rmlui/DejaVuSans.ttf"));
 
     for (const auto& path : candidates) {
         if (!std::filesystem::exists(path)) {

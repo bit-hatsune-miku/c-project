@@ -154,6 +154,9 @@ TTF_Font* openBestAvailableFont(const std::string& preferredPath, int ptSize) {
 
     candidates.emplace_back("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
     candidates.emplace_back("/usr/share/fonts/TTF/DejaVuSans.ttf");
+    candidates.emplace_back("assets/rmlui/DejaVuSans.ttf");
+    candidates.emplace_back("../assets/rmlui/DejaVuSans.ttf");
+    candidates.emplace_back("../../assets/rmlui/DejaVuSans.ttf");
 
     for (const auto& path : candidates) {
         TTF_Font* font = TTF_OpenFont(path.c_str(), ptSize);

@@ -1,6 +1,8 @@
-# for agents
-if something looks like bad code delete it, and rewrite it or find other better alternative solutions.
-You can ask the user, browse the web, or clone the library or tool and spin up subagents to check out the best way to execute your desired outcome.
-if you dont know how to do something ask the user, the user will gladly give you the answers, support and resources you need.
+# Agent Guidelines
 
-always go for golden standards and do not compromise in code quality
+- If code appears faulty or unnecessarily weak, refactor or replace it with a better solution.
+- Ask the user for clarification when the correct path is unclear or high-risk.
+- Use available tools pragmatically: browse the web, inspect libraries, clone references, or spin up subagents when that improves the outcome.
+- Prefer maintainable, production-grade solutions over quick hacks.
+- Keep code quality high and align changes with established best practices.
+- Split code up as components so that an AI agent would not need to read all of the code just to check or make a change. (To avoid context bloat)

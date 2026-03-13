@@ -4,7 +4,7 @@
 #include <string>
 
 #include "../Settings/settings.h"
-#include "../game/vn_system.h"
+#include "../game/vn/vn_system.h"
 
 namespace {
 
