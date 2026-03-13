@@ -6,9 +6,12 @@
         "spd": 170,
         "atk": 0,
         "hp": 50,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "ILoveEveryoneAndEverything",
         "ability": "ILoveEveryoneAndEverything",
         "ultimate": "HeartsEverywhere",
-        "ultimatePoints": 4
+        "ultimatePoints": 4,
+        "startingOrbs": 1
     },
     "miku": {
         "title": "Miku",
@@ -17,9 +20,12 @@
         "spd": 134,
         "hp": 40,
         "atk": 20,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "LetsSing",
         "ability": "LetsSing",
         "ultimate": "DianDongPower",
-        "ultimatePoints": 3
+        "ultimatePoints": 3,
+        "startingOrbs": 1
     },
     "iroha": {
         "title": "Iroha",
@@ -28,9 +34,12 @@
         "spd": 142,
         "hp": 72,
         "atk": 18,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "LetsSing",
         "ability": "LetsSing",
         "ultimate": "DianDongPower",
-        "ultimatePoints": 4
+        "ultimatePoints": 4,
+        "startingOrbs": 1
     },
     "kaguya": {
         "title": "Kaguya",
@@ -39,9 +48,12 @@
         "spd": 128,
         "hp": 54,
         "atk": 24,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "LetsSing",
         "ability": "LetsSing",
         "ultimate": "NiagaraFalls",
-        "ultimatePoints": 3
+        "ultimatePoints": 3,
+        "startingOrbs": 1
     },
     "cupcakke": {
         "title": "CupcakKe",
@@ -50,9 +62,12 @@
         "spd": 99,
         "atk": 35,
         "hp": 60,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "SmackMyAssLikeADrum",
         "ability": "SmackMyAssLikeADrum",
         "ultimate": "NiagaraFalls",
-        "ultimatePoints": 6
+        "ultimatePoints": 6,
+        "startingOrbs": 1
     },
     "luotianyi": {
         "title": "洛天依",
@@ -61,8 +76,11 @@
         "spd": 99,
         "atk": 35,
         "hp": 60,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "DalabengbaBandebeidiBuduobiluweng",
         "ability": "DalabengbaBandebeidiBuduobiluweng",
         "ultimate": "KuntukutakatikaoteSuwaxilasong",
-        "ultimatePoints": 3
+        "ultimatePoints": 3,
+        "startingOrbs": 1
     }
 }

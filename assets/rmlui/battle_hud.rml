@@ -115,6 +115,24 @@
                 <div class="hp-track hp-track-wide"><div class="hp-fill" id="unit-hp-fill-4"></div></div>
             </div>
         </div>
+
+        <div class="action-button action-button-skill" id="action-skill">
+            <div class="action-button-core">
+                <img class="action-button-icon action-button-icon-stacked" src="icons/stacked-arrow-black.svg" />
+            </div>
+            <div class="action-button-key">E</div>
+            <div class="action-button-label">SKILL</div>
+        </div>
+
+        <div class="action-button action-button-standard" id="action-standard">
+            <div class="action-button-core">
+                <img class="action-button-icon action-button-icon-single" src="icons/arrow-black.svg" />
+            </div>
+            <div class="action-button-key">Q</div>
+            <div class="action-button-label">STANDARD</div>
+        </div>
+
+        <div class="battle-toast" id="battle-toast"></div>
     </div>
 </body>
 </rml>

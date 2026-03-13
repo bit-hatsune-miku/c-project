@@ -1,4 +1,20 @@
 {
+    "BasicAttack": {
+        "name": "Basic Attack",
+        "type": "attack",
+        "targetRule": "single_enemy",
+        "multiplier": 0.8,
+        "interactionType": "none",
+        "presentationId": "basic_attack"
+    },
+    "BossStandardAttack": {
+        "name": "Hostile Sweep",
+        "type": "attack",
+        "targetRule": "single_enemy",
+        "multiplier": 0.75,
+        "interactionType": "none",
+        "presentationId": "boss_standard"
+    },
     "ILoveEveryoneAndEverything": {
         "name": "I Love Everyone And Everything",
         "type": "heal",
@@ -56,5 +72,13 @@
         "multiplier": 1.0,
         "interactionType": "parry",
         "presentationId": "boss_attack_lyoo"
+    },
+    "MoonSpiralOverload": {
+        "name": "Moon Spiral Overload",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.7,
+        "interactionType": "parry",
+        "presentationId": "boss_attack_lyoo_ultimate"
     }
 }

@@ -5,8 +5,10 @@
 #include <cctype>
 #include <cmath>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <numeric>
 #include <optional>
 #include <string>
@@ -19,6 +21,8 @@
 #include <RmlUi/Core/Core.h>
 #include <RmlUi/Core/Element.h>
 #include <RmlUi/Core/ElementDocument.h>
+#include <RmlUi/Core/Event.h>
+#include <RmlUi/Core/EventListener.h>
 #include <RmlUi/Core/FileInterface.h>
 #include <RmlUi/Core/Log.h>
 
@@ -85,6 +89,30 @@ struct CameraIntroAnimation {
     float goalPitch = 0.0f;
     float goalYaw = 0.0f;
     float goalFocal = 0.0f;
+};
+
+struct HudFeedbackState {
+    std::string toastText;
+    Uint64 toastUntilMs = 0;
+    int blinkUnitIndex = -1;
+    int blinkMissingFrom = 0;
+    int blinkMissingTo = 0;
+    Uint64 blinkUntilMs = 0;
+};
+
+class ClickListener final : public Rml::EventListener {
+public:
+    explicit ClickListener(std::function<void()> callback)
+        : callback_(std::move(callback)) {}
+
+    void ProcessEvent(Rml::Event&) override {
+        if (callback_) {
+            callback_();
+        }
+    }
+
+private:
+    std::function<void()> callback_;
 };
 
 struct SoftwareSceneRenderer {
@@ -266,10 +294,57 @@ void setOrbState(Rml::Element* orb, bool visible, bool filled, bool gold = false
     orb->SetClass("gold", filled && gold);
 }
 
-void updateBossOrbRow(Rml::ElementDocument* document) {
+void showToast(HudFeedbackState& feedback, std::string message, Uint64 nowMs, Uint64 durationMs = 1800) {
+    feedback.toastText = std::move(message);
+    feedback.toastUntilMs = nowMs + durationMs;
+}
+
+void blinkMissingOrbs(HudFeedbackState& feedback,
+                      int unitIndex,
+                      int firstMissingOrb,
+                      int lastMissingOrb,
+                      Uint64 nowMs,
+                      Uint64 durationMs = 1100) {
+    feedback.blinkUnitIndex = unitIndex;
+    feedback.blinkMissingFrom = firstMissingOrb;
+    feedback.blinkMissingTo = lastMissingOrb;
+    feedback.blinkUntilMs = nowMs + durationMs;
+}
+
+void tickHudFeedback(HudFeedbackState& feedback, Uint64 nowMs) {
+    if (feedback.toastUntilMs != 0 && nowMs >= feedback.toastUntilMs) {
+        feedback.toastText.clear();
+        feedback.toastUntilMs = 0;
+    }
+    if (feedback.blinkUntilMs != 0 && nowMs >= feedback.blinkUntilMs) {
+        feedback.blinkUnitIndex = -1;
+        feedback.blinkMissingFrom = 0;
+        feedback.blinkMissingTo = 0;
+        feedback.blinkUntilMs = 0;
+    }
+}
+
+std::optional<int> getActiveCharacterPartyIndex(const battle::BattleManager& manager) {
+    const battle::TurnState& turnState = manager.getTurnState();
+    const int activeActorIndex = manager.getPreviewNextActorIndex();
+    if (activeActorIndex < 0 || activeActorIndex >= static_cast<int>(turnState.actors.size())) {
+        return std::nullopt;
+    }
+
+    const battle::TurnActor& actor = turnState.actors[static_cast<size_t>(activeActorIndex)];
+    if (actor.type != battle::ParticipantType::Character || actor.partyIndex < 0) {
+        return std::nullopt;
+    }
+
+    return actor.partyIndex;
+}
+
+void updateBossOrbRow(Rml::ElementDocument* document, int charge, int required) {
+    const int safeRequired = std::clamp(required, 1, 6);
+    const int safeCharge = std::clamp(charge, 0, safeRequired);
     for (int i = 0; i < 6; ++i) {
         if (Rml::Element* orb = document->GetElementById("boss-orb-" + std::to_string(i + 1))) {
-            setOrbState(orb, true, false, false);
+            setOrbState(orb, i < safeRequired, i < safeCharge, false);
         }
     }
 }
@@ -295,7 +370,9 @@ std::string hpColorForRatio(float ratio) {
     return "#d96b56";
 }
 
-void updateBattleHudDocument(Rml::ElementDocument* document, const battle::BattleManager& manager) {
+void updateBattleHudDocument(Rml::ElementDocument* document,
+                             const battle::BattleManager& manager,
+                             const HudFeedbackState& feedback) {
     const battle::BattleState& battleState = manager.getBattleState();
     const battle::TurnState& turnState = manager.getTurnState();
     const int activeActorIndex = manager.getPreviewNextActorIndex();
@@ -308,7 +385,7 @@ void updateBattleHudDocument(Rml::ElementDocument* document, const battle::Battl
     if (Rml::Element* bossFill = document->GetElementById("boss-fill")) {
         bossFill->SetProperty("width", std::to_string(bossPercent) + "%");
     }
-    updateBossOrbRow(document);
+    updateBossOrbRow(document, manager.getBossUltimateCharge(), manager.getBossUltimateRequired());
 
     const std::vector<int> sortedActorIndices = getSortedTurnActorIndices(turnState);
     for (int slot = 0; slot < 5; ++slot) {
@@ -349,7 +426,7 @@ void updateBattleHudDocument(Rml::ElementDocument* document, const battle::Battl
         updateUnitOrbRow(document, i + 1, manager.getCharacterUltimateCharge(i), manager.getCharacterUltimateRequired(i));
 
         if (Rml::Element* hpFill = document->GetElementById("unit-hp-fill-" + index)) {
-            const int fillWidth = std::clamp(static_cast<int>(std::round(ratio * 218.0f)), 0, 218);
+            const int fillWidth = std::clamp(static_cast<int>(std::round(ratio * 174.0f)), 0, 174);
             hpFill->SetProperty("width", std::to_string(fillWidth) + "px");
             hpFill->SetProperty("background-color", hpColorForRatio(ratio));
         }
@@ -360,7 +437,34 @@ void updateBattleHudDocument(Rml::ElementDocument* document, const battle::Battl
                 turnState.actors[static_cast<size_t>(activeActorIndex)].partyIndex == i;
             card->SetClass("focus", isFocused);
             card->SetClass("ghost", currentHp <= 0);
+            card->SetClass(
+                "ult-ready",
+                currentHp > 0 && manager.getCharacterUltimateCharge(i) >= manager.getCharacterUltimateRequired(i)
+            );
         }
+
+        for (int orbIndex = 0; orbIndex < 6; ++orbIndex) {
+            if (Rml::Element* orb = document->GetElementById(
+                    "unit-" + std::to_string(i + 1) + "-orb-" + std::to_string(orbIndex + 1))) {
+                const bool shouldBlink =
+                    feedback.blinkUnitIndex == i &&
+                    orbIndex >= feedback.blinkMissingFrom &&
+                    orbIndex <= feedback.blinkMissingTo;
+                orb->SetClass("missing", shouldBlink);
+            }
+        }
+    }
+
+    const bool playerCanAct = getActiveCharacterPartyIndex(manager).has_value();
+    if (Rml::Element* actionStandard = document->GetElementById("action-standard")) {
+        actionStandard->SetClass("disabled", !playerCanAct || !manager.isPlayerActionReady(battle::BattleAction::Standard));
+    }
+    if (Rml::Element* actionSkill = document->GetElementById("action-skill")) {
+        actionSkill->SetClass("disabled", !playerCanAct || !manager.isPlayerActionReady(battle::BattleAction::Skill));
+    }
+    if (Rml::Element* toast = document->GetElementById("battle-toast")) {
+        toast->SetInnerRML(feedback.toastText);
+        toast->SetClass("visible", !feedback.toastText.empty());
     }
 }
 
@@ -1101,7 +1205,75 @@ int main(int argc, char** argv) {
         return 1;
     }
     document->Show();
-    updateBattleHudDocument(document, manager);
+
+    HudFeedbackState hudFeedback;
+    std::vector<std::unique_ptr<ClickListener>> clickListeners;
+
+    const auto attachClick = [&](const std::string& id, std::function<void()> callback) {
+        if (Rml::Element* element = document->GetElementById(id)) {
+            auto listener = std::make_unique<ClickListener>(std::move(callback));
+            element->AddEventListener(Rml::EventId::Click, listener.get());
+            clickListeners.push_back(std::move(listener));
+        }
+    };
+
+    const auto attemptAction = [&](battle::BattleAction action) {
+        const Uint64 nowMs = SDL_GetTicks64();
+        const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager);
+        if (!activePartyIndex.has_value()) {
+            showToast(hudFeedback, "WAIT FOR AN ALLY TURN.", nowMs);
+            return;
+        }
+
+        if (action == battle::BattleAction::Ultimate && !manager.isPlayerActionReady(action)) {
+            const int charge = manager.getCharacterUltimateCharge(*activePartyIndex);
+            const int required = manager.getCharacterUltimateRequired(*activePartyIndex);
+            const int missing = std::max(0, required - charge);
+            showToast(
+                hudFeedback,
+                "ULTIMATE NEEDS " + std::to_string(missing) + " MORE ORB" + (missing == 1 ? "" : "S") + ".",
+                nowMs
+            );
+            blinkMissingOrbs(hudFeedback, *activePartyIndex, charge, required - 1, nowMs);
+            return;
+        }
+
+        if (action == battle::BattleAction::Skill && !manager.isPlayerActionReady(action)) {
+            showToast(hudFeedback, "SKILL COSTS 1 ORB.", nowMs);
+            return;
+        }
+
+        if (!manager.executePlayerAction(action)) {
+            showToast(hudFeedback, "ACTION NOT AVAILABLE.", nowMs);
+            return;
+        }
+
+        manager.processAutomaticTurns();
+    };
+
+    attachClick("action-standard", [&]() {
+        attemptAction(battle::BattleAction::Standard);
+    });
+    attachClick("action-skill", [&]() {
+        attemptAction(battle::BattleAction::Skill);
+    });
+    for (int i = 0; i < 4; ++i) {
+        attachClick("unit-card-" + std::to_string(i + 1), [&, i]() {
+            const Uint64 nowMs = SDL_GetTicks64();
+            const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager);
+            if (!activePartyIndex.has_value()) {
+                showToast(hudFeedback, "WAIT FOR AN ALLY TURN.", nowMs);
+                return;
+            }
+            if (*activePartyIndex != i) {
+                showToast(hudFeedback, "ONLY THE ACTIVE UNIT CAN ULTIMATE.", nowMs);
+                return;
+            }
+            attemptAction(battle::BattleAction::Ultimate);
+        });
+    }
+
+    updateBattleHudDocument(document, manager, hudFeedback);
 
     battle::Camera3D camera;
     camera.screenCenterX = windowWidth * 0.5f;
@@ -1112,14 +1284,16 @@ int main(int argc, char** argv) {
     bool freeViewEnabled = false;
     float cameraOscillationTime = 0.0f;
     float frameAccumulator = 0.0f;
-    Uint32 lastFrameTime = SDL_GetTicks();
+    Uint64 lastFrameTime = SDL_GetTicks64();
     std::string lastTurnToken;
 
     bool running = true;
     while (running) {
         manager.processAutomaticTurns();
 
-        const Uint32 currentTime = SDL_GetTicks();
+        tickHudFeedback(hudFeedback, SDL_GetTicks64());
+
+        const Uint64 currentTime = SDL_GetTicks64();
         const float deltaTime = (currentTime - lastFrameTime) / 1000.0f;
         lastFrameTime = currentTime;
         frameAccumulator += deltaTime;
@@ -1143,10 +1317,12 @@ int main(int argc, char** argv) {
                     if (!freeViewEnabled) {
                         applyGoalCamera(camera);
                     }
-                } else if (event.key.keysym.sym == SDLK_SPACE) {
-                    if (manager.executePlayerTurn()) {
-                        manager.processAutomaticTurns();
-                    }
+                } else if (!freeViewEnabled && event.key.keysym.sym == SDLK_SPACE) {
+                    attemptAction(battle::BattleAction::Ultimate);
+                } else if (!freeViewEnabled && event.key.keysym.sym == SDLK_q) {
+                    attemptAction(battle::BattleAction::Standard);
+                } else if (!freeViewEnabled && event.key.keysym.sym == SDLK_e) {
+                    attemptAction(battle::BattleAction::Skill);
                 }
             } else if (event.type == SDL_MOUSEWHEEL) {
                 if (freeViewEnabled && !cameraIntro.active) {
@@ -1232,7 +1408,7 @@ int main(int argc, char** argv) {
         renderBattleScene(sceneRenderer, camera, entities, nextIsCharacter ? 0 : 1, frameAccumulator);
         screenBlitter.uploadSurface(sceneRenderer.surface);
 
-        updateBattleHudDocument(document, manager);
+        updateBattleHudDocument(document, manager, hudFeedback);
 
         glViewport(0, 0, windowWidth, windowHeight);
         glClearColor(0.035f, 0.043f, 0.07f, 1.0f);
