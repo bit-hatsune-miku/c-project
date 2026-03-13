@@ -17,8 +17,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(json)
 
 # Find packages
-find_package(SDL2 REQUIRED)
+find_package(SDL2 QUIET)
 find_package(PkgConfig REQUIRED)
+if(NOT SDL2_FOUND)
+    pkg_check_modules(SDL2 REQUIRED sdl2)
+endif()
 pkg_check_modules(SDL2_TTF QUIET SDL2_ttf)
 pkg_check_modules(SDL2_IMAGE QUIET SDL2_image)
 
