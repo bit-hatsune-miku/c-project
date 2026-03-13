@@ -1,6 +1,7 @@
 #ifndef ABILITY_SYSTEM_H
 #define ABILITY_SYSTEM_H
 
+#include <functional>
 #include <vector>
 
 #include "battle_manager.h"
@@ -12,6 +13,10 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
                           std::vector<BattleCharacter>& characters);
 
 float runPresentationInteraction(const PresentationContext& context);
+
+using PresentationInteractionRunner = std::function<float(const PresentationContext&)>;
+
+void setPresentationInteractionRunner(PresentationInteractionRunner runner);
 
 } // namespace battle::ability
 

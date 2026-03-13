@@ -10,7 +10,9 @@
 #include <string>
 #include <vector>
 
+#include "core/ability_system.h"
 #include "core/battle_manager.h"
+#include "presentation/ability_presentation.h"
 #include "render/battle_ui.h"
 #include "render/camera_3d.h"
 #include "core/easing.h"
@@ -329,6 +331,11 @@ class SessionImpl {
 public:
     bool initialize(SDL_Renderer* renderer) {
         shutdown();
+        renderer_ = renderer;
+
+        battle::ability::setPresentationInteractionRunner([this](const PresentationContext& context) {
+            return runPresentationInteraction(context);
+        });
 
         std::vector<std::string> partyKeys = {"miku", "cupcakke"};
         if (!manager.initialize("lyoo", partyKeys)) {
@@ -419,6 +426,9 @@ public:
     }
 
     void shutdown() {
+        battle::ability::setPresentationInteractionRunner(nullptr);
+        renderer_ = nullptr;
+
         for (auto& [_, texture] : textureByAsset) {
             if (texture != nullptr) {
                 SDL_DestroyTexture(texture);
@@ -661,7 +671,18 @@ public:
         int focusedEntityIndex = static_cast<int>(entities.size() - 1);
         const TurnState& liveTurnState = manager.getTurnState();
         const int nextActorIndex = manager.getPreviewNextActorIndex();
-        if (nextActorIndex >= 0 && nextActorIndex < static_cast<int>(liveTurnState.actors.size())) {
+        if (presentationPlaybackActive) {
+            if (presentationCasterIsBoss) {
+                focusedEntityIndex = static_cast<int>(entities.size() - 1);
+            } else if (presentationCasterPartyIndex >= 0 &&
+                       presentationCasterPartyIndex < static_cast<int>(battleState.party.size())) {
+                const CharacterDefinition& currentCharacter = battleState.party[static_cast<size_t>(presentationCasterPartyIndex)];
+                entities[0].key = currentCharacter.key;
+                entities[0].assetName = currentCharacter.assets;
+                entities[0].fallbackColor = colorFromKey(currentCharacter.key, false);
+                focusedEntityIndex = 0;
+            }
+        } else if (nextActorIndex >= 0 && nextActorIndex < static_cast<int>(liveTurnState.actors.size())) {
             const TurnActor& nextActor = liveTurnState.actors[static_cast<size_t>(nextActorIndex)];
             if (nextActor.type == ParticipantType::Character &&
                 nextActor.partyIndex >= 0 &&
@@ -784,8 +805,120 @@ private:
         }
     }
 
+    float runPresentationInteraction(const PresentationContext& context) {
+        if (!initialized || finished || renderer_ == nullptr) {
+            return 1.0f;
+        }
+        if (context.presentationId.empty()) {
+            return 1.0f;
+        }
+
+        float casterX = kDuelCharacterSlotX;
+        float casterY = kDuelCharacterBaseY;
+        float casterZ = 0.0f;
+        float targetX = kDuelBossSlotX;
+        float targetY = kDuelCharacterBaseY + kBossCharacterDistanceWorld;
+        float targetZ = 0.0f;
+
+        if (context.isBoss) {
+            casterX = kDuelBossSlotX;
+            casterY = kDuelCharacterBaseY + kBossCharacterDistanceWorld;
+            targetX = kDuelCharacterSlotX;
+            targetY = kDuelCharacterBaseY;
+        }
+
+        std::unique_ptr<AbilityPresentation> presentation = PresentationRegistry::instance().create(
+            context.presentationId,
+            casterX, casterY, casterZ,
+            targetX, targetY, targetZ
+        );
+        if (!presentation) {
+            std::cerr << "[Presentation] Missing presentation id: " << context.presentationId << "\n";
+            return 1.0f;
+        }
+
+        std::cout << "[Presentation] Playing: " << context.presentationId << "\n";
+
+        presentationPlaybackActive = true;
+        presentationCasterIsBoss = context.isBoss;
+        presentationCasterPartyIndex = context.casterIndex;
+
+        presentation->start();
+        Uint64 lastCounter = SDL_GetPerformanceCounter();
+
+        while (!finished && !presentation->isComplete()) {
+            SDL_Event event;
+            while (SDL_PollEvent(&event)) {
+                if (event.type == SDL_QUIT) {
+                    finished = true;
+                    break;
+                }
+
+                if (event.type == SDL_WINDOWEVENT &&
+                    (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
+                     event.window.event == SDL_WINDOWEVENT_RESIZED)) {
+                    vn::setViewportSize(event.window.data1, event.window.data2);
+                }
+
+                if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
+                    if (event.key.keysym.sym == SDLK_ESCAPE) {
+                        finished = true;
+                        break;
+                    }
+                    if (event.key.keysym.sym == SDLK_SPACE) {
+                        presentation->onSpacePressed();
+                    }
+                    presentation->onKeyPressed(event.key.keysym.sym);
+                }
+            }
+
+            const Uint64 now = SDL_GetPerformanceCounter();
+            const float deltaSeconds = static_cast<float>(now - lastCounter) /
+                static_cast<float>(SDL_GetPerformanceFrequency());
+            lastCounter = now;
+
+            presentation->update(deltaSeconds);
+
+            Camera3D previousCamera = camera;
+            std::vector<WorldEntity> previousEntities = entities;
+
+            if (presentation->overridesCamera()) {
+                presentation->applyCameraState(camera);
+            }
+
+            float overrideX = 0.0f;
+            float overrideY = 0.0f;
+            float overrideZ = 0.0f;
+            if (presentation->getCasterWorldOverride(overrideX, overrideY, overrideZ)) {
+                const size_t casterEntityIndex = context.isBoss ? 1u : 0u;
+                if (casterEntityIndex < entities.size()) {
+                    entities[casterEntityIndex].worldX = overrideX;
+                    entities[casterEntityIndex].worldY = overrideY;
+                    entities[casterEntityIndex].worldZ = overrideZ;
+                }
+            }
+
+            int screenWidth = 1280;
+            int screenHeight = 720;
+            SDL_GetRendererOutputSize(renderer_, &screenWidth, &screenHeight);
+            render(renderer_, screenWidth, screenHeight);
+            presentation->render(renderer_, screenWidth, screenHeight, camera);
+            SDL_RenderPresent(renderer_);
+
+            entities = std::move(previousEntities);
+            camera = previousCamera;
+        }
+
+        presentationPlaybackActive = false;
+        presentationCasterIsBoss = false;
+        presentationCasterPartyIndex = -1;
+
+        return presentation->getInputMultiplier();
+    }
+
     bool initialized = false;
     bool finished = false;
+    SDL_Renderer* renderer_ = nullptr;
     BattleManager manager;
     std::vector<WorldEntity> entities;
     std::map<std::string, SDL_Texture*> textureByAsset;
@@ -813,6 +946,9 @@ private:
     bool hasShownPostLyooAttackAfterMikuUltimateTutorial = false;
     bool pendingPostLyooAttackAfterMikuUltimateTutorial = false;
     bool hasShownBossDefeatedDialogue = false;
+    bool presentationPlaybackActive = false;
+    bool presentationCasterIsBoss = false;
+    int presentationCasterPartyIndex = -1;
 };
 
 Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
