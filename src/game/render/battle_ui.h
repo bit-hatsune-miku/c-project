@@ -16,6 +16,7 @@ struct BattleHudFontCache;
 
 struct HudCharacterModel {
     std::string key;
+    std::string assetId;
     std::string title;
     int currentHp = 0;
     int maxHp = 1;

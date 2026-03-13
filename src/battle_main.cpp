@@ -236,8 +236,7 @@ std::optional<std::string> resolveHitVoicePath(const std::string& assetName) {
 
     const std::vector<std::string> candidates = {
         "assets/combat/voices/" + assetName + "/hit.wav",
-        "assets/combat/voices/" + assetName + ".hit.wav",
-        "assets/comat/voices/" + assetName + ".hit.wav"
+        "assets/combat/voices/" + assetName + ".hit.wav"
     };
 
     for (const std::string& candidate : candidates) {
@@ -559,11 +558,12 @@ int main(int argc, char** argv) {
     std::map<std::string, SDL_Texture*> iconByAsset;
     const battle::TurnState& turnState = manager.getTurnState();
     for (const battle::TurnActor& actor : turnState.actors) {
-        const std::string iconKey = (actor.type == battle::ParticipantType::Boss) ? "boss_" + actor.key : actor.key;
+        const std::string iconId = actor.assetId.empty() ? actor.key : actor.assetId;
+        const std::string iconKey = (actor.type == battle::ParticipantType::Boss) ? "boss_" + iconId : iconId;
         if (iconByAsset.find(iconKey) != iconByAsset.end()) {
             continue;
         }
-        const auto loaded = tryLoadIcon(window.getRenderer(), actor.key);
+        const auto loaded = tryLoadIcon(window.getRenderer(), iconId);
         iconByAsset[iconKey] = loaded.has_value() ? *loaded : nullptr;
     }
 

@@ -33,24 +33,19 @@
 #include "RmlUi_Platform_SDL.h"
 #include "RmlUi_Renderer_GL3.h"
 #include "game/core/battle_manager.h"
-#include "game/render/camera_3d.h"
 #include "game/core/easing.h"
 #include "game/core/turn_system.h"
+#include "game/render/battle_scene_renderer.h"
+#include "game/render/camera_3d.h"
+#include "game/render/gl_screen_blitter.h"
 #include "game/vn/vn_script.h"
+#include "game/audio/wav_one_shot.h"
+#include "platform/path_resolution.h"
 
 namespace {
 
 constexpr int kWindowWidth = 1280;
 constexpr int kWindowHeight = 720;
-constexpr int kSuggestedBaseSpriteWidth = 140;
-constexpr int kSuggestedBaseSpriteHeight = 260;
-constexpr float kSpriteFrameTime = 0.15f;
-
-constexpr float kBossCharacterDistanceWorld = 420.0f;
-constexpr float kCharacterGapWorld = 1200.0f;
-constexpr float kDuelCharacterSlotX = -0.5f * kCharacterGapWorld;
-constexpr float kDuelBossSlotX = 0.0f;
-constexpr float kDuelCharacterBaseY = 300.0f;
 
 constexpr float kGoalCameraPosX = -405.0f;
 constexpr float kGoalCameraPosY = 45.0f;
@@ -67,16 +62,6 @@ constexpr float kRhythmPulseTravelPx = 278.0f;
 constexpr float kRhythmWindowLeftPx = 206.0f;
 constexpr float kRhythmWindowWidthPx = 62.0f;
 constexpr float kNarrationCharsPerSecond = 42.0f;
-
-struct WorldEntity {
-    std::string key;
-    std::string assetName;
-    bool isBoss = false;
-    float worldX = 0.0f;
-    float worldY = 0.0f;
-    float worldZ = 0.0f;
-    SDL_Color fallbackColor{200, 200, 200, 255};
-};
 
 struct CameraIntroAnimation {
     bool active = false;
@@ -120,6 +105,7 @@ struct TutorialOverlayState {
     bool standardShown = false;
     bool skillShown = false;
     bool ultimateShown = false;
+    bool dismissed = false;
 };
 
 struct TutorialScriptLibrary {
@@ -140,10 +126,6 @@ struct RhythmChallengeState {
     float targetWindow = kRhythmWindowWidthPx / kRhythmPulseTravelPx;
 };
 
-struct ActiveOneShotAudio {
-    SDL_AudioDeviceID device = 0;
-};
-
 class ClickListener final : public Rml::EventListener {
 public:
     explicit ClickListener(std::function<void()> callback)
@@ -159,97 +141,21 @@ private:
     std::function<void()> callback_;
 };
 
-std::vector<ActiveOneShotAudio> gActiveOneShotAudio;
+game::audio::WavOneShotPlayer gOneShotAudio;
 
-struct SoftwareSceneRenderer {
-    SDL_Surface* surface = nullptr;
-    SDL_Renderer* renderer = nullptr;
-    SDL_Texture* floorTileTexture = nullptr;
-    std::map<std::string, SDL_Texture*> textureByAsset;
-    std::vector<std::string> loadedAssets;
-    int width = 0;
-    int height = 0;
+using battle::render::GlScreenBlitter;
+using battle::render::SoftwareSceneRenderer;
+using battle::render::WorldEntity;
 
-    ~SoftwareSceneRenderer() {
-        destroy();
-    }
-
-    void destroy() {
-        if (floorTileTexture != nullptr) {
-            SDL_DestroyTexture(floorTileTexture);
-            floorTileTexture = nullptr;
-        }
-        for (auto& [_, texture] : textureByAsset) {
-            if (texture != nullptr) {
-                SDL_DestroyTexture(texture);
-            }
-        }
-        textureByAsset.clear();
-        if (renderer != nullptr) {
-            SDL_DestroyRenderer(renderer);
-            renderer = nullptr;
-        }
-        if (surface != nullptr) {
-            SDL_FreeSurface(surface);
-            surface = nullptr;
-        }
-        width = 0;
-        height = 0;
-    }
-
-    bool initialize(int newWidth, int newHeight, const std::vector<std::string>& assetNames);
-};
-
-struct GlScreenBlitter {
-    GLuint program = 0;
-    GLuint vertexShader = 0;
-    GLuint fragmentShader = 0;
-    GLuint vao = 0;
-    GLuint vbo = 0;
-    GLuint texture = 0;
-    int textureWidth = 0;
-    int textureHeight = 0;
-
-    ~GlScreenBlitter() {
-        destroy();
-    }
-
-    bool initialize();
-    void destroy();
-    void ensureTextureSize(int width, int height);
-    void uploadSurface(SDL_Surface* surface);
-    void draw();
-};
-
-std::string resolvePath(const std::string& relativePath) {
-    const std::array<std::string, 3> candidates = {
-        relativePath,
-        "../" + relativePath,
-        "../../" + relativePath
+std::string resolveBattleSpritePath(const std::string& assetName) {
+    const std::array<std::string, 2> candidates = {
+        platform::path::resolvePath("assets/combat/sprites/" + assetName + ".png"),
+        platform::path::resolvePath("assets/combat/sprites/" + assetName + ".webp")
     };
 
-    for (const auto& path : candidates) {
-        if (std::filesystem::exists(path)) {
-            return path;
-        }
-    }
-
-    return relativePath;
-}
-
-std::string findFontPath() {
-    const std::vector<std::string> candidates = {
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-        "/usr/share/fonts/TTF/DejaVuSans.ttf",
-        "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
-        resolvePath("assets/rmlui/DejaVuSans.ttf"),
-        resolvePath("assets/rmlui/DejaVuSans-Bold.ttf")
-    };
-
-    for (const auto& path : candidates) {
-        if (std::filesystem::exists(path)) {
-            return path;
+    for (const std::string& candidate : candidates) {
+        if (std::filesystem::exists(candidate)) {
+            return candidate;
         }
     }
 
@@ -276,93 +182,6 @@ std::string normalizeCombatKey(std::string key) {
     return key;
 }
 
-std::string findCombatImagePath(const std::string& folder, const std::string& assetName) {
-    const std::array<std::pair<std::string, std::string>, 2> candidates = {
-        std::pair<std::string, std::string>{
-            resolvePath("assets/combat/" + folder + "/" + assetName + ".png"),
-            "../combat/" + folder + "/" + assetName + ".png"
-        },
-        std::pair<std::string, std::string>{
-            resolvePath("assets/combat/" + folder + "/" + assetName + ".webp"),
-            "../combat/" + folder + "/" + assetName + ".webp"
-        }
-    };
-    for (const auto& candidate : candidates) {
-        if (std::filesystem::exists(candidate.first)) {
-            return candidate.second;
-        }
-    }
-    return std::string();
-}
-
-std::optional<std::string> resolveCombatVoicePath(const std::string& assetName, const std::string& clipName) {
-    if (assetName.empty() || clipName.empty()) {
-        return std::nullopt;
-    }
-
-    const std::array<std::string, 2> candidates = {
-        resolvePath("assets/combat/voices/" + assetName + "/" + clipName + ".wav"),
-        resolvePath("assets/combat/voices/" + assetName + "." + clipName + ".wav")
-    };
-    for (const std::string& candidate : candidates) {
-        if (std::filesystem::exists(candidate)) {
-            return candidate;
-        }
-    }
-    return std::nullopt;
-}
-
-void cleanupFinishedOneShotAudio() {
-    std::vector<ActiveOneShotAudio> stillPlaying;
-    stillPlaying.reserve(gActiveOneShotAudio.size());
-    for (const ActiveOneShotAudio& voice : gActiveOneShotAudio) {
-        if (voice.device == 0) {
-            continue;
-        }
-        if (SDL_GetQueuedAudioSize(voice.device) == 0) {
-            SDL_CloseAudioDevice(voice.device);
-        } else {
-            stillPlaying.push_back(voice);
-        }
-    }
-    gActiveOneShotAudio.swap(stillPlaying);
-}
-
-void shutdownOneShotAudio() {
-    for (const ActiveOneShotAudio& voice : gActiveOneShotAudio) {
-        if (voice.device != 0) {
-            SDL_CloseAudioDevice(voice.device);
-        }
-    }
-    gActiveOneShotAudio.clear();
-}
-
-bool playWavOneShot(const std::string& wavPath) {
-    SDL_AudioSpec wavSpec{};
-    Uint8* wavBuffer = nullptr;
-    Uint32 wavLength = 0;
-    if (SDL_LoadWAV(wavPath.c_str(), &wavSpec, &wavBuffer, &wavLength) == nullptr) {
-        return false;
-    }
-
-    SDL_AudioDeviceID device = SDL_OpenAudioDevice(nullptr, 0, &wavSpec, nullptr, 0);
-    if (device == 0) {
-        SDL_FreeWAV(wavBuffer);
-        return false;
-    }
-
-    const int queueResult = SDL_QueueAudio(device, wavBuffer, wavLength);
-    SDL_FreeWAV(wavBuffer);
-    if (queueResult != 0) {
-        SDL_CloseAudioDevice(device);
-        return false;
-    }
-
-    SDL_PauseAudioDevice(device, 0);
-    gActiveOneShotAudio.push_back(ActiveOneShotAudio{device});
-    return true;
-}
-
 void setElementText(Rml::ElementDocument* document, const std::string& id, const std::string& text) {
     if (Rml::Element* element = document->GetElementById(id)) {
         element->SetInnerRML(text);
@@ -383,7 +202,7 @@ void setElementClass(Rml::ElementDocument* document, const std::string& id, cons
 
 void setPortraitDecorator(Rml::ElementDocument* document, const std::string& id, const std::string& assetName) {
     if (Rml::Element* element = document->GetElementById(id)) {
-        const std::string path = findCombatImagePath("icons", assetName);
+        const std::string path = platform::path::findCombatImagePath("icons", assetName);
         if (!path.empty()) {
             element->SetProperty("decorator", "image(" + path + " cover center center)");
         }
@@ -453,6 +272,33 @@ float getRhythmProgress(const RhythmChallengeState& rhythm, Uint64 nowMs) {
     return std::clamp(static_cast<float>(elapsed / duration), 0.0f, 1.0f);
 }
 
+size_t utf8ByteOffsetForCodepoints(const std::string& text, size_t codepointCount) {
+    size_t byteOffset = 0;
+    size_t visibleCodepoints = 0;
+    while (byteOffset < text.size() && visibleCodepoints < codepointCount) {
+        const unsigned char leadByte = static_cast<unsigned char>(text[byteOffset]);
+        size_t codepointBytes = 1;
+        if ((leadByte & 0x80u) == 0x00u) {
+            codepointBytes = 1;
+        } else if ((leadByte & 0xE0u) == 0xC0u) {
+            codepointBytes = 2;
+        } else if ((leadByte & 0xF0u) == 0xE0u) {
+            codepointBytes = 3;
+        } else if ((leadByte & 0xF8u) == 0xF0u) {
+            codepointBytes = 4;
+        }
+
+        if (byteOffset + codepointBytes > text.size()) {
+            return text.size();
+        }
+
+        byteOffset += codepointBytes;
+        ++visibleCodepoints;
+    }
+
+    return byteOffset;
+}
+
 std::string revealNarrationText(const std::string& fullText, Uint64 startedMs, Uint64 nowMs) {
     if (fullText.empty()) {
         return std::string();
@@ -463,11 +309,12 @@ std::string revealNarrationText(const std::string& fullText, Uint64 startedMs, U
     }
 
     const double elapsedSeconds = static_cast<double>(nowMs - startedMs) / 1000.0;
-    const size_t visibleChars = static_cast<size_t>(std::floor(elapsedSeconds * kNarrationCharsPerSecond));
-    if (visibleChars >= fullText.size()) {
+    const size_t visibleCodepoints = static_cast<size_t>(std::floor(elapsedSeconds * kNarrationCharsPerSecond));
+    const size_t visibleBytes = utf8ByteOffsetForCodepoints(fullText, visibleCodepoints);
+    if (visibleBytes >= fullText.size()) {
         return fullText;
     }
-    return fullText.substr(0, visibleChars);
+    return fullText.substr(0, visibleBytes);
 }
 
 void startTutorial(TutorialOverlayState& tutorial,
@@ -482,7 +329,7 @@ void startTutorial(TutorialOverlayState& tutorial,
 
 bool loadTutorialScriptLibrary(TutorialScriptLibrary& outLibrary) {
     vn::Script script;
-    if (!vn::loadScript(resolvePath("assets/vn/json/demo.json"), script)) {
+    if (!vn::loadScript(platform::path::resolvePath("assets/vn/json/demo.json"), script)) {
         return false;
     }
     if (script.entries.size() < 3) {
@@ -648,7 +495,7 @@ void updateBattleHudDocument(Rml::ElementDocument* document,
         setElementText(document, "battle-tutorial-text", revealNarrationText(tutorial.entry.text, tutorial.startedMs, nowMs));
         if (!tutorial.entry.icon.empty()) {
             const std::string tutorialIconKey = std::filesystem::path(tutorial.entry.icon).stem().string();
-            const std::string iconPath = findCombatImagePath("icons", tutorialIconKey);
+            const std::string iconPath = platform::path::findCombatImagePath("icons", tutorialIconKey);
             if (!iconPath.empty()) {
                 if (Rml::Element* element = document->GetElementById("battle-tutorial-portrait")) {
                     element->SetProperty("decorator", "image(" + iconPath + " cover center center)");
@@ -682,14 +529,14 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
                 : std::string());
 
         if (event.action == battle::BattleAction::Skill) {
-            if (const auto skillVoice = resolveCombatVoicePath(actorAsset, "skill"); skillVoice.has_value()) {
-                (void)playWavOneShot(*skillVoice);
+            if (const auto skillVoice = platform::path::resolveCombatVoicePath(actorAsset, "skill"); skillVoice.has_value()) {
+                (void)gOneShotAudio.playWavOneShot(*skillVoice);
             }
         }
 
         if (event.bossHpAfter < event.bossHpBefore) {
-            if (const auto hitVoice = resolveCombatVoicePath(battleState.boss.assets, "hit"); hitVoice.has_value()) {
-                (void)playWavOneShot(*hitVoice);
+            if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.assets, "hit"); hitVoice.has_value()) {
+                (void)gOneShotAudio.playWavOneShot(*hitVoice);
             }
         }
 
@@ -701,9 +548,9 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
             if (partyIndex < 0 || partyIndex >= static_cast<int>(battleState.party.size())) {
                 continue;
             }
-            if (const auto hitVoice = resolveCombatVoicePath(battleState.party[static_cast<size_t>(partyIndex)].assets, "hit");
+            if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.party[static_cast<size_t>(partyIndex)].assets, "hit");
                 hitVoice.has_value()) {
-                (void)playWavOneShot(*hitVoice);
+                (void)gOneShotAudio.playWavOneShot(*hitVoice);
             }
         }
     }
@@ -766,444 +613,6 @@ void updateActionIntroCamera(battle::Camera3D& camera, CameraIntroAnimation& ani
         anim.active = false;
         applyGoalCamera(camera);
     }
-}
-
-SDL_Color colorFromKey(const std::string& key, bool boss) {
-    unsigned hash = 2166136261u;
-    for (char c : key) {
-        hash ^= static_cast<unsigned>(static_cast<unsigned char>(c));
-        hash *= 16777619u;
-    }
-    const Uint8 r = static_cast<Uint8>(80 + (hash & 0x7F));
-    const Uint8 g = static_cast<Uint8>(80 + ((hash >> 8) & 0x7F));
-    const Uint8 b = static_cast<Uint8>(80 + ((hash >> 16) & 0x7F));
-    return boss ? SDL_Color{static_cast<Uint8>(std::min(255, r + 30)), 90, 90, 255} : SDL_Color{r, g, b, 255};
-}
-
-SDL_Texture* createFloorTileTexture(SDL_Renderer* renderer) {
-    constexpr int texSize = 64;
-    constexpr int cell = 16;
-    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, texSize, texSize, 32, SDL_PIXELFORMAT_RGBA32);
-    if (surface == nullptr) {
-        return nullptr;
-    }
-
-    const Uint32 c0 = SDL_MapRGBA(surface->format, 46, 49, 60, 255);
-    const Uint32 c1 = SDL_MapRGBA(surface->format, 52, 56, 69, 255);
-
-    SDL_Rect r{0, 0, cell, cell};
-    for (int y = 0; y < texSize; y += cell) {
-        for (int x = 0; x < texSize; x += cell) {
-            r.x = x;
-            r.y = y;
-            const bool alt = ((x / cell) + (y / cell)) % 2 == 0;
-            SDL_FillRect(surface, &r, alt ? c0 : c1);
-        }
-    }
-
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    return texture;
-}
-
-std::optional<SDL_Texture*> tryLoadTexture(SDL_Renderer* renderer, const std::string& assetName) {
-#ifdef BATTLE_ENABLE_IMAGE
-    const std::array<std::string, 2> candidates = {
-        resolvePath("assets/combat/sprites/" + assetName + ".png"),
-        resolvePath("assets/combat/sprites/" + assetName + ".webp")
-    };
-
-    for (const std::string& path : candidates) {
-        if (!std::filesystem::exists(path)) {
-            continue;
-        }
-        SDL_Surface* surface = IMG_Load(path.c_str());
-        if (surface == nullptr) {
-            continue;
-        }
-        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-        SDL_FreeSurface(surface);
-        if (texture != nullptr) {
-            return texture;
-        }
-    }
-#else
-    (void)renderer;
-    (void)assetName;
-#endif
-    return std::nullopt;
-}
-
-void drawFloorGridLines(SDL_Renderer* renderer, int screenW, int screenH, const battle::Camera3D& camera) {
-    const float floorZ = 0.0f;
-    const float centerX = -300.0f;
-    const float centerY = 510.0f;
-    const float tileSize = 200.0f;
-    const int tilesX = 14;
-    const int tilesY = 16;
-
-    const float startX = centerX - (tilesX * tileSize * 0.5f);
-    const float startY = centerY - (tilesY * tileSize * 0.30f);
-
-    SDL_SetRenderDrawColor(renderer, 62, 70, 90, 160);
-    for (int tx = 0; tx <= tilesX; ++tx) {
-        const float x = startX + tx * tileSize;
-        const SDL_FPoint p0 = camera.worldToScreen(x, startY, floorZ);
-        const SDL_FPoint p1 = camera.worldToScreen(x, startY + tilesY * tileSize, floorZ);
-        if ((p0.x > -200.0f || p1.x > -200.0f) && (p0.x < screenW + 200.0f || p1.x < screenW + 200.0f) &&
-            (p0.y > -200.0f || p1.y > -200.0f) && (p0.y < screenH + 200.0f || p1.y < screenH + 200.0f)) {
-            SDL_RenderDrawLineF(renderer, p0.x, p0.y, p1.x, p1.y);
-        }
-    }
-    for (int ty = 0; ty <= tilesY; ++ty) {
-        const float y = startY + ty * tileSize;
-        const SDL_FPoint p0 = camera.worldToScreen(startX, y, floorZ);
-        const SDL_FPoint p1 = camera.worldToScreen(startX + tilesX * tileSize, y, floorZ);
-        if ((p0.x > -200.0f || p1.x > -200.0f) && (p0.x < screenW + 200.0f || p1.x < screenW + 200.0f) &&
-            (p0.y > -200.0f || p1.y > -200.0f) && (p0.y < screenH + 200.0f || p1.y < screenH + 200.0f)) {
-            SDL_RenderDrawLineF(renderer, p0.x, p0.y, p1.x, p1.y);
-        }
-    }
-}
-
-void drawFloor(SDL_Renderer* renderer, int screenW, int screenH, const battle::Camera3D& camera, SDL_Texture* floorTileTexture) {
-    if (floorTileTexture != nullptr) {
-        const float floorZ = 0.0f;
-        const float centerX = -300.0f;
-        const float centerY = 510.0f;
-        const float tileSize = 200.0f;
-        const int tilesX = 14;
-        const int tilesY = 16;
-
-        const float startX = centerX - (tilesX * tileSize * 0.5f);
-        const float startY = centerY - (tilesY * tileSize * 0.30f);
-
-        const int indices[6] = {0, 1, 2, 0, 2, 3};
-        for (int ty = 0; ty < tilesY; ++ty) {
-            for (int tx = 0; tx < tilesX; ++tx) {
-                const float x0 = startX + tx * tileSize;
-                const float y0 = startY + ty * tileSize;
-                const float x1 = x0 + tileSize;
-                const float y1 = y0 + tileSize;
-
-                const float d00 = camera.getDepth(x0, y0, floorZ);
-                const float d10 = camera.getDepth(x1, y0, floorZ);
-                const float d11 = camera.getDepth(x1, y1, floorZ);
-                const float d01 = camera.getDepth(x0, y1, floorZ);
-                if (d00 <= 1.0f && d10 <= 1.0f && d11 <= 1.0f && d01 <= 1.0f) {
-                    continue;
-                }
-
-                const SDL_FPoint p00 = camera.worldToScreen(x0, y0, floorZ);
-                const SDL_FPoint p10 = camera.worldToScreen(x1, y0, floorZ);
-                const SDL_FPoint p11 = camera.worldToScreen(x1, y1, floorZ);
-                const SDL_FPoint p01 = camera.worldToScreen(x0, y1, floorZ);
-
-                const float minX = std::min(std::min(p00.x, p10.x), std::min(p11.x, p01.x));
-                const float maxX = std::max(std::max(p00.x, p10.x), std::max(p11.x, p01.x));
-                const float minY = std::min(std::min(p00.y, p10.y), std::min(p11.y, p01.y));
-                const float maxY = std::max(std::max(p00.y, p10.y), std::max(p11.y, p01.y));
-                if (maxX < -200.0f || minX > screenW + 200.0f || maxY < -200.0f || minY > screenH + 200.0f) {
-                    continue;
-                }
-
-                SDL_Vertex verts[4];
-                verts[0].position = p00;
-                verts[1].position = p10;
-                verts[2].position = p11;
-                verts[3].position = p01;
-                verts[0].color = SDL_Color{255, 255, 255, 255};
-                verts[1].color = SDL_Color{255, 255, 255, 255};
-                verts[2].color = SDL_Color{255, 255, 255, 255};
-                verts[3].color = SDL_Color{255, 255, 255, 255};
-                verts[0].tex_coord = SDL_FPoint{0.0f, 0.0f};
-                verts[1].tex_coord = SDL_FPoint{1.0f, 0.0f};
-                verts[2].tex_coord = SDL_FPoint{1.0f, 1.0f};
-                verts[3].tex_coord = SDL_FPoint{0.0f, 1.0f};
-
-                SDL_RenderGeometry(renderer, floorTileTexture, verts, 4, indices, 6);
-            }
-        }
-    }
-
-    drawFloorGridLines(renderer, screenW, screenH, camera);
-}
-
-void renderBattleScene(SoftwareSceneRenderer& sceneRenderer,
-                       const battle::Camera3D& camera,
-                       const std::vector<WorldEntity>& entities,
-                       int focusedEntityIndex,
-                       float frameAccumulator) {
-    SDL_SetRenderDrawBlendMode(sceneRenderer.renderer, SDL_BLENDMODE_BLEND);
-    SDL_SetRenderDrawColor(sceneRenderer.renderer, 16, 18, 26, 255);
-    SDL_RenderClear(sceneRenderer.renderer);
-
-    drawFloor(sceneRenderer.renderer, sceneRenderer.width, sceneRenderer.height, camera, sceneRenderer.floorTileTexture);
-
-    struct DrawCall {
-        size_t index;
-        float depth;
-        SDL_FPoint screen;
-    };
-
-    std::vector<DrawCall> drawList;
-    drawList.reserve(entities.size());
-    for (size_t i = 0; i < entities.size(); ++i) {
-        const WorldEntity& entity = entities[i];
-        drawList.push_back(DrawCall{
-            i,
-            camera.getDepth(entity.worldX, entity.worldY, entity.worldZ),
-            camera.worldToScreen(entity.worldX, entity.worldY, entity.worldZ)
-        });
-    }
-
-    std::sort(drawList.begin(), drawList.end(), [](const DrawCall& a, const DrawCall& b) {
-        return a.depth > b.depth;
-    });
-
-    const WorldEntity* focusedEntity = &entities[std::clamp(focusedEntityIndex, 0, static_cast<int>(entities.size() - 1))];
-
-    for (const DrawCall& call : drawList) {
-        const WorldEntity& entity = entities[call.index];
-        const float scale = camera.getPerspectiveScale(entity.worldX, entity.worldY, entity.worldZ);
-        const bool isFocused = (&entity == focusedEntity);
-        const float focusScale = isFocused ? 1.13f : 1.0f;
-
-        const int drawW = static_cast<int>(kSuggestedBaseSpriteWidth * scale * focusScale * (entity.isBoss ? 1.28f : 1.0f));
-        const int drawH = static_cast<int>(kSuggestedBaseSpriteHeight * scale * focusScale * (entity.isBoss ? 1.28f : 1.0f));
-        SDL_Rect dst{
-            static_cast<int>(call.screen.x) - drawW / 2,
-            static_cast<int>(call.screen.y) - drawH,
-            std::max(8, drawW),
-            std::max(8, drawH)
-        };
-
-        SDL_Texture* texture = nullptr;
-        const auto texIt = sceneRenderer.textureByAsset.find(entity.assetName);
-        if (texIt != sceneRenderer.textureByAsset.end()) {
-            texture = texIt->second;
-        }
-
-        if (texture != nullptr) {
-            int texW = 0;
-            int texH = 0;
-            SDL_QueryTexture(texture, nullptr, nullptr, &texW, &texH);
-            const int frameCount = texW / kSuggestedBaseSpriteWidth;
-            const bool isAnimated = (frameCount > 1) && (texW % kSuggestedBaseSpriteWidth == 0);
-            if (isAnimated) {
-                const int currentFrame = static_cast<int>(frameAccumulator / kSpriteFrameTime) % frameCount;
-                SDL_Rect srcRect{currentFrame * kSuggestedBaseSpriteWidth, 0, kSuggestedBaseSpriteWidth, texH};
-                SDL_RenderCopy(sceneRenderer.renderer, texture, &srcRect, &dst);
-            } else {
-                SDL_RenderCopy(sceneRenderer.renderer, texture, nullptr, &dst);
-            }
-        } else {
-            SDL_SetRenderDrawColor(sceneRenderer.renderer, entity.fallbackColor.r, entity.fallbackColor.g, entity.fallbackColor.b, 255);
-            SDL_RenderFillRect(sceneRenderer.renderer, &dst);
-            SDL_SetRenderDrawColor(sceneRenderer.renderer, 16, 16, 20, 255);
-            SDL_RenderDrawRect(sceneRenderer.renderer, &dst);
-        }
-
-        if (isFocused) {
-            SDL_SetRenderDrawColor(sceneRenderer.renderer, 250, 230, 96, 255);
-            SDL_Rect ring{dst.x - 6, dst.y - 6, dst.w + 12, dst.h + 12};
-            SDL_RenderDrawRect(sceneRenderer.renderer, &ring);
-        }
-    }
-
-    SDL_RenderPresent(sceneRenderer.renderer);
-}
-
-bool SoftwareSceneRenderer::initialize(int newWidth, int newHeight, const std::vector<std::string>& assetNames) {
-    destroy();
-
-    width = newWidth;
-    height = newHeight;
-    loadedAssets = assetNames;
-
-    surface = SDL_CreateRGBSurfaceWithFormat(0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
-    if (surface == nullptr) {
-        std::cerr << "Failed to create software surface: " << SDL_GetError() << "\n";
-        return false;
-    }
-
-    renderer = SDL_CreateSoftwareRenderer(surface);
-    if (renderer == nullptr) {
-        std::cerr << "Failed to create software renderer: " << SDL_GetError() << "\n";
-        destroy();
-        return false;
-    }
-
-    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-    floorTileTexture = createFloorTileTexture(renderer);
-
-    for (const std::string& assetName : loadedAssets) {
-        const auto loaded = tryLoadTexture(renderer, assetName);
-        textureByAsset[assetName] = loaded.has_value() ? *loaded : nullptr;
-    }
-
-    return true;
-}
-
-GLuint compileShader(GLenum type, const char* source) {
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, nullptr);
-    glCompileShader(shader);
-
-    GLint status = GL_FALSE;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-    if (status == GL_TRUE) {
-        return shader;
-    }
-
-    GLint logLength = 0;
-    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
-    std::string log(static_cast<size_t>(std::max(1, logLength)), '\0');
-    glGetShaderInfoLog(shader, logLength, nullptr, log.data());
-    std::cerr << "Shader compilation failed: " << log << "\n";
-    glDeleteShader(shader);
-    return 0;
-}
-
-bool GlScreenBlitter::initialize() {
-    static const char* kVertexShader = R"(
-        #version 330 core
-        layout (location = 0) in vec2 in_position;
-        layout (location = 1) in vec2 in_uv;
-        out vec2 frag_uv;
-        void main() {
-            frag_uv = in_uv;
-            gl_Position = vec4(in_position, 0.0, 1.0);
-        }
-    )";
-
-    static const char* kFragmentShader = R"(
-        #version 330 core
-        in vec2 frag_uv;
-        uniform sampler2D scene_texture;
-        out vec4 out_color;
-        void main() {
-            out_color = texture(scene_texture, frag_uv);
-        }
-    )";
-
-    vertexShader = compileShader(GL_VERTEX_SHADER, kVertexShader);
-    fragmentShader = compileShader(GL_FRAGMENT_SHADER, kFragmentShader);
-    if (vertexShader == 0 || fragmentShader == 0) {
-        return false;
-    }
-
-    program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragmentShader);
-    glLinkProgram(program);
-
-    GLint linkStatus = GL_FALSE;
-    glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
-    if (linkStatus != GL_TRUE) {
-        GLint logLength = 0;
-        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
-        std::string log(static_cast<size_t>(std::max(1, logLength)), '\0');
-        glGetProgramInfoLog(program, logLength, nullptr, log.data());
-        std::cerr << "Program link failed: " << log << "\n";
-        destroy();
-        return false;
-    }
-
-    const float quadVertices[] = {
-        -1.0f, -1.0f, 0.0f, 1.0f,
-         1.0f, -1.0f, 1.0f, 1.0f,
-        -1.0f,  1.0f, 0.0f, 0.0f,
-         1.0f,  1.0f, 1.0f, 0.0f
-    };
-
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), reinterpret_cast<void*>(0));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), reinterpret_cast<void*>(2 * sizeof(float)));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    return true;
-}
-
-void GlScreenBlitter::destroy() {
-    if (texture != 0) {
-        glDeleteTextures(1, &texture);
-        texture = 0;
-    }
-    if (vbo != 0) {
-        glDeleteBuffers(1, &vbo);
-        vbo = 0;
-    }
-    if (vao != 0) {
-        glDeleteVertexArrays(1, &vao);
-        vao = 0;
-    }
-    if (program != 0) {
-        glDeleteProgram(program);
-        program = 0;
-    }
-    if (vertexShader != 0) {
-        glDeleteShader(vertexShader);
-        vertexShader = 0;
-    }
-    if (fragmentShader != 0) {
-        glDeleteShader(fragmentShader);
-        fragmentShader = 0;
-    }
-    textureWidth = 0;
-    textureHeight = 0;
-}
-
-void GlScreenBlitter::ensureTextureSize(int width, int height) {
-    if (textureWidth == width && textureHeight == height) {
-        return;
-    }
-
-    textureWidth = width;
-    textureHeight = height;
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
-
-void GlScreenBlitter::uploadSurface(SDL_Surface* surface) {
-    if (surface == nullptr) {
-        return;
-    }
-
-    ensureTextureSize(surface->w, surface->h);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, surface->w, surface->h, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
-    glBindTexture(GL_TEXTURE_2D, 0);
-}
-
-void GlScreenBlitter::draw() {
-    glDisable(GL_BLEND);
-    glUseProgram(program);
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glUniform1i(glGetUniformLocation(program, "scene_texture"), 0);
-    glBindVertexArray(vao);
-    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glBindVertexArray(0);
-    glBindTexture(GL_TEXTURE_2D, 0);
-    glUseProgram(0);
 }
 
 class RenderInterfaceGL3SDL final : public RenderInterface_GL3 {
@@ -1344,6 +753,13 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    const auto destroyNativeRenderers = [&](SoftwareSceneRenderer* sceneRenderer = nullptr) {
+        if (sceneRenderer != nullptr) {
+            sceneRenderer->destroy();
+        }
+        screenBlitter.destroy();
+    };
+
     SystemInterface_SDL systemInterface;
     systemInterface.SetWindow(window);
     RenderInterfaceGL3SDL renderInterface;
@@ -1367,7 +783,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    const std::string fontPath = findFontPath();
+    const std::string fontPath = platform::path::findFontPath();
     if (!fontPath.empty()) {
         Rml::LoadFontFace(fontPath);
     }
@@ -1375,6 +791,7 @@ int main(int argc, char** argv) {
     battle::BattleManager manager;
     if (!manager.initialize(bossKey, partyKeys)) {
         std::cerr << "[Battle] Initialization failed.\n";
+        destroyNativeRenderers();
         Rml::Shutdown();
         RmlGL3::Shutdown();
         SDL_GL_DeleteContext(glContext);
@@ -1387,6 +804,7 @@ int main(int argc, char** argv) {
     TutorialScriptLibrary tutorialLibrary;
     if (!loadTutorialScriptLibrary(tutorialLibrary)) {
         std::cerr << "Failed to load tutorial script: assets/vn/json/demo.json\n";
+        destroyNativeRenderers();
         Rml::Shutdown();
         RmlGL3::Shutdown();
         SDL_GL_DeleteContext(glContext);
@@ -1402,7 +820,8 @@ int main(int argc, char** argv) {
     worldAssets.push_back(state.boss.assets);
 
     SoftwareSceneRenderer sceneRenderer;
-    if (!sceneRenderer.initialize(kWindowWidth, kWindowHeight, worldAssets)) {
+    if (!sceneRenderer.initialize(kWindowWidth, kWindowHeight, worldAssets, resolveBattleSpritePath)) {
+        destroyNativeRenderers(&sceneRenderer);
         Rml::Shutdown();
         RmlGL3::Shutdown();
         SDL_GL_DeleteContext(glContext);
@@ -1417,19 +836,19 @@ int main(int argc, char** argv) {
         state.party.front().key,
         state.party.front().assets,
         false,
-        kDuelCharacterSlotX,
-        kDuelCharacterBaseY,
+        battle::render::kDuelCharacterSlotX,
+        battle::render::kDuelCharacterBaseY,
         0.0f,
-        colorFromKey(state.party.front().key, false)
+        battle::render::colorFromKey(state.party.front().key, false)
     });
     entities.push_back(WorldEntity{
         state.boss.key,
         state.boss.assets,
         true,
-        kDuelBossSlotX,
-        kDuelCharacterBaseY + kBossCharacterDistanceWorld,
+        battle::render::kDuelBossSlotX,
+        battle::render::kDuelCharacterBaseY + battle::render::kBossCharacterDistanceWorld,
         0.0f,
-        colorFromKey(state.boss.key, true)
+        battle::render::colorFromKey(state.boss.key, true)
     });
 
     int windowWidth = kWindowWidth;
@@ -1438,6 +857,7 @@ int main(int argc, char** argv) {
     Rml::Context* context = Rml::CreateContext("battle-smoke", Rml::Vector2i(windowWidth, windowHeight));
     if (context == nullptr) {
         std::cerr << "Failed to create RmlUi context\n";
+        destroyNativeRenderers(&sceneRenderer);
         Rml::Shutdown();
         RmlGL3::Shutdown();
         SDL_GL_DeleteContext(glContext);
@@ -1446,10 +866,11 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    const std::string documentPath = resolvePath("assets/rmlui/battle_hud.rml");
+    const std::string documentPath = platform::path::resolvePath("assets/rmlui/battle_hud.rml");
     Rml::ElementDocument* document = context->LoadDocument(documentPath);
     if (document == nullptr) {
         std::cerr << "Failed to load RmlUi document: " << documentPath << "\n";
+        destroyNativeRenderers(&sceneRenderer);
         Rml::Shutdown();
         RmlGL3::Shutdown();
         SDL_GL_DeleteContext(glContext);
@@ -1485,7 +906,7 @@ int main(int argc, char** argv) {
     };
 
     const auto maybeStartTutorial = [&](Uint64 nowMs) {
-        if (rhythmChallenge.active || tutorialOverlay.step != TutorialStep::None) {
+        if (tutorialOverlay.dismissed || rhythmChallenge.active || tutorialOverlay.step != TutorialStep::None) {
             return;
         }
 
@@ -1651,13 +1072,13 @@ int main(int argc, char** argv) {
         consumeBattleActionEvents(hudFeedback, manager, SDL_GetTicks64());
         maybeStartTutorial(SDL_GetTicks64());
         if (tutorialOverlay.step != TutorialStep::None && !tutorialOverlay.audioPlayed && !tutorialOverlay.entry.voice.empty()) {
-            if (playWavOneShot(resolvePath(tutorialOverlay.entry.voice))) {
+            if (gOneShotAudio.playWavOneShot(platform::path::resolvePath(tutorialOverlay.entry.voice))) {
                 tutorialOverlay.audioPlayed = true;
             }
         }
 
         tickHudFeedback(hudFeedback, SDL_GetTicks64());
-        cleanupFinishedOneShotAudio();
+        gOneShotAudio.cleanupFinishedPlayback();
 
         const Uint64 currentTime = SDL_GetTicks64();
         const float deltaTime = (currentTime - lastFrameTime) / 1000.0f;
@@ -1677,12 +1098,22 @@ int main(int argc, char** argv) {
 
             RmlSDL::InputEventHandler(context, window, event);
 
-            if (event.type == SDL_KEYDOWN) {
+            const bool isRepeatedKeydown = event.type == SDL_KEYDOWN && event.key.repeat != 0;
+            if (event.type == SDL_KEYDOWN && !isRepeatedKeydown) {
                 if (event.key.keysym.sym == SDLK_f) {
                     freeViewEnabled = !freeViewEnabled;
                     if (!freeViewEnabled) {
                         applyGoalCamera(camera);
                     }
+                } else if (event.key.keysym.sym == SDLK_BACKSPACE && tutorialOverlay.step != TutorialStep::None) {
+                    tutorialOverlay.standardShown = true;
+                    tutorialOverlay.skillShown = true;
+                    tutorialOverlay.ultimateShown = true;
+                    tutorialOverlay.dismissed = true;
+                    tutorialOverlay.step = TutorialStep::None;
+                    tutorialOverlay.entry = vn::ScriptEntry{};
+                    tutorialOverlay.startedMs = 0;
+                    tutorialOverlay.audioPlayed = false;
                 } else if (rhythmChallenge.active) {
                     if (event.key.keysym.sym == SDLK_e) {
                         const Uint64 hitTime = SDL_GetTicks64();
@@ -1706,12 +1137,20 @@ int main(int argc, char** argv) {
             }
 
             if (isWindowResizeEvent(event)) {
-                SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+                int resizedWidth = 0;
+                int resizedHeight = 0;
+                SDL_GetWindowSize(window, &resizedWidth, &resizedHeight);
+                if (resizedWidth <= 0 || resizedHeight <= 0) {
+                    continue;
+                }
+
+                windowWidth = resizedWidth;
+                windowHeight = resizedHeight;
                 renderInterface.SetViewport(windowWidth, windowHeight);
                 context->SetDimensions(Rml::Vector2i(windowWidth, windowHeight));
                 camera.screenCenterX = windowWidth * 0.5f;
                 camera.screenCenterY = windowHeight * 0.5f;
-                if (!sceneRenderer.initialize(windowWidth, windowHeight, worldAssets)) {
+                if (!sceneRenderer.initialize(windowWidth, windowHeight, worldAssets, resolveBattleSpritePath)) {
                     running = false;
                     break;
                 }
@@ -1743,7 +1182,7 @@ int main(int argc, char** argv) {
                     const battle::CharacterDefinition& currentChar = state.party[static_cast<size_t>(actor.partyIndex)];
                     entities[0].key = currentChar.key;
                     entities[0].assetName = currentChar.assets;
-                    entities[0].fallbackColor = colorFromKey(currentChar.key, false);
+                    entities[0].fallbackColor = battle::render::colorFromKey(currentChar.key, false);
                 }
             }
         }
@@ -1783,7 +1222,7 @@ int main(int argc, char** argv) {
             }
         }
 
-        renderBattleScene(sceneRenderer, camera, entities, nextIsCharacter ? 0 : 1, frameAccumulator);
+        battle::render::renderBattleScene(sceneRenderer, camera, entities, nextIsCharacter ? 0 : 1, frameAccumulator);
         screenBlitter.uploadSurface(sceneRenderer.surface);
 
         updateBattleHudDocument(document, manager, hudFeedback, tutorialOverlay, rhythmChallenge, currentTime);
@@ -1802,7 +1241,8 @@ int main(int argc, char** argv) {
     }
 
     document->Close();
-    shutdownOneShotAudio();
+    gOneShotAudio.shutdown();
+    destroyNativeRenderers(&sceneRenderer);
     Rml::Shutdown();
     RmlGL3::Shutdown();
 #ifdef BATTLE_ENABLE_IMAGE

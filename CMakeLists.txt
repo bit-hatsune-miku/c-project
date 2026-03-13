@@ -125,6 +125,7 @@ if (ENABLE_RMLUI)
         src/game/vn/vn_script.cpp
         ${RMLUI_APP_BATTLE_SOURCES}
         ${BATTLE_CORE_SOURCES}
+        ${BATTLE_PRESENTATION_SOURCES}
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
     )
@@ -154,10 +155,6 @@ if (ENABLE_RMLUI)
         target_compile_definitions(battle_testing PRIVATE BATTLE_ENABLE_IMAGE=1)
         target_link_libraries(battle_testing PRIVATE ${SDL2_IMAGE_LIBRARIES})
     endif()
-    set_target_properties(battle_testing PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
-    )
-
     add_executable(battle_testing_legacy
         src/battle_main.cpp
         src/window.cpp
