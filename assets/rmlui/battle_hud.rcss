@@ -444,10 +444,149 @@ body {
     text-align: center;
 }
 
+.battle-tutorial {
+    position: absolute;
+    left: 50%;
+    bottom: 42px;
+    width: 1200px;
+    height: 198px;
+    margin-left: -600px;
+    opacity: 0;
+    display: none;
+}
+
+.battle-tutorial.visible {
+    display: block;
+    opacity: 1;
+}
+
+.battle-tutorial-speaker {
+    position: absolute;
+    top: 0;
+    left: 50%;
+    width: 220px;
+    margin-left: -110px;
+    color: #f5f4f1;
+    font-size: 22px;
+    text-align: center;
+}
+
+.battle-tutorial-card {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 160px;
+    background-color: rgba(5, 10, 18, 218);
+    border: 1px #d5dde8;
+    overflow: hidden;
+}
+
+.battle-tutorial-portrait {
+    position: absolute;
+    left: 18px;
+    bottom: 18px;
+    width: 126px;
+    height: 126px;
+    background-color: rgba(10, 14, 24, 230);
+    overflow: hidden;
+}
+
+.battle-tutorial-copy {
+    position: absolute;
+    left: 176px;
+    right: 24px;
+    top: 22px;
+    bottom: 22px;
+}
+
+.battle-tutorial-text {
+    color: #f5f4ef;
+    font-size: 27px;
+    line-height: 34px;
+}
+
+.battle-rhythm-lane {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 36px;
+    background-color: rgba(18, 30, 50, 210);
+    border: 1px #406188;
+}
+
+.battle-rhythm {
+    position: absolute;
+    left: 50%;
+    bottom: 44px;
+    width: 384px;
+    height: 148px;
+    margin-left: -192px;
+    padding: 14px 18px;
+    background-color: rgba(11, 16, 28, 238);
+    border: 1px #f0cd4d;
+    box-shadow: 0 0 30px rgba(240, 205, 77, 28);
+    opacity: 0;
+    display: none;
+}
+
+.battle-rhythm.visible {
+    display: block;
+    opacity: 1;
+}
+
+.battle-rhythm-kicker {
+    display: block;
+    color: #f0cd4d;
+    font-size: 11px;
+    letter-spacing: 3px;
+}
+
+.battle-rhythm-title {
+    display: none;
+}
+
+.battle-rhythm-body {
+    display: block;
+    clear: both;
+    margin-top: 10px;
+    color: #c3d1e4;
+    font-size: 14px;
+    letter-spacing: 1px;
+}
+
+.battle-rhythm .battle-rhythm-lane {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 18px;
+}
+
+.battle-rhythm-window {
+    position: absolute;
+    left: 206px;
+    top: 4px;
+    width: 62px;
+    height: 26px;
+    background-color: rgba(240, 205, 77, 70);
+    border: 1px #f0cd4d;
+}
+
+.battle-rhythm-pulse {
+    position: absolute;
+    left: 0;
+    top: 2px;
+    width: 18px;
+    height: 30px;
+    background-color: #47d7ff;
+    box-shadow: 0 0 16px rgba(71, 215, 255, 62);
+}
+
 .battle-toast {
     position: absolute;
     left: 50%;
-    bottom: 236px;
+    bottom: 216px;
     width: 360px;
     margin-left: -180px;
     padding: 12px 18px;
@@ -465,4 +604,235 @@ body {
     display: block;
     animation: 0.16s cubic-in-out toast-rise;
     opacity: 1;
+}
+
+.battle-pause {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(4, 8, 16, 160);
+}
+
+.battle-pause.visible {
+    display: block;
+}
+
+.battle-pause-shell {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 92px;
+    width: 620px;
+    margin-left: auto;
+    margin-right: auto;
+    padding: 22px 28px 28px 28px;
+    background-color: rgba(8, 16, 28, 230);
+    border: 1px #b36a38;
+    box-shadow: 0 0 22px rgba(255, 124, 61, 38);
+    overflow: visible;
+}
+
+.battle-pause-kicker {
+    display: block;
+    width: 100%;
+    color: #f0cd4d;
+    font-size: 13px;
+    letter-spacing: 4px;
+}
+
+.battle-pause-title {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    color: #fff3e2;
+    font-size: 34px;
+    letter-spacing: 3px;
+}
+
+.battle-pause-hint {
+    display: block;
+    width: 100%;
+    margin-top: 8px;
+    color: #a9c5e6;
+    font-size: 14px;
+    letter-spacing: 1px;
+    line-height: 20px;
+}
+
+.battle-pause-menu {
+    display: none;
+    margin-top: 26px;
+}
+
+.battle-pause-menu.visible {
+    display: block;
+}
+
+.battle-pause-button {
+    display: block;
+    position: relative;
+    height: 58px;
+    padding: 16px 18px 0 18px;
+    color: #d7e4f2;
+    background-color: rgba(24, 38, 58, 210);
+    border: 1px #3f5e80;
+    font-size: 18px;
+    letter-spacing: 2px;
+    line-height: 24px;
+}
+
+.battle-pause-button + .battle-pause-button {
+    margin-top: -1px;
+}
+
+.battle-pause-button.selected {
+    color: #121927;
+    background-color: #f0cd4d;
+    border: 1px #fff2b3;
+}
+
+.battle-pause-button:hover {
+    color: #121927;
+    background-color: rgba(240, 205, 77, 220);
+    border: 1px #fff2b3;
+}
+
+.battle-pause-settings {
+    display: none;
+    margin-top: 26px;
+}
+
+.battle-pause-settings.visible {
+    display: block;
+}
+
+.battle-settings-row {
+    position: relative;
+    display: block;
+    height: 64px;
+    padding: 0;
+    background-color: rgba(18, 30, 48, 220);
+    border: 1px #35506f;
+}
+
+.battle-settings-row + .battle-settings-row {
+    margin-top: -1px;
+}
+
+.battle-settings-row.selected {
+    background-color: #f0cd4d;
+    border: 1px #fff2b3;
+}
+
+.battle-settings-row:hover {
+    background-color: rgba(240, 205, 77, 220);
+    border: 1px #fff2b3;
+}
+
+#battle-settings-row-voice,
+#battle-settings-row-text {
+    height: 84px;
+}
+
+.battle-settings-label {
+    position: absolute;
+    left: 18px;
+    top: 17px;
+    color: #d9e7f6;
+    font-size: 17px;
+    letter-spacing: 2px;
+}
+
+.battle-settings-row.selected .battle-settings-label {
+    color: #101724;
+}
+
+.battle-settings-row:hover .battle-settings-label {
+    color: #101724;
+}
+
+.battle-settings-value {
+    position: absolute;
+    right: 18px;
+    top: 18px;
+    color: #ffffff;
+    font-size: 16px;
+    letter-spacing: 1px;
+    text-align: right;
+}
+
+.battle-settings-row.selected .battle-settings-value {
+    color: #101724;
+}
+
+.battle-settings-row:hover .battle-settings-value {
+    color: #101724;
+}
+
+.battle-settings-slider {
+    position: absolute;
+    left: 18px;
+    right: 18px;
+    bottom: 12px;
+    height: 12px;
+}
+
+input.battle-settings-slider {
+    width: auto;
+    background: transparent;
+}
+
+input.battle-settings-slider slidertrack {
+    margin-top: 4px;
+    height: 4px;
+    background-color: #273a55;
+    border: 0;
+}
+
+input.battle-settings-slider sliderprogress {
+    margin-top: 4px;
+    height: 4px;
+    background-color: #f0cd4d;
+}
+
+.battle-settings-row.selected input.battle-settings-slider slidertrack,
+.battle-settings-row:hover input.battle-settings-slider slidertrack {
+    background-color: rgba(255, 255, 255, 38);
+}
+
+.battle-settings-row.selected input.battle-settings-slider sliderprogress,
+.battle-settings-row:hover input.battle-settings-slider sliderprogress {
+    background-color: #fff9ec;
+}
+
+input.battle-settings-slider sliderbar {
+    width: 8px;
+    height: 12px;
+    margin-left: -4px;
+    margin-right: -4px;
+    margin-top: 0;
+    background-color: #f0cd4d;
+    border: 0;
+    border-radius: 0;
+}
+
+.battle-settings-row.selected input.battle-settings-slider sliderbar,
+.battle-settings-row:hover input.battle-settings-slider sliderbar {
+    background-color: #fffdf7;
+}
+
+input.battle-settings-slider sliderbar:hover {
+    background-color: #ffe17f;
+}
+
+input.battle-settings-slider sliderbar:active {
+    background-color: #fff1b2;
+}
+
+input.battle-settings-slider sliderarrowdec,
+input.battle-settings-slider sliderarrowinc {
+    display: none;
 }

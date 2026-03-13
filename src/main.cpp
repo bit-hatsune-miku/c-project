@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <cmath>
 #include <filesystem>
 #include <iostream>
@@ -18,7 +19,7 @@
 #include "GameMenu/menu_shared.h"
 #include "Settings/settings.h"
 #include "window.h"
-#include "game/demo_battle_session.h"
+#include "game/app_battle_session.h"
 #include "game/vn/vn_system.h"
 
 constexpr const char* kChapterScriptPath = "assets/vn/json/ch0.json";
@@ -590,6 +591,39 @@ void beginBattleDemo(AppState& state) {
     state.screen = ScreenState::BattleDemo;
 }
 
+std::string shellQuote(const std::string& value) {
+    std::string escaped = "\"";
+    for (char c : value) {
+        if (c == '"' || c == '\\') {
+            escaped.push_back('\\');
+        }
+        escaped.push_back(c);
+    }
+    escaped.push_back('"');
+    return escaped;
+}
+
+int launchDefaultBattleMode(int argc, char** argv) {
+    std::filesystem::path executablePath = std::filesystem::absolute(argv[0]);
+    const std::string siblingName =
+#ifdef _WIN32
+        "battle_testing.exe";
+#else
+        "battle_testing";
+#endif
+    const std::filesystem::path battlePath = executablePath.parent_path() / siblingName;
+    if (!std::filesystem::exists(battlePath)) {
+        std::cerr << "Default battle executable not found: " << battlePath << "\n";
+        return 1;
+    }
+
+    std::string command = shellQuote(battlePath.string());
+    for (int i = 3; i < argc; ++i) {
+        command += " " + shellQuote(argv[i]);
+    }
+    return std::system(command.c_str());
+}
+
 void destroyMenuResources(MenuResources& resources) {
     if (resources.background != nullptr) {
         SDL_DestroyTexture(resources.background);
@@ -628,7 +662,40 @@ void destroyMenuResources(MenuResources& resources) {
 #endif
 }
 
-int main() {
+void loadMenuResources(MenuResources& resources, SDL_Renderer* renderer) {
+    resources.background = loadTexture(renderer, resolvePath(kMainMenuArtPath));
+    resources.menuCanvas = createRenderTarget(renderer, kReferenceWidth, kReferenceHeight, kMenuCanvasScale);
+    resources.titleLogo = loadTexture(renderer, resolvePath(kMainMenuTitlePath));
+#ifdef VN_ENABLE_TTF
+    resources.titleFont = openBestAvailableFont({}, 52);
+    resources.subtitleFont = openBestAvailableFont({}, 28);
+    resources.itemFont = openBestAvailableFont({}, 30);
+    resources.smallFont = openBestAvailableFont({}, 18);
+    resources.tinyFont = openBestAvailableFont({}, 14);
+    if (resources.titleFont == nullptr || resources.itemFont == nullptr || resources.smallFont == nullptr) {
+        std::cerr << "Menu font loading failed; UI text may be missing.\n";
+    }
+#endif
+}
+
+bool restoreRendererUi(Window& window, MenuResources& menuResources, const GameSettings& settings) {
+    if (!window.enableRenderer()) {
+        return false;
+    }
+    if (!vn::initialize(window.getRenderer(), window.getWidth(), window.getHeight())) {
+        return false;
+    }
+    vn::setVoiceVolume(settings.voiceVolume);
+    vn::setTypewriterSpeed(settings.textSpeed);
+    loadMenuResources(menuResources, window.getRenderer());
+    return true;
+}
+
+int main(int argc, char** argv) {
+    if (argc >= 3 && std::string(argv[1]) == "battle" && std::string(argv[2]) == "mode") {
+        return launchDefaultBattleMode(argc, argv);
+    }
+
     Window window("Hatsune Miku: Our Underground BIT Idol", 1280, 720);
     if (!window.isOpen()) {
         std::cerr << "Failed to initialize window\n";
@@ -648,22 +715,9 @@ int main() {
     vn::setTypewriterSpeed(state.settings.textSpeed);
 
     MenuResources menuResources;
-    menuResources.background = loadTexture(window.getRenderer(), resolvePath(kMainMenuArtPath));
-    menuResources.menuCanvas = createRenderTarget(window.getRenderer(), kReferenceWidth, kReferenceHeight, kMenuCanvasScale);
-    menuResources.titleLogo = loadTexture(window.getRenderer(), resolvePath(kMainMenuTitlePath));
+    loadMenuResources(menuResources, window.getRenderer());
     SettingsMenuController settingsMenu;
-    std::unique_ptr<battle::demo::Session> battleSession;
-
-#ifdef VN_ENABLE_TTF
-    menuResources.titleFont = openBestAvailableFont({}, 52);
-    menuResources.subtitleFont = openBestAvailableFont({}, 28);
-    menuResources.itemFont = openBestAvailableFont({}, 30);
-    menuResources.smallFont = openBestAvailableFont({}, 18);
-    menuResources.tinyFont = openBestAvailableFont({}, 14);
-    if (menuResources.titleFont == nullptr || menuResources.itemFont == nullptr || menuResources.smallFont == nullptr) {
-        std::cerr << "Menu font loading failed; UI text may be missing.\n";
-    }
-#endif
+    std::unique_ptr<battle::app::Session> battleSession;
 
     Uint64 lastCounter = SDL_GetPerformanceCounter();
 
@@ -672,7 +726,8 @@ int main() {
         while (SDL_PollEvent(&event)) {
             window.handleEvent(event);
 
-            if (event.type == SDL_WINDOWEVENT &&
+            if (window.getRenderer() != nullptr &&
+                event.type == SDL_WINDOWEVENT &&
                 (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED || event.window.event == SDL_WINDOWEVENT_RESIZED)) {
                 vn::setViewportSize(window.getWidth(), window.getHeight());
             }
@@ -691,9 +746,7 @@ int main() {
                     break;
 
                 case ScreenState::BattleDemo:
-                    if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
-                        openPauseMenu(state, PauseContext::Battle);
-                    } else if (battleSession != nullptr) {
+                    if (battleSession != nullptr) {
                         battleSession->handleEvent(event);
                     }
                     break;
@@ -721,9 +774,23 @@ int main() {
         }
 
         if (state.screen == ScreenState::BattleDemo && battleSession == nullptr) {
-            battleSession = std::make_unique<battle::demo::Session>();
-            if (!battleSession->initialize(window.getRenderer())) {
+            destroyMenuResources(menuResources);
+            vn::shutdown();
+            if (!window.enableOpenGL()) {
+                state.screen = ScreenState::MainMenu;
+                state.pauseContext = PauseContext::Story;
+                state.mainSelection = MainMenuAction::Battle;
+                state.noticeText = "Battle backend failed to load.";
+                state.noticeTimer = 2.8f;
+            } else {
+                battleSession = std::make_unique<battle::app::Session>();
+            }
+            if (battleSession != nullptr && !battleSession->initialize(window, state.settings)) {
                 battleSession.reset();
+                if (!restoreRendererUi(window, menuResources, state.settings)) {
+                    std::cerr << "Failed to restore renderer UI after battle load failure\n";
+                    return 1;
+                }
                 state.screen = ScreenState::MainMenu;
                 state.pauseContext = PauseContext::Story;
                 state.mainSelection = MainMenuAction::Battle;
@@ -735,6 +802,10 @@ int main() {
         if (state.screen == ScreenState::MainMenu && battleSession != nullptr) {
             battleSession->shutdown();
             battleSession.reset();
+            if (!restoreRendererUi(window, menuResources, state.settings)) {
+                std::cerr << "Failed to restore renderer UI\n";
+                return 1;
+            }
             state.pauseContext = PauseContext::Story;
         }
 
@@ -765,6 +836,10 @@ int main() {
                 if (battleSession->isFinished()) {
                     battleSession->shutdown();
                     battleSession.reset();
+                    if (!restoreRendererUi(window, menuResources, state.settings)) {
+                        std::cerr << "Failed to restore renderer UI\n";
+                        return 1;
+                    }
                     state.screen = ScreenState::MainMenu;
                     state.pauseContext = PauseContext::Story;
                     state.mainSelection = MainMenuAction::Battle;
@@ -786,7 +861,9 @@ int main() {
             }
         }
 
-        window.clear(14, 18, 30, 255);
+        if (window.getRenderer() != nullptr) {
+            window.clear(14, 18, 30, 255);
+        }
 
         const bool renderStoryBackdrop =
             state.screen == ScreenState::Playing ||
@@ -813,7 +890,7 @@ int main() {
                                     window.getWidth(), window.getHeight(), true);
             }
         } else if (renderBattleBackdrop) {
-            battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
+            battleSession->render();
             if (state.screen == ScreenState::PauseMenu || state.screen == ScreenState::PauseConfirmExit) {
                 renderPauseScreen(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
             } else if (state.screen == ScreenState::Settings && state.settingsReturnScreen == ScreenState::PauseMenu) {
@@ -824,7 +901,7 @@ int main() {
             settingsMenu.render(window.getRenderer(), menuResources, state,
                                 window.getWidth(), window.getHeight(), false);
         } else if (state.screen == ScreenState::BattleDemo && battleSession != nullptr) {
-            battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
+            battleSession->render();
         } else {
             renderMainMenu(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
         }

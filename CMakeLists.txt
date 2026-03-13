@@ -4,7 +4,7 @@ project(OurUndergroundBITIdol CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-option(ENABLE_RMLUI "Fetch and build RmlUi for the upcoming HUD migration." OFF)
+option(ENABLE_RMLUI "Fetch and build the default RmlUi battle experience." ON)
 
 if(POLICY CMP0135)
     cmake_policy(SET CMP0135 NEW)
@@ -70,6 +70,11 @@ set(BATTLE_DEMO_SOURCES
     src/game/demo_battle_session.h
 )
 
+set(RMLUI_APP_BATTLE_SOURCES
+    src/game/app_battle_session.cpp
+    src/game/app_battle_session.h
+)
+
 set(HEADERS
     src/GameMenu/menu_shared.h
     src/Settings/settings.h
@@ -82,17 +87,8 @@ set(HEADERS
 add_executable(OurUndergroundBITIdol
     ${MAIN_APP_SOURCES}
     ${BATTLE_CORE_SOURCES}
-    ${BATTLE_DEMO_SOURCES}
     ${BATTLE_PRESENTATION_SOURCES}
     ${HEADERS}
-)
-
-add_executable(battle_testing
-    src/battle_main.cpp
-    src/window.cpp
-    src/window.h
-    ${BATTLE_CORE_SOURCES}
-    ${BATTLE_PRESENTATION_SOURCES}
 )
 
 add_executable(demo
@@ -122,42 +118,74 @@ if (ENABLE_RMLUI)
     )
     FetchContent_MakeAvailable(rmlui)
 
-    add_executable(battle_testing_rmlui
-        src/rmlui_battle_smoke.cpp
+    add_executable(battle_testing
+        src/rmlui_battle_main.cpp
+        src/window.cpp
+        src/window.h
+        src/game/vn/vn_script.cpp
+        ${RMLUI_APP_BATTLE_SOURCES}
         ${BATTLE_CORE_SOURCES}
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
     )
-    target_include_directories(battle_testing_rmlui PRIVATE
+    target_sources(OurUndergroundBITIdol PRIVATE
+        ${RMLUI_APP_BATTLE_SOURCES}
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
+    )
+    target_include_directories(battle_testing PRIVATE
         ${SDL2_INCLUDE_DIRS}
         ${rmlui_SOURCE_DIR}/Backends
     )
-    target_compile_definitions(battle_testing_rmlui PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
-    target_link_libraries(battle_testing_rmlui PRIVATE
+    target_compile_definitions(battle_testing PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_link_libraries(battle_testing PRIVATE
         ${SDL2_LIBRARIES}
         OpenGL::GL
         nlohmann_json::nlohmann_json
         RmlUi::RmlUi
     )
     if (SDL2_TTF_FOUND)
-        target_include_directories(battle_testing_rmlui PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
-        target_compile_definitions(battle_testing_rmlui PRIVATE BATTLE_ENABLE_TTF=1)
-        target_link_libraries(battle_testing_rmlui PRIVATE ${SDL2_TTF_LIBRARIES})
+        target_include_directories(battle_testing PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
+        target_compile_definitions(battle_testing PRIVATE BATTLE_ENABLE_TTF=1)
+        target_link_libraries(battle_testing PRIVATE ${SDL2_TTF_LIBRARIES})
     endif()
     if (SDL2_IMAGE_FOUND)
-        target_include_directories(battle_testing_rmlui PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
-        target_compile_definitions(battle_testing_rmlui PRIVATE BATTLE_ENABLE_IMAGE=1)
-        target_link_libraries(battle_testing_rmlui PRIVATE ${SDL2_IMAGE_LIBRARIES})
+        target_include_directories(battle_testing PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+        target_compile_definitions(battle_testing PRIVATE BATTLE_ENABLE_IMAGE=1)
+        target_link_libraries(battle_testing PRIVATE ${SDL2_IMAGE_LIBRARIES})
     endif()
-    set_target_properties(battle_testing_rmlui PROPERTIES
+    set_target_properties(battle_testing PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
+
+    add_executable(battle_testing_legacy
+        src/battle_main.cpp
+        src/window.cpp
+        src/window.h
+        ${BATTLE_CORE_SOURCES}
+        ${BATTLE_PRESENTATION_SOURCES}
+    )
+else()
+    add_executable(battle_testing
+        src/battle_main.cpp
+        src/window.cpp
+        src/window.h
+        ${BATTLE_CORE_SOURCES}
+        ${BATTLE_PRESENTATION_SOURCES}
+    )
+    target_sources(OurUndergroundBITIdol PRIVATE ${BATTLE_DEMO_SOURCES})
 endif()
 
 # Include directories
 target_include_directories(OurUndergroundBITIdol PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(battle_testing PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(demo PRIVATE ${SDL2_INCLUDE_DIRS})
+if (ENABLE_RMLUI)
+    target_include_directories(OurUndergroundBITIdol PRIVATE ${rmlui_SOURCE_DIR}/Backends)
+endif()
+if (TARGET battle_testing_legacy)
+    target_include_directories(battle_testing_legacy PRIVATE ${SDL2_INCLUDE_DIRS})
+endif()
 if (SDL2_TTF_FOUND)
     target_include_directories(OurUndergroundBITIdol PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
     target_compile_definitions(OurUndergroundBITIdol PRIVATE BATTLE_ENABLE_TTF=1 VN_ENABLE_TTF=1)
@@ -165,6 +193,10 @@ if (SDL2_TTF_FOUND)
     target_compile_definitions(battle_testing PRIVATE BATTLE_ENABLE_TTF=1)
     target_include_directories(demo PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
     target_compile_definitions(demo PRIVATE BATTLE_ENABLE_TTF=1 VN_ENABLE_TTF=1)
+    if (TARGET battle_testing_legacy)
+        target_include_directories(battle_testing_legacy PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
+        target_compile_definitions(battle_testing_legacy PRIVATE BATTLE_ENABLE_TTF=1)
+    endif()
 endif()
 if (SDL2_IMAGE_FOUND)
     target_include_directories(OurUndergroundBITIdol PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
@@ -173,21 +205,44 @@ if (SDL2_IMAGE_FOUND)
     target_compile_definitions(battle_testing PRIVATE BATTLE_ENABLE_IMAGE=1)
     target_include_directories(demo PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
     target_compile_definitions(demo PRIVATE BATTLE_ENABLE_IMAGE=1 VN_ENABLE_IMAGE=1)
+    if (TARGET battle_testing_legacy)
+        target_include_directories(battle_testing_legacy PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+        target_compile_definitions(battle_testing_legacy PRIVATE BATTLE_ENABLE_IMAGE=1)
+    endif()
 endif()
 
 # Link libraries
 target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
-target_link_libraries(battle_testing PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 target_link_libraries(demo PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
+if (ENABLE_RMLUI)
+    target_compile_definitions(OurUndergroundBITIdol PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_link_libraries(OurUndergroundBITIdol PRIVATE OpenGL::GL RmlUi::RmlUi)
+endif()
+if (NOT ENABLE_RMLUI)
+    target_link_libraries(battle_testing PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
+endif()
+if (TARGET battle_testing_legacy)
+    target_link_libraries(battle_testing_legacy PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
+endif()
 if (SDL2_TTF_FOUND)
     target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_TTF_LIBRARIES})
-    target_link_libraries(battle_testing PRIVATE ${SDL2_TTF_LIBRARIES})
     target_link_libraries(demo PRIVATE ${SDL2_TTF_LIBRARIES})
+    if (NOT ENABLE_RMLUI)
+        target_link_libraries(battle_testing PRIVATE ${SDL2_TTF_LIBRARIES})
+    endif()
+    if (TARGET battle_testing_legacy)
+        target_link_libraries(battle_testing_legacy PRIVATE ${SDL2_TTF_LIBRARIES})
+    endif()
 endif()
 if (SDL2_IMAGE_FOUND)
     target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_IMAGE_LIBRARIES})
-    target_link_libraries(battle_testing PRIVATE ${SDL2_IMAGE_LIBRARIES})
     target_link_libraries(demo PRIVATE ${SDL2_IMAGE_LIBRARIES})
+    if (NOT ENABLE_RMLUI)
+        target_link_libraries(battle_testing PRIVATE ${SDL2_IMAGE_LIBRARIES})
+    endif()
+    if (TARGET battle_testing_legacy)
+        target_link_libraries(battle_testing_legacy PRIVATE ${SDL2_IMAGE_LIBRARIES})
+    endif()
 endif()
 
 # Output directory
@@ -198,6 +253,12 @@ set_target_properties(OurUndergroundBITIdol PROPERTIES
 set_target_properties(battle_testing PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
+
+if (TARGET battle_testing_legacy)
+    set_target_properties(battle_testing_legacy PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+endif()
 
 set_target_properties(demo PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
