@@ -1,9 +1,12 @@
 #include "ability_system.h"
 
 #include <algorithm>
+#include <utility>
 
 namespace battle::ability {
 namespace {
+
+PresentationInteractionRunner gPresentationInteractionRunner;
 
 int normalizeDamage(int value) {
     return std::max(1, value);
@@ -49,11 +52,14 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
 }
 
 float runPresentationInteraction(const PresentationContext& context) {
-    // TODO: In SDL mode, this will launch rhythm/parry mini-games
-    // and return the actual multiplier based on player performance.
-    // For now in testing mode, we auto-return 1.0x (no interaction).
-    (void)context;
+    if (gPresentationInteractionRunner) {
+        return gPresentationInteractionRunner(context);
+    }
     return 1.0f;
+}
+
+void setPresentationInteractionRunner(PresentationInteractionRunner runner) {
+    gPresentationInteractionRunner = std::move(runner);
 }
 
 } // namespace battle::ability
