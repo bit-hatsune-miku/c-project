@@ -72,7 +72,7 @@ cmake --build build
 - Scripted story playback with typewriter text and voice-volume/text-speed settings
 - Mouse and keyboard driven menu navigation
 - Hardware-accelerated rendering
-- Separate executable targets for the main VN app, battle test, and demo
+- Separate executable targets for the main VN app, the default RmlUi battle test, the legacy SDL battle test, and the scripted demo
 - Modular folder layout for shared menu code, settings UI, and gameplay systems
 
 ## Project Structure
@@ -83,7 +83,8 @@ cmake --build build
 │   ├── main.cpp           - App entry point, main loop, and shared UI helpers
 │   ├── window.cpp         - SDL window/renderer wrapper implementation
 │   ├── window.h           - SDL window/renderer wrapper interface
-│   ├── battle_main.cpp    - Battle test entry point
+│   ├── battle_main.cpp    - Legacy SDL battle test entry point
+│   ├── rmlui_battle_smoke.cpp - Default RmlUi battle entry point
 │   ├── demo.cpp           - Standalone wrapper for the shared demo battle flow
 │   ├── GameMenu/
 │   │   ├── main_menu.cpp          - Main menu rendering and input handling
@@ -114,3 +115,9 @@ cmake --build build
 - Rendering with hardware acceleration
 - Proper resource cleanup
 - CMake for cross-platform builds
+
+## Battle Entry Points
+
+- `./build/bin/battle_testing` launches the default RmlUi battle experience.
+- `./build/bin/battle_testing_legacy` launches the old SDL battle test directly.
+- `./build/bin/OurUndergroundBITIdol battle mode` forwards into the default battle executable.

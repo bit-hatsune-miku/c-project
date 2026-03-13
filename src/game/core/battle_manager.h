@@ -154,6 +154,22 @@ enum class BattleAction {
     Ultimate
 };
 
+struct BattleActionEvent {
+    ParticipantType actorType = ParticipantType::Character;
+    std::string actorKey;
+    std::string actorTitle;
+    int actorPartyIndex = -1;
+    BattleAction action = BattleAction::Standard;
+    std::string abilityId;
+    std::string abilityName;
+    InteractionType interactionType = InteractionType::None;
+    int bossHpBefore = 0;
+    int bossHpAfter = 0;
+    std::vector<int> targetPartyIndices;
+    std::vector<int> targetHpBefore;
+    std::vector<int> targetHpAfter;
+};
+
 class BattleManager {
 public:
     bool initialize(const std::string& bossKey, const std::vector<std::string>& characterKeys);
@@ -169,6 +185,8 @@ public:
     int getCharacterMaxHp(int partyIndex) const;
     int getCharacterUltimateCharge(int partyIndex) const;
     int getCharacterUltimateRequired(int partyIndex) const;
+    const std::vector<BattleActionEvent>& getRecentActionEvents() const;
+    void clearRecentActionEvents();
     bool isPlayerActionReady(BattleAction action) const;
     bool executePlayerAction(BattleAction action);
     bool executePlayerStandardTurn();
@@ -207,6 +225,7 @@ private:
     int simulatedActions_ = 0;
     bool initialized_ = false;
     std::unordered_map<std::string, AbilityDefinition> abilities_;
+    std::vector<BattleActionEvent> recentActionEvents_;
 };
 
 } // namespace battle

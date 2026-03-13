@@ -87,6 +87,7 @@ bool BattleManager::initialize(const std::string& bossKey, const std::vector<std
     bossCurrentHp_ = 0;
     bossUltimateCharge_ = 0;
     characters_.clear();
+    recentActionEvents_.clear();
     simulatedActions_ = 0;
 
     if (bossKey.empty()) {
@@ -236,6 +237,14 @@ int BattleManager::getCharacterUltimateRequired(int partyIndex) const {
         return 1;
     }
     return std::max(1, characters_[static_cast<size_t>(partyIndex)].definition().ultimatePoints);
+}
+
+const std::vector<BattleActionEvent>& BattleManager::getRecentActionEvents() const {
+    return recentActionEvents_;
+}
+
+void BattleManager::clearRecentActionEvents() {
+    recentActionEvents_.clear();
 }
 
 bool BattleManager::isPlayerActionReady(BattleAction action) const {
@@ -602,6 +611,17 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
         (action == BattleAction::Skill) ? character.definition().skillAbility :
         character.definition().ultimate;
     const AbilityDefinition* abilityDef = getAbility(abilityId);
+    BattleActionEvent actionEvent;
+    actionEvent.actorType = ParticipantType::Character;
+    actionEvent.actorKey = character.definition().key;
+    actionEvent.actorTitle = character.definition().title;
+    actionEvent.actorPartyIndex = character.partyIndex();
+    actionEvent.action = action;
+    actionEvent.abilityId = abilityId;
+    actionEvent.abilityName = abilityDef != nullptr ? abilityDef->name : abilityId;
+    actionEvent.interactionType = abilityDef != nullptr ? abilityDef->interactionType : InteractionType::None;
+    actionEvent.bossHpBefore = bossCurrentHp_;
+    actionEvent.bossHpAfter = bossCurrentHp_;
 
     if (abilityDef == nullptr) {
         const int fallbackDamage = normalizeDamage(
@@ -630,6 +650,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
         execContext.bossMaxHp = state_.boss.hp;
         executeAbilityEffect(execContext);
     }
+    actionEvent.bossHpAfter = bossCurrentHp_;
 
     if (action == BattleAction::Standard) {
         character.gainUltimatePoint(1);
@@ -640,6 +661,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
     }
 
     turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
+    recentActionEvents_.push_back(std::move(actionEvent));
     return true;
 }
 
@@ -655,6 +677,20 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
         (action == BattleAction::Skill) ? state_.boss.skillAbility :
         state_.boss.ultimate;
     const AbilityDefinition* abilityDef = getAbility(abilityId);
+    BattleActionEvent actionEvent;
+    actionEvent.actorType = ParticipantType::Boss;
+    actionEvent.actorKey = state_.boss.key;
+    actionEvent.actorTitle = state_.boss.title;
+    actionEvent.actorPartyIndex = -1;
+    actionEvent.action = action;
+    actionEvent.abilityId = abilityId;
+    actionEvent.abilityName = abilityDef != nullptr ? abilityDef->name : abilityId;
+    actionEvent.interactionType = abilityDef != nullptr ? abilityDef->interactionType : InteractionType::None;
+    actionEvent.bossHpBefore = bossCurrentHp_;
+    actionEvent.bossHpAfter = bossCurrentHp_;
+    actionEvent.targetPartyIndices.clear();
+    actionEvent.targetHpBefore.clear();
+    actionEvent.targetHpAfter.clear();
 
     if (abilityDef != nullptr) {
         PresentationContext presContext;
@@ -672,24 +708,33 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
                 if (!c.isAlive()) {
                     continue;
                 }
+                actionEvent.targetPartyIndices.push_back(c.partyIndex());
+                actionEvent.targetHpBefore.push_back(c.hp());
                 const int finalDamage = normalizeDamage(static_cast<int>(
                     state_.boss.atk * abilityDef->multiplier * multiplier
                 ));
                 c.receiveDamage(finalDamage);
+                actionEvent.targetHpAfter.push_back(c.hp());
             }
         } else {
             const int targetIndex = firstLivingCharacterPartyIndex();
             if (targetIndex >= 0) {
+                actionEvent.targetPartyIndices.push_back(targetIndex);
+                actionEvent.targetHpBefore.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
                 const int finalDamage = normalizeDamage(static_cast<int>(
                     state_.boss.atk * abilityDef->multiplier * multiplier
                 ));
                 characters_[static_cast<size_t>(targetIndex)].receiveDamage(finalDamage);
+                actionEvent.targetHpAfter.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
             }
         }
     } else {
         const int targetIndex = firstLivingCharacterPartyIndex();
         if (targetIndex >= 0) {
+            actionEvent.targetPartyIndices.push_back(targetIndex);
+            actionEvent.targetHpBefore.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
             characters_[static_cast<size_t>(targetIndex)].receiveDamage(normalizeDamage(state_.boss.atk));
+            actionEvent.targetHpAfter.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
         }
     }
 
@@ -706,6 +751,7 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
     }
 
     turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
+    recentActionEvents_.push_back(std::move(actionEvent));
     return true;
 }
 

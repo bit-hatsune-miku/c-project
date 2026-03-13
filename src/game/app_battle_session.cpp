@@ -25,6 +25,7 @@
 #include <RmlUi/Core/EventListener.h>
 #include <RmlUi/Core/FileInterface.h>
 #include <RmlUi/Core/Log.h>
+#include <RmlUi/Core/Elements/ElementFormControl.h>
 
 #ifdef BATTLE_ENABLE_IMAGE
 #include <SDL2/SDL_image.h>
@@ -32,11 +33,13 @@
 
 #include "RmlUi_Platform_SDL.h"
 #include "RmlUi_Renderer_GL3.h"
-#include "game/core/battle_manager.h"
-#include "game/render/camera_3d.h"
-#include "game/core/easing.h"
-#include "game/core/turn_system.h"
-#include "game/vn/vn_script.h"
+#include "core/battle_manager.h"
+#include "render/camera_3d.h"
+#include "core/easing.h"
+#include "core/turn_system.h"
+#include "vn/vn_script.h"
+#include "app_battle_session.h"
+#include "../window.h"
 
 namespace {
 
@@ -67,6 +70,8 @@ constexpr float kRhythmPulseTravelPx = 278.0f;
 constexpr float kRhythmWindowLeftPx = 206.0f;
 constexpr float kRhythmWindowWidthPx = 62.0f;
 constexpr float kNarrationCharsPerSecond = 42.0f;
+constexpr float kMinSettingsTextSpeed = 18.0f;
+constexpr float kMaxSettingsTextSpeed = 90.0f;
 
 struct WorldEntity {
     std::string key;
@@ -129,6 +134,29 @@ struct TutorialScriptLibrary {
     bool loaded = false;
 };
 
+enum class PauseSelection {
+    Continue,
+    Settings,
+    ExitToMainMenu
+};
+
+enum class PauseOverlayMode {
+    Menu,
+    Settings
+};
+
+enum class SettingsSelection {
+    DisplayMode,
+    VoiceVolume,
+    TextSpeed,
+    Back
+};
+
+struct PauseOverlayCopy {
+    const char* title = "";
+    const char* hint = "";
+};
+
 struct RhythmChallengeState {
     bool active = false;
     int partyIndex = -1;
@@ -144,19 +172,19 @@ struct ActiveOneShotAudio {
     SDL_AudioDeviceID device = 0;
 };
 
-class ClickListener final : public Rml::EventListener {
+class CallbackEventListener final : public Rml::EventListener {
 public:
-    explicit ClickListener(std::function<void()> callback)
+    explicit CallbackEventListener(std::function<void(Rml::Event&)> callback)
         : callback_(std::move(callback)) {}
 
-    void ProcessEvent(Rml::Event&) override {
+    void ProcessEvent(Rml::Event& event) override {
         if (callback_) {
-            callback_();
+            callback_(event);
         }
     }
 
 private:
-    std::function<void()> callback_;
+    std::function<void(Rml::Event&)> callback_;
 };
 
 std::vector<ActiveOneShotAudio> gActiveOneShotAudio;
@@ -221,7 +249,7 @@ struct GlScreenBlitter {
     void draw();
 };
 
-std::string resolvePath(const std::string& relativePath) {
+std::string resolveBattlePath(const std::string& relativePath) {
     const std::array<std::string, 3> candidates = {
         relativePath,
         "../" + relativePath,
@@ -243,8 +271,8 @@ std::string findFontPath() {
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
         "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
-        resolvePath("assets/rmlui/DejaVuSans.ttf"),
-        resolvePath("assets/rmlui/DejaVuSans-Bold.ttf")
+        resolveBattlePath("assets/rmlui/DejaVuSans.ttf"),
+        resolveBattlePath("assets/rmlui/DejaVuSans-Bold.ttf")
     };
 
     for (const auto& path : candidates) {
@@ -279,11 +307,11 @@ std::string normalizeCombatKey(std::string key) {
 std::string findCombatImagePath(const std::string& folder, const std::string& assetName) {
     const std::array<std::pair<std::string, std::string>, 2> candidates = {
         std::pair<std::string, std::string>{
-            resolvePath("assets/combat/" + folder + "/" + assetName + ".png"),
+            resolveBattlePath("assets/combat/" + folder + "/" + assetName + ".png"),
             "../combat/" + folder + "/" + assetName + ".png"
         },
         std::pair<std::string, std::string>{
-            resolvePath("assets/combat/" + folder + "/" + assetName + ".webp"),
+            resolveBattlePath("assets/combat/" + folder + "/" + assetName + ".webp"),
             "../combat/" + folder + "/" + assetName + ".webp"
         }
     };
@@ -301,8 +329,8 @@ std::optional<std::string> resolveCombatVoicePath(const std::string& assetName, 
     }
 
     const std::array<std::string, 2> candidates = {
-        resolvePath("assets/combat/voices/" + assetName + "/" + clipName + ".wav"),
-        resolvePath("assets/combat/voices/" + assetName + "." + clipName + ".wav")
+        resolveBattlePath("assets/combat/voices/" + assetName + "/" + clipName + ".wav"),
+        resolveBattlePath("assets/combat/voices/" + assetName + "." + clipName + ".wav")
     };
     for (const std::string& candidate : candidates) {
         if (std::filesystem::exists(candidate)) {
@@ -337,7 +365,7 @@ void shutdownOneShotAudio() {
     gActiveOneShotAudio.clear();
 }
 
-bool playWavOneShot(const std::string& wavPath) {
+bool playWavOneShot(const std::string& wavPath, float volume = 1.0f) {
     SDL_AudioSpec wavSpec{};
     Uint8* wavBuffer = nullptr;
     Uint32 wavLength = 0;
@@ -351,7 +379,12 @@ bool playWavOneShot(const std::string& wavPath) {
         return false;
     }
 
-    const int queueResult = SDL_QueueAudio(device, wavBuffer, wavLength);
+    const int mixVolume = std::clamp(static_cast<int>(std::lround(std::clamp(volume, 0.0f, 1.0f) * SDL_MIX_MAXVOLUME)),
+                                     0,
+                                     SDL_MIX_MAXVOLUME);
+    std::vector<Uint8> playbackBuffer(static_cast<size_t>(wavLength), 0);
+    SDL_MixAudioFormat(playbackBuffer.data(), wavBuffer, wavSpec.format, wavLength, mixVolume);
+    const int queueResult = SDL_QueueAudio(device, playbackBuffer.data(), wavLength);
     SDL_FreeWAV(wavBuffer);
     if (queueResult != 0) {
         SDL_CloseAudioDevice(device);
@@ -378,6 +411,14 @@ void setElementDisplay(Rml::ElementDocument* document, const std::string& id, bo
 void setElementClass(Rml::ElementDocument* document, const std::string& id, const std::string& className, bool enabled) {
     if (Rml::Element* element = document->GetElementById(id)) {
         element->SetClass(className, enabled);
+    }
+}
+
+void setRangeValue(Rml::ElementDocument* document, const std::string& id, const std::string& value) {
+    if (Rml::Element* element = document->GetElementById(id)) {
+        if (auto* control = dynamic_cast<Rml::ElementFormControl*>(element)) {
+            control->SetValue(value);
+        }
     }
 }
 
@@ -453,7 +494,7 @@ float getRhythmProgress(const RhythmChallengeState& rhythm, Uint64 nowMs) {
     return std::clamp(static_cast<float>(elapsed / duration), 0.0f, 1.0f);
 }
 
-std::string revealNarrationText(const std::string& fullText, Uint64 startedMs, Uint64 nowMs) {
+std::string revealNarrationText(const std::string& fullText, Uint64 startedMs, Uint64 nowMs, float charsPerSecond) {
     if (fullText.empty()) {
         return std::string();
     }
@@ -463,7 +504,7 @@ std::string revealNarrationText(const std::string& fullText, Uint64 startedMs, U
     }
 
     const double elapsedSeconds = static_cast<double>(nowMs - startedMs) / 1000.0;
-    const size_t visibleChars = static_cast<size_t>(std::floor(elapsedSeconds * kNarrationCharsPerSecond));
+    const size_t visibleChars = static_cast<size_t>(std::floor(elapsedSeconds * charsPerSecond));
     if (visibleChars >= fullText.size()) {
         return fullText;
     }
@@ -482,7 +523,7 @@ void startTutorial(TutorialOverlayState& tutorial,
 
 bool loadTutorialScriptLibrary(TutorialScriptLibrary& outLibrary) {
     vn::Script script;
-    if (!vn::loadScript(resolvePath("assets/vn/json/demo.json"), script)) {
+    if (!vn::loadScript(resolveBattlePath("assets/vn/json/demo.json"), script)) {
         return false;
     }
     if (script.entries.size() < 3) {
@@ -542,11 +583,75 @@ std::string hpColorForRatio(float ratio) {
     return "#d96b56";
 }
 
+PauseOverlayCopy getPauseOverlayCopy(PauseOverlayMode mode) {
+    switch (mode) {
+        case PauseOverlayMode::Settings:
+            return PauseOverlayCopy{
+                "SETTINGS",
+                "ADJUST BATTLE SETTINGS. CHANGES CARRY BACK TO THE MAIN APP."
+            };
+        case PauseOverlayMode::Menu:
+        default:
+            return PauseOverlayCopy{
+                "PAUSED",
+                "ESC TO RESUME. SETTINGS MATCH THE MAIN APP."
+            };
+    }
+}
+
+void applyPauseOverlayDocumentState(Rml::ElementDocument* document,
+                                    PauseOverlayMode pauseOverlayMode,
+                                    PauseSelection pauseSelection,
+                                    SettingsSelection settingsSelection,
+                                    const GameSettings* settings) {
+    const bool showingSettings = pauseOverlayMode == PauseOverlayMode::Settings;
+    const PauseOverlayCopy copy = getPauseOverlayCopy(pauseOverlayMode);
+
+    setElementText(document, "battle-pause-title", copy.title);
+    setElementText(document, "battle-pause-hint", copy.hint);
+    setElementClass(document, "battle-pause-shell", "settings-open", showingSettings);
+    setElementClass(document, "battle-pause-menu", "visible", pauseOverlayMode == PauseOverlayMode::Menu);
+    setElementClass(document, "battle-pause-settings", "visible", showingSettings);
+
+    if (Rml::Element* continueButton = document->GetElementById("battle-pause-continue")) {
+        continueButton->SetClass("selected", pauseSelection == PauseSelection::Continue);
+    }
+    if (Rml::Element* settingsButton = document->GetElementById("battle-pause-settings-button")) {
+        settingsButton->SetClass("selected", pauseSelection == PauseSelection::Settings);
+    }
+    if (Rml::Element* exitButton = document->GetElementById("battle-pause-exit")) {
+        exitButton->SetClass("selected", pauseSelection == PauseSelection::ExitToMainMenu);
+    }
+
+    if (settings != nullptr) {
+        setElementText(document, "battle-settings-display-value", settings->fullscreen ? "Fullscreen" : "Windowed");
+        setElementText(document, "battle-settings-voice-value",
+                       std::to_string(static_cast<int>(std::lround(settings->voiceVolume * 100.0f))) + "%");
+        setElementText(document, "battle-settings-text-value",
+                       std::to_string(static_cast<int>(std::lround(settings->textSpeed))) + " cps");
+        setRangeValue(document, "battle-settings-voice-slider",
+                      std::to_string(static_cast<int>(std::lround(settings->voiceVolume * 100.0f))));
+        setRangeValue(document, "battle-settings-text-slider",
+                      std::to_string(static_cast<int>(std::lround(settings->textSpeed))));
+    }
+
+    setElementClass(document, "battle-settings-row-display", "selected", settingsSelection == SettingsSelection::DisplayMode);
+    setElementClass(document, "battle-settings-row-voice", "selected", settingsSelection == SettingsSelection::VoiceVolume);
+    setElementClass(document, "battle-settings-row-text", "selected", settingsSelection == SettingsSelection::TextSpeed);
+    setElementClass(document, "battle-settings-row-back", "selected", settingsSelection == SettingsSelection::Back);
+}
+
 void updateBattleHudDocument(Rml::ElementDocument* document,
                              const battle::BattleManager& manager,
                              const HudFeedbackState& feedback,
                              const TutorialOverlayState& tutorial,
                              const RhythmChallengeState& rhythm,
+                             bool paused,
+                             PauseOverlayMode pauseOverlayMode,
+                             PauseSelection pauseSelection,
+                             SettingsSelection settingsSelection,
+                             const GameSettings* settings,
+                             float narrationCharsPerSecond,
                              Uint64 nowMs) {
     const battle::BattleState& battleState = manager.getBattleState();
     const battle::TurnState& turnState = manager.getTurnState();
@@ -632,10 +737,10 @@ void updateBattleHudDocument(Rml::ElementDocument* document,
 
     const bool playerCanAct = getActiveCharacterPartyIndex(manager).has_value();
     if (Rml::Element* actionStandard = document->GetElementById("action-standard")) {
-        actionStandard->SetClass("disabled", rhythm.active || !playerCanAct || !manager.isPlayerActionReady(battle::BattleAction::Standard));
+        actionStandard->SetClass("disabled", paused || rhythm.active || !playerCanAct || !manager.isPlayerActionReady(battle::BattleAction::Standard));
     }
     if (Rml::Element* actionSkill = document->GetElementById("action-skill")) {
-        actionSkill->SetClass("disabled", rhythm.active || !playerCanAct || !manager.isPlayerActionReady(battle::BattleAction::Skill));
+        actionSkill->SetClass("disabled", paused || rhythm.active || !playerCanAct || !manager.isPlayerActionReady(battle::BattleAction::Skill));
     }
     if (Rml::Element* toast = document->GetElementById("battle-toast")) {
         toast->SetInnerRML(feedback.toastText);
@@ -645,7 +750,7 @@ void updateBattleHudDocument(Rml::ElementDocument* document,
     setElementClass(document, "battle-tutorial", "visible", tutorial.step != TutorialStep::None);
     if (tutorial.step != TutorialStep::None) {
         setElementText(document, "battle-tutorial-speaker", vn::getDisplaySpeakerName(tutorial.entry));
-        setElementText(document, "battle-tutorial-text", revealNarrationText(tutorial.entry.text, tutorial.startedMs, nowMs));
+        setElementText(document, "battle-tutorial-text", revealNarrationText(tutorial.entry.text, tutorial.startedMs, nowMs, narrationCharsPerSecond));
         if (!tutorial.entry.icon.empty()) {
             const std::string tutorialIconKey = std::filesystem::path(tutorial.entry.icon).stem().string();
             const std::string iconPath = findCombatImagePath("icons", tutorialIconKey);
@@ -666,10 +771,16 @@ void updateBattleHudDocument(Rml::ElementDocument* document,
             pulse->SetProperty("left", std::to_string(static_cast<int>(std::round(progress * kRhythmPulseTravelPx))) + "px");
         }
     }
+
+    setElementClass(document, "battle-pause", "visible", paused);
+    if (paused) {
+        applyPauseOverlayDocumentState(document, pauseOverlayMode, pauseSelection, settingsSelection, settings);
+    }
 }
 
 void consumeBattleActionEvents(HudFeedbackState& feedback,
                                battle::BattleManager& manager,
+                               float voiceVolume,
                                Uint64 nowMs) {
     const battle::BattleState& battleState = manager.getBattleState();
     (void)feedback;
@@ -683,13 +794,13 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
 
         if (event.action == battle::BattleAction::Skill) {
             if (const auto skillVoice = resolveCombatVoicePath(actorAsset, "skill"); skillVoice.has_value()) {
-                (void)playWavOneShot(*skillVoice);
+                (void)playWavOneShot(*skillVoice, voiceVolume);
             }
         }
 
         if (event.bossHpAfter < event.bossHpBefore) {
             if (const auto hitVoice = resolveCombatVoicePath(battleState.boss.assets, "hit"); hitVoice.has_value()) {
-                (void)playWavOneShot(*hitVoice);
+                (void)playWavOneShot(*hitVoice, voiceVolume);
             }
         }
 
@@ -703,7 +814,7 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
             }
             if (const auto hitVoice = resolveCombatVoicePath(battleState.party[static_cast<size_t>(partyIndex)].assets, "hit");
                 hitVoice.has_value()) {
-                (void)playWavOneShot(*hitVoice);
+                (void)playWavOneShot(*hitVoice, voiceVolume);
             }
         }
     }
@@ -809,8 +920,8 @@ SDL_Texture* createFloorTileTexture(SDL_Renderer* renderer) {
 std::optional<SDL_Texture*> tryLoadTexture(SDL_Renderer* renderer, const std::string& assetName) {
 #ifdef BATTLE_ENABLE_IMAGE
     const std::array<std::string, 2> candidates = {
-        resolvePath("assets/combat/sprites/" + assetName + ".png"),
-        resolvePath("assets/combat/sprites/" + assetName + ".webp")
+        resolveBattlePath("assets/combat/sprites/" + assetName + ".png"),
+        resolveBattlePath("assets/combat/sprites/" + assetName + ".webp")
     };
 
     for (const std::string& path : candidates) {
@@ -1265,551 +1376,769 @@ public:
 
 } // namespace
 
-int main(int argc, char** argv) {
-    std::string bossKey = "lyoo";
-    std::vector<std::string> partyKeys = {"iroha", "kaguya", "miku", "cupcakke"};
+namespace battle::app {
 
-    if (argc >= 2) {
-        bossKey = normalizeCombatKey(argv[1]);
-    }
-    if (argc >= 3) {
-        partyKeys.clear();
-        for (int i = 2; i < argc; ++i) {
-            partyKeys.emplace_back(normalizeCombatKey(argv[i]));
+class SessionImpl {
+public:
+    bool initialize(Window& hostWindow, GameSettings& settings) {
+        shutdown();
+
+        windowHost_ = &hostWindow;
+        settings_ = &settings;
+        window_ = hostWindow.getNativeWindow();
+        glContext_ = hostWindow.getGlContext();
+        if (window_ == nullptr || glContext_ == nullptr) {
+            std::cerr << "[Battle] Window is not in OpenGL mode.\n";
+            return false;
         }
-    }
 
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_EVENTS | SDL_INIT_TIMER) != 0) {
-        std::cerr << "SDL init failed: " << SDL_GetError() << "\n";
-        return 1;
-    }
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO | SDL_INIT_TIMER) != 0) {
+            std::cerr << "SDL subsystem init failed: " << SDL_GetError() << "\n";
+            return false;
+        }
 
-    SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
-    SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+        SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
+        SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+        SDL_GL_MakeCurrent(window_, glContext_);
+        SDL_GL_SetSwapInterval(1);
+        SDL_StopTextInput();
 
 #ifdef BATTLE_ENABLE_IMAGE
-    const int requiredImageFlags = IMG_INIT_PNG | IMG_INIT_WEBP;
-    if ((IMG_Init(requiredImageFlags) & requiredImageFlags) != requiredImageFlags) {
-        std::cerr << "SDL_image init failed: " << IMG_GetError() << "\n";
-    }
+        const int requiredImageFlags = IMG_INIT_PNG | IMG_INIT_WEBP;
+        if ((IMG_Init(requiredImageFlags) & requiredImageFlags) == requiredImageFlags) {
+            imageInitialized_ = true;
+        } else {
+            std::cerr << "SDL_image init failed: " << IMG_GetError() << "\n";
+        }
 #endif
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-    SDL_Window* window = SDL_CreateWindow(
-        "Battle Testing - RmlUi HUD Smoke",
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        kWindowWidth,
-        kWindowHeight,
-        SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN
-    );
-    if (window == nullptr) {
-        std::cerr << "Window creation failed: " << SDL_GetError() << "\n";
-        SDL_Quit();
-        return 1;
-    }
-
-    SDL_GLContext glContext = SDL_GL_CreateContext(window);
-    if (glContext == nullptr) {
-        std::cerr << "GL context creation failed: " << SDL_GetError() << "\n";
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-    SDL_GL_MakeCurrent(window, glContext);
-    SDL_GL_SetSwapInterval(1);
-    SDL_StopTextInput();
-
-    Rml::String glInitMessage;
-    if (!RmlGL3::Initialize(&glInitMessage)) {
-        std::cerr << "RmlGL3 initialization failed: " << glInitMessage << "\n";
-        SDL_GL_DeleteContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    GlScreenBlitter screenBlitter;
-    if (!screenBlitter.initialize()) {
-        std::cerr << "Failed to initialize screen blitter\n";
-        RmlGL3::Shutdown();
-        SDL_GL_DeleteContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    SystemInterface_SDL systemInterface;
-    systemInterface.SetWindow(window);
-    RenderInterfaceGL3SDL renderInterface;
-    if (!renderInterface) {
-        std::cerr << "RmlUi GL3 render interface construction failed\n";
-        RmlGL3::Shutdown();
-        SDL_GL_DeleteContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    Rml::SetSystemInterface(&systemInterface);
-    Rml::SetRenderInterface(&renderInterface);
-    if (!Rml::Initialise()) {
-        std::cerr << "RmlUi core initialization failed\n";
-        RmlGL3::Shutdown();
-        SDL_GL_DeleteContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    const std::string fontPath = findFontPath();
-    if (!fontPath.empty()) {
-        Rml::LoadFontFace(fontPath);
-    }
-
-    battle::BattleManager manager;
-    if (!manager.initialize(bossKey, partyKeys)) {
-        std::cerr << "[Battle] Initialization failed.\n";
-        Rml::Shutdown();
-        RmlGL3::Shutdown();
-        SDL_GL_DeleteContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    const battle::BattleState& state = manager.getBattleState();
-    TutorialScriptLibrary tutorialLibrary;
-    if (!loadTutorialScriptLibrary(tutorialLibrary)) {
-        std::cerr << "Failed to load tutorial script: assets/vn/json/demo.json\n";
-        Rml::Shutdown();
-        RmlGL3::Shutdown();
-        SDL_GL_DeleteContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    std::vector<std::string> worldAssets;
-    for (const battle::CharacterDefinition& character : state.party) {
-        worldAssets.push_back(character.assets);
-    }
-    worldAssets.push_back(state.boss.assets);
-
-    SoftwareSceneRenderer sceneRenderer;
-    if (!sceneRenderer.initialize(kWindowWidth, kWindowHeight, worldAssets)) {
-        Rml::Shutdown();
-        RmlGL3::Shutdown();
-        SDL_GL_DeleteContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    std::vector<WorldEntity> entities;
-    entities.reserve(2);
-    entities.push_back(WorldEntity{
-        state.party.front().key,
-        state.party.front().assets,
-        false,
-        kDuelCharacterSlotX,
-        kDuelCharacterBaseY,
-        0.0f,
-        colorFromKey(state.party.front().key, false)
-    });
-    entities.push_back(WorldEntity{
-        state.boss.key,
-        state.boss.assets,
-        true,
-        kDuelBossSlotX,
-        kDuelCharacterBaseY + kBossCharacterDistanceWorld,
-        0.0f,
-        colorFromKey(state.boss.key, true)
-    });
-
-    int windowWidth = kWindowWidth;
-    int windowHeight = kWindowHeight;
-    renderInterface.SetViewport(windowWidth, windowHeight);
-    Rml::Context* context = Rml::CreateContext("battle-smoke", Rml::Vector2i(windowWidth, windowHeight));
-    if (context == nullptr) {
-        std::cerr << "Failed to create RmlUi context\n";
-        Rml::Shutdown();
-        RmlGL3::Shutdown();
-        SDL_GL_DeleteContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-
-    const std::string documentPath = resolvePath("assets/rmlui/battle_hud.rml");
-    Rml::ElementDocument* document = context->LoadDocument(documentPath);
-    if (document == nullptr) {
-        std::cerr << "Failed to load RmlUi document: " << documentPath << "\n";
-        Rml::Shutdown();
-        RmlGL3::Shutdown();
-        SDL_GL_DeleteContext(glContext);
-        SDL_DestroyWindow(window);
-        SDL_Quit();
-        return 1;
-    }
-    document->Show();
-
-    HudFeedbackState hudFeedback;
-    TutorialOverlayState tutorialOverlay;
-    RhythmChallengeState rhythmChallenge;
-    std::vector<std::unique_ptr<ClickListener>> clickListeners;
-
-    const auto attachClick = [&](const std::string& id, std::function<void()> callback) {
-        if (Rml::Element* element = document->GetElementById(id)) {
-            auto listener = std::make_unique<ClickListener>(std::move(callback));
-            element->AddEventListener(Rml::EventId::Click, listener.get());
-            clickListeners.push_back(std::move(listener));
+        Rml::String glInitMessage;
+        if (!RmlGL3::Initialize(&glInitMessage)) {
+            std::cerr << "RmlGL3 initialization failed: " << glInitMessage << "\n";
+            shutdown();
+            return false;
         }
-    };
+        rmlGlInitialized_ = true;
 
-    const auto beginRhythmChallenge = [&](int partyIndex) {
-        if (partyIndex < 0 || partyIndex >= static_cast<int>(state.party.size())) {
-            return;
-        }
-        const battle::CharacterDefinition& character = state.party[static_cast<size_t>(partyIndex)];
-        rhythmChallenge.active = true;
-        rhythmChallenge.partyIndex = partyIndex;
-        rhythmChallenge.actorTitle = character.title;
-        rhythmChallenge.abilityName = "Rhythm Skill";
-        rhythmChallenge.startedMs = SDL_GetTicks64();
-    };
-
-    const auto maybeStartTutorial = [&](Uint64 nowMs) {
-        if (rhythmChallenge.active || tutorialOverlay.step != TutorialStep::None) {
-            return;
+        if (!screenBlitter_.initialize()) {
+            std::cerr << "Failed to initialize screen blitter\n";
+            shutdown();
+            return false;
         }
 
-        const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager);
-        if (!activePartyIndex.has_value()) {
-            return;
+        systemInterface_.SetWindow(window_);
+        renderInterface_ = std::make_unique<RenderInterfaceGL3SDL>();
+        if (!(*renderInterface_)) {
+            std::cerr << "RmlUi GL3 render interface construction failed\n";
+            shutdown();
+            return false;
         }
 
-        if (!tutorialOverlay.standardShown && manager.isPlayerActionReady(battle::BattleAction::Standard)) {
-            startTutorial(
-                tutorialOverlay,
-                TutorialStep::Standard,
-                tutorialLibrary.standard,
-                nowMs
-            );
-            return;
+        Rml::SetSystemInterface(&systemInterface_);
+        Rml::SetRenderInterface(renderInterface_.get());
+        if (!Rml::Initialise()) {
+            std::cerr << "RmlUi core initialization failed\n";
+            shutdown();
+            return false;
         }
-        if (!tutorialOverlay.skillShown && manager.isPlayerActionReady(battle::BattleAction::Skill)) {
-            startTutorial(
-                tutorialOverlay,
-                TutorialStep::Skill,
-                tutorialLibrary.skill,
-                nowMs
-            );
-            return;
-        }
-        if (!tutorialOverlay.ultimateShown &&
-            manager.isPlayerActionReady(battle::BattleAction::Ultimate) &&
-            manager.getCharacterUltimateCharge(*activePartyIndex) >= manager.getCharacterUltimateRequired(*activePartyIndex)) {
-            startTutorial(
-                tutorialOverlay,
-                TutorialStep::Ultimate,
-                tutorialLibrary.ultimate,
-                nowMs
-            );
-        }
-    };
+        rmlInitialized_ = true;
 
-    const auto completeTutorialForAction = [&](battle::BattleAction action) {
-        if (action == battle::BattleAction::Standard && tutorialOverlay.step == TutorialStep::Standard) {
-            tutorialOverlay.standardShown = true;
-            tutorialOverlay.step = TutorialStep::None;
-        } else if (action == battle::BattleAction::Skill && tutorialOverlay.step == TutorialStep::Skill) {
-            tutorialOverlay.skillShown = true;
-            tutorialOverlay.step = TutorialStep::None;
-        } else if (action == battle::BattleAction::Ultimate && tutorialOverlay.step == TutorialStep::Ultimate) {
-            tutorialOverlay.ultimateShown = true;
-            tutorialOverlay.step = TutorialStep::None;
-        }
-    };
-
-    const auto finalizeSkillChallenge = [&](bool onBeat) {
-        if (!rhythmChallenge.active) {
-            return;
-        }
-        const Uint64 nowMs = SDL_GetTicks64();
-        rhythmChallenge = RhythmChallengeState{};
-        if (!manager.executePlayerAction(battle::BattleAction::Skill)) {
-            showToast(hudFeedback, "ACTION NOT AVAILABLE.", nowMs);
-            return;
-        }
-        showToast(hudFeedback, onBeat ? "ON-BEAT INPUT." : "LATE INPUT.", nowMs, 1100);
-        completeTutorialForAction(battle::BattleAction::Skill);
-        manager.processAutomaticTurns();
-        consumeBattleActionEvents(hudFeedback, manager, nowMs);
-    };
-
-    const auto attemptAction = [&](battle::BattleAction action) {
-        const Uint64 nowMs = SDL_GetTicks64();
-        if (rhythmChallenge.active) {
-            showToast(hudFeedback, "FINISH THE RHYTHM INPUT.", nowMs, 1200);
-            return;
-        }
-        const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager);
-        if (!activePartyIndex.has_value()) {
-            showToast(hudFeedback, "WAIT FOR AN ALLY TURN.", nowMs);
-            return;
+        const std::string fontPath = findFontPath();
+        if (!fontPath.empty()) {
+            Rml::LoadFontFace(fontPath);
         }
 
-        if (action == battle::BattleAction::Ultimate && !manager.isPlayerActionReady(action)) {
-            const int charge = manager.getCharacterUltimateCharge(*activePartyIndex);
-            const int required = manager.getCharacterUltimateRequired(*activePartyIndex);
-            const int missing = std::max(0, required - charge);
-            showToast(
-                hudFeedback,
-                "ULTIMATE NEEDS " + std::to_string(missing) + " MORE ORB" + (missing == 1 ? "" : "S") + ".",
-                nowMs
-            );
-            blinkMissingOrbs(hudFeedback, *activePartyIndex, charge, required - 1, nowMs);
-            return;
+        if (!manager_.initialize("lyoo", {"iroha", "kaguya", "miku", "cupcakke"})) {
+            std::cerr << "[Battle] Initialization failed.\n";
+            shutdown();
+            return false;
         }
 
-        if (action == battle::BattleAction::Skill && !manager.isPlayerActionReady(action)) {
-            showToast(hudFeedback, "SKILL COSTS 1 ORB.", nowMs);
-            return;
+        if (!loadTutorialScriptLibrary(tutorialLibrary_)) {
+            std::cerr << "Failed to load tutorial script: assets/vn/json/demo.json\n";
+            shutdown();
+            return false;
         }
 
-        if (action == battle::BattleAction::Skill) {
-            beginRhythmChallenge(*activePartyIndex);
-            return;
+        const battle::BattleState& state = manager_.getBattleState();
+        worldAssets_.clear();
+        for (const battle::CharacterDefinition& character : state.party) {
+            worldAssets_.push_back(character.assets);
+        }
+        worldAssets_.push_back(state.boss.assets);
+
+        windowWidth_ = windowHost_->getWidth();
+        windowHeight_ = windowHost_->getHeight();
+        if (!sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_)) {
+            shutdown();
+            return false;
         }
 
-        if (!manager.executePlayerAction(action)) {
-            showToast(hudFeedback, "ACTION NOT AVAILABLE.", nowMs);
-            return;
-        }
-
-        completeTutorialForAction(action);
-        manager.processAutomaticTurns();
-        consumeBattleActionEvents(hudFeedback, manager, nowMs);
-    };
-
-    attachClick("action-standard", [&]() {
-        attemptAction(battle::BattleAction::Standard);
-    });
-    attachClick("action-skill", [&]() {
-        attemptAction(battle::BattleAction::Skill);
-    });
-    for (int i = 0; i < 4; ++i) {
-        attachClick("unit-card-" + std::to_string(i + 1), [&, i]() {
-            const Uint64 nowMs = SDL_GetTicks64();
-            const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager);
-            if (!activePartyIndex.has_value()) {
-                showToast(hudFeedback, "WAIT FOR AN ALLY TURN.", nowMs);
-                return;
-            }
-            if (*activePartyIndex != i) {
-                showToast(hudFeedback, "ONLY THE ACTIVE UNIT CAN ULTIMATE.", nowMs);
-                return;
-            }
-            attemptAction(battle::BattleAction::Ultimate);
+        entities_.clear();
+        entities_.reserve(2);
+        entities_.push_back(WorldEntity{
+            state.party.front().key,
+            state.party.front().assets,
+            false,
+            kDuelCharacterSlotX,
+            kDuelCharacterBaseY,
+            0.0f,
+            colorFromKey(state.party.front().key, false)
         });
+        entities_.push_back(WorldEntity{
+            state.boss.key,
+            state.boss.assets,
+            true,
+            kDuelBossSlotX,
+            kDuelCharacterBaseY + kBossCharacterDistanceWorld,
+            0.0f,
+            colorFromKey(state.boss.key, true)
+        });
+
+        renderInterface_->SetViewport(windowWidth_, windowHeight_);
+        context_ = Rml::CreateContext("battle-app", Rml::Vector2i(windowWidth_, windowHeight_));
+        if (context_ == nullptr) {
+            std::cerr << "Failed to create RmlUi context\n";
+            shutdown();
+            return false;
+        }
+
+        const std::string documentPath = resolveBattlePath("assets/rmlui/battle_hud.rml");
+        document_ = context_->LoadDocument(documentPath);
+        if (document_ == nullptr) {
+            std::cerr << "Failed to load RmlUi document: " << documentPath << "\n";
+            shutdown();
+            return false;
+        }
+        document_->Show();
+
+        attachListener("action-standard", Rml::EventId::Click, [this](Rml::Event&) {
+            attemptAction(battle::BattleAction::Standard);
+        });
+        attachListener("action-skill", Rml::EventId::Click, [this](Rml::Event&) {
+            attemptAction(battle::BattleAction::Skill);
+        });
+        for (int i = 0; i < 4; ++i) {
+            attachListener("unit-card-" + std::to_string(i + 1), Rml::EventId::Click, [this, i](Rml::Event&) {
+                const Uint64 nowMs = SDL_GetTicks64();
+                const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager_);
+                if (!activePartyIndex.has_value()) {
+                    showToast(hudFeedback_, "WAIT FOR AN ALLY TURN.", nowMs);
+                    return;
+                }
+                if (*activePartyIndex != i) {
+                    showToast(hudFeedback_, "ONLY THE ACTIVE UNIT CAN ULTIMATE.", nowMs);
+                    return;
+                }
+                attemptAction(battle::BattleAction::Ultimate);
+            });
+        }
+        attachListener("battle-rhythm", Rml::EventId::Click, [this](Rml::Event&) {
+            if (!rhythmChallenge_.active) {
+                return;
+            }
+            const Uint64 hitTime = SDL_GetTicks64();
+            const float progress = getRhythmProgress(rhythmChallenge_, hitTime);
+            const float halfWindow = rhythmChallenge_.targetWindow * 0.5f;
+            finalizeSkillChallenge(progress >= rhythmChallenge_.targetCenter - halfWindow &&
+                                   progress <= rhythmChallenge_.targetCenter + halfWindow);
+        });
+        attachListener("battle-pause-continue", Rml::EventId::Click, [this](Rml::Event&) {
+            pauseOverlayMode_ = PauseOverlayMode::Menu;
+            paused_ = false;
+            pauseSelection_ = PauseSelection::Continue;
+        });
+        attachListener("battle-pause-settings-button", Rml::EventId::Click, [this](Rml::Event&) {
+            pauseOverlayMode_ = PauseOverlayMode::Settings;
+        });
+        attachListener("battle-pause-exit", Rml::EventId::Click, [this](Rml::Event&) {
+            finished_ = true;
+        });
+        attachListener("battle-settings-row-display", Rml::EventId::Click, [this](Rml::Event&) {
+            toggleDisplayMode();
+        });
+        attachListener("battle-settings-row-back", Rml::EventId::Click, [this](Rml::Event&) {
+            pauseOverlayMode_ = PauseOverlayMode::Menu;
+        });
+        attachListener("battle-pause-continue", Rml::EventId::Mouseover, [this](Rml::Event&) {
+            pauseSelection_ = PauseSelection::Continue;
+        });
+        attachListener("battle-pause-settings-button", Rml::EventId::Mouseover, [this](Rml::Event&) {
+            pauseSelection_ = PauseSelection::Settings;
+        });
+        attachListener("battle-pause-exit", Rml::EventId::Mouseover, [this](Rml::Event&) {
+            pauseSelection_ = PauseSelection::ExitToMainMenu;
+        });
+        attachListener("battle-settings-row-display", Rml::EventId::Mouseover, [this](Rml::Event&) {
+            settingsSelection_ = SettingsSelection::DisplayMode;
+        });
+        attachListener("battle-settings-row-voice", Rml::EventId::Mouseover, [this](Rml::Event&) {
+            settingsSelection_ = SettingsSelection::VoiceVolume;
+        });
+        attachListener("battle-settings-row-text", Rml::EventId::Mouseover, [this](Rml::Event&) {
+            settingsSelection_ = SettingsSelection::TextSpeed;
+        });
+        attachListener("battle-settings-row-back", Rml::EventId::Mouseover, [this](Rml::Event&) {
+            settingsSelection_ = SettingsSelection::Back;
+        });
+        attachListener("battle-settings-voice-slider", Rml::EventId::Mouseover, [this](Rml::Event&) {
+            settingsSelection_ = SettingsSelection::VoiceVolume;
+        });
+        attachListener("battle-settings-text-slider", Rml::EventId::Mouseover, [this](Rml::Event&) {
+            settingsSelection_ = SettingsSelection::TextSpeed;
+        });
+        attachListener("battle-settings-voice-slider", Rml::EventId::Change, [this](Rml::Event& event) {
+            settingsSelection_ = SettingsSelection::VoiceVolume;
+            if (settings_ == nullptr) {
+                return;
+            }
+            settings_->voiceVolume =
+                std::clamp(event.GetParameter<float>("value", settings_->voiceVolume * 100.0f) / 100.0f, 0.0f, 1.0f);
+        });
+        attachListener("battle-settings-text-slider", Rml::EventId::Change, [this](Rml::Event& event) {
+            settingsSelection_ = SettingsSelection::TextSpeed;
+            if (settings_ == nullptr) {
+                return;
+            }
+            settings_->textSpeed = std::clamp(event.GetParameter<float>("value", settings_->textSpeed),
+                                              kMinSettingsTextSpeed, kMaxSettingsTextSpeed);
+        });
+
+        camera_.screenCenterX = windowWidth_ * 0.5f;
+        camera_.screenCenterY = windowHeight_ * 0.5f;
+        applyGoalCamera(camera_);
+        updateBattleHudDocument(document_, manager_, hudFeedback_, tutorialOverlay_, rhythmChallenge_, paused_,
+                                pauseOverlayMode_, pauseSelection_, settingsSelection_, settings_,
+                                settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond,
+                                SDL_GetTicks64());
+
+        initialized_ = true;
+        return true;
     }
 
-    attachClick("battle-narration", [&]() {
-        if (!rhythmChallenge.active) {
+    void shutdown() {
+        initialized_ = false;
+        if (document_ != nullptr) {
+            document_->Close();
+            document_ = nullptr;
+        }
+        if (rmlInitialized_) {
+            Rml::Shutdown();
+            rmlInitialized_ = false;
+        }
+        if (rmlGlInitialized_) {
+            RmlGL3::Shutdown();
+            rmlGlInitialized_ = false;
+        }
+        uiListeners_.clear();
+        renderInterface_.reset();
+        screenBlitter_.destroy();
+        sceneRenderer_.destroy();
+        shutdownOneShotAudio();
+        cleanupFinishedOneShotAudio();
+#ifdef BATTLE_ENABLE_IMAGE
+        if (imageInitialized_) {
+            IMG_Quit();
+            imageInitialized_ = false;
+        }
+#endif
+        context_ = nullptr;
+        window_ = nullptr;
+        glContext_ = nullptr;
+        windowHost_ = nullptr;
+        finished_ = false;
+        paused_ = false;
+        freeViewEnabled_ = false;
+        pauseOverlayMode_ = PauseOverlayMode::Menu;
+        pauseSelection_ = PauseSelection::Continue;
+        settingsSelection_ = SettingsSelection::DisplayMode;
+        settings_ = nullptr;
+        tutorialOverlay_ = TutorialOverlayState{};
+        tutorialLibrary_ = TutorialScriptLibrary{};
+        hudFeedback_ = HudFeedbackState{};
+        rhythmChallenge_ = RhythmChallengeState{};
+        worldAssets_.clear();
+        entities_.clear();
+        lastTurnToken_.clear();
+        cameraOscillationTime_ = 0.0f;
+        frameAccumulator_ = 0.0f;
+    }
+
+    void handleEvent(const SDL_Event& event) {
+        if (!initialized_ || context_ == nullptr || window_ == nullptr) {
             return;
         }
-        const Uint64 hitTime = SDL_GetTicks64();
-        const float progress = getRhythmProgress(rhythmChallenge, hitTime);
-        const float halfWindow = rhythmChallenge.targetWindow * 0.5f;
-        finalizeSkillChallenge(progress >= rhythmChallenge.targetCenter - halfWindow &&
-                               progress <= rhythmChallenge.targetCenter + halfWindow);
-    });
 
-    updateBattleHudDocument(document, manager, hudFeedback, tutorialOverlay, rhythmChallenge, SDL_GetTicks64());
-
-    battle::Camera3D camera;
-    camera.screenCenterX = windowWidth * 0.5f;
-    camera.screenCenterY = windowHeight * 0.5f;
-    applyGoalCamera(camera);
-
-    CameraIntroAnimation cameraIntro;
-    bool freeViewEnabled = false;
-    float cameraOscillationTime = 0.0f;
-    float frameAccumulator = 0.0f;
-    Uint64 lastFrameTime = SDL_GetTicks64();
-    std::string lastTurnToken;
-
-    bool running = true;
-    while (running) {
-        manager.processAutomaticTurns();
-        consumeBattleActionEvents(hudFeedback, manager, SDL_GetTicks64());
-        maybeStartTutorial(SDL_GetTicks64());
-        if (tutorialOverlay.step != TutorialStep::None && !tutorialOverlay.audioPlayed && !tutorialOverlay.entry.voice.empty()) {
-            if (playWavOneShot(resolvePath(tutorialOverlay.entry.voice))) {
-                tutorialOverlay.audioPlayed = true;
+        if (isWindowResizeEvent(event)) {
+            windowWidth_ = windowHost_->getWidth();
+            windowHeight_ = windowHost_->getHeight();
+            renderInterface_->SetViewport(windowWidth_, windowHeight_);
+            context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
+            camera_.screenCenterX = windowWidth_ * 0.5f;
+            camera_.screenCenterY = windowHeight_ * 0.5f;
+            if (!sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_)) {
+                finished_ = true;
             }
         }
 
-        tickHudFeedback(hudFeedback, SDL_GetTicks64());
+        if (event.type == SDL_KEYDOWN && event.key.repeat != 0) {
+            return;
+        }
+
+        if (paused_) {
+            SDL_Event mutablePausedEvent = event;
+            RmlSDL::InputEventHandler(context_, window_, mutablePausedEvent);
+            handlePauseEvent(event);
+            return;
+        }
+
+        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
+            paused_ = true;
+            pauseOverlayMode_ = PauseOverlayMode::Menu;
+            pauseSelection_ = PauseSelection::Continue;
+            return;
+        }
+
+        SDL_Event mutableEvent = event;
+        RmlSDL::InputEventHandler(context_, window_, mutableEvent);
+
+        if (event.type == SDL_KEYDOWN) {
+            if (event.key.keysym.sym == SDLK_f) {
+                freeViewEnabled_ = !freeViewEnabled_;
+                if (!freeViewEnabled_) {
+                    applyGoalCamera(camera_);
+                }
+            } else if (rhythmChallenge_.active) {
+                if (event.key.keysym.sym == SDLK_e) {
+                    const Uint64 hitTime = SDL_GetTicks64();
+                    const float progress = getRhythmProgress(rhythmChallenge_, hitTime);
+                    const float halfWindow = rhythmChallenge_.targetWindow * 0.5f;
+                    finalizeSkillChallenge(progress >= rhythmChallenge_.targetCenter - halfWindow &&
+                                           progress <= rhythmChallenge_.targetCenter + halfWindow);
+                }
+            } else if (!freeViewEnabled_ && event.key.keysym.sym == SDLK_SPACE) {
+                attemptAction(battle::BattleAction::Ultimate);
+            } else if (!freeViewEnabled_ && event.key.keysym.sym == SDLK_q) {
+                attemptAction(battle::BattleAction::Standard);
+            } else if (!freeViewEnabled_ && event.key.keysym.sym == SDLK_e) {
+                attemptAction(battle::BattleAction::Skill);
+            }
+        } else if (event.type == SDL_MOUSEWHEEL) {
+            if (freeViewEnabled_ && !cameraIntro_.active) {
+                camera_.focalLength += event.wheel.y * 500.0f;
+                camera_.focalLength = std::clamp(camera_.focalLength, 1000.0f, 50000.0f);
+            }
+        }
+    }
+
+    void update(float deltaSeconds) {
+        if (!initialized_ || finished_) {
+            return;
+        }
+
+        const Uint64 nowMs = SDL_GetTicks64();
+        tickHudFeedback(hudFeedback_, nowMs);
         cleanupFinishedOneShotAudio();
 
-        const Uint64 currentTime = SDL_GetTicks64();
-        const float deltaTime = (currentTime - lastFrameTime) / 1000.0f;
-        lastFrameTime = currentTime;
-        frameAccumulator += deltaTime;
+        if (paused_) {
+            updateBattleHudDocument(document_, manager_, hudFeedback_, tutorialOverlay_, rhythmChallenge_, paused_,
+                                    pauseOverlayMode_, pauseSelection_, settingsSelection_, settings_,
+                                    settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond,
+                                    nowMs);
+            return;
+        }
 
-        SDL_Event event;
-        while (SDL_PollEvent(&event)) {
-            if (event.type == SDL_QUIT) {
-                running = false;
-                continue;
-            }
-            if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
-                running = false;
-                continue;
-            }
-
-            RmlSDL::InputEventHandler(context, window, event);
-
-            if (event.type == SDL_KEYDOWN) {
-                if (event.key.keysym.sym == SDLK_f) {
-                    freeViewEnabled = !freeViewEnabled;
-                    if (!freeViewEnabled) {
-                        applyGoalCamera(camera);
-                    }
-                } else if (rhythmChallenge.active) {
-                    if (event.key.keysym.sym == SDLK_e) {
-                        const Uint64 hitTime = SDL_GetTicks64();
-                        const float progress = getRhythmProgress(rhythmChallenge, hitTime);
-                        const float halfWindow = rhythmChallenge.targetWindow * 0.5f;
-                        finalizeSkillChallenge(progress >= rhythmChallenge.targetCenter - halfWindow &&
-                                               progress <= rhythmChallenge.targetCenter + halfWindow);
-                    }
-                } else if (!freeViewEnabled && event.key.keysym.sym == SDLK_SPACE) {
-                    attemptAction(battle::BattleAction::Ultimate);
-                } else if (!freeViewEnabled && event.key.keysym.sym == SDLK_q) {
-                    attemptAction(battle::BattleAction::Standard);
-                } else if (!freeViewEnabled && event.key.keysym.sym == SDLK_e) {
-                    attemptAction(battle::BattleAction::Skill);
-                }
-            } else if (event.type == SDL_MOUSEWHEEL) {
-                if (freeViewEnabled && !cameraIntro.active) {
-                    camera.focalLength += event.wheel.y * 500.0f;
-                    camera.focalLength = std::clamp(camera.focalLength, 1000.0f, 50000.0f);
-                }
-            }
-
-            if (isWindowResizeEvent(event)) {
-                SDL_GetWindowSize(window, &windowWidth, &windowHeight);
-                renderInterface.SetViewport(windowWidth, windowHeight);
-                context->SetDimensions(Rml::Vector2i(windowWidth, windowHeight));
-                camera.screenCenterX = windowWidth * 0.5f;
-                camera.screenCenterY = windowHeight * 0.5f;
-                if (!sceneRenderer.initialize(windowWidth, windowHeight, worldAssets)) {
-                    running = false;
-                    break;
-                }
+        manager_.processAutomaticTurns();
+        consumeBattleActionEvents(hudFeedback_, manager_, settings_ != nullptr ? settings_->voiceVolume : 1.0f, nowMs);
+        maybeStartTutorial(nowMs);
+        if (tutorialOverlay_.step != TutorialStep::None && !tutorialOverlay_.audioPlayed && !tutorialOverlay_.entry.voice.empty()) {
+            if (playWavOneShot(resolveBattlePath(tutorialOverlay_.entry.voice), settings_ != nullptr ? settings_->voiceVolume : 1.0f)) {
+                tutorialOverlay_.audioPlayed = true;
             }
         }
 
-        if (!running) {
-            continue;
-        }
-
-        if (rhythmChallenge.active && currentTime >= rhythmChallenge.startedMs + rhythmChallenge.durationMs) {
+        if (rhythmChallenge_.active && nowMs >= rhythmChallenge_.startedMs + rhythmChallenge_.durationMs) {
             finalizeSkillChallenge(false);
         }
 
-        int previewActorIndex = manager.getPreviewNextActorIndex();
+        frameAccumulator_ += deltaSeconds;
+
+        int previewActorIndex = manager_.getPreviewNextActorIndex();
         std::string turnToken = "none";
         bool nextIsCharacter = false;
+        const battle::BattleState& state = manager_.getBattleState();
         if (previewActorIndex >= 0) {
-            const battle::TurnState& turnState = manager.getTurnState();
+            const battle::TurnState& turnState = manager_.getTurnState();
             if (previewActorIndex < static_cast<int>(turnState.actors.size())) {
                 const battle::TurnActor& actor = turnState.actors[static_cast<size_t>(previewActorIndex)];
                 turnToken = (actor.type == battle::ParticipantType::Boss ? "B:" : "C:") +
                             actor.key + ":" + std::to_string(actor.partyIndex) + ":" +
                             (actor.isExtraTurn ? "E" : "N");
                 nextIsCharacter = actor.type == battle::ParticipantType::Character;
-
                 if (nextIsCharacter && actor.partyIndex >= 0 &&
                     actor.partyIndex < static_cast<int>(state.party.size())) {
                     const battle::CharacterDefinition& currentChar = state.party[static_cast<size_t>(actor.partyIndex)];
-                    entities[0].key = currentChar.key;
-                    entities[0].assetName = currentChar.assets;
-                    entities[0].fallbackColor = colorFromKey(currentChar.key, false);
+                    entities_[0].key = currentChar.key;
+                    entities_[0].assetName = currentChar.assets;
+                    entities_[0].fallbackColor = colorFromKey(currentChar.key, false);
                 }
             }
         }
 
-        if (turnToken != lastTurnToken) {
-            if (nextIsCharacter && !freeViewEnabled) {
-                startActionIntroCamera(camera, cameraIntro);
+        if (turnToken != lastTurnToken_) {
+            if (nextIsCharacter && !freeViewEnabled_) {
+                startActionIntroCamera(camera_, cameraIntro_);
             }
-            lastTurnToken = turnToken;
+            lastTurnToken_ = turnToken;
         }
 
         const Uint8* keys = SDL_GetKeyboardState(nullptr);
         const float camMovementSpeed = 15.0f;
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_W]) camera.posY += camMovementSpeed;
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_S]) camera.posY -= camMovementSpeed;
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_A]) camera.posX -= camMovementSpeed;
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_D]) camera.posX += camMovementSpeed;
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_E]) camera.posZ += camMovementSpeed;
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_Q]) camera.posZ -= camMovementSpeed;
+        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_W]) camera_.posY += camMovementSpeed;
+        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_S]) camera_.posY -= camMovementSpeed;
+        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_A]) camera_.posX -= camMovementSpeed;
+        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_D]) camera_.posX += camMovementSpeed;
+        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_E]) camera_.posZ += camMovementSpeed;
+        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_Q]) camera_.posZ -= camMovementSpeed;
 
         const float rotationSpeed = 2.0f;
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_LEFT]) camera.yawDegrees -= rotationSpeed;
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_RIGHT]) camera.yawDegrees += rotationSpeed;
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_UP]) camera.pitchDegrees -= rotationSpeed;
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_DOWN]) camera.pitchDegrees += rotationSpeed;
-        camera.pitchDegrees = std::clamp(camera.pitchDegrees, 5.0f, 85.0f);
+        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_LEFT]) camera_.yawDegrees -= rotationSpeed;
+        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_RIGHT]) camera_.yawDegrees += rotationSpeed;
+        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_UP]) camera_.pitchDegrees -= rotationSpeed;
+        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_DOWN]) camera_.pitchDegrees += rotationSpeed;
+        camera_.pitchDegrees = std::clamp(camera_.pitchDegrees, 5.0f, 85.0f);
 
-        updateActionIntroCamera(camera, cameraIntro, deltaTime);
+        updateActionIntroCamera(camera_, cameraIntro_, deltaSeconds);
 
-        cameraOscillationTime += deltaTime;
-        if (!freeViewEnabled && !cameraIntro.active) {
-            applyGoalCamera(camera);
+        cameraOscillationTime_ += deltaSeconds;
+        if (!freeViewEnabled_ && !cameraIntro_.active) {
+            applyGoalCamera(camera_);
             if (nextIsCharacter) {
                 constexpr float kOscillationAmplitudeDegrees = 1.8f;
                 constexpr float kOscillationSpeed = 0.55f;
-                camera.yawDegrees = kGoalCameraYaw + std::sin(cameraOscillationTime * kOscillationSpeed) * kOscillationAmplitudeDegrees;
+                camera_.yawDegrees = kGoalCameraYaw + std::sin(cameraOscillationTime_ * kOscillationSpeed) * kOscillationAmplitudeDegrees;
             }
         }
 
-        renderBattleScene(sceneRenderer, camera, entities, nextIsCharacter ? 0 : 1, frameAccumulator);
-        screenBlitter.uploadSurface(sceneRenderer.surface);
-
-        updateBattleHudDocument(document, manager, hudFeedback, tutorialOverlay, rhythmChallenge, currentTime);
-
-        glViewport(0, 0, windowWidth, windowHeight);
-        glClearColor(0.035f, 0.043f, 0.07f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        screenBlitter.draw();
-
-        renderInterface.BeginFrame();
-        context->Update();
-        context->Render();
-        renderInterface.EndFrame();
-
-        SDL_GL_SwapWindow(window);
+        updateBattleHudDocument(document_, manager_, hudFeedback_, tutorialOverlay_, rhythmChallenge_, paused_,
+                                pauseOverlayMode_, pauseSelection_, settingsSelection_, settings_,
+                                settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond,
+                                nowMs);
     }
 
-    document->Close();
-    shutdownOneShotAudio();
-    Rml::Shutdown();
-    RmlGL3::Shutdown();
-#ifdef BATTLE_ENABLE_IMAGE
-    IMG_Quit();
-#endif
-    SDL_GL_DeleteContext(glContext);
-    SDL_DestroyWindow(window);
-    SDL_Quit();
-    return 0;
-}
+    void render() {
+        if (!initialized_ || finished_) {
+            return;
+        }
+
+        const int focusedIndex = getActiveCharacterPartyIndex(manager_).has_value() ? 0 : 1;
+        renderBattleScene(sceneRenderer_, camera_, entities_, focusedIndex, frameAccumulator_);
+        screenBlitter_.uploadSurface(sceneRenderer_.surface);
+
+        glViewport(0, 0, windowWidth_, windowHeight_);
+        glClearColor(0.035f, 0.043f, 0.07f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT);
+        screenBlitter_.draw();
+
+        renderInterface_->BeginFrame();
+        context_->Update();
+        context_->Render();
+        renderInterface_->EndFrame();
+    }
+
+    bool isFinished() const {
+        return finished_;
+    }
+
+private:
+    void attachListener(const std::string& id, Rml::EventId eventId, std::function<void(Rml::Event&)> callback) {
+        if (document_ == nullptr) {
+            return;
+        }
+        if (Rml::Element* element = document_->GetElementById(id)) {
+            auto listener = std::make_unique<CallbackEventListener>(std::move(callback));
+            element->AddEventListener(eventId, listener.get());
+            uiListeners_.push_back(std::move(listener));
+        }
+    }
+
+    void handlePauseEvent(const SDL_Event& event) {
+        if (event.type != SDL_KEYDOWN) {
+            return;
+        }
+        if (pauseOverlayMode_ == PauseOverlayMode::Menu) {
+            if (event.key.keysym.sym == SDLK_ESCAPE) {
+                paused_ = false;
+            } else if (event.key.keysym.sym == SDLK_F11) {
+                toggleDisplayMode();
+            } else if (event.key.keysym.sym == SDLK_UP || event.key.keysym.sym == SDLK_w) {
+                if (pauseSelection_ == PauseSelection::Settings) {
+                    pauseSelection_ = PauseSelection::Continue;
+                } else if (pauseSelection_ == PauseSelection::ExitToMainMenu) {
+                    pauseSelection_ = PauseSelection::Settings;
+                }
+            } else if (event.key.keysym.sym == SDLK_DOWN || event.key.keysym.sym == SDLK_s) {
+                if (pauseSelection_ == PauseSelection::Continue) {
+                    pauseSelection_ = PauseSelection::Settings;
+                } else if (pauseSelection_ == PauseSelection::Settings) {
+                    pauseSelection_ = PauseSelection::ExitToMainMenu;
+                }
+            } else if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER ||
+                       event.key.keysym.sym == SDLK_SPACE) {
+                if (pauseSelection_ == PauseSelection::Continue) {
+                    paused_ = false;
+                } else if (pauseSelection_ == PauseSelection::Settings) {
+                    pauseOverlayMode_ = PauseOverlayMode::Settings;
+                } else {
+                    finished_ = true;
+                }
+            }
+            return;
+        }
+
+        if (event.key.keysym.sym == SDLK_ESCAPE) {
+            pauseOverlayMode_ = PauseOverlayMode::Menu;
+            return;
+        }
+
+        if (event.key.keysym.sym == SDLK_F11) {
+            toggleDisplayMode();
+            return;
+        }
+
+        if (event.key.keysym.sym == SDLK_UP || event.key.keysym.sym == SDLK_w) {
+            if (settingsSelection_ == SettingsSelection::VoiceVolume) {
+                settingsSelection_ = SettingsSelection::DisplayMode;
+            } else if (settingsSelection_ == SettingsSelection::TextSpeed) {
+                settingsSelection_ = SettingsSelection::VoiceVolume;
+            } else if (settingsSelection_ == SettingsSelection::Back) {
+                settingsSelection_ = SettingsSelection::TextSpeed;
+            }
+        } else if (event.key.keysym.sym == SDLK_DOWN || event.key.keysym.sym == SDLK_s) {
+            if (settingsSelection_ == SettingsSelection::DisplayMode) {
+                settingsSelection_ = SettingsSelection::VoiceVolume;
+            } else if (settingsSelection_ == SettingsSelection::VoiceVolume) {
+                settingsSelection_ = SettingsSelection::TextSpeed;
+            } else if (settingsSelection_ == SettingsSelection::TextSpeed) {
+                settingsSelection_ = SettingsSelection::Back;
+            }
+        } else if (event.key.keysym.sym == SDLK_LEFT || event.key.keysym.sym == SDLK_a) {
+            applySettingsStep(-1);
+        } else if (event.key.keysym.sym == SDLK_RIGHT || event.key.keysym.sym == SDLK_d) {
+            applySettingsStep(1);
+        } else if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER ||
+                   event.key.keysym.sym == SDLK_SPACE) {
+            if (settingsSelection_ == SettingsSelection::Back) {
+                pauseOverlayMode_ = PauseOverlayMode::Menu;
+            } else {
+                applySettingsStep(1);
+            }
+        }
+    }
+
+    void applySettingsStep(int direction) {
+        if (settings_ == nullptr) {
+            return;
+        }
+        if (settingsSelection_ == SettingsSelection::DisplayMode) {
+            toggleDisplayMode();
+        } else if (settingsSelection_ == SettingsSelection::VoiceVolume) {
+            adjustVoiceVolume(direction);
+        } else if (settingsSelection_ == SettingsSelection::TextSpeed) {
+            adjustTextSpeed(direction);
+        } else if (settingsSelection_ == SettingsSelection::Back) {
+            pauseOverlayMode_ = PauseOverlayMode::Menu;
+        }
+    }
+
+    void toggleDisplayMode() {
+        if (settings_ == nullptr || windowHost_ == nullptr) {
+            return;
+        }
+        const bool targetFullscreen = !settings_->fullscreen;
+        if (windowHost_->setFullscreen(targetFullscreen)) {
+            settings_->fullscreen = targetFullscreen;
+        }
+        windowWidth_ = windowHost_->getWidth();
+        windowHeight_ = windowHost_->getHeight();
+        if (renderInterface_ != nullptr) {
+            renderInterface_->SetViewport(windowWidth_, windowHeight_);
+        }
+        if (context_ != nullptr) {
+            context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
+        }
+        camera_.screenCenterX = windowWidth_ * 0.5f;
+        camera_.screenCenterY = windowHeight_ * 0.5f;
+        (void)sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_);
+    }
+
+    void adjustVoiceVolume(int direction) {
+        if (settings_ == nullptr) {
+            return;
+        }
+        settings_->voiceVolume = std::clamp(settings_->voiceVolume + 0.05f * static_cast<float>(direction), 0.0f, 1.0f);
+    }
+
+    void adjustTextSpeed(int direction) {
+        if (settings_ == nullptr) {
+            return;
+        }
+        settings_->textSpeed = std::clamp(settings_->textSpeed + 6.0f * static_cast<float>(direction),
+                                          kMinSettingsTextSpeed, kMaxSettingsTextSpeed);
+    }
+
+    void beginRhythmChallenge(int partyIndex) {
+        const battle::BattleState& state = manager_.getBattleState();
+        if (partyIndex < 0 || partyIndex >= static_cast<int>(state.party.size())) {
+            return;
+        }
+        const battle::CharacterDefinition& character = state.party[static_cast<size_t>(partyIndex)];
+        rhythmChallenge_.active = true;
+        rhythmChallenge_.partyIndex = partyIndex;
+        rhythmChallenge_.actorTitle = character.title;
+        rhythmChallenge_.abilityName = "Rhythm Skill";
+        rhythmChallenge_.startedMs = SDL_GetTicks64();
+    }
+
+    void maybeStartTutorial(Uint64 nowMs) {
+        if (rhythmChallenge_.active || tutorialOverlay_.step != TutorialStep::None) {
+            return;
+        }
+        const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager_);
+        if (!activePartyIndex.has_value()) {
+            return;
+        }
+        if (!tutorialOverlay_.standardShown && manager_.isPlayerActionReady(battle::BattleAction::Standard)) {
+            startTutorial(tutorialOverlay_, TutorialStep::Standard, tutorialLibrary_.standard, nowMs);
+            return;
+        }
+        if (!tutorialOverlay_.skillShown && manager_.isPlayerActionReady(battle::BattleAction::Skill)) {
+            startTutorial(tutorialOverlay_, TutorialStep::Skill, tutorialLibrary_.skill, nowMs);
+            return;
+        }
+        if (!tutorialOverlay_.ultimateShown &&
+            manager_.isPlayerActionReady(battle::BattleAction::Ultimate) &&
+            manager_.getCharacterUltimateCharge(*activePartyIndex) >= manager_.getCharacterUltimateRequired(*activePartyIndex)) {
+            startTutorial(tutorialOverlay_, TutorialStep::Ultimate, tutorialLibrary_.ultimate, nowMs);
+        }
+    }
+
+    void completeTutorialForAction(battle::BattleAction action) {
+        if (action == battle::BattleAction::Standard && tutorialOverlay_.step == TutorialStep::Standard) {
+            tutorialOverlay_.standardShown = true;
+            tutorialOverlay_.step = TutorialStep::None;
+        } else if (action == battle::BattleAction::Skill && tutorialOverlay_.step == TutorialStep::Skill) {
+            tutorialOverlay_.skillShown = true;
+            tutorialOverlay_.step = TutorialStep::None;
+        } else if (action == battle::BattleAction::Ultimate && tutorialOverlay_.step == TutorialStep::Ultimate) {
+            tutorialOverlay_.ultimateShown = true;
+            tutorialOverlay_.step = TutorialStep::None;
+        }
+    }
+
+    void finalizeSkillChallenge(bool onBeat) {
+        if (!rhythmChallenge_.active) {
+            return;
+        }
+        const Uint64 nowMs = SDL_GetTicks64();
+        rhythmChallenge_ = RhythmChallengeState{};
+        if (!manager_.executePlayerAction(battle::BattleAction::Skill)) {
+            showToast(hudFeedback_, "ACTION NOT AVAILABLE.", nowMs);
+            return;
+        }
+        showToast(hudFeedback_, onBeat ? "ON-BEAT INPUT." : "LATE INPUT.", nowMs, 1100);
+        completeTutorialForAction(battle::BattleAction::Skill);
+        manager_.processAutomaticTurns();
+        consumeBattleActionEvents(hudFeedback_, manager_, settings_ != nullptr ? settings_->voiceVolume : 1.0f, nowMs);
+    }
+
+    void attemptAction(battle::BattleAction action) {
+        const Uint64 nowMs = SDL_GetTicks64();
+        if (paused_) {
+            return;
+        }
+        if (rhythmChallenge_.active) {
+            showToast(hudFeedback_, "FINISH THE RHYTHM INPUT.", nowMs, 1200);
+            return;
+        }
+        const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager_);
+        if (!activePartyIndex.has_value()) {
+            showToast(hudFeedback_, "WAIT FOR AN ALLY TURN.", nowMs);
+            return;
+        }
+        if (action == battle::BattleAction::Ultimate && !manager_.isPlayerActionReady(action)) {
+            const int charge = manager_.getCharacterUltimateCharge(*activePartyIndex);
+            const int required = manager_.getCharacterUltimateRequired(*activePartyIndex);
+            const int missing = std::max(0, required - charge);
+            showToast(
+                hudFeedback_,
+                "ULTIMATE NEEDS " + std::to_string(missing) + " MORE ORB" + (missing == 1 ? "" : "S") + ".",
+                nowMs
+            );
+            blinkMissingOrbs(hudFeedback_, *activePartyIndex, charge, required - 1, nowMs);
+            return;
+        }
+        if (action == battle::BattleAction::Skill && !manager_.isPlayerActionReady(action)) {
+            showToast(hudFeedback_, "SKILL COSTS 1 ORB.", nowMs);
+            return;
+        }
+        if (action == battle::BattleAction::Skill) {
+            beginRhythmChallenge(*activePartyIndex);
+            return;
+        }
+        if (!manager_.executePlayerAction(action)) {
+            showToast(hudFeedback_, "ACTION NOT AVAILABLE.", nowMs);
+            return;
+        }
+        completeTutorialForAction(action);
+        manager_.processAutomaticTurns();
+        consumeBattleActionEvents(hudFeedback_, manager_, settings_ != nullptr ? settings_->voiceVolume : 1.0f, nowMs);
+    }
+
+    Window* windowHost_ = nullptr;
+    SDL_Window* window_ = nullptr;
+    SDL_GLContext glContext_ = nullptr;
+    bool initialized_ = false;
+    bool finished_ = false;
+    bool paused_ = false;
+    bool rmlInitialized_ = false;
+    bool rmlGlInitialized_ = false;
+    bool imageInitialized_ = false;
+    int windowWidth_ = kWindowWidth;
+    int windowHeight_ = kWindowHeight;
+    GameSettings* settings_ = nullptr;
+    PauseOverlayMode pauseOverlayMode_ = PauseOverlayMode::Menu;
+    PauseSelection pauseSelection_ = PauseSelection::Continue;
+    SettingsSelection settingsSelection_ = SettingsSelection::DisplayMode;
+    battle::BattleManager manager_;
+    TutorialScriptLibrary tutorialLibrary_;
+    HudFeedbackState hudFeedback_;
+    TutorialOverlayState tutorialOverlay_;
+    RhythmChallengeState rhythmChallenge_;
+    std::vector<std::unique_ptr<Rml::EventListener>> uiListeners_;
+    std::vector<std::string> worldAssets_;
+    std::vector<WorldEntity> entities_;
+    SoftwareSceneRenderer sceneRenderer_;
+    GlScreenBlitter screenBlitter_;
+    SystemInterface_SDL systemInterface_;
+    std::unique_ptr<RenderInterfaceGL3SDL> renderInterface_;
+    Rml::Context* context_ = nullptr;
+    Rml::ElementDocument* document_ = nullptr;
+    battle::Camera3D camera_;
+    CameraIntroAnimation cameraIntro_;
+    bool freeViewEnabled_ = false;
+    float cameraOscillationTime_ = 0.0f;
+    float frameAccumulator_ = 0.0f;
+    std::string lastTurnToken_;
+};
+
+Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
+Session::~Session() = default;
+bool Session::initialize(Window& window, GameSettings& settings) { return impl_->initialize(window, settings); }
+void Session::shutdown() { impl_->shutdown(); }
+void Session::handleEvent(const SDL_Event& event) { impl_->handleEvent(event); }
+void Session::update(float deltaSeconds) { impl_->update(deltaSeconds); }
+void Session::render() { impl_->render(); }
+bool Session::isFinished() const { return impl_->isFinished(); }
+
+} // namespace battle::app

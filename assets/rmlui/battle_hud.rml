@@ -132,6 +132,58 @@
             <div class="action-button-label">STANDARD</div>
         </div>
 
+        <div class="battle-tutorial" id="battle-tutorial">
+            <div class="battle-tutorial-speaker" id="battle-tutorial-speaker">Lyoo</div>
+            <div class="battle-tutorial-card">
+                <div class="battle-tutorial-portrait" id="battle-tutorial-portrait"></div>
+                <div class="battle-tutorial-copy">
+                    <div class="battle-tutorial-text" id="battle-tutorial-text"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="battle-rhythm" id="battle-rhythm">
+            <div class="battle-rhythm-kicker">SKILL MINIGAME</div>
+            <div class="battle-rhythm-title" id="battle-rhythm-title"></div>
+            <div class="battle-rhythm-body" id="battle-rhythm-body"></div>
+            <div class="battle-rhythm-lane">
+                <div class="battle-rhythm-window"></div>
+                <div class="battle-rhythm-pulse" id="battle-rhythm-pulse"></div>
+            </div>
+        </div>
+
+        <div class="battle-pause" id="battle-pause">
+            <div class="battle-pause-shell" id="battle-pause-shell">
+                <div class="battle-pause-kicker" id="battle-pause-kicker">IN BATTLE</div>
+                <div class="battle-pause-title" id="battle-pause-title">PAUSED</div>
+                <div class="battle-pause-hint" id="battle-pause-hint">ESC TO RESUME. SETTINGS MATCH THE MAIN APP.</div>
+                <div class="battle-pause-menu visible" id="battle-pause-menu">
+                    <div class="battle-pause-button selected" id="battle-pause-continue">CONTINUE</div>
+                    <div class="battle-pause-button" id="battle-pause-settings-button">SETTINGS</div>
+                    <div class="battle-pause-button" id="battle-pause-exit">EXIT TO MAIN MENU</div>
+                </div>
+                <div class="battle-pause-settings" id="battle-pause-settings">
+                    <div class="battle-settings-row selected" id="battle-settings-row-display">
+                        <div class="battle-settings-label">DISPLAY MODE</div>
+                        <div class="battle-settings-value" id="battle-settings-display-value">WINDOWED</div>
+                    </div>
+                    <div class="battle-settings-row" id="battle-settings-row-voice">
+                        <div class="battle-settings-label">VOICE VOLUME</div>
+                        <div class="battle-settings-value" id="battle-settings-voice-value">82%</div>
+                        <input class="battle-settings-slider" id="battle-settings-voice-slider" type="range" min="0" max="100" step="5" value="82" />
+                    </div>
+                    <div class="battle-settings-row" id="battle-settings-row-text">
+                        <div class="battle-settings-label">TEXT SPEED</div>
+                        <div class="battle-settings-value" id="battle-settings-text-value">42 CPS</div>
+                        <input class="battle-settings-slider" id="battle-settings-text-slider" type="range" min="18" max="90" step="6" value="42" />
+                    </div>
+                    <div class="battle-settings-row" id="battle-settings-row-back">
+                        <div class="battle-settings-label">BACK</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="battle-toast" id="battle-toast"></div>
     </div>
 </body>

@@ -2,6 +2,7 @@
 #define WINDOW_H
 
 #include <SDL2/SDL.h>
+#include <SDL2/SDL_opengl.h>
 #include <string>
 
 class Window {
@@ -20,6 +21,10 @@ public:
     void setEscapeToQuitEnabled(bool enabled) { escapeToQuitEnabled = enabled; }
     SDL_Renderer* getRenderer() const { return renderer; }
     SDL_Window* getNativeWindow() const { return window; }
+    SDL_GLContext getGlContext() const { return glContext; }
+    bool enableOpenGL();
+    bool enableRenderer();
+    bool isOpenGLMode() const { return glContext != nullptr; }
 
     int getWidth() const { return width; }
     int getHeight() const { return height; }
@@ -31,6 +36,7 @@ private:
 
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
+    SDL_GLContext glContext = nullptr;
     int width = 0;
     int height = 0;
     int windowedWidth = 0;
