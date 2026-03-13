@@ -39,6 +39,7 @@ bool buildInitialTurnState(const BattleState& state, TurnState& outTurnState) {
     TurnActor bossActor;
     bossActor.type = ParticipantType::Boss;
     bossActor.key = state.boss.key;
+    bossActor.assetId = state.boss.assets;
     bossActor.title = state.boss.title;
     bossActor.partyIndex = -1;
     bossActor.priority = 0;
@@ -53,6 +54,7 @@ bool buildInitialTurnState(const BattleState& state, TurnState& outTurnState) {
         TurnActor actor;
         actor.type = ParticipantType::Character;
         actor.key = c.key;
+        actor.assetId = c.assets;
         actor.title = c.title;
         actor.partyIndex = static_cast<int>(i);
         actor.priority = 0;
@@ -118,6 +120,7 @@ void queueExtraTurnForCharacter(TurnState& turnState, const CharacterDefinition&
     TurnActor extra;
     extra.type = ParticipantType::Character;
     extra.key = character.key;
+    extra.assetId = character.assets;
     extra.title = character.title;
     extra.partyIndex = partyIndex;
     extra.priority = 100;

@@ -7,43 +7,47 @@
     <div id="stage">
         <div class="boss-shell">
             <div class="boss-fill" id="boss-fill"></div>
-            <div class="boss-name" id="boss-name">LYOO</div>
-            <div class="boss-percent" id="boss-percent">HP 100%</div>
-            <div class="boss-orbs" id="boss-orbs">
-                <div class="boss-orb" id="boss-orb-1"></div>
-                <div class="boss-orb" id="boss-orb-2"></div>
-                <div class="boss-orb" id="boss-orb-3"></div>
-                <div class="boss-orb" id="boss-orb-4"></div>
-                <div class="boss-orb" id="boss-orb-5"></div>
-                <div class="boss-orb" id="boss-orb-6"></div>
+            <div class="boss-content">
+                <div class="boss-header">
+                    <div class="boss-name" id="boss-name">LYOO</div>
+                    <div class="boss-percent" id="boss-percent">HP 100%</div>
+                </div>
+                <div class="boss-orbs" id="boss-orbs">
+                    <div class="boss-orb" id="boss-orb-1"></div>
+                    <div class="boss-orb" id="boss-orb-2"></div>
+                    <div class="boss-orb" id="boss-orb-3"></div>
+                    <div class="boss-orb" id="boss-orb-4"></div>
+                    <div class="boss-orb" id="boss-orb-5"></div>
+                    <div class="boss-orb" id="boss-orb-6"></div>
+                </div>
             </div>
         </div>
 
         <div class="turn-stack">
-            <div class="turn-card turn-card-1" id="turn-card-1">
+            <div class="turn-card" id="turn-card-1">
                 <div class="turn-card-accent" id="turn-accent-1"></div>
                 <div class="turn-portrait" id="turn-portrait-1"></div>
             </div>
-            <div class="turn-card turn-card-2" id="turn-card-2">
+            <div class="turn-card" id="turn-card-2">
                 <div class="turn-card-accent" id="turn-accent-2"></div>
                 <div class="turn-portrait" id="turn-portrait-2"></div>
             </div>
-            <div class="turn-card turn-card-3" id="turn-card-3">
+            <div class="turn-card" id="turn-card-3">
                 <div class="turn-card-accent" id="turn-accent-3"></div>
                 <div class="turn-portrait" id="turn-portrait-3"></div>
             </div>
-            <div class="turn-card turn-card-4" id="turn-card-4">
+            <div class="turn-card" id="turn-card-4">
                 <div class="turn-card-accent" id="turn-accent-4"></div>
                 <div class="turn-portrait" id="turn-portrait-4"></div>
             </div>
-            <div class="turn-card turn-card-5" id="turn-card-5">
+            <div class="turn-card" id="turn-card-5">
                 <div class="turn-card-accent" id="turn-accent-5"></div>
                 <div class="turn-portrait" id="turn-portrait-5"></div>
             </div>
         </div>
 
         <div class="party-rack" id="party-rack">
-            <div class="unit-card unit-card-1" id="unit-card-1">
+            <div class="unit-card" id="unit-card-1">
                 <div class="unit-portrait" id="unit-portrait-1"></div>
                 <div class="unit-fade-left"></div>
                 <div class="unit-fade-right"></div>
@@ -61,7 +65,7 @@
                 <div class="hp-track hp-track-wide"><div class="hp-fill" id="unit-hp-fill-1"></div></div>
             </div>
 
-            <div class="unit-card unit-card-2" id="unit-card-2">
+            <div class="unit-card" id="unit-card-2">
                 <div class="unit-portrait" id="unit-portrait-2"></div>
                 <div class="unit-fade-left"></div>
                 <div class="unit-fade-right"></div>
@@ -79,7 +83,7 @@
                 <div class="hp-track hp-track-wide"><div class="hp-fill" id="unit-hp-fill-2"></div></div>
             </div>
 
-            <div class="unit-card unit-card-3" id="unit-card-3">
+            <div class="unit-card" id="unit-card-3">
                 <div class="unit-portrait" id="unit-portrait-3"></div>
                 <div class="unit-fade-left"></div>
                 <div class="unit-fade-right"></div>
@@ -97,7 +101,7 @@
                 <div class="hp-track hp-track-wide"><div class="hp-fill" id="unit-hp-fill-3"></div></div>
             </div>
 
-            <div class="unit-card unit-card-4" id="unit-card-4">
+            <div class="unit-card" id="unit-card-4">
                 <div class="unit-portrait" id="unit-portrait-4"></div>
                 <div class="unit-fade-left"></div>
                 <div class="unit-fade-right"></div>
@@ -133,11 +137,14 @@
         </div>
 
         <div class="battle-tutorial" id="battle-tutorial">
-            <div class="battle-tutorial-speaker" id="battle-tutorial-speaker">Lyoo</div>
             <div class="battle-tutorial-card">
-                <div class="battle-tutorial-portrait" id="battle-tutorial-portrait"></div>
-                <div class="battle-tutorial-copy">
-                    <div class="battle-tutorial-text" id="battle-tutorial-text"></div>
+                <div class="battle-tutorial-layout">
+                    <div class="battle-tutorial-portrait" id="battle-tutorial-portrait"></div>
+                    <div class="battle-tutorial-copy">
+                        <div class="battle-tutorial-speaker" id="battle-tutorial-speaker">Lyoo</div>
+                        <div class="battle-tutorial-text" id="battle-tutorial-text"></div>
+                        <div class="battle-tutorial-dismiss-hint">PRESS BACKSPACE TO DISMISS</div>
+                    </div>
                 </div>
             </div>
         </div>

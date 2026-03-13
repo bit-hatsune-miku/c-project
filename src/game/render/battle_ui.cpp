@@ -194,6 +194,7 @@ void BattleHud::syncFromManager(const BattleManager& manager) {
         const CharacterDefinition& character = battleState.party[i];
         HudCharacterModel hudCharacter;
         hudCharacter.key = character.key;
+        hudCharacter.assetId = character.assets;
         hudCharacter.title = character.title;
         hudCharacter.currentHp = manager.getCharacterCurrentHp(static_cast<int>(i));
         hudCharacter.maxHp = manager.getCharacterMaxHp(static_cast<int>(i));
@@ -409,7 +410,8 @@ void BattleHud::drawTurnOrder(SDL_Renderer* renderer, const std::map<std::string
         SDL_SetRenderDrawColor(renderer, 60, 65, 80, 255);
         SDL_RenderDrawRect(renderer, &cardRect);
 
-        const std::string iconKey = (actor.type == ParticipantType::Boss) ? "boss_" + actor.key : actor.key;
+        const std::string iconId = actor.assetId.empty() ? actor.key : actor.assetId;
+        const std::string iconKey = (actor.type == ParticipantType::Boss) ? "boss_" + iconId : iconId;
         auto iconIt = iconByAsset.find(iconKey);
         if (iconIt != iconByAsset.end() && iconIt->second != nullptr) {
             drawCroppedTexture(renderer, iconIt->second, cardRect);
@@ -500,7 +502,8 @@ void BattleHud::drawCharacterStatus(SDL_Renderer* renderer,
         const float damageAlpha = getDamageFlashAlpha(idx, shakeOffsetX);
         const int finalIconX = iconX + shakeOffsetX;
 
-        auto iconIt = iconByAsset.find(character.key);
+        const std::string iconId = character.assetId.empty() ? character.key : character.assetId;
+        auto iconIt = iconByAsset.find(iconId);
         if (iconIt != iconByAsset.end() && iconIt->second != nullptr) {
             const SDL_Rect dstRect{finalIconX, iconY, iconWidth, iconHeight};
             drawCroppedTexture(renderer, iconIt->second, dstRect);

@@ -148,51 +148,58 @@ bool loadAbilityDefinition(const std::string& abilityId, AbilityDefinition& outA
             return false;
         }
 
-        const json& abilityJson = root[abilityId];
-
-        outAbility.id = abilityId;
-        outAbility.name = abilityJson.value("name", abilityId);
-        outAbility.multiplier = abilityJson.value("multiplier", 1.0f);
-        outAbility.flatHeal = abilityJson.value("flatHeal", 0);
-        outAbility.presentationId = abilityJson.value("presentationId", "");
-
-        const std::string typeStr = abilityJson.value("type", "attack");
-        if (typeStr == "heal") {
-            outAbility.type = AbilityType::Heal;
-        } else if (typeStr == "buff") {
-            outAbility.type = AbilityType::Buff;
-        } else if (typeStr == "debuff") {
-            outAbility.type = AbilityType::Debuff;
-        } else {
-            outAbility.type = AbilityType::Attack;
-        }
-
-        const std::string targetStr = abilityJson.value("targetRule", "single_enemy");
-        if (targetStr == "all_enemies") {
-            outAbility.targetRule = TargetRule::AllEnemies;
-        } else if (targetStr == "single_ally") {
-            outAbility.targetRule = TargetRule::SingleAlly;
-        } else if (targetStr == "all_allies") {
-            outAbility.targetRule = TargetRule::AllAllies;
-        } else if (targetStr == "self") {
-            outAbility.targetRule = TargetRule::Self;
-        } else {
-            outAbility.targetRule = TargetRule::SingleEnemy;
-        }
-
-        const std::string interactionStr = abilityJson.value("interactionType", "none");
-        if (interactionStr == "rhythm") {
-            outAbility.interactionType = InteractionType::Rhythm;
-        } else if (interactionStr == "parry") {
-            outAbility.interactionType = InteractionType::Parry;
-        } else {
-            outAbility.interactionType = InteractionType::None;
-        }
-
-        return true;
+        return parseAbilityDefinition(root[abilityId], abilityId, outAbility);
     } catch (const json::exception&) {
         return false;
     }
+}
+
+bool parseAbilityDefinition(const json& abilityJson, const std::string& abilityId, AbilityDefinition& outAbility) {
+    if (!abilityJson.is_object()) {
+        return false;
+    }
+
+    outAbility = AbilityDefinition{};
+    outAbility.id = abilityId;
+    outAbility.name = abilityJson.value("name", abilityId);
+    outAbility.multiplier = abilityJson.value("multiplier", 1.0f);
+    outAbility.flatHeal = abilityJson.value("flatHeal", 0);
+    outAbility.presentationId = abilityJson.value("presentationId", "");
+
+    const std::string typeStr = abilityJson.value("type", "attack");
+    if (typeStr == "heal") {
+        outAbility.type = AbilityType::Heal;
+    } else if (typeStr == "buff") {
+        outAbility.type = AbilityType::Buff;
+    } else if (typeStr == "debuff") {
+        outAbility.type = AbilityType::Debuff;
+    } else {
+        outAbility.type = AbilityType::Attack;
+    }
+
+    const std::string targetStr = abilityJson.value("targetRule", "single_enemy");
+    if (targetStr == "all_enemies") {
+        outAbility.targetRule = TargetRule::AllEnemies;
+    } else if (targetStr == "single_ally") {
+        outAbility.targetRule = TargetRule::SingleAlly;
+    } else if (targetStr == "all_allies") {
+        outAbility.targetRule = TargetRule::AllAllies;
+    } else if (targetStr == "self") {
+        outAbility.targetRule = TargetRule::Self;
+    } else {
+        outAbility.targetRule = TargetRule::SingleEnemy;
+    }
+
+    const std::string interactionStr = abilityJson.value("interactionType", "none");
+    if (interactionStr == "rhythm") {
+        outAbility.interactionType = InteractionType::Rhythm;
+    } else if (interactionStr == "parry") {
+        outAbility.interactionType = InteractionType::Parry;
+    } else {
+        outAbility.interactionType = InteractionType::None;
+    }
+
+    return true;
 }
 
 bool loadAllAbilities(std::unordered_map<std::string, AbilityDefinition>& outAbilities) {
@@ -209,7 +216,7 @@ bool loadAllAbilities(std::unordered_map<std::string, AbilityDefinition>& outAbi
         const json root = json::parse(contents);
         for (auto it = root.begin(); it != root.end(); ++it) {
             AbilityDefinition def;
-            if (!loadAbilityDefinition(it.key(), def)) {
+            if (!parseAbilityDefinition(it.value(), it.key(), def)) {
                 continue;
             }
             outAbilities[it.key()] = def;

@@ -1,6 +1,7 @@
 #include "battle_manager.h"
 #include "ability_system.h"
 #include "battle_loader.h"
+#include "../presentation/ability_presentation.h"
 #include "turn_system.h"
 
 #include <algorithm>
@@ -9,6 +10,35 @@
 
 namespace battle {
 namespace {
+
+bool consumeInvalidPreviewCharacterTurn(const std::vector<BattleCharacter>& characters,
+                                        TurnState& turnState,
+                                        const TurnEvent& next) {
+    if (!next.valid || next.actingActorIndex >= turnState.actors.size()) {
+        return false;
+    }
+
+    const TurnActor& previewActor = turnState.actors[next.actingActorIndex];
+    if (previewActor.type != ParticipantType::Character ||
+        previewActor.partyIndex < 0 ||
+        static_cast<size_t>(previewActor.partyIndex) >= characters.size()) {
+        return false;
+    }
+
+    if (!previewActor.isExtraTurn && characters[static_cast<size_t>(previewActor.partyIndex)].isAlive()) {
+        return false;
+    }
+
+    TurnEvent consumed = turn::advanceToNextTurnEvent(turnState);
+    if (!consumed.valid || consumed.actingActorIndex >= turnState.actors.size()) {
+        return false;
+    }
+
+    turnState.actors[consumed.actingActorIndex].currentActionValue =
+        turnState.actors[consumed.actingActorIndex].baseActionValue;
+    return true;
+}
+
 } // namespace
 
 BattleCharacter::BattleCharacter(const CharacterDefinition& definition, int partyIndex)
@@ -126,6 +156,8 @@ bool BattleManager::initialize(const std::string& bossKey, const std::vector<std
     if (!loader::loadAllAbilities(abilities_)) {
         std::cerr << "[Battle] Warning: Failed to load abilities.\n";
     }
+
+    registerAllPresentations();
 
     initialized_ = true;
     return true;
@@ -268,9 +300,9 @@ bool BattleManager::isPlayerActionReady(BattleAction action) const {
         case BattleAction::Standard:
             return character.isAlive();
         case BattleAction::Skill:
-            return character.isAlive() && character.canUseSkill();
+            return character.isAlive() && !actor.isExtraTurn && character.canUseSkill();
         case BattleAction::Ultimate:
-            return character.isAlive() && character.canUseUltimate();
+            return character.isAlive() && !actor.isExtraTurn && character.canUseUltimate();
     }
     return false;
 }
@@ -539,6 +571,17 @@ bool BattleManager::resolvePlayerAction(BattleAction action) {
         return false;
     }
 
+    while (!isBattleOver()) {
+        const TurnEvent next = peekNextTurnEvent();
+        if (!next.valid || next.actingActorIndex >= turnState_.actors.size()) {
+            return false;
+        }
+
+        if (!consumeInvalidPreviewCharacterTurn(characters_, turnState_, next)) {
+            break;
+        }
+    }
+
     const TurnEvent next = peekNextTurnEvent();
     if (!next.valid || next.actingActorIndex >= turnState_.actors.size()) {
         return false;
@@ -550,9 +593,13 @@ bool BattleManager::resolvePlayerAction(BattleAction action) {
         return false;
     }
 
+    if (previewActor.isExtraTurn && action != BattleAction::Standard) {
+        return false;
+    }
+
     BattleCharacter& character = characters_[static_cast<size_t>(previewActor.partyIndex)];
     if (!character.isAlive()) {
-        return false;
+        return consumeInvalidPreviewCharacterTurn(characters_, turnState_, next) && resolvePlayerAction(action);
     }
 
     if ((action == BattleAction::Skill && !character.canUseSkill()) ||

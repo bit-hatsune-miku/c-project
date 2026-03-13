@@ -6,9 +6,9 @@ The battle HUD is now isolated behind `battle::ui::BattleHud` and fed from `Batt
 
 This is the prerequisite for moving the HUD to `RmlUi`, but `RmlUi` is not a drop-in renderer for the current setup.
 
-`ENABLE_RMLUI` is now available in CMake to fetch and build the upstream library without changing the active HUD renderer yet.
+`ENABLE_RMLUI` now fetches the upstream library and builds the default `battle_testing` target from `src/rmlui_battle_main.cpp`, which runs the OpenGL-backed RmlUi battle path.
 
-## Why it is not wired in yet
+## Why the main SDL renderer is not a drop-in RmlUi path
 
 The project currently renders through `SDL_Renderer` in [src/window.cpp](../src/window.cpp).
 
@@ -17,7 +17,7 @@ The project currently renders through `SDL_Renderer` in [src/window.cpp](../src/
 - a custom `RenderInterface`, or
 - one of its provided backend paths such as `SDL + OpenGL 3`
 
-That means a real `RmlUi` migration requires a renderer decision first.
+That means the standalone RmlUi battle path is wired in today, but migrating the existing SDL-rendered HUD path still requires a renderer decision first.
 
 ## Recommended migration path
 

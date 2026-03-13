@@ -4,6 +4,8 @@
 #include <string>
 #include <unordered_map>
 
+#include <nlohmann/json_fwd.hpp>
+
 #include "battle_manager.h"
 
 namespace battle::loader {
@@ -15,6 +17,9 @@ bool loadBossDefinition(const std::string& bossKey, BossDefinition& outBoss);
 bool loadCharacterDefinition(const std::string& characterKey, CharacterDefinition& outCharacter);
 
 bool loadAbilityDefinition(const std::string& abilityId, AbilityDefinition& outAbility);
+bool parseAbilityDefinition(const nlohmann::json& abilityJson,
+                            const std::string& abilityId,
+                            AbilityDefinition& outAbility);
 bool loadAllAbilities(std::unordered_map<std::string, AbilityDefinition>& outAbilities);
 
 } // namespace battle::loader
