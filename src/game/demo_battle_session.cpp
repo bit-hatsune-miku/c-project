@@ -377,9 +377,10 @@ public:
 
         const TurnState& turnState = manager.getTurnState();
         for (const TurnActor& actor : turnState.actors) {
-            const std::string iconKey = (actor.type == ParticipantType::Boss) ? "boss_" + actor.key : actor.key;
+            const std::string iconId = actor.assetId.empty() ? actor.key : actor.assetId;
+            const std::string iconKey = (actor.type == ParticipantType::Boss) ? "boss_" + iconId : iconId;
             if (iconByAsset.find(iconKey) == iconByAsset.end()) {
-                const auto loaded = tryLoadIcon(renderer, actor.key);
+                const auto loaded = tryLoadIcon(renderer, iconId);
                 iconByAsset[iconKey] = loaded.has_value() ? *loaded : nullptr;
             }
         }

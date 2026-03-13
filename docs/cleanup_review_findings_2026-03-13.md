@@ -184,16 +184,14 @@ References:
 - `src/game/presentation/ability_presentation.h:102`
 - `assets/combat/abilities.json:2`
 
-What looks broken:
+What still looks broken:
 - Only three presentation IDs are registered in code, while more abilities declare `presentationId` in content.
-- Repository-wide search only finds the declaration and definition of `registerAllPresentations()`, not a call site.
+- Verified missing IDs include at least `basic_attack`, `boss_standard`, `heal_hearts`, `hearts_everywhere_ultimate`, `niagara_falls_ultimate`, `boss_attack_lyoo`, and `boss_attack_lyoo_ultimate`.
 
 Impact:
-- Some presentation hooks appear unresolved.
-- If registration is never called, even implemented presentations will not be available at runtime.
+- Some presentation hooks remain unresolved.
 
 Recommended cleanup:
-- Add one explicit presentation bootstrap call at startup.
 - Add validation that every `presentationId` referenced by content is registered.
 
 ### 9. `src/game/core/ability_system.cpp` only partially implements the declared targeting/effect model
@@ -214,36 +212,23 @@ Recommended cleanup:
 - Split target resolution from effect resolution.
 - Add a dedicated `battle_effects.*` or `ability_resolution.*` module.
 
-### 10. Ability loading repeats full-file JSON parsing unnecessarily
+### 11. Extra-turn handling is inconsistent, and stale preview slots can block player actions
 References:
-- `src/game/core/battle_loader.cpp:138`
-- `src/game/core/battle_loader.cpp:198`
-- `src/game/core/battle_manager.cpp:126`
-
-What is not optimal:
-- `loadAllAbilities()` parses `abilities.json`, then repeatedly calls a loader path that reparses the same file per ability.
-
-Impact:
-- Unnecessary disk I/O and repeated parse work.
-
-Recommended cleanup:
-- Parse once in `loadAllAbilities()`.
-- Pass `const json&` entries into a per-record parser.
-
-### 11. Extra-turn plumbing looks incomplete and likely unsafe if activated
-References:
+- `src/game/core/battle_manager.cpp:250`
+- `src/game/core/battle_manager.cpp:306`
+- `src/game/core/battle_manager.cpp:370`
+- `src/game/core/battle_manager.cpp:553`
 - `src/game/core/turn_system.cpp:117`
-- `src/game/core/battle_manager.cpp:516`
 - `src/game/core/battle_manager.h:208`
 
-What looks risky:
-- `queueExtraTurnForCharacter()` exists, marks `isExtraTurn`, and mutates actor state, but there is no clear gameplay path using or cleaning up that mechanism.
+What still looks risky:
+- `queueExtraTurnForCharacter()` still looks incomplete as a long-term scheduling mechanism because it mutates actor state without a clearly bounded lifecycle.
 
 Impact:
-- If turned on later, actor vectors may grow permanently or behave unexpectedly.
+- If extra-turn support grows later, actor vectors may still drift or accumulate unexpectedly.
 
 Recommended cleanup:
-- Either remove the dormant API or redesign extra turns as scheduled inserts with explicit cleanup.
+- If extra turns remain planned, redesign them as bounded scheduled inserts with explicit cleanup.
 
 ### 12. `launchDefaultBattleMode()` uses `std::system()` with incomplete shell escaping
 References:
@@ -260,31 +245,17 @@ Impact:
 Recommended cleanup:
 - Replace with direct process spawning such as `execv` or `posix_spawn`.
 
-### 13. There is a confirmed typo in a legacy combat voice fallback path
-Reference:
-- `src/battle_main.cpp:237`
-
-What looks broken:
-- Fallback candidate uses `assets/comat/voices/...` instead of `assets/combat/voices/...`.
-
-Impact:
-- Dead fallback path and misleading debugging when hit voices fail to resolve.
-
-Recommended cleanup:
-- Fix the typo and centralize combat voice path resolution in one helper.
-
 ### 14. Some content/assets appear broken or incomplete today
 References:
 - `assets/vn/json/demo.json:58`
 - `assets/combat/characters.json:72`
 
-Confirmed or likely issues:
-- `assets/vn/json/demo.json` references `assets/vn/voices/demo/what.wav`, but that file is missing.
+Warnings:
 - `assets/combat/characters.json` defines `luotianyi`, but the corresponding combat assets and abilities do not appear to exist in the repository.
 
 Recommended cleanup:
 - Add content validation during load for asset paths, ability IDs, and presentation IDs.
-- Fail fast with diagnostics instead of letting invalid content drift into runtime.
+- Warn clearly when content is incomplete; do not try to auto-heal missing assets.
 
 ## Medium-priority maintainability findings
 
@@ -367,6 +338,26 @@ Impact:
 Recommended cleanup:
 - Introduce an `SdlRuntime` or `AppRuntime` owner for global initialization.
 - Keep `Window` focused on the native window and backend attachment.
+
+### 29. Several smaller cleanup issues are verified and should be tracked, but are lower priority
+References:
+- `src/game/app_battle_session.cpp:369`
+- `src/game/app_battle_session.cpp:558`
+- `src/game/app_battle_session.h:16`
+- `src/game/core/battle_manager.h:17`
+- `src/game/core/battle_manager.h:22`
+- `src/game/vn/vn_system.cpp:155`
+
+Verified issues:
+- `playWavOneShot()` opens a new `SDL_AudioDeviceID` per call without any cap or pre-cleanup thresholding.
+- `loadTutorialScriptLibrary()` collapses "file failed to load" and "insufficient entries" into the same `false` result.
+- `battle::app::Session` deletes copy operations but does not explicitly declare move support.
+- `BossDefinition` and `CharacterDefinition` still expose both legacy `ability` and explicit `standardAbility` / `skillAbility` / `ultimate` fields.
+- `startingOrbs` defaults to `1`, which is fail-open during migration because omitted values can seed immediate skill usage.
+- The VN font lookup prefers system fonts before repo-shipped fonts.
+
+Recommended cleanup:
+- Treat these as follow-up cleanup items after the higher-risk issues above.
 
 ## Recommended cleanup order
 

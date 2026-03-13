@@ -129,6 +129,7 @@ enum class ParticipantType {
 struct TurnActor {
     ParticipantType type = ParticipantType::Character;
     std::string key;
+    std::string assetId;
     std::string title;
     int partyIndex = -1; // 0 = left-most character. -1 for boss.
     int priority = 0; // Higher comes first on same action value.
