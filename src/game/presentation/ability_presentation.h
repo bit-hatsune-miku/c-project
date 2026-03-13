@@ -1,0 +1,106 @@
+#ifndef ABILITY_PRESENTATION_H
+#define ABILITY_PRESENTATION_H
+
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <vector>
+#include <functional>
+
+#include <SDL2/SDL.h>
+
+#include "../render/camera_3d.h"
+
+namespace battle {
+
+struct CameraKeyframe {
+    float time = 0.0f;
+    float posX = 0.0f;
+    float posY = 0.0f;
+    float posZ = 0.0f;
+    float pitchDegrees = 0.0f;
+    float yawDegrees = 0.0f;
+    float focalLength = 50000.0f;
+};
+
+struct InputWindow {
+    float startTime = 0.0f;
+    float endTime = 0.0f;
+    bool active = false;
+};
+
+struct ProjectileParticle {
+    float worldX = 0.0f;
+    float worldY = 0.0f;
+    float worldZ = 0.0f;
+    float velocityX = 0.0f;
+    float velocityY = 0.0f;
+    float velocityZ = 0.0f;
+    float lifetime = 0.0f;
+    float maxLifetime = 1.0f;
+    SDL_Color color{255, 255, 255, 255};
+    float size = 20.0f;
+    bool active = true;
+    bool hitRegistered = false;
+};
+
+class AbilityPresentation {
+public:
+    virtual ~AbilityPresentation() = default;
+
+    virtual void start() = 0;
+    virtual void update(float deltaTime) = 0;
+    virtual void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) = 0;
+    virtual bool isComplete() const = 0;
+    
+    // Input handling
+    virtual void onSpacePressed() {}
+    virtual void onKeyPressed(SDL_Keycode key) {}
+    virtual float getInputMultiplier() const { return 1.0f; }
+    virtual int consumeHitEvents() { return 0; }
+
+    // Camera control
+    virtual bool overridesCamera() const { return false; }
+    virtual void applyCameraState(Camera3D& camera) const {}
+    virtual bool getCasterWorldOverride(float& outX, float& outY, float& outZ) const {
+        (void)outX;
+        (void)outY;
+        (void)outZ;
+        return false;
+    }
+
+protected:
+    float elapsedTime_ = 0.0f;
+    float totalDuration_ = 2.0f;
+    InputWindow inputWindow_;
+};
+
+// Factory function type
+using PresentationFactory = std::function<std::unique_ptr<AbilityPresentation>(
+    float casterWorldX, float casterWorldY, float casterWorldZ,
+    float targetWorldX, float targetWorldY, float targetWorldZ
+)>;
+
+// Registry for presentation factories
+class PresentationRegistry {
+public:
+    static PresentationRegistry& instance();
+
+    void registerPresentation(const std::string& id, PresentationFactory factory);
+    std::unique_ptr<AbilityPresentation> create(
+        const std::string& id,
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    );
+
+private:
+    PresentationRegistry() = default;
+    std::unordered_map<std::string, PresentationFactory> factories_;
+};
+
+// Register all built-in presentations
+void registerAllPresentations();
+
+} // namespace battle
+
+#endif // ABILITY_PRESENTATION_H

@@ -30,25 +30,37 @@ set(MAIN_APP_SOURCES
     src/GameMenu/exit_to_main_menu.cpp
     src/Settings/settings.cpp
     src/window.cpp
-    src/game/vn_system.cpp
-    src/game/vn_script.cpp
+    src/game/vn/vn_system.cpp
+    src/game/vn/vn_script.cpp
 )
 
 set(BATTLE_CORE_SOURCES
-    src/game/battle_manager.cpp
-    src/game/battle_manager.h
-    src/game/battle_loader.cpp
-    src/game/battle_loader.h
-    src/game/turn_system.cpp
-    src/game/turn_system.h
-    src/game/ability_system.cpp
-    src/game/ability_system.h
-    src/game/battle_ui.cpp
-    src/game/battle_ui.h
-    src/game/easing.cpp
-    src/game/easing.h
-    src/game/camera_3d.cpp
-    src/game/camera_3d.h
+    src/game/core/battle_manager.cpp
+    src/game/core/battle_manager.h
+    src/game/core/battle_loader.cpp
+    src/game/core/battle_loader.h
+    src/game/core/turn_system.cpp
+    src/game/core/turn_system.h
+    src/game/core/ability_system.cpp
+    src/game/core/ability_system.h
+    src/game/render/battle_ui.cpp
+    src/game/render/battle_ui.h
+    src/game/core/easing.cpp
+    src/game/core/easing.h
+    src/game/render/camera_3d.cpp
+    src/game/render/camera_3d.h
+)
+
+set(BATTLE_PRESENTATION_SOURCES
+    src/game/presentation/ability_presentation.cpp
+    src/game/presentation/ability_presentation.h
+    src/game/presentation/miku_sing_presentation.cpp
+    src/game/presentation/miku_sing_presentation.h
+    src/game/presentation/miku_diandong_presentation.cpp
+    src/game/presentation/miku_diandong_presentation.h
+    src/game/presentation/cupcakke_drum_presentation.cpp
+    src/game/presentation/cupcakke_drum_presentation.h
+    src/game/presentation/presentation_registry.cpp
 )
 
 set(BATTLE_DEMO_SOURCES
@@ -60,8 +72,8 @@ set(HEADERS
     src/GameMenu/menu_shared.h
     src/Settings/settings.h
     src/window.h
-    src/game/vn_system.h
-    src/game/vn_script.h
+    src/game/vn/vn_system.h
+    src/game/vn/vn_script.h
 )
 
 # Create executable
@@ -69,6 +81,7 @@ add_executable(OurUndergroundBITIdol
     ${MAIN_APP_SOURCES}
     ${BATTLE_CORE_SOURCES}
     ${BATTLE_DEMO_SOURCES}
+    ${BATTLE_PRESENTATION_SOURCES}
     ${HEADERS}
 )
 
@@ -77,6 +90,7 @@ add_executable(battle_testing
     src/window.cpp
     src/window.h
     ${BATTLE_CORE_SOURCES}
+    ${BATTLE_PRESENTATION_SOURCES}
 )
 
 add_executable(demo
@@ -85,10 +99,11 @@ add_executable(demo
     src/window.h
     ${BATTLE_CORE_SOURCES}
     ${BATTLE_DEMO_SOURCES}
-    src/game/vn_system.cpp
-    src/game/vn_system.h
-    src/game/vn_script.cpp
-    src/game/vn_script.h
+    ${BATTLE_PRESENTATION_SOURCES}
+    src/game/vn/vn_system.cpp
+    src/game/vn/vn_system.h
+    src/game/vn/vn_script.cpp
+    src/game/vn/vn_script.h
 )
 
 # Include directories

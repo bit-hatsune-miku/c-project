@@ -151,6 +151,9 @@ public:
     int getCharacterMaxHp(int partyIndex) const;
     int getCharacterUltimateCharge(int partyIndex) const;
     int getCharacterUltimateRequired(int partyIndex) const;
+    bool prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vector<int>& outHitDamages);
+    void applyBossSplitHitDamage(int damage);
+    bool commitCurrentPlayerSplitAttackTurn();
     bool executePlayerTurn();
     bool processAutomaticTurns();
     bool isBattleOver() const;

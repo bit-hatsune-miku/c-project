@@ -16,10 +16,10 @@
 #endif
 
 #include "window.h"
-#include "game/battle_manager.h"
-#include "game/camera_3d.h"
-#include "game/battle_ui.h"
-#include "game/easing.h"
+#include "game/core/battle_manager.h"
+#include "game/render/camera_3d.h"
+#include "game/render/battle_ui.h"
+#include "game/core/easing.h"
 
 namespace {
 
@@ -159,6 +159,151 @@ std::string resolvePath(const std::string& relativePath) {
         }
     }
     return relativePath;
+}
+
+struct ActiveHitVoice {
+    SDL_AudioDeviceID device = 0;
+};
+
+struct PendingHitVoice {
+    std::string wavPath;
+    Uint32 playAtMs = 0;
+};
+
+std::vector<ActiveHitVoice> gActiveHitVoices;
+std::vector<PendingHitVoice> gPendingHitVoices;
+constexpr Uint32 kHitVoiceStaggerMs = 45;
+
+void shutdownHitVoiceAudio() {
+    for (const ActiveHitVoice& voice : gActiveHitVoices) {
+        if (voice.device != 0) {
+            SDL_CloseAudioDevice(voice.device);
+        }
+    }
+    gActiveHitVoices.clear();
+    gPendingHitVoices.clear();
+}
+
+void cleanupFinishedHitVoices() {
+    std::vector<ActiveHitVoice> stillPlaying;
+    stillPlaying.reserve(gActiveHitVoices.size());
+
+    for (const ActiveHitVoice& voice : gActiveHitVoices) {
+        if (voice.device == 0) {
+            continue;
+        }
+        if (SDL_GetQueuedAudioSize(voice.device) == 0) {
+            SDL_CloseAudioDevice(voice.device);
+        } else {
+            stillPlaying.push_back(voice);
+        }
+    }
+
+    gActiveHitVoices.swap(stillPlaying);
+}
+
+bool startWavOneShotOnNewDevice(const std::string& wavPath) {
+    SDL_AudioSpec wavSpec{};
+    Uint8* wavBuffer = nullptr;
+    Uint32 wavLength = 0;
+
+    if (SDL_LoadWAV(wavPath.c_str(), &wavSpec, &wavBuffer, &wavLength) == nullptr) {
+        return false;
+    }
+
+    SDL_AudioDeviceID device = SDL_OpenAudioDevice(nullptr, 0, &wavSpec, nullptr, 0);
+    if (device == 0) {
+        SDL_FreeWAV(wavBuffer);
+        return false;
+    }
+
+    const int queueResult = SDL_QueueAudio(device, wavBuffer, wavLength);
+    SDL_FreeWAV(wavBuffer);
+    if (queueResult != 0) {
+        SDL_CloseAudioDevice(device);
+        return false;
+    }
+
+    SDL_PauseAudioDevice(device, 0);
+    gActiveHitVoices.push_back(ActiveHitVoice{device});
+    return true;
+}
+
+std::optional<std::string> resolveHitVoicePath(const std::string& assetName) {
+    if (assetName.empty()) {
+        return std::nullopt;
+    }
+
+    const std::vector<std::string> candidates = {
+        "assets/combat/voices/" + assetName + "/hit.wav",
+        "assets/combat/voices/" + assetName + ".hit.wav",
+        "assets/comat/voices/" + assetName + ".hit.wav"
+    };
+
+    for (const std::string& candidate : candidates) {
+        const std::string resolved = resolvePath(candidate);
+        if (std::filesystem::exists(resolved)) {
+            return resolved;
+        }
+    }
+
+    return std::nullopt;
+}
+
+void queueHitVoiceIfExists(const std::string& assetName, int staggerIndex) {
+    const std::optional<std::string> resolvedPath = resolveHitVoicePath(assetName);
+    if (!resolvedPath.has_value()) {
+        return;
+    }
+
+    const Uint32 now = SDL_GetTicks();
+    const Uint32 offset = static_cast<Uint32>(std::max(0, staggerIndex)) * kHitVoiceStaggerMs;
+    gPendingHitVoices.push_back(PendingHitVoice{*resolvedPath, now + offset});
+}
+
+void processPendingHitVoices() {
+    if (gPendingHitVoices.empty()) {
+        cleanupFinishedHitVoices();
+        return;
+    }
+
+    const Uint32 now = SDL_GetTicks();
+    std::vector<PendingHitVoice> remaining;
+    remaining.reserve(gPendingHitVoices.size());
+
+    for (const PendingHitVoice& pending : gPendingHitVoices) {
+        if (pending.playAtMs <= now) {
+            (void)startWavOneShotOnNewDevice(pending.wavPath);
+        } else {
+            remaining.push_back(pending);
+        }
+    }
+
+    gPendingHitVoices.swap(remaining);
+    cleanupFinishedHitVoices();
+}
+
+void updateHitVoicesForHpDrops(const battle::BattleManager& manager,
+                               const battle::BattleState& state,
+                               int& lastBossHp,
+                               std::vector<int>& lastCharacterHp) {
+    int staggerIndex = 0;
+
+    const int bossHpNow = manager.getBossCurrentHp();
+    if (bossHpNow < lastBossHp) {
+        queueHitVoiceIfExists(state.boss.assets, staggerIndex++);
+    }
+    lastBossHp = bossHpNow;
+
+    for (size_t i = 0; i < state.party.size(); ++i) {
+        const int hpNow = manager.getCharacterCurrentHp(static_cast<int>(i));
+        if (i < lastCharacterHp.size() && hpNow < lastCharacterHp[i]) {
+            queueHitVoiceIfExists(state.party[i].assets, staggerIndex++);
+        }
+        if (i < lastCharacterHp.size()) {
+            lastCharacterHp[i] = hpNow;
+        }
+    }
 }
 
 SDL_Texture* createFloorTileTexture(SDL_Renderer* renderer) {
@@ -352,6 +497,11 @@ int main(int argc, char** argv) {
     }
 
     const battle::BattleState& state = manager.getBattleState();
+    int lastBossHp = manager.getBossCurrentHp();
+    std::vector<int> lastCharacterHp(state.party.size(), 0);
+    for (size_t i = 0; i < state.party.size(); ++i) {
+        lastCharacterHp[i] = manager.getCharacterCurrentHp(static_cast<int>(i));
+    }
 
     std::vector<WorldEntity> entities;
     entities.reserve(state.party.size() + 1);
@@ -491,20 +641,37 @@ int main(int argc, char** argv) {
             lastTurnToken = turnToken;
         }
 
-        // WASD Camera Movement (horizontal plane)
+        updateHitVoicesForHpDrops(manager, state, lastBossHp, lastCharacterHp);
+        processPendingHitVoices();
+
+        // WASD Camera Movement (horizontal plane, relative to camera yaw)
         const Uint8* keys = SDL_GetKeyboardState(nullptr);
         const float camMovementSpeed = 15.0f;
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_W]) {
-            camera.posY += camMovementSpeed;  // Forward (away from viewer)
-        }
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_S]) {
-            camera.posY -= camMovementSpeed;  // Backward (toward viewer)
-        }
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_A]) {
-            camera.posX -= camMovementSpeed;  // Left
-        }
-        if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_D]) {
-            camera.posX += camMovementSpeed;  // Right
+        if (freeViewEnabled && !cameraIntro.active) {
+            const float yawRad = camera.yawDegrees * (3.14159265f / 180.0f);
+            const float cosYaw = std::cos(yawRad);
+            const float sinYaw = std::sin(yawRad);
+            
+            if (keys[SDL_SCANCODE_W]) {
+                // Forward in camera direction
+                camera.posX += sinYaw * camMovementSpeed;
+                camera.posY += cosYaw * camMovementSpeed;
+            }
+            if (keys[SDL_SCANCODE_S]) {
+                // Backward from camera direction
+                camera.posX -= sinYaw * camMovementSpeed;
+                camera.posY -= cosYaw * camMovementSpeed;
+            }
+            if (keys[SDL_SCANCODE_A]) {
+                // Left perpendicular to camera direction
+                camera.posX -= cosYaw * camMovementSpeed;
+                camera.posY += sinYaw * camMovementSpeed;
+            }
+            if (keys[SDL_SCANCODE_D]) {
+                // Right perpendicular to camera direction
+                camera.posX += cosYaw * camMovementSpeed;
+                camera.posY -= sinYaw * camMovementSpeed;
+            }
         }
 
         // Q/E: Vertical movement
@@ -678,6 +845,7 @@ int main(int argc, char** argv) {
     }
 
     // Cleanup
+    shutdownHitVoiceAudio();
     for (auto& [_, tex] : textureByAsset) {
         if (tex != nullptr) {
             SDL_DestroyTexture(tex);

@@ -6,7 +6,7 @@
 
 #include <SDL2/SDL.h>
 
-#include "battle_manager.h"
+#include "../core/battle_manager.h"
 
 namespace battle::ui {
 

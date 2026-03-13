@@ -4,7 +4,7 @@
 
 #include "window.h"
 #include "game/demo_battle_session.h"
-#include "game/vn_system.h"
+#include "game/vn/vn_system.h"
 
 int main(int argc, char** argv) {
     (void)argc;
