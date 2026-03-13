@@ -576,11 +576,12 @@ int main(int argc, char** argv) {
     applyGoalCamera(camera);
 
     CameraIntroAnimation cameraIntro;
-    battle::ui::BattleHud hud;
     std::string lastTurnToken;
     bool freeViewEnabled = false;
     float cameraOscillationTime = 0.0f;
 
+    {
+    battle::ui::BattleHud hud;
     bool running = true;
     while (running && window.isOpen()) {
         // Boss turns are automatic.
@@ -825,6 +826,7 @@ int main(int argc, char** argv) {
         }
 
         window.present();
+    }
     }
 
     // Cleanup

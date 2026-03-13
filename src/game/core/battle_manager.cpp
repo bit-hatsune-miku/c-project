@@ -276,7 +276,6 @@ void BattleManager::applyBossSplitHitDamage(int damage) {
     }
 
     bossCurrentHp_ = std::max(0, bossCurrentHp_ - damage);
-    ui::updateBossHp(bossCurrentHp_, state_.boss.hp);
 }
 
 bool BattleManager::commitCurrentPlayerSplitAttackTurn() {

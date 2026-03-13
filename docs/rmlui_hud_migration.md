@@ -10,7 +10,7 @@ This is the prerequisite for moving the HUD to `RmlUi`, but `RmlUi` is not a dro
 
 ## Why it is not wired in yet
 
-The project currently renders through `SDL_Renderer` in [src/window.cpp](/home/jadenjsj/github/c-project/src/window.cpp).
+The project currently renders through `SDL_Renderer` in [src/window.cpp](../src/window.cpp).
 
 `RmlUi` expects either:
 

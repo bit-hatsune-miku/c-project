@@ -30,7 +30,10 @@ struct BattleHudFontCache {
     TTF_Font* openBestAvailableFont(int ptSize) {
         const std::vector<std::string> candidates = {
             "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/TTF/DejaVuSans.ttf"
+            "/usr/share/fonts/TTF/DejaVuSans.ttf",
+            "assets/rmlui/DejaVuSans.ttf",
+            "../assets/rmlui/DejaVuSans.ttf",
+            "../../assets/rmlui/DejaVuSans.ttf"
         };
 
         for (const auto& path : candidates) {
@@ -102,13 +105,14 @@ void drawCroppedTexture(SDL_Renderer* renderer, SDL_Texture* texture, const SDL_
 }
 
 #ifdef BATTLE_ENABLE_TTF
-void drawTextCentered(BattleHudFontCache* fontCache,
+void drawTextInternal(BattleHudFontCache* fontCache,
                       SDL_Renderer* renderer,
                       const std::string& text,
-                      int centerX,
+                      int x,
                       int y,
                       SDL_Color color,
-                      int fontSize) {
+                      int fontSize,
+                      bool centered) {
     if (fontCache == nullptr || text.empty()) {
         return;
     }
@@ -129,10 +133,21 @@ void drawTextCentered(BattleHudFontCache* fontCache,
         return;
     }
 
-    SDL_Rect dst{centerX - surface->w / 2, y, surface->w, surface->h};
+    const int finalX = centered ? x - surface->w / 2 : x;
+    SDL_Rect dst{finalX, y, surface->w, surface->h};
     SDL_RenderCopy(renderer, tex, nullptr, &dst);
     SDL_DestroyTexture(tex);
     SDL_FreeSurface(surface);
+}
+
+void drawTextCentered(BattleHudFontCache* fontCache,
+                      SDL_Renderer* renderer,
+                      const std::string& text,
+                      int centerX,
+                      int y,
+                      SDL_Color color,
+                      int fontSize) {
+    drawTextInternal(fontCache, renderer, text, centerX, y, color, fontSize, true);
 }
 
 void drawTextAt(BattleHudFontCache* fontCache,
@@ -142,30 +157,7 @@ void drawTextAt(BattleHudFontCache* fontCache,
                 int y,
                 SDL_Color color,
                 int fontSize) {
-    if (fontCache == nullptr || text.empty()) {
-        return;
-    }
-
-    TTF_Font* font = fontCache->get(fontSize);
-    if (font == nullptr) {
-        return;
-    }
-
-    SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text.c_str(), color);
-    if (surface == nullptr) {
-        return;
-    }
-
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
-    if (tex == nullptr) {
-        SDL_FreeSurface(surface);
-        return;
-    }
-
-    SDL_Rect dst{x, y, surface->w, surface->h};
-    SDL_RenderCopy(renderer, tex, nullptr, &dst);
-    SDL_DestroyTexture(tex);
-    SDL_FreeSurface(surface);
+    drawTextInternal(fontCache, renderer, text, x, y, color, fontSize, false);
 }
 #endif
 
@@ -173,16 +165,11 @@ void drawTextAt(BattleHudFontCache* fontCache,
 
 BattleHud::BattleHud() {
 #ifdef BATTLE_ENABLE_TTF
-    fontCache_ = new BattleHudFontCache();
+    fontCache_ = std::make_unique<BattleHudFontCache>();
 #endif
 }
 
-BattleHud::~BattleHud() {
-#ifdef BATTLE_ENABLE_TTF
-    delete fontCache_;
-    fontCache_ = nullptr;
-#endif
-}
+BattleHud::~BattleHud() = default;
 
 void BattleHud::reset() {
     model_ = BattleHudModel{};
@@ -280,7 +267,7 @@ void BattleHud::updateBossTransition(int newHp, int maxHp) {
     bossHpTransition_.fromHp = bossHpTransition_.toHp;
     bossHpTransition_.toHp = newHp;
     bossHpTransition_.maxHp = std::max(1, maxHp);
-    bossHpTransition_.lastTickMs = SDL_GetTicks();
+    bossHpTransition_.lastTickMs = SDL_GetTicks64();
 }
 
 void BattleHud::updateCharacterTransition(int charIndex, int newHp, int maxHp) {
@@ -306,7 +293,7 @@ void BattleHud::updateCharacterTransition(int charIndex, int newHp, int maxHp) {
     transition.fromHp = transition.toHp;
     transition.toHp = newHp;
     transition.maxHp = std::max(1, maxHp);
-    transition.lastTickMs = SDL_GetTicks();
+    transition.lastTickMs = SDL_GetTicks64();
 }
 
 void BattleHud::triggerCharacterDamageFlash(int charIndex) {
@@ -318,7 +305,7 @@ void BattleHud::triggerCharacterDamageFlash(int charIndex) {
     flash.active = true;
     flash.elapsed = 0.0f;
     flash.duration = 1.0f;
-    flash.lastTickMs = SDL_GetTicks();
+    flash.lastTickMs = SDL_GetTicks64();
 }
 
 int BattleHud::getDisplayedHp(HpTransition& transition, int fallbackCurrentHp) {
@@ -326,7 +313,7 @@ int BattleHud::getDisplayedHp(HpTransition& transition, int fallbackCurrentHp) {
         return fallbackCurrentHp;
     }
 
-    const Uint32 nowMs = SDL_GetTicks();
+    const Uint64 nowMs = SDL_GetTicks64();
     const float dt = (nowMs - transition.lastTickMs) / 1000.0f;
     transition.elapsed += std::max(0.0f, dt);
     transition.lastTickMs = nowMs;
@@ -356,7 +343,7 @@ float BattleHud::getDamageFlashAlpha(int charIndex, int& shakeOffsetX) {
         return 0.0f;
     }
 
-    const Uint32 nowMs = SDL_GetTicks();
+    const Uint64 nowMs = SDL_GetTicks64();
     const float dt = (nowMs - flash.lastTickMs) / 1000.0f;
     flash.elapsed += std::max(0.0f, dt);
     flash.lastTickMs = nowMs;
@@ -437,7 +424,7 @@ void BattleHud::drawTurnOrder(SDL_Renderer* renderer, const std::map<std::string
         SDL_RenderFillRect(renderer, &avBg);
 
 #ifdef BATTLE_ENABLE_TTF
-        drawTextAt(fontCache_, renderer, avText, textX, textY - 1, SDL_Color{230, 230, 230, 255}, 12);
+        drawTextAt(fontCache_.get(), renderer, avText, textX, textY - 1, SDL_Color{230, 230, 230, 255}, 12);
 #endif
     }
 }
@@ -455,7 +442,7 @@ void BattleHud::drawBossHeader(SDL_Renderer* renderer, int screenW) {
     const int displayHp = getDisplayedHp(bossHpTransition_, safeCurrentHp);
 
 #ifdef BATTLE_ENABLE_TTF
-    drawTextCentered(fontCache_, renderer, model_.bossTitle, screenW / 2, topPadding, SDL_Color{245, 245, 245, 255}, 32);
+    drawTextCentered(fontCache_.get(), renderer, model_.bossTitle, screenW / 2, topPadding, SDL_Color{245, 245, 245, 255}, 32);
 #endif
 
     SDL_Rect barBg{barX, barTop, barWidth, barHeight};
@@ -480,7 +467,7 @@ void BattleHud::drawBossHeader(SDL_Renderer* renderer, int screenW) {
     SDL_RenderDrawRect(renderer, &barBg);
 
 #ifdef BATTLE_ENABLE_TTF
-    drawTextCentered(fontCache_, renderer, std::to_string(hpPercent) + "%", screenW / 2, barTop + 3, SDL_Color{255, 255, 255, 255}, 22);
+    drawTextCentered(fontCache_.get(), renderer, std::to_string(hpPercent) + "%", screenW / 2, barTop + 3, SDL_Color{255, 255, 255, 255}, 22);
 #endif
 }
 

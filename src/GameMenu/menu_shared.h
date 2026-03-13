@@ -10,7 +10,7 @@
 #include <SDL2/SDL_ttf.h>
 #endif
 
-#include "../game/vn_script.h"
+#include "../game/vn/vn_script.h"
 
 class Window;
 

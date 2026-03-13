@@ -19,7 +19,7 @@
         "atk": 20,
         "ability": "LetsSing",
         "ultimate": "DianDongPower",
-        "ultimatePoints": 3       
+        "ultimatePoints": 3
     },
     "iroha": {
         "title": "Iroha",
@@ -52,9 +52,9 @@
         "hp": 60,
         "ability": "SmackMyAssLikeADrum",
         "ultimate": "NiagaraFalls",
-        "ultimatePoints": 6       
+        "ultimatePoints": 6
     },
-     "luotianyi": {
+    "luotianyi": {
         "title": "洛天依",
         "assets": "luotianyi",
         "class": "buffer",
@@ -63,6 +63,6 @@
         "hp": 60,
         "ability": "DalabengbaBandebeidiBuduobiluweng",
         "ultimate": "KuntukutakatikaoteSuwaxilasong",
-        "ultimatePoints": 3      
+        "ultimatePoints": 3
     }
-} 
+}

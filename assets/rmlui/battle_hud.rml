@@ -4,7 +4,7 @@
     <link type="text/rcss" href="battle_hud.rcss" />
 </head>
 <body>
-        <div id="stage">
+    <div id="stage">
         <div class="boss-shell">
             <div class="boss-fill" id="boss-fill"></div>
             <div class="boss-name" id="boss-name">LYOO</div>
