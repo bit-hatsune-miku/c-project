@@ -19,7 +19,7 @@
 #include "Settings/settings.h"
 #include "window.h"
 #include "game/demo_battle_session.h"
-#include "game/vn_system.h"
+#include "game/vn/vn_system.h"
 
 constexpr const char* kChapterScriptPath = "assets/vn/json/ch0.json";
 constexpr const char* kMainMenuArtPath = "assets/vn/backgrounds/ch0/mainmenu art.png";

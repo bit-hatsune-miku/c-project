@@ -1,7 +1,7 @@
 #include "battle_manager.h"
 #include "ability_system.h"
 #include "battle_loader.h"
-#include "battle_ui.h"
+#include "../render/battle_ui.h"
 #include "turn_system.h"
 
 #include <algorithm>
@@ -221,6 +221,121 @@ int BattleManager::getCharacterUltimateRequired(int partyIndex) const {
         return 1;
     }
     return std::max(1, characters_[static_cast<size_t>(partyIndex)].definition().ultimatePoints);
+}
+
+bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vector<int>& outHitDamages) {
+    outHitDamages.clear();
+    if (isBattleOver() || hitCount <= 0) {
+        return false;
+    }
+
+    const TurnEvent next = peekNextTurnEvent();
+    if (!next.valid || next.actingActorIndex >= turnState_.actors.size()) {
+        return false;
+    }
+
+    const TurnActor& actor = turnState_.actors[next.actingActorIndex];
+    if (actor.type != ParticipantType::Character || actor.isExtraTurn) {
+        return false;
+    }
+    if (actor.partyIndex < 0 || static_cast<size_t>(actor.partyIndex) >= characters_.size()) {
+        return false;
+    }
+
+    const BattleCharacter& character = characters_[static_cast<size_t>(actor.partyIndex)];
+    if (!character.isAlive()) {
+        return false;
+    }
+
+    const AbilityDefinition* abilityDef = getAbility(character.definition().ability);
+    if (abilityDef == nullptr || abilityDef->type != AbilityType::Attack) {
+        return false;
+    }
+
+    PresentationContext presContext;
+    presContext.abilityId = abilityDef->id;
+    presContext.presentationId = abilityDef->presentationId;
+    presContext.interactionType = abilityDef->interactionType;
+    presContext.casterIndex = character.partyIndex();
+    presContext.targetIndex = -1;
+    presContext.isBoss = false;
+
+    const float multiplier = runPresentationInteraction(presContext);
+    const int totalDamage = normalizeDamage(static_cast<int>(
+        character.definition().atk * abilityDef->multiplier * multiplier
+    ));
+
+    const int base = totalDamage / hitCount;
+    int remainder = totalDamage % hitCount;
+    outHitDamages.reserve(static_cast<size_t>(hitCount));
+    for (int i = 0; i < hitCount; ++i) {
+        int chunk = base;
+        if (remainder > 0) {
+            ++chunk;
+            --remainder;
+        }
+        outHitDamages.push_back(chunk);
+    }
+
+    return true;
+}
+
+void BattleManager::applyBossSplitHitDamage(int damage) {
+    if (damage <= 0 || isBattleOver()) {
+        return;
+    }
+
+    bossCurrentHp_ = std::max(0, bossCurrentHp_ - damage);
+    ui::updateBossHp(bossCurrentHp_, state_.boss.hp);
+}
+
+bool BattleManager::commitCurrentPlayerSplitAttackTurn() {
+    if (isBattleOver()) {
+        return false;
+    }
+
+    const TurnEvent next = peekNextTurnEvent();
+    if (!next.valid || next.actingActorIndex >= turnState_.actors.size()) {
+        return false;
+    }
+
+    const TurnActor previewActor = turnState_.actors[next.actingActorIndex];
+    if (previewActor.type != ParticipantType::Character || previewActor.isExtraTurn) {
+        return false;
+    }
+    if (previewActor.partyIndex < 0 || static_cast<size_t>(previewActor.partyIndex) >= characters_.size()) {
+        return false;
+    }
+
+    const TurnEvent event = advanceToNextTurnEvent();
+    if (!event.valid || event.actingActorIndex >= turnState_.actors.size()) {
+        return false;
+    }
+
+    TurnActor actor = turnState_.actors[event.actingActorIndex];
+    if (actor.type != ParticipantType::Character || actor.isExtraTurn) {
+        return false;
+    }
+    if (actor.partyIndex < 0 || static_cast<size_t>(actor.partyIndex) >= characters_.size()) {
+        return false;
+    }
+
+    BattleCharacter& character = characters_[static_cast<size_t>(actor.partyIndex)];
+    if (!character.isAlive()) {
+        return false;
+    }
+
+    character.gainUltimatePoint();
+    if (character.canUseUltimate()) {
+        queueExtraTurnForCharacter(character.partyIndex());
+    }
+
+    if (event.actingActorIndex >= turnState_.actors.size()) {
+        return false;
+    }
+    turnState_.actors[event.actingActorIndex].currentActionValue = turnState_.actors[event.actingActorIndex].baseActionValue;
+
+    return true;
 }
 
 bool BattleManager::executePlayerTurn() {

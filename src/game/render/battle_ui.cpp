@@ -1,7 +1,7 @@
 #include "battle_ui.h"
 
-#include "easing.h"
-#include "turn_system.h"
+#include "../core/easing.h"
+#include "../core/turn_system.h"
 
 #include <algorithm>
 #include <cmath>
