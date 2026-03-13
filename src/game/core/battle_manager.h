@@ -15,6 +15,11 @@ struct BossDefinition {
     int atk = 0;
     int hp = 0;
     std::string ability;
+    std::string standardAbility;
+    std::string skillAbility;
+    std::string ultimate;
+    int ultimatePoints = 0;
+    int startingOrbs = 1;
 };
 
 struct CharacterDefinition {
@@ -26,8 +31,11 @@ struct CharacterDefinition {
     int atk = 0;
     int hp = 0;
     std::string ability;
+    std::string standardAbility;
+    std::string skillAbility;
     std::string ultimate;
     int ultimatePoints = 0;
+    int startingOrbs = 1;
 };
 
 struct BattleState {
@@ -100,8 +108,10 @@ public:
     void receiveHealing(int amount);
 
     int ultimateCharge() const;
-    void gainUltimatePoint();
+    void gainUltimatePoint(int amount = 1);
+    bool canUseSkill() const;
     bool canUseUltimate() const;
+    void consumeUltimatePoint(int amount = 1);
     void consumeUltimate();
 
 private:
@@ -138,6 +148,12 @@ struct TurnState {
     std::vector<TurnActor> actors;
 };
 
+enum class BattleAction {
+    Standard,
+    Skill,
+    Ultimate
+};
+
 class BattleManager {
 public:
     bool initialize(const std::string& bossKey, const std::vector<std::string>& characterKeys);
@@ -147,10 +163,17 @@ public:
     int getPreviewNextActorIndex() const;
     int getBossCurrentHp() const;
     int getBossMaxHp() const;
+    int getBossUltimateCharge() const;
+    int getBossUltimateRequired() const;
     int getCharacterCurrentHp(int partyIndex) const;
     int getCharacterMaxHp(int partyIndex) const;
     int getCharacterUltimateCharge(int partyIndex) const;
     int getCharacterUltimateRequired(int partyIndex) const;
+    bool isPlayerActionReady(BattleAction action) const;
+    bool executePlayerAction(BattleAction action);
+    bool executePlayerStandardTurn();
+    bool executePlayerSkillTurn();
+    bool executePlayerUltimateTurn();
     bool prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vector<int>& outHitDamages);
     void applyBossSplitHitDamage(int damage);
     bool commitCurrentPlayerSplitAttackTurn();
@@ -170,10 +193,16 @@ private:
     const AbilityDefinition* getAbility(const std::string& abilityId) const;
     void executeAbilityEffect(const AbilityExecutionContext& context);
     float runPresentationInteraction(const PresentationContext& context);
+    bool canUseBossAction(BattleAction action) const;
+    bool resolvePlayerAction(BattleAction action);
+    bool resolveBossAction();
+    bool executeCharacterAction(size_t actorIndex, BattleCharacter& character, BattleAction action);
+    bool executeBossAction(size_t actorIndex, BattleAction action);
 
     BattleState state_;
     TurnState turnState_;
     int bossCurrentHp_ = 0;
+    int bossUltimateCharge_ = 0;
     std::vector<BattleCharacter> characters_;
     int simulatedActions_ = 0;
     bool initialized_ = false;

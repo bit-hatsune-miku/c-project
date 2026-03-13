@@ -5,7 +5,12 @@
         "spd": 100,
         "atk": 9,
         "hp": 300,
-        "ability": "MoonSpiralDildoAttack"
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "MoonSpiralDildoAttack",
+        "ability": "MoonSpiralDildoAttack",
+        "ultimate": "MoonSpiralOverload",
+        "ultimatePoints": 6,
+        "startingOrbs": 1
     },
     "lyooPlotTwist": {
         "title": "[Reinforcement Learning Assistant] Lyoo",
@@ -13,7 +18,12 @@
         "spd": 160,
         "atk": 50,
         "hp": 500,
-        "ability": "MoonSpiralDildoAttack"
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "MoonSpiralDildoAttack",
+        "ability": "MoonSpiralDildoAttack",
+        "ultimate": "MoonSpiralOverload",
+        "ultimatePoints": 6,
+        "startingOrbs": 1
     },
     "miku": {
         "title": "IsraelGPT Syndrome Infected Hatsune Miku",
@@ -21,6 +31,11 @@
         "spd": 200,
         "atk": 80,
         "hp": 700,
-        "ability": "DianDongPower"
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "DianDongPower",
+        "ability": "DianDongPower",
+        "ultimate": "MoonSpiralOverload",
+        "ultimatePoints": 6,
+        "startingOrbs": 1
     }
 }

@@ -22,7 +22,12 @@ bool parseBossDefinition(const json& bossJson, const std::string& key, BossDefin
     outBoss.spd = bossJson.value("spd", 0);
     outBoss.atk = bossJson.value("atk", 0);
     outBoss.hp = bossJson.value("hp", 0);
-    outBoss.ability = bossJson.value("ability", "");
+    outBoss.skillAbility = bossJson.value("skillAbility", bossJson.value("ability", ""));
+    outBoss.standardAbility = bossJson.value("standardAbility", "BossStandardAttack");
+    outBoss.ultimate = bossJson.value("ultimate", outBoss.skillAbility);
+    outBoss.ultimatePoints = bossJson.value("ultimatePoints", 6);
+    outBoss.startingOrbs = bossJson.value("startingOrbs", 1);
+    outBoss.ability = outBoss.skillAbility;
     return true;
 }
 
@@ -38,9 +43,12 @@ bool parseCharacterDefinition(const json& characterJson, const std::string& key,
     outCharacter.spd = characterJson.value("spd", 0);
     outCharacter.atk = characterJson.value("atk", 0);
     outCharacter.hp = characterJson.value("hp", 0);
-    outCharacter.ability = characterJson.value("ability", "");
+    outCharacter.standardAbility = characterJson.value("standardAbility", "BasicAttack");
+    outCharacter.skillAbility = characterJson.value("skillAbility", characterJson.value("ability", ""));
+    outCharacter.ability = outCharacter.skillAbility;
     outCharacter.ultimate = characterJson.value("ultimate", "");
     outCharacter.ultimatePoints = characterJson.value("ultimatePoints", 0);
+    outCharacter.startingOrbs = characterJson.value("startingOrbs", 1);
     return true;
 }
 
