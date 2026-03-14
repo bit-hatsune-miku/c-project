@@ -9,10 +9,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: windows-build-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
   BUILD_TYPE: Release
   MAIN_TARGET: OurUndergroundBITIdol
@@ -21,7 +17,7 @@ env:
 
 jobs:
   build-package-release:
-    runs-on: windows-latest
+    runs-on: blacksmith-4vcpu-windows-2025
 
     steps:
       - name: Check out source
@@ -140,7 +136,7 @@ jobs:
           Commit: ${GITHUB_SHA}
           Short commit: ${SHORT_SHA}
           Run number: ${GITHUB_RUN_NUMBER}
-          Runner: windows-latest
+          Runner: blacksmith-4vcpu-windows-2025
           Build type: ${BUILD_TYPE}
           Included executables:
             - ${MAIN_TARGET}.exe
