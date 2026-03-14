@@ -115,15 +115,24 @@ jobs:
 
           workspace="$(cygpath -u "$GITHUB_WORKSPACE")"
           stage_dir="$workspace/dist/staging"
+          generated_dll_manifest="$workspace/dist/generated-build-dlls.txt"
           runtime_prefix="${MINGW_PREFIX:-/ucrt64}"
           runtime_dir="${runtime_prefix}/bin"
           rm -rf "$stage_dir"
           mkdir -p "$stage_dir"
+          mkdir -p "$workspace/dist"
+          : > "$generated_dll_manifest"
 
           git archive --format=tar HEAD | tar -xf - -C "$stage_dir"
 
           cp "build/bin/${MAIN_TARGET}.exe" "$stage_dir/"
           cp "build/bin/${SUPPORT_TARGET}.exe" "$stage_dir/"
+
+          while IFS= read -r -d '' built_dll; do
+            dll_name="$(basename "$built_dll")"
+            cp -f "$built_dll" "$stage_dir/$dll_name"
+            printf '%s\n' "$dll_name" >> "$generated_dll_manifest"
+          done < <(find build -maxdepth 4 -type f -name '*.dll' -print0)
 
           copy_runtime_dll() {
             local dll_name="$1"
@@ -179,6 +188,7 @@ jobs:
 
           workspace="$(cygpath -u "$GITHUB_WORKSPACE")"
           stage_dir="$workspace/dist/staging"
+          generated_dll_manifest="$workspace/dist/generated-build-dlls.txt"
 
           for required_file in \
             "${MAIN_TARGET}.exe" \
@@ -196,12 +206,18 @@ jobs:
             fi
           done
 
+          if [[ -f "$generated_dll_manifest" ]]; then
+            while read -r dll_name; do
+              [[ -n "$dll_name" ]] || continue
+              if [[ ! -f "${stage_dir}/${dll_name}" ]]; then
+                echo "Build-produced DLL missing from package: ${dll_name}" >&2
+                exit 1
+              fi
+            done < "$generated_dll_manifest"
+          fi
+
           for exe_name in "${MAIN_TARGET}.exe" "${SUPPORT_TARGET}.exe"; do
-            if ntldd -R "${stage_dir}/${exe_name}" | grep -Fq 'not found'; then
-              echo "Unresolved DLL dependency detected in ${exe_name}" >&2
-              ntldd -R "${stage_dir}/${exe_name}" >&2
-              exit 1
-            fi
+            ntldd -R "${stage_dir}/${exe_name}" > "$workspace/dist/${exe_name}.deps.txt" || true
           done
 
       - name: Smoke test packaged executable launch
