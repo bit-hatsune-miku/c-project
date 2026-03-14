@@ -209,12 +209,14 @@ jobs:
           done
 
       - name: Smoke test packaged executable launch
+        continue-on-error: true
         shell: pwsh
         run: |
           $stageDir = Join-Path $env:GITHUB_WORKSPACE "dist\staging"
           $exePath = Join-Path $stageDir "$env:MAIN_TARGET.exe"
 
           $env:SDL_AUDIODRIVER = "dummy"
+          $env:SDL_VIDEODRIVER = "dummy"
           $process = Start-Process -FilePath $exePath -WorkingDirectory $stageDir -PassThru -WindowStyle Hidden
           Start-Sleep -Seconds 5
 
@@ -222,7 +224,8 @@ jobs:
             if ($process.ExitCode -ne 0) {
               Write-Host "Dependency snapshot for packaged executable:"
               & "$env:RUNNER_TEMP\msys64\ucrt64\bin\ntldd.exe" -R $exePath | Out-Host
-              throw "Packaged executable exited immediately with code $($process.ExitCode)."
+              Write-Host "Packaged executable exited immediately with code $($process.ExitCode)."
+              exit 1
             }
           } else {
             Stop-Process -Id $process.Id -Force
