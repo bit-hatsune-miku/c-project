@@ -1,8 +1,8 @@
 {
-    "lyoo": {
+    "lyooBoss": {
         "title": "[Underground BIT Host] Lyoo",
         "assets": "lyoo",
-        "spd": 134,
+        "spd": 220,
         "atk": 7,
         "hp": 300,
         "standardAbility": "BossStandardAttack",
@@ -10,7 +10,9 @@
         "ability": "MoonSpiralDildoAttack",
         "ultimate": "MoonSpiralOverload",
         "ultimatePoints": 6,
-        "startingOrbs": 1
+        "startingOrbs": 1,
+        "bgm": "lyooBoss",
+        "bgmVolume": 0.4
     },
     "lyooPlotTwist": {
         "title": "[Reinforcement Learning Assistant] Lyoo",

@@ -20,6 +20,9 @@ constexpr int kLoopCyclesBeforeSwitch = 24;
 constexpr float kHoldFrame13Seconds = 0.34f;
 constexpr float kZoomDurationSeconds = 1.55f;
 constexpr float kPostZoomHoldSeconds = 0.25f;
+constexpr float kPulseTravelSeconds = 0.52f;
+constexpr float kParryToleranceSeconds = 0.20f;
+constexpr float kMaxDamageReduction = 0.50f;
 
 float lerpF(float a, float b, float t) {
     return a + (b - a) * t;
@@ -56,7 +59,13 @@ void LyooBossPresentation::start() {
     zoomElapsed_ = 0.0f;
     postZoomHold_ = 0.0f;
     pulsesSpawned_ = 0;
+    pulsesResolved_ = 0;
     pulses_.clear();
+    pendingHitDamageMultipliers_.clear();
+    parryAccuracy_.fill(0.0f);
+    parryRegistered_.fill(false);
+    abilityAudioTriggered_ = false;
+    pendingAbilityAudioCues_ = 0;
     pendingHitEvents_ = 0;
 
     frontCamera_ = Camera3D{};
@@ -109,6 +118,13 @@ void LyooBossPresentation::update(float deltaTime) {
 
         updatePulses(deltaTime);
 
+        while (pulsesResolved_ < static_cast<int>(pulseSpawnTimes_.size()) &&
+               zoomElapsed_ >= waveImpactTimeSeconds(static_cast<size_t>(pulsesResolved_))) {
+            pendingHitDamageMultipliers_.push_back(waveDamageMultiplier(static_cast<size_t>(pulsesResolved_)));
+            ++pendingHitEvents_;
+            ++pulsesResolved_;
+        }
+
         if (zoomElapsed_ >= kZoomDurationSeconds) {
             postZoomHold_ += deltaTime;
             if (postZoomHold_ >= kPostZoomHoldSeconds && allPulsesFinished()) {
@@ -143,6 +159,40 @@ void LyooBossPresentation::render(SDL_Renderer* renderer, int screenW, int scree
 
 bool LyooBossPresentation::isComplete() const {
     return phase_ == Phase::Complete;
+}
+
+void LyooBossPresentation::onSpacePressed() {
+    if (phase_ != Phase::ZoomOut && phase_ != Phase::Complete) {
+        return;
+    }
+
+    const float pressTime = zoomElapsed_;
+    int bestWave = -1;
+    float bestDelta = kParryToleranceSeconds + 1.0f;
+
+    for (size_t waveIndex = 0; waveIndex < pulseSpawnTimes_.size(); ++waveIndex) {
+        if (parryRegistered_[waveIndex] || static_cast<int>(waveIndex) < pulsesResolved_) {
+            continue;
+        }
+
+        const float impactTime = waveImpactTimeSeconds(waveIndex);
+        if (pressTime > impactTime) {
+            continue;
+        }
+
+        const float delta = std::fabs(pressTime - impactTime);
+        if (delta <= kParryToleranceSeconds && delta < bestDelta) {
+            bestDelta = delta;
+            bestWave = static_cast<int>(waveIndex);
+        }
+    }
+
+    if (bestWave < 0) {
+        return;
+    }
+
+    parryRegistered_[static_cast<size_t>(bestWave)] = true;
+    parryAccuracy_[static_cast<size_t>(bestWave)] = std::max(0.0f, 1.0f - (bestDelta / kParryToleranceSeconds));
 }
 
 bool LyooBossPresentation::overridesCamera() const {
@@ -255,6 +305,10 @@ void LyooBossPresentation::updateUiFrameStepper(float deltaTime) {
             if (uiFrameIndex_ < 9) {
                 ++uiFrameIndex_;
             }
+            if (!abilityAudioTriggered_ && uiFrameIndex_ >= 2) {
+                abilityAudioTriggered_ = true;
+                ++pendingAbilityAudioCues_;
+            }
             if (uiFrameIndex_ >= 9) {
                 uiFrameIndex_ = 9;
                 phase_ = Phase::AccelLoop;
@@ -305,9 +359,35 @@ void LyooBossPresentation::spawnPulse() {
         pulse.active = true;
         pulses_.push_back(pulse);
     }
+    // Hit event is fired at impact time (waveImpactTimeSeconds) by the resolved loop,
+    // not at spawn time, so that damage and audio land when the pulse actually arrives.
+}
 
-    // One split-hit wave per interval (all allies are hit in this wave).
-    ++pendingHitEvents_;
+int LyooBossPresentation::consumeAbilityAudioCues() {
+    const int cues = pendingAbilityAudioCues_;
+    pendingAbilityAudioCues_ = 0;
+    return cues;
+}
+
+float LyooBossPresentation::getInputMultiplier() const {
+    return 1.0f - (kMaxDamageReduction * averageAccuracy());
+}
+
+float LyooBossPresentation::consumeHitDamageMultiplier() {
+    if (pendingHitDamageMultipliers_.empty()) {
+        return getInputMultiplier();
+    }
+
+    const float multiplier = pendingHitDamageMultipliers_.front();
+    pendingHitDamageMultipliers_.erase(pendingHitDamageMultipliers_.begin());
+    return multiplier;
+}
+
+std::string LyooBossPresentation::getInputResultText() const {
+    const int accuracyPercent = std::max(0, static_cast<int>(std::lround(averageAccuracy() * 100.0f)));
+    const int reductionPercent = std::max(0, static_cast<int>(std::lround((1.0f - getInputMultiplier()) * 100.0f)));
+    return "Average Accuracy: " + std::to_string(accuracyPercent) + "%, reduced damage taken by " +
+           std::to_string(reductionPercent) + "%";
 }
 
 int LyooBossPresentation::consumeHitEvents() {
@@ -339,6 +419,22 @@ bool LyooBossPresentation::allPulsesFinished() const {
         }
     }
     return true;
+}
+
+float LyooBossPresentation::waveImpactTimeSeconds(size_t waveIndex) const {
+    return (pulseSpawnTimes_[waveIndex] * kZoomDurationSeconds) + kPulseTravelSeconds;
+}
+
+float LyooBossPresentation::waveDamageMultiplier(size_t waveIndex) const {
+    return 1.0f - (kMaxDamageReduction * parryAccuracy_[waveIndex]);
+}
+
+float LyooBossPresentation::averageAccuracy() const {
+    float sum = 0.0f;
+    for (float accuracy : parryAccuracy_) {
+        sum += accuracy;
+    }
+    return sum / static_cast<float>(parryAccuracy_.size());
 }
 
 void LyooBossPresentation::renderUiFrame(SDL_Renderer* renderer, int screenW, int screenH) {

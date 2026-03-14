@@ -2,10 +2,16 @@
 #define MIKU_SING_PRESENTATION_H
 
 #include "ability_presentation.h"
+#include "miku_rhythm_game.h"
+#include <string>
 #include <vector>
 
 namespace battle {
 
+// Two-phase presentation:
+//   Phase::RhythmGame — 4-lane falling-note mini-game (D/F/J/K).
+//                        Player accuracy determines the ability damage bonus.
+//   Phase::Animation  — original 6-note projectile fly-toward-target visual.
 class MikuSingPresentation : public AbilityPresentation {
 public:
     MikuSingPresentation(
@@ -17,25 +23,35 @@ public:
     void update(float deltaTime) override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
-    int consumeHitEvents() override;
-    int getDamageLabelHitCount() const override;
+    int  consumeHitEvents() override;
+    int  getDamageLabelHitCount() const override;
+
+    // Input — forwarded to the rhythm game during its phase
+    void        onKeyPressed(SDL_Keycode key) override;
+    int         consumeAbilityAudioCues() override;
+    float       getInputMultiplier()  const override;
+    std::string getInputResultText()  const override;
+    bool        shouldRenderAboveHud() const override;
 
 private:
     void spawnNote();
 
-    float casterWorldX_;
-    float casterWorldY_;
-    float casterWorldZ_;
-    float targetWorldX_;
-    float targetWorldY_;
-    float targetWorldZ_;
+    enum class Phase { RhythmGame, Animation };
 
+    float casterWorldX_, casterWorldY_, casterWorldZ_;
+    float targetWorldX_, targetWorldY_, targetWorldZ_;
+
+    Phase          phase_                   = Phase::RhythmGame;
+    MikuRhythmGame rhythmGame_;
+    bool           pendingAbilityAudioCue_  = false;
+
+    // Animation-phase state
     std::vector<ProjectileParticle> notes_;
     float nextSpawnTime_;
     float spawnInterval_;
-    int notesToSpawn_;
-    int notesSpawned_;
-    int pendingHitEvents_ = 0;
+    int   notesToSpawn_;
+    int   notesSpawned_;
+    int   pendingHitEvents_ = 0;
 };
 
 } // namespace battle

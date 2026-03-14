@@ -330,6 +330,16 @@ bool BattleManager::consumePresentationHitDamageApplied() {
     return applied;
 }
 
+void BattleManager::markPresentationHitAudioPlayed() {
+    presentationHitAudioPlayed_ = true;
+}
+
+bool BattleManager::consumePresentationHitAudioPlayed() {
+    const bool played = presentationHitAudioPlayed_;
+    presentationHitAudioPlayed_ = false;
+    return played;
+}
+
 const AbilityDefinition* BattleManager::findAbilityDefinition(const std::string& abilityId) const {
     return getAbility(abilityId);
 }
@@ -758,6 +768,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
     actionEvent.interactionType = abilityDef != nullptr ? abilityDef->interactionType : InteractionType::None;
     actionEvent.bossHpBefore = bossCurrentHp_;
     actionEvent.bossHpAfter = bossCurrentHp_;
+    actionEvent.hitVoicesHandledDuringPresentation = false;
 
     if (abilityDef == nullptr) {
         const int fallbackDamage = normalizeDamage(
@@ -790,6 +801,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
         }
     }
     actionEvent.bossHpAfter = bossCurrentHp_;
+    actionEvent.hitVoicesHandledDuringPresentation = consumePresentationHitAudioPlayed();
 
     const bool wasExtraTurn = turnState_.actors[actorIndex].isExtraTurn;
 
@@ -841,6 +853,7 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
     actionEvent.interactionType = abilityDef != nullptr ? abilityDef->interactionType : InteractionType::None;
     actionEvent.bossHpBefore = bossCurrentHp_;
     actionEvent.bossHpAfter = bossCurrentHp_;
+    actionEvent.hitVoicesHandledDuringPresentation = false;
     actionEvent.targetPartyIndices.clear();
     actionEvent.targetHpBefore.clear();
     actionEvent.targetHpAfter.clear();
@@ -894,6 +907,8 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
             actionEvent.targetHpAfter.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
         }
     }
+
+    actionEvent.hitVoicesHandledDuringPresentation = consumePresentationHitAudioPlayed();
 
     turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
     recentActionEvents_.push_back(std::move(actionEvent));

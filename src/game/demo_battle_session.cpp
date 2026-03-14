@@ -990,12 +990,70 @@ bool Session::isFinished() const {
 #include <utility>
 #include <vector>
 
+#include "audio/bgm_player.h"
+#include "audio/wav_one_shot.h"
 #include "battle_session_core.h"
 #include "demo/demo_narrative_flow.h"
 #include "presentation/ability_presentation.h"
+#include "presentation/miku_rhythm_game.h"
 #include "vn/vn_system.h"
+#include "../platform/path_resolution.h"
 
 namespace battle::demo {
+
+namespace {
+
+game::audio::WavOneShotPlayer gOneShotAudio;
+game::audio::BgmPlayer gBgmPlayer;
+
+void consumeBattleActionEvents(BattleManager& manager, float voiceVolume) {
+    const BattleState& battleState = manager.getBattleState();
+    for (const BattleActionEvent& event : manager.getRecentActionEvents()) {
+        const std::string actorVoiceKey = event.actorType == ParticipantType::Boss
+            ? battleState.boss.key
+            : ((event.actorPartyIndex >= 0 && event.actorPartyIndex < static_cast<int>(battleState.party.size()))
+                ? battleState.party[static_cast<size_t>(event.actorPartyIndex)].assets
+                : std::string());
+
+        if (event.action == BattleAction::Skill) {
+            if (const auto skillVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "skill");
+                skillVoice.has_value()) {
+                (void)gOneShotAudio.playWavOneShot(*skillVoice, voiceVolume);
+            }
+        }
+
+        if (!event.hitVoicesHandledDuringPresentation && event.bossHpAfter < event.bossHpBefore) {
+            if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "hit");
+                hitVoice.has_value()) {
+                (void)gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
+            }
+        }
+
+        if (event.hitVoicesHandledDuringPresentation) {
+            continue;
+        }
+
+        for (size_t i = 0; i < event.targetPartyIndices.size() && i < event.targetHpBefore.size() && i < event.targetHpAfter.size(); ++i) {
+            if (event.targetHpAfter[i] >= event.targetHpBefore[i]) {
+                continue;
+            }
+            const int partyIndex = event.targetPartyIndices[i];
+            if (partyIndex < 0 || partyIndex >= static_cast<int>(battleState.party.size())) {
+                continue;
+            }
+            if (const auto hitVoice = platform::path::resolveCombatVoicePath(
+                    battleState.party[static_cast<size_t>(partyIndex)].assets,
+                    "hit");
+                hitVoice.has_value()) {
+                (void)gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
+            }
+        }
+    }
+
+    manager.clearRecentActionEvents();
+}
+
+} // namespace
 
 class SessionImpl {
 public:
@@ -1035,12 +1093,79 @@ public:
             return narrative_.onPlayerTurnExecuted(turnExecution);
         };
         hooks.onPreUpdate = [this](BattleManager& manager, float deltaSeconds) {
+            gOneShotAudio.cleanupFinishedPlayback();
             if (!narrativeInitialized_) {
+                consumeBattleActionEvents(manager, 1.0f);
                 return;
             }
             vn::update(deltaSeconds);
             narrative_.maybeStartBossDefeatedDialogue(manager);
             narrative_.handleAutomaticProgression(manager);
+            consumeBattleActionEvents(manager, 1.0f);
+        };
+        hooks.onPresentationAbilityAudio = [this](const PresentationContext& context, int cueCount, BattleManager& manager) {
+            if (cueCount <= 0) {
+                return;
+            }
+
+            if (!context.isBoss) {
+                if (context.presentationId == "drum_attack") {
+                    core_.setHint("Press SPACE as much as possible to increase damage dealt");
+                } else if (context.presentationId == "musical_notes") {
+                    core_.setHint(MikuRhythmGame::hintText());
+                }
+                return;
+            }
+
+            const BattleState& battleState = manager.getBattleState();
+            if (battleState.boss.key != "lyooBoss") {
+                return;
+            }
+
+            if (const auto abilityVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "ability");
+                abilityVoice.has_value()) {
+                for (int cueIndex = 0; cueIndex < cueCount; ++cueIndex) {
+                    (void)gOneShotAudio.playWavOneShot(*abilityVoice, 1.0f);
+                }
+            }
+
+            core_.setHint("Press SPACE upon being hit to reduce damage taken");
+        };
+        hooks.onPresentationEnd = [this](const PresentationContext& context, const std::string& resultText) {
+            if (!resultText.empty() && (context.isBoss
+                    || context.presentationId == "drum_attack"
+                    || context.presentationId == "musical_notes")) {
+                core_.setHint(resultText, 2200);
+                return;
+            }
+
+            if (context.isBoss || context.presentationId == "drum_attack" || context.presentationId == "musical_notes") {
+                core_.clearHint();
+            }
+        };
+        hooks.onPresentationHitAudio = [](bool isBossCaster, int hitEvents, BattleManager& manager) {
+            const BattleState& battleState = manager.getBattleState();
+            if (isBossCaster) {
+                for (int hit = 0; hit < hitEvents; ++hit) {
+                    for (size_t i = 0; i < battleState.party.size(); ++i) {
+                        if (manager.getCharacterCurrentHp(static_cast<int>(i)) <= 0) {
+                            continue;
+                        }
+                        if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.party[i].assets, "hit");
+                            hitVoice.has_value()) {
+                            (void)gOneShotAudio.playWavOneShot(*hitVoice, 1.0f);
+                        }
+                    }
+                }
+                return;
+            }
+
+            if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "hit");
+                hitVoice.has_value()) {
+                for (int hit = 0; hit < hitEvents; ++hit) {
+                    (void)gOneShotAudio.playWavOneShot(*hitVoice, 1.0f);
+                }
+            }
         };
         hooks.onWindowResized = [](int width, int height) {
             vn::setViewportSize(width, height);
@@ -1055,12 +1180,23 @@ public:
         };
         hooks.onShutdown = []() {
             vn::stopVoicePlayback();
+            gBgmPlayer.stop();
+            gOneShotAudio.shutdown();
         };
 
         const std::vector<std::string> partyKeys = {"miku", "cupcakke"};
-        if (!core_.initialize(renderer, "lyoo", partyKeys, std::move(hooks))) {
+        if (!core_.initialize(renderer, "lyooBoss", partyKeys, std::move(hooks))) {
             narrative_.shutdown();
             return false;
+        }
+
+        // Start boss BGM if defined in boss.json.
+        const BattleState& initBattleState = core_.getBattleManager().getBattleState();
+        if (!initBattleState.boss.bgm.empty()) {
+            if (const auto bgmPath = platform::path::resolveCombatBgmPath(initBattleState.boss.bgm);
+                bgmPath.has_value()) {
+                gBgmPlayer.play(*bgmPath, initBattleState.boss.bgmVolume);
+            }
         }
 
         initialized_ = true;

@@ -60,6 +60,9 @@ public:
     virtual void onSpacePressed() {}
     virtual void onKeyPressed(SDL_Keycode key) {}
     virtual float getInputMultiplier() const { return 1.0f; }
+    virtual float consumeHitDamageMultiplier() { return getInputMultiplier(); }
+    virtual std::string getInputResultText() const { return {}; }
+    virtual int consumeAbilityAudioCues() { return 0; }
     virtual int consumeHitEvents() { return 0; }
     virtual int getDamageLabelHitCount() const { return 1; }
 

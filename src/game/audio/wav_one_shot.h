@@ -37,6 +37,20 @@ public:
     }
 
     bool playWavOneShot(const std::string& wavPath, float volume = 1.0f) {
+        cleanupFinishedPlayback();
+
+        for (auto it = activePlayback_.begin(); it != activePlayback_.end(); ) {
+            if (it->wavPath == wavPath) {
+                if (it->device != 0) {
+                    SDL_ClearQueuedAudio(it->device);
+                    SDL_CloseAudioDevice(it->device);
+                }
+                it = activePlayback_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+
         SDL_AudioSpec wavSpec{};
         Uint8* wavBuffer = nullptr;
         Uint32 wavLength = 0;
@@ -63,13 +77,14 @@ public:
         }
 
         SDL_PauseAudioDevice(device, 0);
-        activePlayback_.push_back(ActivePlayback{device});
+        activePlayback_.push_back(ActivePlayback{device, wavPath});
         return true;
     }
 
 private:
     struct ActivePlayback {
         SDL_AudioDeviceID device = 0;
+        std::string wavPath;
     };
 
     std::vector<ActivePlayback> activePlayback_;

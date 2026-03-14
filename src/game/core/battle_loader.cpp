@@ -27,6 +27,8 @@ bool parseBossDefinition(const json& bossJson, const std::string& key, BossDefin
     outBoss.ultimate = bossJson.value("ultimate", outBoss.skillAbility);
     outBoss.ultimatePoints = bossJson.value("ultimatePoints", 6);
     outBoss.startingOrbs = bossJson.value("startingOrbs", 1);
+    outBoss.bgm = bossJson.value("bgm", "");
+    outBoss.bgmVolume = bossJson.value("bgmVolume", 1.0f);
     outBoss.ability = outBoss.skillAbility;
     return true;
 }

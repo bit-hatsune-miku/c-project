@@ -20,11 +20,16 @@ public:
     void update(float deltaTime) override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
+    void onSpacePressed() override;
     bool overridesCamera() const override;
     void applyCameraState(Camera3D& camera) const override;
     bool shouldHideNonCasterCharacters() const override;
     bool shouldRenderCasterEntity() const override;
     bool shouldRenderAboveHud() const override;
+    float getInputMultiplier() const override;
+    float consumeHitDamageMultiplier() override;
+    std::string getInputResultText() const override;
+    int consumeAbilityAudioCues() override;
     int consumeHitEvents() override;
     int getDamageLabelHitCount() const override;
     std::optional<SplashArtConfig> getSplashConfig(SDL_Texture* sprite) const override;
@@ -58,6 +63,9 @@ private:
     void spawnPulse();
     void updatePulses(float deltaTime);
     bool allPulsesFinished() const;
+    float waveImpactTimeSeconds(size_t waveIndex) const;
+    float waveDamageMultiplier(size_t waveIndex) const;
+    float averageAccuracy() const;
 
     void renderUiFrame(SDL_Renderer* renderer, int screenW, int screenH);
     void renderWorldBossFrame(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera);
@@ -84,13 +92,19 @@ private:
     float zoomElapsed_ = 0.0f;
     float postZoomHold_ = 0.0f;
     float worldSpriteHeightUnits_ = 480.0f;
+    bool abilityAudioTriggered_ = false;
 
     Camera3D frontCamera_{};
     Camera3D gameplayCamera_{};
 
     std::array<float, 4> pulseSpawnTimes_{{0.12f, 0.36f, 0.62f, 0.86f}};
+    std::array<float, 4> parryAccuracy_{{0.0f, 0.0f, 0.0f, 0.0f}};
+    std::array<bool, 4> parryRegistered_{{false, false, false, false}};
     int pulsesSpawned_ = 0;
+    int pulsesResolved_ = 0;
     std::vector<RedPulse> pulses_;
+    std::vector<float> pendingHitDamageMultipliers_;
+    int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;
 };
 

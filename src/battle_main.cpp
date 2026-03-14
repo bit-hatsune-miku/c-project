@@ -456,7 +456,7 @@ std::optional<SDL_Texture*> tryLoadIcon(SDL_Renderer* renderer, const std::strin
 } // namespace
 
 int main(int argc, char** argv) {
-    std::string bossKey = "lyoo";
+    std::string bossKey = "lyooBoss";
     std::vector<std::string> partyKeys = {"lyoo", "miku"};
 
     if (argc >= 2) {
