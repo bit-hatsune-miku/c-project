@@ -1,0 +1,10 @@
+{
+  "battles": [
+    {
+      "id": 0,
+      "name": "Tutorial - vs Lyoo",
+      "description": "The first trial. Lyoo challenges Miku to prove she is worthy of entering the BIT Underground Idol Competition.",
+      "type": "tutorial"
+    }
+  ]
+}

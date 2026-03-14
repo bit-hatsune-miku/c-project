@@ -23,12 +23,14 @@ struct ScriptEntry {
     int iconFrameCount;
     float iconFps;
     bool autoAdvanceOnVoiceEnd;
+    int battleId;  // -1 = no battle; >= 0 triggers the battle with that ID (see assets/combat/battles.json)
 
     ScriptEntry()
         : type(EntryType::Dialogue)
         , iconFrameCount(1)
         , iconFps(8.0f)
         , autoAdvanceOnVoiceEnd(false)
+        , battleId(-1)
     {}
 };
 

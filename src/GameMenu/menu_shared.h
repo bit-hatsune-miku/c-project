@@ -141,6 +141,7 @@ bool mapWindowPointToReference(float windowX, float windowY, int windowWidth, in
 
 void beginStory(AppState& state);
 void beginBattleDemo(AppState& state);
+void beginBattle(AppState& state, int battleId);  // dispatches to the right battle by ID
 
 void renderMainMenu(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
                     int windowWidth, int windowHeight);

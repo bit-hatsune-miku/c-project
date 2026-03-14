@@ -116,6 +116,7 @@ set(HEADERS
 add_executable(OurUndergroundBITIdol
     ${MAIN_APP_SOURCES}
     ${BATTLE_CORE_SOURCES}
+    ${BATTLE_DEMO_SOURCES}
     ${BATTLE_PRESENTATION_SOURCES}
     ${HEADERS}
 )
@@ -199,7 +200,6 @@ else()
         ${BATTLE_CORE_SOURCES}
         ${BATTLE_PRESENTATION_SOURCES}
     )
-    target_sources(OurUndergroundBITIdol PRIVATE ${BATTLE_DEMO_SOURCES})
 endif()
 
 # Include directories
