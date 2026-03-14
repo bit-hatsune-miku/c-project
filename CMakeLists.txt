@@ -150,6 +150,8 @@ set(BATTLE_DEMO_SOURCES
 set(RMLUI_APP_BATTLE_SOURCES
     src/game/app_battle_session.cpp
     src/game/app_battle_session.h
+    src/game/render/gl_function_loader.cpp
+    src/game/render/gl_function_loader.h
 )
 
 set(FRONT_UI_SOURCES
