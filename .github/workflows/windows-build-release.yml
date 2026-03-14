@@ -154,19 +154,7 @@ jobs:
             copy_runtime_dll "$dll_name"
           done
 
-          dep_list_file="$(mktemp)"
-          {
-            ntldd -R "build/bin/${MAIN_TARGET}.exe"
-            ntldd -R "build/bin/${SUPPORT_TARGET}.exe"
-          } | grep -oE '/[^[:space:]]+\.dll' | sort -u > "$dep_list_file" || true
-
-          while read -r dll_path; do
-            [[ -n "$dll_path" ]] || continue
-            [[ -f "$dll_path" ]] || continue
-            case "$dll_path" in
-              "${runtime_dir}"/*) cp -f "$dll_path" "$stage_dir/" ;;
-            esac
-          done < "$dep_list_file"
+          find "$runtime_dir" -maxdepth 1 -type f -name '*.dll' -exec cp -f {} "$stage_dir/" \;
 
           cat > "$stage_dir/BUILD_INFO.txt" <<EOF
           Project: ${MAIN_TARGET}
@@ -232,6 +220,8 @@ jobs:
 
           if ($process.HasExited) {
             if ($process.ExitCode -ne 0) {
+              Write-Host "Dependency snapshot for packaged executable:"
+              & "$env:RUNNER_TEMP\msys64\ucrt64\bin\ntldd.exe" -R $exePath | Out-Host
               throw "Packaged executable exited immediately with code $($process.ExitCode)."
             }
           } else {
