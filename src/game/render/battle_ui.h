@@ -9,6 +9,7 @@
 #include <SDL2/SDL.h>
 
 #include "../core/battle_manager.h"
+#include "battle_hint.h"
 
 namespace battle::ui {
 
@@ -47,6 +48,9 @@ public:
               const std::map<std::string, SDL_Texture*>& iconByAsset);
     void reset();
 
+    void setHint(const std::string& text, Uint32 displayMs = 0);
+    void clearHint();
+
 private:
     struct HpTransition {
         bool active = false;
@@ -72,6 +76,7 @@ private:
     float getDamageFlashAlpha(int charIndex, int& shakeOffsetX);
     void drawTurnOrder(SDL_Renderer* renderer, const std::map<std::string, SDL_Texture*>& iconByAsset);
     void drawBossHeader(SDL_Renderer* renderer, int screenW);
+    void drawHint(SDL_Renderer* renderer, int screenW);
     void drawCharacterStatus(SDL_Renderer* renderer,
                              int screenW,
                              int screenH,
@@ -82,6 +87,7 @@ private:
     HpTransition bossHpTransition_;
     std::vector<HpTransition> characterHpTransitions_;
     std::vector<DamageFlashState> characterDamageFlashes_;
+    BattleHint hint_;
 
 #ifdef BATTLE_ENABLE_TTF
     std::unique_ptr<BattleHudFontCache> fontCache_;

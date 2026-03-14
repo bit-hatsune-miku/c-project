@@ -298,20 +298,20 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
     (void)feedback;
     (void)nowMs;
     for (const battle::BattleActionEvent& event : manager.getRecentActionEvents()) {
-        const std::string actorAsset = event.actorType == battle::ParticipantType::Boss
-            ? battleState.boss.assets
+        const std::string actorVoiceKey = event.actorType == battle::ParticipantType::Boss
+            ? battleState.boss.key
             : ((event.actorPartyIndex >= 0 && event.actorPartyIndex < static_cast<int>(battleState.party.size()))
                 ? battleState.party[static_cast<size_t>(event.actorPartyIndex)].assets
                 : std::string());
 
         if (event.action == battle::BattleAction::Skill) {
-            if (const auto skillVoice = platform::path::resolveCombatVoicePath(actorAsset, "skill"); skillVoice.has_value()) {
+            if (const auto skillVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "skill"); skillVoice.has_value()) {
                 (void)gOneShotAudio.playWavOneShot(*skillVoice, voiceVolume);
             }
         }
 
         if (event.bossHpAfter < event.bossHpBefore) {
-            if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.assets, "hit"); hitVoice.has_value()) {
+            if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "hit"); hitVoice.has_value()) {
                 (void)gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
             }
         }
@@ -522,7 +522,7 @@ public:
             Rml::LoadFontFace(fontPath);
         }
 
-        if (!manager_.initialize("lyoo", {"iroha", "kaguya", "miku", "cupcakke"})) {
+        if (!manager_.initialize("lyooBoss", {"iroha", "kaguya", "miku", "cupcakke"})) {
             std::cerr << "[Battle] Initialization failed.\n";
             shutdown();
             return false;
@@ -1142,7 +1142,7 @@ private:
             return;
         }
         if (action == battle::BattleAction::Skill && !manager_.isPlayerActionReady(action)) {
-            showToast(hudFeedback_, "SKILL COSTS 1 ORB.", nowMs);
+            showToast(hudFeedback_, "SKILL NOT AVAILABLE.", nowMs);
             return;
         }
         if (action == battle::BattleAction::Skill) {

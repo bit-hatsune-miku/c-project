@@ -248,7 +248,12 @@ void BattleHud::draw(SDL_Renderer* renderer,
     drawTurnOrder(renderer, iconByAsset);
     drawBossHeader(renderer, screenW);
     drawCharacterStatus(renderer, screenW, screenH, iconByAsset);
+    hint_.tick();
+    drawHint(renderer, screenW);
 }
+
+void BattleHud::setHint(const std::string& text, Uint32 displayMs) { hint_.set(text, displayMs); }
+void BattleHud::clearHint() { hint_.clear(); }
 
 void BattleHud::updateBossTransition(int newHp, int maxHp) {
     if (!initialized_ && bossHpTransition_.fromHp == 0 && bossHpTransition_.toHp == 0) {
@@ -429,6 +434,55 @@ void BattleHud::drawTurnOrder(SDL_Renderer* renderer, const std::map<std::string
         drawTextAt(fontCache_.get(), renderer, avText, textX, textY - 1, SDL_Color{230, 230, 230, 255}, 12);
 #endif
     }
+}
+
+void BattleHud::drawHint(SDL_Renderer* renderer, int screenW) {
+    if (!hint_.active()) {
+        return;
+    }
+
+    const Uint8 alpha = hint_.currentAlpha();
+    if (alpha == 0) {
+        return;
+    }
+
+    // Sit just below the boss HP bar (barTop=62, barHeight=28 → bar bottom = 90).
+    constexpr int kBarBottom = 62 + 28;
+    constexpr int kGap       = 10;
+    constexpr int kHintY     = kBarBottom + kGap;
+    constexpr int kHintH     = 34;
+    constexpr int kAccentW   = 4;
+
+    // Convenience: scale a base opacity by the current fade alpha.
+    const auto fadeAlpha = [alpha](Uint8 base) -> Uint8 {
+        return static_cast<Uint8>((static_cast<int>(base) * alpha) / 255);
+    };
+
+    // Width: ~58% of screen, never narrower than 320 px.
+    const int hintW = std::max(320, screenW * 58 / 100);
+    const int hintX = (screenW - hintW) / 2;
+
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+
+    // Background
+    SDL_SetRenderDrawColor(renderer, 14, 14, 22, fadeAlpha(210));
+    SDL_Rect bgRect{hintX, kHintY, hintW, kHintH};
+    SDL_RenderFillRect(renderer, &bgRect);
+
+    // Outer border
+    SDL_SetRenderDrawColor(renderer, 200, 185, 255, fadeAlpha(180));
+    SDL_RenderDrawRect(renderer, &bgRect);
+
+    // Left accent stripe
+    SDL_SetRenderDrawColor(renderer, 160, 110, 255, fadeAlpha(230));
+    SDL_Rect accentRect{hintX, kHintY, kAccentW, kHintH};
+    SDL_RenderFillRect(renderer, &accentRect);
+
+#ifdef BATTLE_ENABLE_TTF
+    drawTextCentered(fontCache_.get(), renderer, hint_.text,
+                     screenW / 2, kHintY + (kHintH - 18) / 2,
+                     SDL_Color{240, 235, 255, fadeAlpha(255)}, 18);
+#endif
 }
 
 void BattleHud::drawBossHeader(SDL_Renderer* renderer, int screenW) {

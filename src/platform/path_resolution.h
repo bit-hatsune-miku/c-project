@@ -80,4 +80,22 @@ inline std::optional<std::string> resolveCombatVoicePath(const std::string& asse
     return std::nullopt;
 }
 
+// Resolve a BGM clip name to a file path (.wav preferred, .mp3 fallback).
+inline std::optional<std::string> resolveCombatBgmPath(const std::string& bgmName) {
+    if (bgmName.empty()) {
+        return std::nullopt;
+    }
+
+    const std::array<std::string, 2> candidates = {
+        resolvePath("assets/combat/bgm/" + bgmName + ".wav"),
+        resolvePath("assets/combat/bgm/" + bgmName + ".mp3")
+    };
+    for (const std::string& candidate : candidates) {
+        if (std::filesystem::exists(candidate)) {
+            return candidate;
+        }
+    }
+    return std::nullopt;
+}
+
 } // namespace platform::path
