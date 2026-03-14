@@ -15,6 +15,7 @@ int main(int argc, char** argv) {
         std::cerr << "Failed to initialize window\n";
         return 1;
     }
+    SDL_SetWindowResizable(window.getNativeWindow(), SDL_FALSE);
 
     if (!vn::initialize(window.getRenderer(), window.getWidth(), window.getHeight())) {
         std::cerr << "[Demo] VN system initialization failed\n";
@@ -30,7 +31,12 @@ int main(int argc, char** argv) {
 
     Uint64 lastCounter = SDL_GetPerformanceCounter();
 
+    std::cerr << "[Demo] Entering main loop\n";
+    int frameCount = 0;
     while (window.isOpen() && !session.isFinished()) {
+        if (++frameCount % 60 == 0) {
+            std::cerr << "[Demo] Frame " << frameCount << "\n";
+        }
         SDL_Event event;
         while (SDL_PollEvent(&event)) {
             window.handleEvent(event);

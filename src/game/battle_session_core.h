@@ -1,0 +1,114 @@
+#ifndef BATTLE_SESSION_CORE_H
+#define BATTLE_SESSION_CORE_H
+
+#include <functional>
+#include <cstddef>
+#include <map>
+#include <string>
+#include <vector>
+
+#include <SDL2/SDL.h>
+
+#include "core/battle_manager.h"
+#include "core/battle_flow_controller.h"
+#include "presentation/ability_presentation.h"
+#include "render/battle_camera_staging.h"
+#include "render/battle_combat_begin_animation.h"
+#include "render/battle_feedback.h"
+#include "render/battle_scene_types.h"
+#include "render/battle_ui.h"
+#include "render/camera_3d.h"
+
+namespace battle {
+
+// Generic SDL2-based battle session runtime.
+// Owns all shared machinery: scene entities, textures, camera, HUD, feedback system,
+// and ability presentation playback. Demo-specific behaviour is injected via Hooks.
+class BattleSessionCore {
+public:
+    struct Hooks {
+        // Return true when narrative dialogue is in progress.
+        // Used to gate camera intro animations and the finish condition.
+        std::function<bool()> isDialogueInProgress;
+
+        // Called on SPACE key press before battle input is processed.
+        // Return true if the hook consumed the event (e.g. dialogue advance).
+        std::function<bool()> onSpacePressed;
+
+        // Return true when battle-turn space input is permitted by the host
+        // (e.g. tutorial has been cleared).
+        std::function<bool()> isSpaceEnabledForBattle;
+
+        // Called after a player turn is executed.
+        // Return true to allow automatic (enemy/follow-up) turns to proceed.
+        std::function<bool(const flow::PlayerTurnExecution&)> onPlayerTurnExecuted;
+
+        // Called at the start of each update frame with the manager and deltaSeconds.
+        // Use for narrative state updates, vn::update, etc.
+        std::function<void(BattleManager&, float)> onPreUpdate;
+
+        // Called when the presentation runtime detects a window resize (e.g. vn::setViewportSize).
+        std::function<void(int width, int height)> onWindowResized;
+
+        // Called at the very end of each render frame (e.g. VN dialogue overlay).
+        std::function<void()> onPostRender;
+
+        // Called at the very end of shutdown (e.g. vn::stopVoicePlayback).
+        std::function<void()> onShutdown;
+    };
+
+    bool initialize(SDL_Renderer* renderer,
+                    const std::string& bossKey,
+                    const std::vector<std::string>& partyKeys,
+                    Hooks hooks = {});
+
+    void shutdown();
+
+    void handleEvent(const SDL_Event& event);
+    void update(float deltaSeconds);
+    void render(SDL_Renderer* renderer, int screenWidth, int screenHeight);
+
+    bool isFinished() const;
+    bool isCombatBeginAnimationActive() const;
+
+    BattleManager& getBattleManager();
+    const BattleManager& getBattleManager() const;
+
+private:
+    void computeCharacterPositions(bool bossActing, int actingPartyIndex);
+    float runPresentationInteraction(const PresentationContext& context);
+
+    bool initialized_ = false;
+    bool finished_ = false;
+    SDL_Renderer* renderer_ = nullptr;
+
+    BattleManager manager_;
+    std::vector<render::SceneEntity> entities_;
+    std::map<std::string, SDL_Texture*> textureByAsset_;
+    std::map<std::string, SDL_Texture*> iconByAsset_;
+    SDL_Texture* floorTileTexture_ = nullptr;
+
+    ui::BattleHud hud_;
+    Camera3D camera_;
+    render::BattleCameraStaging cameraStaging_;
+    render::BattleCombatBeginAnimation combatBeginAnimation_;
+    bool freeViewEnabled_ = false;
+    float frameAccumulator_ = 0.0f;
+
+    bool presentationPlaybackActive_ = false;
+    bool presentationCasterIsBoss_ = false;
+    int presentationCasterPartyIndex_ = -1;
+    AbilityPresentation* activePresentation_ = nullptr;
+
+    // Set by runPresentationInteraction during the splash pre-loop;
+    // called between world render and SDL_RenderPresent each frame.
+    std::function<void(SDL_Renderer*, int, int)> activeOverlay_;
+
+    render::BattleFeedbackSystem feedback_;
+    std::size_t processedBattleEventCount_ = 0;
+    Hooks hooks_;
+};
+
+} // namespace battle
+
+#endif

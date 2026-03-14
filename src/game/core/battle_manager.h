@@ -186,6 +186,9 @@ public:
     int getCharacterMaxHp(int partyIndex) const;
     int getCharacterUltimateCharge(int partyIndex) const;
     int getCharacterUltimateRequired(int partyIndex) const;
+    void applyPresentationHitDamage(bool isBossCaster, int perHitDamage, int hitEvents);
+    bool consumePresentationHitDamageApplied();
+    const AbilityDefinition* findAbilityDefinition(const std::string& abilityId) const;
     const std::vector<BattleActionEvent>& getRecentActionEvents() const;
     void clearRecentActionEvents();
     bool isPlayerActionReady(BattleAction action) const;
@@ -227,6 +230,7 @@ private:
     bool initialized_ = false;
     std::unordered_map<std::string, AbilityDefinition> abilities_;
     std::vector<BattleActionEvent> recentActionEvents_;
+    bool presentationHitDamageApplied_ = false;
 };
 
 } // namespace battle

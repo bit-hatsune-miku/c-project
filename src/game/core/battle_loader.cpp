@@ -48,7 +48,7 @@ bool parseCharacterDefinition(const json& characterJson, const std::string& key,
     outCharacter.ability = outCharacter.skillAbility;
     outCharacter.ultimate = characterJson.value("ultimate", "");
     outCharacter.ultimatePoints = characterJson.value("ultimatePoints", 0);
-    outCharacter.startingOrbs = characterJson.value("startingOrbs", 1);
+    outCharacter.startingOrbs = characterJson.value("startingOrbs", 0);
     return true;
 }
 

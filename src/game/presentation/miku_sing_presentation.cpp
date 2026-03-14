@@ -135,6 +135,10 @@ int MikuSingPresentation::consumeHitEvents() {
     return hits;
 }
 
+int MikuSingPresentation::getDamageLabelHitCount() const {
+    return std::max(1, notesToSpawn_);
+}
+
 void MikuSingPresentation::spawnNote() {
     ProjectileParticle note;
     

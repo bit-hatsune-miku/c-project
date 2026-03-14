@@ -18,6 +18,7 @@ public:
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
     int consumeHitEvents() override;
+    int getDamageLabelHitCount() const override;
 
 private:
     void spawnNote();

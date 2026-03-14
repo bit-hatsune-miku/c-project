@@ -1,5 +1,7 @@
 #include "demo_battle_session.h"
 
+#if 0
+
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
@@ -949,6 +951,176 @@ private:
     bool presentationPlaybackActive = false;
     bool presentationCasterIsBoss = false;
     int presentationCasterPartyIndex = -1;
+};
+
+Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
+
+Session::~Session() = default;
+
+bool Session::initialize(SDL_Renderer* renderer) {
+    return impl_->initialize(renderer);
+}
+
+void Session::shutdown() {
+    impl_->shutdown();
+}
+
+void Session::handleEvent(const SDL_Event& event) {
+    impl_->handleEvent(event);
+}
+
+void Session::update(float deltaSeconds) {
+    impl_->update(deltaSeconds);
+}
+
+void Session::render(SDL_Renderer* renderer, int screenWidth, int screenHeight) {
+    impl_->render(renderer, screenWidth, screenHeight);
+}
+
+bool Session::isFinished() const {
+    return impl_->isFinished();
+}
+
+} // namespace battle::demo
+
+#endif
+
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "battle_session_core.h"
+#include "demo/demo_narrative_flow.h"
+#include "presentation/ability_presentation.h"
+#include "vn/vn_system.h"
+
+namespace battle::demo {
+
+class SessionImpl {
+public:
+    bool initialize(SDL_Renderer* renderer) {
+        shutdown();
+
+        registerAllPresentations();
+        narrativeInitialized_ = false;
+
+        BattleSessionCore::Hooks hooks;
+        hooks.isDialogueInProgress = [this]() {
+            if (!narrativeInitialized_) {
+                return false;
+            }
+            return narrative_.isDialogueInProgress();
+        };
+        hooks.onSpacePressed = [this]() {
+            if (!narrativeInitialized_) {
+                return false;
+            }
+            if (!narrative_.isDialogueInProgress()) {
+                return false;
+            }
+            narrative_.onDialogueSpacePressed();
+            return true;
+        };
+        hooks.isSpaceEnabledForBattle = [this]() {
+            if (!narrativeInitialized_) {
+                return false;
+            }
+            return narrative_.isSpaceEnabledForBattle();
+        };
+        hooks.onPlayerTurnExecuted = [this](const flow::PlayerTurnExecution& turnExecution) {
+            if (!narrativeInitialized_) {
+                return true;
+            }
+            return narrative_.onPlayerTurnExecuted(turnExecution);
+        };
+        hooks.onPreUpdate = [this](BattleManager& manager, float deltaSeconds) {
+            if (!narrativeInitialized_) {
+                return;
+            }
+            vn::update(deltaSeconds);
+            narrative_.maybeStartBossDefeatedDialogue(manager);
+            narrative_.handleAutomaticProgression(manager);
+        };
+        hooks.onWindowResized = [](int width, int height) {
+            vn::setViewportSize(width, height);
+        };
+        hooks.onPostRender = [this]() {
+            if (!narrativeInitialized_) {
+                return;
+            }
+            if (narrative_.isDialogueInProgress()) {
+                vn::render();
+            }
+        };
+        hooks.onShutdown = []() {
+            vn::stopVoicePlayback();
+        };
+
+        const std::vector<std::string> partyKeys = {"miku", "cupcakke"};
+        if (!core_.initialize(renderer, "lyoo", partyKeys, std::move(hooks))) {
+            narrative_.shutdown();
+            return false;
+        }
+
+        initialized_ = true;
+        return true;
+    }
+
+    void shutdown() {
+        if (!initialized_) {
+            narrative_.shutdown();
+            narrativeInitialized_ = false;
+            return;
+        }
+
+        core_.shutdown();
+        narrative_.shutdown();
+        initialized_ = false;
+        narrativeInitialized_ = false;
+    }
+
+    void handleEvent(const SDL_Event& event) {
+        if (!initialized_) {
+            return;
+        }
+        core_.handleEvent(event);
+    }
+
+    void update(float deltaSeconds) {
+        if (!initialized_) {
+            return;
+        }
+
+        if (!narrativeInitialized_ && !core_.isCombatBeginAnimationActive()) {
+            if (!narrative_.initialize()) {
+                core_.shutdown();
+                narrative_.shutdown();
+                initialized_ = false;
+                return;
+            }
+            narrativeInitialized_ = true;
+        }
+
+        core_.update(deltaSeconds);
+    }
+
+    void render(SDL_Renderer* renderer, int screenWidth, int screenHeight) {
+        if (!initialized_) {
+            return;
+        }
+        core_.render(renderer, screenWidth, screenHeight);
+    }
+
+    bool isFinished() const {
+        return !initialized_ || core_.isFinished();
+    }
+
+private:
+    bool initialized_ = false;
+    bool narrativeInitialized_ = false;
+    BattleSessionCore core_;
+    DemoNarrativeFlow narrative_;
 };
 
 Session::Session() : impl_(std::make_unique<SessionImpl>()) {}

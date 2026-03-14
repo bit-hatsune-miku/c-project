@@ -1000,7 +1000,7 @@ int main(int argc, char** argv) {
         }
 
         if (action == battle::BattleAction::Skill && !manager.isPlayerActionReady(action)) {
-            showToast(hudFeedback, "SKILL COSTS 1 ORB.", nowMs);
+            showToast(hudFeedback, "SKILL NOT AVAILABLE.", nowMs);
             return;
         }
 
