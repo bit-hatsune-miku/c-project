@@ -7,6 +7,22 @@
 using json = nlohmann::json;
 
 namespace vn {
+namespace {
+
+std::string defaultIconForCh0Speaker(const std::string& speaker) {
+    if (speaker == "Miku") {
+        return "assets/combat/icons/miku.png";
+    }
+    if (speaker == "Cupcakke") {
+        return "assets/combat/icons/cupcakke.png";
+    }
+    if (speaker == "Lyoo") {
+        return "assets/vn/icons/lyoo/0.png";
+    }
+    return std::string();
+}
+
+} // namespace
 
 bool loadScript(const std::string& jsonPath, Script& outScript) {
     std::ifstream file(jsonPath);
@@ -56,6 +72,17 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
             entry.iconFrameCount = entryJson.value("iconFrameCount", 1);
             entry.iconFps = entryJson.value("iconFps", 8.0f);
             entry.autoAdvanceOnVoiceEnd = entryJson.value("autoAdvanceOnVoiceEnd", false);
+            entry.battleId = entryJson.value("battleId", -1);
+
+            // Chapter 0 data defaults requested by design:
+            // - Miku/Cupcakke use combat icons
+            // - Lyoo uses VN icon frame 0
+            if (entry.icon.empty() && jsonPath.find("ch0.json") != std::string::npos) {
+                const std::string fallbackIcon = defaultIconForCh0Speaker(entry.speaker);
+                if (!fallbackIcon.empty()) {
+                    entry.icon = fallbackIcon;
+                }
+            }
 
             outScript.entries.push_back(entry);
         }
