@@ -8,6 +8,8 @@
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 
+#include "gl_function_loader.h"
+
 namespace battle::render {
 
 struct GlScreenBlitter {
@@ -36,28 +38,34 @@ struct GlScreenBlitter {
 namespace detail {
 
 inline GLuint compileShader(GLenum type, const char* source) {
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, nullptr);
-    glCompileShader(shader);
+    const auto& gl = battle::render::gl::get();
+    GLuint shader = gl.createShader(type);
+    gl.shaderSource(shader, 1, &source, nullptr);
+    gl.compileShader(shader);
 
     GLint status = GL_FALSE;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+    gl.getShaderiv(shader, GL_COMPILE_STATUS, &status);
     if (status == GL_TRUE) {
         return shader;
     }
 
     GLint logLength = 0;
-    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
+    gl.getShaderiv(shader, GL_INFO_LOG_LENGTH, &logLength);
     std::string log(static_cast<size_t>(std::max(1, logLength)), '\0');
-    glGetShaderInfoLog(shader, logLength, nullptr, log.data());
+    gl.getShaderInfoLog(shader, logLength, nullptr, log.data());
     std::cerr << "Shader compilation failed: " << log << "\n";
-    glDeleteShader(shader);
+    gl.deleteShader(shader);
     return 0;
 }
 
 } // namespace detail
 
 inline bool GlScreenBlitter::initialize() {
+    if (!battle::render::gl::ensureLoaded()) {
+        return false;
+    }
+
+    const auto& gl = battle::render::gl::get();
     static const char* kVertexShader = R"(
         #version 330 core
         layout (location = 0) in vec2 in_position;
@@ -85,18 +93,18 @@ inline bool GlScreenBlitter::initialize() {
         return false;
     }
 
-    program = glCreateProgram();
-    glAttachShader(program, vertexShader);
-    glAttachShader(program, fragmentShader);
-    glLinkProgram(program);
+    program = gl.createProgram();
+    gl.attachShader(program, vertexShader);
+    gl.attachShader(program, fragmentShader);
+    gl.linkProgram(program);
 
     GLint linkStatus = GL_FALSE;
-    glGetProgramiv(program, GL_LINK_STATUS, &linkStatus);
+    gl.getProgramiv(program, GL_LINK_STATUS, &linkStatus);
     if (linkStatus != GL_TRUE) {
         GLint logLength = 0;
-        glGetProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
+        gl.getProgramiv(program, GL_INFO_LOG_LENGTH, &logLength);
         std::string log(static_cast<size_t>(std::max(1, logLength)), '\0');
-        glGetProgramInfoLog(program, logLength, nullptr, log.data());
+        gl.getProgramInfoLog(program, logLength, nullptr, log.data());
         std::cerr << "Program link failed: " << log << "\n";
         destroy();
         return false;
@@ -109,17 +117,17 @@ inline bool GlScreenBlitter::initialize() {
          1.0f,  1.0f, 1.0f, 0.0f
     };
 
-    glGenVertexArrays(1, &vao);
-    glGenBuffers(1, &vbo);
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), reinterpret_cast<void*>(0));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), reinterpret_cast<void*>(2 * sizeof(float)));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    gl.genVertexArrays(1, &vao);
+    gl.genBuffers(1, &vbo);
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(GL_ARRAY_BUFFER, vbo);
+    gl.bufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), reinterpret_cast<void*>(0));
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), reinterpret_cast<void*>(2 * sizeof(float)));
+    gl.bindBuffer(GL_ARRAY_BUFFER, 0);
+    gl.bindVertexArray(0);
 
     glGenTextures(static_cast<GLsizei>(textures.size()), textures.data());
     for (GLuint texture : textures) {
@@ -141,24 +149,25 @@ inline void GlScreenBlitter::destroy() {
         glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
         textures = {0, 0};
     }
+    const auto& gl = battle::render::gl::get();
     if (vbo != 0) {
-        glDeleteBuffers(1, &vbo);
+        gl.deleteBuffers(1, &vbo);
         vbo = 0;
     }
     if (vao != 0) {
-        glDeleteVertexArrays(1, &vao);
+        gl.deleteVertexArrays(1, &vao);
         vao = 0;
     }
     if (program != 0) {
-        glDeleteProgram(program);
+        gl.deleteProgram(program);
         program = 0;
     }
     if (vertexShader != 0) {
-        glDeleteShader(vertexShader);
+        gl.deleteShader(vertexShader);
         vertexShader = 0;
     }
     if (fragmentShader != 0) {
-        glDeleteShader(fragmentShader);
+        gl.deleteShader(fragmentShader);
         fragmentShader = 0;
     }
     samplerLocation = -1;
@@ -195,21 +204,22 @@ inline void GlScreenBlitter::uploadSurface(SDL_Surface* surface) {
 }
 
 inline void GlScreenBlitter::draw(bool enableBlend) {
+    const auto& gl = battle::render::gl::get();
     if (enableBlend) {
         glEnable(GL_BLEND);
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     } else {
         glDisable(GL_BLEND);
     }
-    glUseProgram(program);
-    glActiveTexture(GL_TEXTURE0);
+    gl.useProgram(program);
+    gl.activeTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textures[currentTextureIndex]);
-    glUniform1i(samplerLocation, 0);
-    glBindVertexArray(vao);
+    gl.uniform1i(samplerLocation, 0);
+    gl.bindVertexArray(vao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-    glBindVertexArray(0);
+    gl.bindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
-    glUseProgram(0);
+    gl.useProgram(0);
     if (enableBlend) {
         glDisable(GL_BLEND);
     }
