@@ -20,6 +20,8 @@ struct BossDefinition {
     std::string ultimate;
     int ultimatePoints = 0;
     int startingOrbs = 1;
+    std::string bgm;
+    float bgmVolume = 1.0f;
 };
 
 struct CharacterDefinition {
@@ -166,6 +168,7 @@ struct BattleActionEvent {
     InteractionType interactionType = InteractionType::None;
     int bossHpBefore = 0;
     int bossHpAfter = 0;
+    bool hitVoicesHandledDuringPresentation = false;
     std::vector<int> targetPartyIndices;
     std::vector<int> targetHpBefore;
     std::vector<int> targetHpAfter;
@@ -186,6 +189,11 @@ public:
     int getCharacterMaxHp(int partyIndex) const;
     int getCharacterUltimateCharge(int partyIndex) const;
     int getCharacterUltimateRequired(int partyIndex) const;
+    void applyPresentationHitDamage(bool isBossCaster, int perHitDamage, int hitEvents);
+    bool consumePresentationHitDamageApplied();
+    void markPresentationHitAudioPlayed();
+    bool consumePresentationHitAudioPlayed();
+    const AbilityDefinition* findAbilityDefinition(const std::string& abilityId) const;
     const std::vector<BattleActionEvent>& getRecentActionEvents() const;
     void clearRecentActionEvents();
     bool isPlayerActionReady(BattleAction action) const;
@@ -227,6 +235,8 @@ private:
     bool initialized_ = false;
     std::unordered_map<std::string, AbilityDefinition> abilities_;
     std::vector<BattleActionEvent> recentActionEvents_;
+    bool presentationHitDamageApplied_ = false;
+    bool presentationHitAudioPlayed_ = false;
 };
 
 } // namespace battle

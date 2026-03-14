@@ -1,11 +1,14 @@
 #ifndef ABILITY_PRESENTATION_H
 #define ABILITY_PRESENTATION_H
 
+#include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <functional>
+
+#include "splash_art_animation.h"
 
 #include <SDL2/SDL.h>
 
@@ -57,7 +60,11 @@ public:
     virtual void onSpacePressed() {}
     virtual void onKeyPressed(SDL_Keycode key) {}
     virtual float getInputMultiplier() const { return 1.0f; }
+    virtual float consumeHitDamageMultiplier() { return getInputMultiplier(); }
+    virtual std::string getInputResultText() const { return {}; }
+    virtual int consumeAbilityAudioCues() { return 0; }
     virtual int consumeHitEvents() { return 0; }
+    virtual int getDamageLabelHitCount() const { return 1; }
 
     // Camera control
     virtual bool overridesCamera() const { return false; }
@@ -67,6 +74,16 @@ public:
         (void)outY;
         (void)outZ;
         return false;
+    }
+    virtual bool shouldHideNonCasterCharacters() const { return true; }
+    virtual bool shouldRenderCasterEntity() const { return true; }
+    virtual bool shouldRenderAboveHud() const { return true; }
+
+    // Override to play a splash art intro before the ability animation.
+    // sprite: caster's loaded SDL_Texture (may be nullptr if unavailable).
+    virtual std::optional<SplashArtConfig> getSplashConfig(SDL_Texture* sprite) const {
+        (void)sprite;
+        return std::nullopt;
     }
 
 protected:

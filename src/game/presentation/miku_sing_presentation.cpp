@@ -1,5 +1,6 @@
 #include "miku_sing_presentation.h"
 #include "../core/easing.h"
+#include <algorithm>
 #include <cmath>
 
 namespace battle {
@@ -22,15 +23,41 @@ MikuSingPresentation::MikuSingPresentation(
     totalDuration_ = 1.5f;
 }
 
+// ---------------------------------------------------------------------------
+// start — reset both phases
+// ---------------------------------------------------------------------------
 void MikuSingPresentation::start() {
-    elapsedTime_ = 0.0f;
-    nextSpawnTime_ = 0.1f;
-    notesSpawned_ = 0;
+    phase_                   = Phase::RhythmGame;
+    pendingAbilityAudioCue_  = true;
+    rhythmGame_.start();
+
+    // Pre-clear animation state (properly reset on phase transition)
+    elapsedTime_      = 0.0f;
+    nextSpawnTime_    = 0.1f;
+    notesSpawned_     = 0;
     pendingHitEvents_ = 0;
     notes_.clear();
 }
 
+// ---------------------------------------------------------------------------
+// update
+// ---------------------------------------------------------------------------
 void MikuSingPresentation::update(float deltaTime) {
+    // ── Phase 1: rhythm mini-game ────────────────────────────────────────────
+    if (phase_ == Phase::RhythmGame) {
+        rhythmGame_.update(deltaTime);
+        if (rhythmGame_.isComplete()) {
+            phase_            = Phase::Animation;
+            elapsedTime_      = 0.0f;
+            nextSpawnTime_    = 0.1f;
+            notesSpawned_     = 0;
+            pendingHitEvents_ = 0;
+            notes_.clear();
+        }
+        return;
+    }
+
+    // ── Phase 2: original note-fly animation ─────────────────────────────────
     elapsedTime_ += deltaTime;
 
     // Spawn notes at intervals
@@ -87,7 +114,17 @@ void MikuSingPresentation::update(float deltaTime) {
     }
 }
 
+// ---------------------------------------------------------------------------
+// render
+// ---------------------------------------------------------------------------
 void MikuSingPresentation::render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) {
+    // ── Phase 1: delegate to rhythm game overlay ─────────────────────────────
+    if (phase_ == Phase::RhythmGame) {
+        rhythmGame_.render(renderer, screenW, screenH);
+        return;
+    }
+
+    // ── Phase 2: original projectile render ──────────────────────────────────
     for (const auto& note : notes_) {
         if (!note.active) continue;
 
@@ -118,8 +155,13 @@ void MikuSingPresentation::render(SDL_Renderer* renderer, int screenW, int scree
     }
 }
 
+// ---------------------------------------------------------------------------
+// isComplete
+// ---------------------------------------------------------------------------
 bool MikuSingPresentation::isComplete() const {
     // Complete when all notes have been spawned and finished
+    if (phase_ == Phase::RhythmGame) return false;
+
     if (notesSpawned_ < notesToSpawn_) return false;
     
     for (const auto& note : notes_) {
@@ -130,11 +172,47 @@ bool MikuSingPresentation::isComplete() const {
 }
 
 int MikuSingPresentation::consumeHitEvents() {
-    const int hits = pendingHitEvents_;
+    const int hits    = pendingHitEvents_;
     pendingHitEvents_ = 0;
     return hits;
 }
 
+int MikuSingPresentation::getDamageLabelHitCount() const {
+    return std::max(1, notesToSpawn_);
+}
+
+// ---------------------------------------------------------------------------
+// Input forwarding
+// ---------------------------------------------------------------------------
+void MikuSingPresentation::onKeyPressed(SDL_Keycode key) {
+    if (phase_ == Phase::RhythmGame) {
+        rhythmGame_.onKeyPressed(key);
+    }
+}
+
+int MikuSingPresentation::consumeAbilityAudioCues() {
+    if (pendingAbilityAudioCue_) {
+        pendingAbilityAudioCue_ = false;
+        return 1;
+    }
+    return 0;
+}
+
+float MikuSingPresentation::getInputMultiplier() const {
+    return rhythmGame_.getInputMultiplier();
+}
+
+std::string MikuSingPresentation::getInputResultText() const {
+    return rhythmGame_.getResultText();
+}
+
+bool MikuSingPresentation::shouldRenderAboveHud() const {
+    return phase_ != Phase::RhythmGame;
+}
+
+// ---------------------------------------------------------------------------
+// spawnNote (animation phase helper)
+// ---------------------------------------------------------------------------
 void MikuSingPresentation::spawnNote() {
     ProjectileParticle note;
     

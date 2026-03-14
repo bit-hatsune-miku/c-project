@@ -121,3 +121,7 @@ cmake --build build
 - `./build/bin/battle_testing` launches the default RmlUi battle experience.
 - `./build/bin/battle_testing_legacy` launches the old SDL battle test directly.
 - `./build/bin/OurUndergroundBITIdol battle mode` forwards into the default battle executable.
+
+## Additional Documentation
+
+- [docs/combat-input-design.md](docs/combat-input-design.md) documents the planned Cupcakke and Lyoo input timing, scoring formulas, and balancing knobs.
