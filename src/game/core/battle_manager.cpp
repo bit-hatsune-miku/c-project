@@ -435,7 +435,26 @@ bool BattleManager::commitCurrentPlayerSplitAttackTurn() {
 }
 
 bool BattleManager::executePlayerTurn() {
-    return executePlayerStandardTurn();
+    // Auto-select the best available action, matching the AI's executeTurn() priority:
+    //   Ultimate (full orbs) → Skill (≥1 orb) → Standard fallback.
+    const TurnEvent next = peekNextTurnEvent();
+    if (!next.valid || next.actingActorIndex >= turnState_.actors.size()) {
+        return false;
+    }
+    const TurnActor& actor = turnState_.actors[next.actingActorIndex];
+    if (actor.type != ParticipantType::Character ||
+        actor.partyIndex < 0 ||
+        static_cast<size_t>(actor.partyIndex) >= characters_.size()) {
+        return false;
+    }
+    const BattleCharacter& character = characters_[static_cast<size_t>(actor.partyIndex)];
+    if (!actor.isExtraTurn && character.canUseUltimate()) {
+        return resolvePlayerAction(BattleAction::Ultimate);
+    }
+    if (!actor.isExtraTurn && character.canUseSkill()) {
+        return resolvePlayerAction(BattleAction::Skill);
+    }
+    return resolvePlayerAction(BattleAction::Standard);
 }
 
 bool BattleManager::processAutomaticTurns() {
