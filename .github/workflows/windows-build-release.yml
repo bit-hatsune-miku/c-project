@@ -130,7 +130,7 @@ jobs:
           {
             ntldd -R "build/bin/${MAIN_TARGET}.exe"
             ntldd -R "build/bin/${SUPPORT_TARGET}.exe"
-          } | awk '/=> \\/ucrt64\\/bin\\// { print $3 }' | sort -u | while read -r dll_path; do
+          } | awk 'index($0, "=> /ucrt64/bin/") { print $3 }' | sort -u | while read -r dll_path; do
             cp -f "$dll_path" "$stage_dir/"
           done
 
