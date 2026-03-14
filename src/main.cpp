@@ -19,8 +19,9 @@
 #include "GameMenu/menu_shared.h"
 #include "Settings/settings.h"
 #include "window.h"
-#include "game/app_battle_session.h"
+#include "game/demo_battle_session.h"
 #include "game/vn/vn_system.h"
+#include "platform/path_resolution.h"
 
 constexpr const char* kChapterScriptPath = "assets/vn/json/ch0.json";
 constexpr const char* kMainMenuArtPath = "assets/vn/backgrounds/ch0/mainmenu art.png";
@@ -533,16 +534,21 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
     vn::setTypewriterSpeed(settings.textSpeed);
 
     const auto& entry = story.script.entries[story.entryIndex];
+    const std::string iconPath = entry.icon.empty() ? std::string{} : platform::path::resolvePath(entry.icon);
+    const std::string voicePath = entry.voice.empty() ? std::string{} : platform::path::resolvePath(entry.voice);
+    const std::string fontPath = entry.fontPath.empty() ? std::string{} : platform::path::resolvePath(entry.fontPath);
+    const std::string backgroundPath = entry.background.empty() ? std::string{} : platform::path::resolvePath(entry.background);
+
     vn::showLine(
         entry.text,
         vn::getDisplaySpeakerName(entry),
-        entry.icon,
-        entry.voice,
-        entry.fontPath,
+        iconPath,
+        voicePath,
+        fontPath,
         entry.autoAdvanceOnVoiceEnd,
         entry.iconFrameCount,
         entry.iconFps,
-        entry.background
+        backgroundPath
     );
 }
 
@@ -589,6 +595,19 @@ void beginBattleDemo(AppState& state) {
     state.confirmSelection = ConfirmAction::Cancel;
     state.pauseIntroTime = 0.0f;
     state.screen = ScreenState::BattleDemo;
+}
+
+// Dispatches to the correct battle session based on the ID defined in assets/combat/battles.json.
+void beginBattle(AppState& state, int battleId) {
+    // Entering battle should not inherit story scene backdrops.
+    vn::setBackground("");
+
+    switch (battleId) {
+        case 0:   // Tutorial - vs Lyoo
+        default:
+            beginBattleDemo(state);
+            break;
+    }
 }
 
 std::string shellQuote(const std::string& value) {
@@ -701,6 +720,7 @@ int main(int argc, char** argv) {
         std::cerr << "Failed to initialize window\n";
         return 1;
     }
+    SDL_SetWindowResizable(window.getNativeWindow(), SDL_FALSE);
 
     window.setEscapeToQuitEnabled(false);
 
@@ -717,7 +737,7 @@ int main(int argc, char** argv) {
     MenuResources menuResources;
     loadMenuResources(menuResources, window.getRenderer());
     SettingsMenuController settingsMenu;
-    std::unique_ptr<battle::app::Session> battleSession;
+    std::unique_ptr<battle::demo::Session> battleSession;
 
     Uint64 lastCounter = SDL_GetPerformanceCounter();
 
@@ -775,17 +795,9 @@ int main(int argc, char** argv) {
 
         if (state.screen == ScreenState::BattleDemo && battleSession == nullptr) {
             destroyMenuResources(menuResources);
-            vn::shutdown();
-            if (!window.enableOpenGL()) {
-                state.screen = ScreenState::MainMenu;
-                state.pauseContext = PauseContext::Story;
-                state.mainSelection = MainMenuAction::Battle;
-                state.noticeText = "Battle backend failed to load.";
-                state.noticeTimer = 2.8f;
-            } else {
-                battleSession = std::make_unique<battle::app::Session>();
-            }
-            if (battleSession != nullptr && !battleSession->initialize(window, state.settings)) {
+            vn::stopVoicePlayback();  // stop story audio; keep TTF alive (demo session uses VN internally)
+            battleSession = std::make_unique<battle::demo::Session>();
+            if (!battleSession->initialize(window.getRenderer())) {
                 battleSession.reset();
                 if (!restoreRendererUi(window, menuResources, state.settings)) {
                     std::cerr << "Failed to restore renderer UI after battle load failure\n";
@@ -849,8 +861,14 @@ int main(int argc, char** argv) {
             vn::update(deltaSeconds);
 
             if (vn::consumeAdvanceRequest()) {
+                const int pendingBattleId =
+                    state.story.entryIndex < state.story.script.entries.size()
+                    ? state.story.script.entries[state.story.entryIndex].battleId
+                    : -1;
                 state.story.entryIndex++;
-                if (state.story.entryIndex >= state.story.script.entries.size()) {
+                if (pendingBattleId >= 0) {
+                    beginBattle(state, pendingBattleId);
+                } else if (state.story.entryIndex >= state.story.script.entries.size()) {
                     state.screen = ScreenState::MainMenu;
                     state.mainSelection = MainMenuAction::Start;
                     state.noticeText = "End of chapter 0.";
@@ -890,7 +908,7 @@ int main(int argc, char** argv) {
                                     window.getWidth(), window.getHeight(), true);
             }
         } else if (renderBattleBackdrop) {
-            battleSession->render();
+            battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
             if (state.screen == ScreenState::PauseMenu || state.screen == ScreenState::PauseConfirmExit) {
                 renderPauseScreen(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
             } else if (state.screen == ScreenState::Settings && state.settingsReturnScreen == ScreenState::PauseMenu) {
@@ -901,7 +919,7 @@ int main(int argc, char** argv) {
             settingsMenu.render(window.getRenderer(), menuResources, state,
                                 window.getWidth(), window.getHeight(), false);
         } else if (state.screen == ScreenState::BattleDemo && battleSession != nullptr) {
-            battleSession->render();
+            battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
         } else {
             renderMainMenu(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
         }

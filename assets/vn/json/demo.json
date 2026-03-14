@@ -4,7 +4,7 @@
   "entries": [
     {
       "speaker": "Lyoo",
-      "text": "Press Q to use Standard. Standard is your basic action, and it adds 1 orb after the turn.",
+      "text": "To use your ability, press SPACE. Each character has a unique ability and there will be a \"Bonus Input\" you can perform to make your ability more effective.",
       "type": "dialogue",
       "background": "",
       "voice": "assets/vn/voices/demo/presspace.wav",
@@ -16,7 +16,7 @@
     },
     {
       "speaker": "Lyoo",
-      "text": "Press E to use Skill. Skills spend 1 orb, and some of them come with a Bonus Input you can land for a stronger result.",
+      "text": "For example, Miku's \"Bonus Input\" is a small rythm game, the more accurate you press, the more damage she will deal!",
       "type": "dialogue",
       "background": "",
       "voice": "assets/vn/voices/demo/mikubonus.wav",
@@ -27,13 +27,13 @@
       "autoAdvanceOnVoiceEnd": false
     },
     {
-      "speaker": "Lyoo",
-      "text": "When your orb bar is full, press SPACE to fire your Ultimate. You can also click the glowing character card.",
+      "speaker": "Miku",
+      "text": "I don't need someone to tell me what I can or can't do.",
       "type": "dialogue",
       "background": "",
       "voice": "assets/vn/voices/demo/ican.wav",
       "fontPath": "",
-      "icon": "assets/combat/icons/lyoo.png",
+      "icon": "assets/combat/icons/miku.png",
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false

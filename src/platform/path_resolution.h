@@ -10,15 +10,63 @@
 namespace platform::path {
 
 inline std::string resolvePath(const std::string& relativePath) {
-    const std::array<std::string, 3> candidates = {
-        relativePath,
-        "../" + relativePath,
-        "../../" + relativePath
-    };
+    namespace fs = std::filesystem;
 
-    for (const auto& path : candidates) {
-        if (std::filesystem::exists(path)) {
-            return path;
+    if (relativePath.empty()) {
+        return relativePath;
+    }
+
+    const fs::path input(relativePath);
+    if (input.is_absolute() && fs::exists(input)) {
+        return input.string();
+    }
+
+    std::vector<fs::path> roots;
+    roots.reserve(12);
+
+    // 1) Legacy behavior (relative to current working directory).
+    roots.emplace_back(".");
+    roots.emplace_back("..");
+    roots.emplace_back("../..");
+
+    // 2) Relative to current_path() and its parents.
+    std::error_code ec;
+    const fs::path cwd = fs::current_path(ec);
+    if (!ec && !cwd.empty()) {
+        roots.push_back(cwd);
+        fs::path parent = cwd;
+        for (int i = 0; i < 3; ++i) {
+            parent = parent.parent_path();
+            if (parent.empty()) {
+                break;
+            }
+            roots.push_back(parent);
+        }
+    }
+
+    // 3) Relative to executable location (Linux: /proc/self/exe) and parents.
+    const fs::path procExe("/proc/self/exe");
+    if (fs::exists(procExe)) {
+        const fs::path exePath = fs::read_symlink(procExe, ec);
+        if (!ec && !exePath.empty()) {
+            fs::path exeDir = exePath.parent_path();
+            if (!exeDir.empty()) {
+                roots.push_back(exeDir);
+                for (int i = 0; i < 4; ++i) {
+                    exeDir = exeDir.parent_path();
+                    if (exeDir.empty()) {
+                        break;
+                    }
+                    roots.push_back(exeDir);
+                }
+            }
+        }
+    }
+
+    for (const fs::path& root : roots) {
+        const fs::path candidate = root / input;
+        if (fs::exists(candidate)) {
+            return candidate.lexically_normal().string();
         }
     }
 
