@@ -115,7 +115,8 @@ jobs:
 
           workspace="$(cygpath -u "$GITHUB_WORKSPACE")"
           stage_dir="$workspace/dist/staging"
-          runtime_dir="/ucrt64/bin"
+          runtime_prefix="${MINGW_PREFIX:-/ucrt64}"
+          runtime_dir="${runtime_prefix}/bin"
           rm -rf "$stage_dir"
           mkdir -p "$stage_dir"
 
@@ -144,12 +145,19 @@ jobs:
             copy_runtime_dll "$dll_name"
           done
 
+          dep_list_file="$(mktemp)"
           {
             ntldd -R "build/bin/${MAIN_TARGET}.exe"
             ntldd -R "build/bin/${SUPPORT_TARGET}.exe"
-          } | grep -oE '/ucrt64/bin/[^[:space:]]+\.dll' | sort -u | while read -r dll_path; do
-            cp -f "$dll_path" "$stage_dir/"
-          done
+          } | grep -oE '/[^[:space:]]+\.dll' | sort -u > "$dep_list_file" || true
+
+          while read -r dll_path; do
+            [[ -n "$dll_path" ]] || continue
+            [[ -f "$dll_path" ]] || continue
+            case "$dll_path" in
+              "${runtime_dir}"/*) cp -f "$dll_path" "$stage_dir/" ;;
+            esac
+          done < "$dep_list_file"
 
           cat > "$stage_dir/BUILD_INFO.txt" <<EOF
           Project: ${MAIN_TARGET}
