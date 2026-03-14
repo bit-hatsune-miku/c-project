@@ -137,4 +137,15 @@ int MikuDiandongPresentation::consumeHitEvents() {
     return hits;
 }
 
+std::optional<SplashArtConfig> MikuDiandongPresentation::getSplashConfig(SDL_Texture* sprite) const {
+    SplashArtConfig cfg;
+    cfg.abilityName = "DianDong Power";
+    cfg.sprite = sprite;
+    cfg.enterDuration = 0.40f;
+    cfg.holdDuration = 1.50f;
+    cfg.exitDuration = 0.35f;
+    cfg.maxDimAlpha = 0.62f;
+    return cfg;
+}
+
 } // namespace battle

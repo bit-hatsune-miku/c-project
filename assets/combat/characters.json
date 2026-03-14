@@ -11,7 +11,7 @@
         "ability": "ILoveEveryoneAndEverything",
         "ultimate": "HeartsEverywhere",
         "ultimatePoints": 4,
-        "startingOrbs": 1
+        "startingOrbs": 0
     },
     "miku": {
         "title": "Miku",
@@ -25,7 +25,7 @@
         "ability": "LetsSing",
         "ultimate": "DianDongPower",
         "ultimatePoints": 3,
-        "startingOrbs": 1
+        "startingOrbs": 0
     },
     "iroha": {
         "title": "Iroha",
@@ -39,7 +39,7 @@
         "ability": "LetsSing",
         "ultimate": "DianDongPower",
         "ultimatePoints": 4,
-        "startingOrbs": 1
+        "startingOrbs": 0
     },
     "kaguya": {
         "title": "Kaguya",
@@ -53,7 +53,7 @@
         "ability": "LetsSing",
         "ultimate": "NiagaraFalls",
         "ultimatePoints": 3,
-        "startingOrbs": 1
+        "startingOrbs": 0
     },
     "cupcakke": {
         "title": "CupcakKe",
@@ -67,7 +67,7 @@
         "ability": "SmackMyAssLikeADrum",
         "ultimate": "NiagaraFalls",
         "ultimatePoints": 6,
-        "startingOrbs": 1
+        "startingOrbs": 0
     },
     "luotianyi": {
         "title": "洛天依",
@@ -81,6 +81,6 @@
         "ability": "DalabengbaBandebeidiBuduobiluweng",
         "ultimate": "KuntukutakatikaoteSuwaxilasong",
         "ultimatePoints": 3,
-        "startingOrbs": 1
+        "startingOrbs": 0
     }
 }

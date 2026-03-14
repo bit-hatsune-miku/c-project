@@ -1142,7 +1142,7 @@ private:
             return;
         }
         if (action == battle::BattleAction::Skill && !manager_.isPlayerActionReady(action)) {
-            showToast(hudFeedback_, "SKILL COSTS 1 ORB.", nowMs);
+            showToast(hudFeedback_, "SKILL NOT AVAILABLE.", nowMs);
             return;
         }
         if (action == battle::BattleAction::Skill) {

@@ -45,8 +45,25 @@ set(BATTLE_CORE_SOURCES
     src/game/core/turn_system.h
     src/game/core/ability_system.cpp
     src/game/core/ability_system.h
+    src/game/core/battle_flow_controller.cpp
+    src/game/core/battle_flow_controller.h
+    src/game/core/battle_turn_flow.cpp
+    src/game/core/battle_turn_flow.h
     src/game/render/battle_ui.cpp
     src/game/render/battle_ui.h
+    src/game/render/battle_asset_loading.cpp
+    src/game/render/battle_asset_loading.h
+    src/game/render/battle_camera_staging.cpp
+    src/game/render/battle_camera_staging.h
+    src/game/render/battle_combat_begin_animation.cpp
+    src/game/render/battle_combat_begin_animation.h
+    src/game/render/battle_feedback.cpp
+    src/game/render/battle_feedback.h
+    src/game/render/battle_party_staging.cpp
+    src/game/render/battle_party_staging.h
+    src/game/render/battle_scene_types.h
+    src/game/render/battle_world_renderer.cpp
+    src/game/render/battle_world_renderer.h
     src/game/core/easing.cpp
     src/game/core/easing.h
     src/game/render/camera_3d.cpp
@@ -62,12 +79,22 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/miku_diandong_presentation.h
     src/game/presentation/cupcakke_drum_presentation.cpp
     src/game/presentation/cupcakke_drum_presentation.h
+    src/game/presentation/lyoo_boss_presentation.cpp
+    src/game/presentation/lyoo_boss_presentation.h
+    src/game/presentation/presentation_runtime.cpp
+    src/game/presentation/presentation_runtime.h
+    src/game/presentation/splash_art_animation.cpp
+    src/game/presentation/splash_art_animation.h
     src/game/presentation/presentation_registry.cpp
 )
 
 set(BATTLE_DEMO_SOURCES
     src/game/demo_battle_session.cpp
     src/game/demo_battle_session.h
+    src/game/battle_session_core.cpp
+    src/game/battle_session_core.h
+    src/game/demo/demo_narrative_flow.cpp
+    src/game/demo/demo_narrative_flow.h
 )
 
 set(RMLUI_APP_BATTLE_SOURCES

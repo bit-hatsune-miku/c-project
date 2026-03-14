@@ -18,6 +18,7 @@ public:
     bool getCasterWorldOverride(float& outX, float& outY, float& outZ) const override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     int consumeHitEvents() override;
+    std::optional<SplashArtConfig> getSplashConfig(SDL_Texture* sprite) const override;
 
 private:
     float casterX_, casterY_, casterZ_;
