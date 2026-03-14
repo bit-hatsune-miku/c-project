@@ -1,10 +1,19 @@
 #include "cupcakke_drum_presentation.h"
 
+#include <algorithm>
+#include <cstdio>
 #include <cmath>
 
 #include "../core/easing.h"
 
 namespace battle {
+
+namespace {
+
+constexpr float kCupcakkePressBonus = 0.04f;
+constexpr float kCupcakkeMaxMultiplier = 1.5f;
+
+} // namespace
 
 CupcakkeDrumPresentation::CupcakkeDrumPresentation(
     float casterWorldX, float casterWorldY, float casterWorldZ,
@@ -27,6 +36,13 @@ void CupcakkeDrumPresentation::start() {
     casterCurrentX_ = casterStartX_;
     casterCurrentY_ = casterStartY_;
     casterCurrentZ_ = casterStartZ_;
+    hitTriggered_ = false;
+    pressCount_ = 0;
+    inputWindow_.startTime = 0.0f;
+    inputWindow_.endTime = orbitDuration_ + holdDuration_;
+    inputWindow_.active = true;
+    pendingAbilityAudioCues_ = 1;
+    pendingHitEvents_ = 0;
 }
 
 void CupcakkeDrumPresentation::update(float deltaTime) {
@@ -40,8 +56,15 @@ void CupcakkeDrumPresentation::update(float deltaTime) {
         return;
     }
 
+    inputWindow_.active = false;
+
     const float t = easing::clamp01((elapsedTime_ - dashStart) / std::max(0.001f, dashDuration_));
     const float eased = easing::easeOutBack(t);
+
+    if (!hitTriggered_ && t >= 0.88f) {
+        hitTriggered_ = true;
+        ++pendingHitEvents_;
+    }
 
     // Fast violent lunge to boss.
     casterCurrentX_ = easing::lerp(casterStartX_, targetX_ - 95.0f, eased);
@@ -58,6 +81,42 @@ void CupcakkeDrumPresentation::render(SDL_Renderer* renderer, int screenW, int s
 
 bool CupcakkeDrumPresentation::isComplete() const {
     return elapsedTime_ >= totalDuration_;
+}
+
+void CupcakkeDrumPresentation::onSpacePressed() {
+    if (!inputWindow_.active) {
+        return;
+    }
+
+    if (elapsedTime_ < inputWindow_.startTime || elapsedTime_ > inputWindow_.endTime) {
+        return;
+    }
+
+    ++pressCount_;
+}
+
+float CupcakkeDrumPresentation::getInputMultiplier() const {
+    return std::min(kCupcakkeMaxMultiplier, 1.0f + (static_cast<float>(pressCount_) * kCupcakkePressBonus));
+}
+
+std::string CupcakkeDrumPresentation::getInputResultText() const {
+    const int bonusPercent = std::max(0, static_cast<int>(std::lround((getInputMultiplier() - 1.0f) * 100.0f)));
+    char buffer[128];
+    std::snprintf(buffer, sizeof(buffer), "Pressed SPACE %d times, increased damage dealt by %d%%",
+                  pressCount_, bonusPercent);
+    return buffer;
+}
+
+int CupcakkeDrumPresentation::consumeAbilityAudioCues() {
+    const int cues = pendingAbilityAudioCues_;
+    pendingAbilityAudioCues_ = 0;
+    return cues;
+}
+
+int CupcakkeDrumPresentation::consumeHitEvents() {
+    const int hits = pendingHitEvents_;
+    pendingHitEvents_ = 0;
+    return hits;
 }
 
 bool CupcakkeDrumPresentation::overridesCamera() const {

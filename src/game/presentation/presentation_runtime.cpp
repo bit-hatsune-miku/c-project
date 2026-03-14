@@ -9,15 +9,15 @@
 
 namespace battle::presentation_runtime {
 
-float runAbilityPresentation(SDL_Renderer* renderer,
-                             bool& finished,
-                             Camera3D& camera,
-                             std::vector<render::SceneEntity>& entities,
-                             const PresentationContext& context,
-                             PlaybackStateRefs stateRefs,
-                             PlaybackCallbacks callbacks) {
+PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
+                                      bool& finished,
+                                      Camera3D& camera,
+                                      std::vector<render::SceneEntity>& entities,
+                                      const PresentationContext& context,
+                                      PlaybackStateRefs stateRefs,
+                                      PlaybackCallbacks callbacks) {
     if (renderer == nullptr || finished || context.presentationId.empty()) {
-        return 1.0f;
+        return {};
     }
 
     float casterX = -600.0f;
@@ -50,7 +50,7 @@ float runAbilityPresentation(SDL_Renderer* renderer,
     );
     if (!presentation) {
         std::cerr << "[Presentation] Missing presentation id: " << context.presentationId << "\n";
-        return 1.0f;
+        return {};
     }
 
     std::cout << "[Presentation] Playing: " << context.presentationId << "\n";
@@ -151,6 +151,13 @@ float runAbilityPresentation(SDL_Renderer* renderer,
 
         presentation->update(deltaSeconds);
 
+        const int abilityAudioCues = presentation->consumeAbilityAudioCues();
+        if (abilityAudioCues > 0) {
+            if (callbacks.onAbilityAudioCues) {
+                callbacks.onAbilityAudioCues(abilityAudioCues);
+            }
+        }
+
         const int presentationHitEvents = presentation->consumeHitEvents();
         if (presentationHitEvents > 0) {
             if (callbacks.onHitEvents) {
@@ -244,7 +251,10 @@ float runAbilityPresentation(SDL_Renderer* renderer,
         *stateRefs.activePresentation = nullptr;
     }
 
-    return presentation->getInputMultiplier();
+    PlaybackResult result;
+    result.multiplier = presentation->getInputMultiplier();
+    result.resultText = presentation->getInputResultText();
+    return result;
 }
 
 } // namespace battle::presentation_runtime

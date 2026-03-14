@@ -522,20 +522,20 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
     (void)feedback;
     (void)nowMs;
     for (const battle::BattleActionEvent& event : manager.getRecentActionEvents()) {
-        const std::string actorAsset = event.actorType == battle::ParticipantType::Boss
-            ? battleState.boss.assets
+        const std::string actorVoiceKey = event.actorType == battle::ParticipantType::Boss
+            ? battleState.boss.key
             : ((event.actorPartyIndex >= 0 && event.actorPartyIndex < static_cast<int>(battleState.party.size()))
                 ? battleState.party[static_cast<size_t>(event.actorPartyIndex)].assets
                 : std::string());
 
         if (event.action == battle::BattleAction::Skill) {
-            if (const auto skillVoice = platform::path::resolveCombatVoicePath(actorAsset, "skill"); skillVoice.has_value()) {
+            if (const auto skillVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "skill"); skillVoice.has_value()) {
                 (void)gOneShotAudio.playWavOneShot(*skillVoice);
             }
         }
 
         if (event.bossHpAfter < event.bossHpBefore) {
-            if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.assets, "hit"); hitVoice.has_value()) {
+            if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "hit"); hitVoice.has_value()) {
                 (void)gOneShotAudio.playWavOneShot(*hitVoice);
             }
         }
@@ -675,7 +675,7 @@ public:
 } // namespace
 
 int main(int argc, char** argv) {
-    std::string bossKey = "lyoo";
+    std::string bossKey = "lyooBoss";
     std::vector<std::string> partyKeys = {"iroha", "kaguya", "miku", "cupcakke"};
 
     if (argc >= 2) {

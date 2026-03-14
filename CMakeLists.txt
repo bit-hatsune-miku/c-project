@@ -73,6 +73,8 @@ set(BATTLE_CORE_SOURCES
 set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/ability_presentation.cpp
     src/game/presentation/ability_presentation.h
+    src/game/presentation/miku_rhythm_game.cpp
+    src/game/presentation/miku_rhythm_game.h
     src/game/presentation/miku_sing_presentation.cpp
     src/game/presentation/miku_sing_presentation.h
     src/game/presentation/miku_diandong_presentation.cpp

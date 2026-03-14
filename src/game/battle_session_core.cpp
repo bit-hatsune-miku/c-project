@@ -417,6 +417,14 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
     presentation_runtime::PlaybackCallbacks callbacks;
     callbacks.casterSpriteTexture = casterSprite;
     callbacks.onWindowResized     = hooks_.onWindowResized;
+    callbacks.onAbilityAudioCues  = [&](int cueCount) {
+        if (cueCount <= 0) {
+            return;
+        }
+        if (hooks_.onPresentationAbilityAudio) {
+            hooks_.onPresentationAbilityAudio(context, cueCount, manager_);
+        }
+    };
     callbacks.onHitEvents = [&](int hitEvents, int damageLabelHitCount) {
         if (hitEvents <= 0) {
             return;
@@ -439,10 +447,21 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             }
         }
 
-        const int totalDamage = std::max(1, static_cast<int>(baseAtk * abilityDef->multiplier));
+        float hitDamageMultiplier = 1.0f;
+        if (activePresentation_ != nullptr) {
+            hitDamageMultiplier = std::max(0.0f, activePresentation_->consumeHitDamageMultiplier());
+        }
+
+        const int totalDamage = std::max(1, static_cast<int>(
+            baseAtk * abilityDef->multiplier * hitDamageMultiplier
+        ));
         const int perHitDamage = std::max(1, totalDamage / std::max(1, damageLabelHitCount));
 
         manager_.applyPresentationHitDamage(context.isBoss, perHitDamage, hitEvents);
+        if (hooks_.onPresentationHitAudio) {
+            hooks_.onPresentationHitAudio(context.isBoss, hitEvents, manager_);
+            manager_.markPresentationHitAudioPlayed();
+        }
         feedback_.queuePresentationHitFeedback(context.isBoss, hitEvents, perHitDamage, manager_);
     };
     callbacks.onPostUpdate = [&](float deltaSeconds) {
@@ -467,7 +486,7 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         SDL_RenderPresent(renderer_);
     };
 
-    return presentation_runtime::runAbilityPresentation(
+    const presentation_runtime::PlaybackResult result = presentation_runtime::runAbilityPresentation(
         renderer_,
         finished_,
         camera_,
@@ -476,6 +495,15 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         stateRefs,
         callbacks
     );
+
+    if (hooks_.onPresentationEnd) {
+        hooks_.onPresentationEnd(context, result.resultText);
+    }
+
+    return result.multiplier;
 }
+
+void BattleSessionCore::setHint(const std::string& text, Uint32 displayMs) { hud_.setHint(text, displayMs); }
+void BattleSessionCore::clearHint() { hud_.clearHint(); }
 
 } // namespace battle

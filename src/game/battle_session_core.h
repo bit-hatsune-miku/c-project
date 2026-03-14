@@ -47,6 +47,18 @@ public:
         // Use for narrative state updates, vn::update, etc.
         std::function<void(BattleManager&, float)> onPreUpdate;
 
+        // Called immediately when a presentation reports hit events.
+        // Use for hit voice playback that should land exactly on hit timing.
+        std::function<void(bool isBossCaster, int hitEvents, BattleManager&)> onPresentationHitAudio;
+
+        // Called when a presentation emits an explicit ability-audio cue.
+        // Use for voice lines that should begin slightly after the animation starts.
+        std::function<void(const PresentationContext&, int cueCount, BattleManager&)> onPresentationAbilityAudio;
+
+        // Called immediately after a presentation finishes playback.
+        // Use for cleanup like clearing hint messages.
+        std::function<void(const PresentationContext&, const std::string& resultText)> onPresentationEnd;
+
         // Called when the presentation runtime detects a window resize (e.g. vn::setViewportSize).
         std::function<void(int width, int height)> onWindowResized;
 
@@ -70,6 +82,9 @@ public:
 
     bool isFinished() const;
     bool isCombatBeginAnimationActive() const;
+
+    void setHint(const std::string& text, Uint32 displayMs = 0);
+    void clearHint();
 
     BattleManager& getBattleManager();
     const BattleManager& getBattleManager() const;

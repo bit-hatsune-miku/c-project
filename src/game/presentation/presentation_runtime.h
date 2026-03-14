@@ -12,6 +12,11 @@
 
 namespace battle::presentation_runtime {
 
+struct PlaybackResult {
+    float multiplier = 1.0f;
+    std::string resultText;
+};
+
 struct PlaybackStateRefs {
     bool* playbackActive = nullptr;
     bool* casterIsBoss = nullptr;
@@ -21,6 +26,7 @@ struct PlaybackStateRefs {
 
 struct PlaybackCallbacks {
     std::function<void(int width, int height)> onWindowResized;
+    std::function<void(int cueCount)> onAbilityAudioCues;
     std::function<void(int hitEvents, int damageLabelHitCount)> onHitEvents;
     std::function<void(float deltaSeconds)> onPostUpdate;
     std::function<void()> onBossPresentationFrame;
@@ -34,13 +40,13 @@ struct PlaybackCallbacks {
     std::function<void()> clearRenderOverlay;
 };
 
-float runAbilityPresentation(SDL_Renderer* renderer,
-                             bool& finished,
-                             Camera3D& camera,
-                             std::vector<render::SceneEntity>& entities,
-                             const PresentationContext& context,
-                             PlaybackStateRefs stateRefs,
-                             PlaybackCallbacks callbacks);
+PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
+                                      bool& finished,
+                                      Camera3D& camera,
+                                      std::vector<render::SceneEntity>& entities,
+                                      const PresentationContext& context,
+                                      PlaybackStateRefs stateRefs,
+                                      PlaybackCallbacks callbacks);
 
 } // namespace battle::presentation_runtime
 

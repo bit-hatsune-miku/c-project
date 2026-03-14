@@ -16,6 +16,11 @@ public:
     void update(float deltaTime) override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
+    void onSpacePressed() override;
+    float getInputMultiplier() const override;
+    std::string getInputResultText() const override;
+    int consumeAbilityAudioCues() override;
+    int consumeHitEvents() override;
 
     bool overridesCamera() const override;
     void applyCameraState(Camera3D& camera) const override;
@@ -36,6 +41,10 @@ private:
     float orbitDuration_ = 1.1f;
     float holdDuration_ = 0.45f;
     float dashDuration_ = 0.35f;
+    bool hitTriggered_ = false;
+    int pressCount_ = 0;
+    int pendingAbilityAudioCues_ = 0;
+    int pendingHitEvents_ = 0;
 };
 
 } // namespace battle
