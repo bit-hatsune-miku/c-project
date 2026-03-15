@@ -14,6 +14,8 @@ env:
   MAIN_TARGET: OurUndergroundBITIdol
   SUPPORT_TARGET: battle_testing
   PACKAGE_PREFIX: HatsuneMiku_windows_amd64_source_bundle
+  CCACHE_DIR: .ccache
+  CCACHE_MAXSIZE: 750M
 
 jobs:
   build-package-release:
@@ -34,6 +36,7 @@ jobs:
             base-devel
             git
             mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ccache
             mingw-w64-ucrt-x86_64-gcc
             mingw-w64-ucrt-x86_64-ninja
             mingw-w64-ucrt-x86_64-pkgconf
@@ -41,6 +44,15 @@ jobs:
             mingw-w64-ucrt-x86_64-SDL2_image
             mingw-w64-ucrt-x86_64-SDL2_ttf
             mingw-w64-ucrt-x86_64-ntldd
+
+      - name: Restore ccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: windows-ucrt64-ccache-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            windows-ucrt64-ccache-${{ github.ref_name }}-
+            windows-ucrt64-ccache-
 
       - name: Compute release metadata
         shell: bash
@@ -100,13 +112,33 @@ jobs:
         shell: msys2 {0}
         run: |
           set -euo pipefail
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE="${BUILD_TYPE}"
+          workspace="$(cygpath -u "$GITHUB_WORKSPACE")"
+          cache_dir="$(cygpath -u "$GITHUB_WORKSPACE/${CCACHE_DIR}")"
+          mkdir -p "$cache_dir"
+          export CCACHE_DIR="$cache_dir"
+          export CCACHE_BASEDIR="$workspace"
+          export CCACHE_COMPRESS=true
+          export CCACHE_MAXSIZE="${CCACHE_MAXSIZE}"
+          ccache --zero-stats || true
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
       - name: Build executables
         shell: msys2 {0}
         run: |
           set -euo pipefail
+          export CCACHE_DIR="$(cygpath -u "$GITHUB_WORKSPACE/${CCACHE_DIR}")"
           cmake --build build --config "${BUILD_TYPE}" --target "${MAIN_TARGET}" "${SUPPORT_TARGET}"
+
+      - name: Show ccache stats
+        if: always()
+        shell: msys2 {0}
+        run: |
+          set -euo pipefail
+          export CCACHE_DIR="$(cygpath -u "$GITHUB_WORKSPACE/${CCACHE_DIR}")"
+          ccache --show-stats || true
 
       - name: Stage package contents
         shell: msys2 {0}
@@ -258,3 +290,10 @@ jobs:
           files: dist/${{ env.PACKAGE_NAME }}
           prerelease: ${{ github.ref_name != github.event.repository.default_branch }}
           fail_on_unmatched_files: true
+
+      - name: Save ccache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: windows-ucrt64-ccache-${{ github.ref_name }}-${{ github.run_id }}
