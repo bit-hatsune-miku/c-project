@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <iostream>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -20,6 +21,7 @@
 #include "Settings/settings.h"
 #include "window.h"
 #include "game/demo_battle_session.h"
+#include "game/save/save.h"
 #include "game/vn/vn_system.h"
 #include "platform/path_resolution.h"
 
@@ -525,6 +527,22 @@ void endReferenceLayout(SDL_Renderer* renderer) {
     SDL_RenderSetClipRect(renderer, nullptr);
 }
 
+std::string effectiveStoryBackground(const StorySession& story, std::size_t entryIndex) {
+    if (story.script.entries.empty()) {
+        return std::string();
+    }
+
+    const std::size_t clampedIndex = std::min(entryIndex, story.script.entries.size() - 1);
+    for (std::size_t i = clampedIndex + 1; i > 0; --i) {
+        const auto& candidate = story.script.entries[i - 1];
+        if (!candidate.background.empty()) {
+            return candidate.background;
+        }
+    }
+
+    return std::string();
+}
+
 void applyCurrentEntry(const StorySession& story, const GameSettings& settings) {
     if (story.script.entries.empty() || story.entryIndex >= story.script.entries.size()) {
         return;
@@ -537,7 +555,10 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
     const std::string iconPath = entry.icon.empty() ? std::string{} : platform::path::resolvePath(entry.icon);
     const std::string voicePath = entry.voice.empty() ? std::string{} : platform::path::resolvePath(entry.voice);
     const std::string fontPath = entry.fontPath.empty() ? std::string{} : platform::path::resolvePath(entry.fontPath);
-    const std::string backgroundPath = entry.background.empty() ? std::string{} : platform::path::resolvePath(entry.background);
+    const std::string backgroundRef = entry.background.empty()
+        ? effectiveStoryBackground(story, story.entryIndex)
+        : entry.background;
+    const std::string backgroundPath = backgroundRef.empty() ? std::string{} : platform::path::resolvePath(backgroundRef);
 
     vn::showLine(
         entry.text,
@@ -565,6 +586,84 @@ bool ensureStoryLoaded(StorySession& story) {
     return true;
 }
 
+save::SaveGame buildStorySaveGame(const AppState& state) {
+    save::SaveGame saveGame;
+    saveGame.chapter = save::chapterIdFromScript(state.story.script);
+    saveGame.entryIndex = static_cast<int>(state.story.entryIndex);
+    saveGame.label = save::generateLabel(state.story.script, state.story.entryIndex);
+    saveGame.settings.fullscreen = state.settings.fullscreen;
+    saveGame.settings.voiceVolume = static_cast<int>(std::lround(std::clamp(state.settings.voiceVolume, 0.0f, 1.0f) * 100.0f));
+    saveGame.settings.textSpeed = static_cast<int>(std::lround(std::max(1.0f, state.settings.textSpeed)));
+    return saveGame;
+}
+
+bool tryStartDuplicateSaveOverwritePrompt(AppState& state, const save::SaveGame& saveGame) {
+    const std::optional<std::filesystem::path> existingPath = save::findMatchingManualSavePath(saveGame);
+    if (!existingPath.has_value()) {
+        return false;
+    }
+
+    state.pendingOverwriteSavePath = existingPath->string();
+    state.confirmSelection = ConfirmAction::Cancel;
+    state.screen = ScreenState::PauseConfirmOverwriteSave;
+    return true;
+}
+
+bool canSaveCurrentStoryState(const AppState& state, std::string& outReason) {
+    if (!state.story.loaded || state.story.script.entries.empty()) {
+        outReason = "No story progress to save.";
+        return false;
+    }
+    if (state.story.entryIndex >= state.story.script.entries.size()) {
+        outReason = "No story progress to save.";
+        return false;
+    }
+    if (!vn::isLineFinished()) {
+        outReason = "Wait for dialogue to finish.";
+        return false;
+    }
+
+    const vn::ScriptEntry& entry = state.story.script.entries[state.story.entryIndex];
+    if (entry.autoAdvanceOnVoiceEnd && vn::isVoicePlaying()) {
+        outReason = "Wait for voice playback to finish.";
+        return false;
+    }
+
+    return true;
+}
+
+bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
+    vn::Script script;
+    const std::string scriptPath = resolvePath(save::chapterScriptPathFromId(saveGame.chapter));
+    if (!vn::loadScript(scriptPath, script)) {
+        return false;
+    }
+    if (script.entries.empty()) {
+        return false;
+    }
+
+    state.settings.fullscreen = saveGame.settings.fullscreen;
+    state.settings.voiceVolume = std::clamp(static_cast<float>(saveGame.settings.voiceVolume) / 100.0f, 0.0f, 1.0f);
+    state.settings.textSpeed = static_cast<float>(std::max(1, saveGame.settings.textSpeed));
+
+    state.story.script = std::move(script);
+    state.story.loaded = true;
+    state.story.entryIndex = static_cast<std::size_t>(std::clamp(saveGame.entryIndex, 0, static_cast<int>(state.story.script.entries.size() - 1)));
+
+    vn::reset();
+    vn::setVoiceVolume(state.settings.voiceVolume);
+    vn::setTypewriterSpeed(state.settings.textSpeed);
+
+    state.pauseSelection = PauseAction::Continue;
+    state.pauseContext = PauseContext::Story;
+    state.confirmSelection = ConfirmAction::Cancel;
+    state.pauseIntroTime = 0.0f;
+    state.screen = ScreenState::Playing;
+
+    applyCurrentEntry(state.story, state.settings);
+    return true;
+}
+
 void beginStory(AppState& state) {
     if (!ensureStoryLoaded(state.story)) {
         state.noticeText = "Chapter 0 failed to load.";
@@ -587,6 +686,7 @@ void beginStory(AppState& state) {
     state.pauseIntroTime = 0.0f;
     state.screen = ScreenState::Playing;
     applyCurrentEntry(state.story, state.settings);
+    (void)save::autosave(buildStorySaveGame(state));
 }
 
 void beginBattleDemo(AppState& state) {
@@ -729,6 +829,8 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    save::init();
+
     AppState state;
     state.settings.fullscreen = window.isFullscreen();
     vn::setVoiceVolume(state.settings.voiceVolume);
@@ -765,6 +867,11 @@ int main(int argc, char** argv) {
                     settingsMenu.handleEvent(state, window, event, window.getWidth(), window.getHeight());
                     break;
 
+                case ScreenState::LoadMenu:
+                case ScreenState::LoadConfirmDelete:
+                    handleLoadMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+                    break;
+
                 case ScreenState::BattleDemo:
                     if (battleSession != nullptr) {
                         battleSession->handleEvent(event);
@@ -788,8 +895,70 @@ int main(int argc, char** argv) {
                     break;
 
                 case ScreenState::PauseConfirmExit:
+                case ScreenState::PauseConfirmOverwriteSave:
                     handlePauseConfirmEvent(state, window, event, window.getWidth(), window.getHeight());
                     break;
+            }
+        }
+
+        if (state.requestStoryManualSave) {
+            state.requestStoryManualSave = false;
+
+            std::string reason;
+            if (!canSaveCurrentStoryState(state, reason)) {
+                state.noticeText = std::move(reason);
+                state.noticeTimer = 2.0f;
+            } else {
+                const save::SaveGame saveGame = buildStorySaveGame(state);
+                if (tryStartDuplicateSaveOverwritePrompt(state, saveGame)) {
+                    // confirmation modal opened
+                } else if (save::manualSave(saveGame)) {
+                    state.noticeText = "Game saved.";
+                    state.noticeTimer = 2.0f;
+                } else {
+                    state.noticeText = "Save failed.";
+                    state.noticeTimer = 2.0f;
+                }
+            }
+        }
+
+        if (state.requestStoryOverwriteSave) {
+            state.requestStoryOverwriteSave = false;
+
+            std::string reason;
+            if (!canSaveCurrentStoryState(state, reason)) {
+                state.noticeText = std::move(reason);
+                state.noticeTimer = 2.0f;
+                state.pendingOverwriteSavePath.clear();
+            } else if (!state.pendingOverwriteSavePath.empty() &&
+                       save::writeToPath(state.pendingOverwriteSavePath, buildStorySaveGame(state))) {
+                state.noticeText = "Game saved.";
+                state.noticeTimer = 2.0f;
+                state.pendingOverwriteSavePath.clear();
+            } else {
+                state.noticeText = "Save failed.";
+                state.noticeTimer = 2.0f;
+                state.pendingOverwriteSavePath.clear();
+            }
+        }
+
+        if (!state.pendingLoadPath.empty()) {
+            const std::string pendingLoadPath = state.pendingLoadPath;
+            state.pendingLoadPath.clear();
+
+            const std::optional<save::SaveGame> saveGame = save::load(pendingLoadPath);
+            if (!saveGame.has_value()) {
+                state.noticeText = "Save file corrupted.";
+                state.noticeTimer = 2.4f;
+            } else {
+                SettingsMenuController::applyDisplayMode(window, state.settings, saveGame->settings.fullscreen);
+                if (restoreStorySave(state, *saveGame)) {
+                    state.noticeText = "Game loaded.";
+                    state.noticeTimer = 2.0f;
+                } else {
+                    state.noticeText = "Load failed.";
+                    state.noticeTimer = 2.4f;
+                }
             }
         }
 
@@ -837,7 +1006,9 @@ int main(int argc, char** argv) {
             state.menuIntroTime = std::min(kMenuIntroMaxTime, state.menuIntroTime + deltaSeconds);
         }
 
-        if ((state.screen == ScreenState::PauseMenu || state.screen == ScreenState::PauseConfirmExit) &&
+        if ((state.screen == ScreenState::PauseMenu ||
+             state.screen == ScreenState::PauseConfirmExit ||
+             state.screen == ScreenState::PauseConfirmOverwriteSave) &&
             state.pauseIntroTime < kPauseIntroMaxTime) {
             state.pauseIntroTime = std::min(kPauseIntroMaxTime, state.pauseIntroTime + deltaSeconds);
         }
@@ -861,6 +1032,7 @@ int main(int argc, char** argv) {
             vn::update(deltaSeconds);
 
             if (vn::consumeAdvanceRequest()) {
+                const std::string previousBackground = effectiveStoryBackground(state.story, state.story.entryIndex);
                 const int pendingBattleId =
                     state.story.entryIndex < state.story.script.entries.size()
                     ? state.story.script.entries[state.story.entryIndex].battleId
@@ -874,6 +1046,10 @@ int main(int argc, char** argv) {
                     state.noticeText = "End of chapter 0.";
                     state.noticeTimer = 2.2f;
                 } else {
+                    const auto& entry = state.story.script.entries[state.story.entryIndex];
+                    if (!entry.background.empty() && entry.background != previousBackground) {
+                        (void)save::autosave(buildStorySaveGame(state));
+                    }
                     applyCurrentEntry(state.story, state.settings);
                 }
             }
@@ -885,7 +1061,9 @@ int main(int argc, char** argv) {
 
         const bool renderStoryBackdrop =
             state.screen == ScreenState::Playing ||
-            ((state.screen == ScreenState::PauseMenu || state.screen == ScreenState::PauseConfirmExit) &&
+            ((state.screen == ScreenState::PauseMenu ||
+              state.screen == ScreenState::PauseConfirmExit ||
+              state.screen == ScreenState::PauseConfirmOverwriteSave) &&
              state.pauseContext == PauseContext::Story) ||
             (state.screen == ScreenState::Settings &&
              state.settingsReturnScreen == ScreenState::PauseMenu &&
@@ -893,7 +1071,9 @@ int main(int argc, char** argv) {
 
         const bool renderBattleBackdrop =
             battleSession != nullptr &&
-            (((state.screen == ScreenState::PauseMenu || state.screen == ScreenState::PauseConfirmExit) &&
+            (((state.screen == ScreenState::PauseMenu ||
+               state.screen == ScreenState::PauseConfirmExit ||
+               state.screen == ScreenState::PauseConfirmOverwriteSave) &&
               state.pauseContext == PauseContext::Battle) ||
              (state.screen == ScreenState::Settings &&
               state.settingsReturnScreen == ScreenState::PauseMenu &&
@@ -901,7 +1081,9 @@ int main(int argc, char** argv) {
 
         if (renderStoryBackdrop) {
             vn::render();
-            if (state.screen == ScreenState::PauseMenu || state.screen == ScreenState::PauseConfirmExit) {
+            if (state.screen == ScreenState::PauseMenu ||
+                state.screen == ScreenState::PauseConfirmExit ||
+                state.screen == ScreenState::PauseConfirmOverwriteSave) {
                 renderPauseScreen(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
             } else if (state.screen == ScreenState::Settings && state.settingsReturnScreen == ScreenState::PauseMenu) {
                 settingsMenu.render(window.getRenderer(), menuResources, state,
@@ -909,7 +1091,9 @@ int main(int argc, char** argv) {
             }
         } else if (renderBattleBackdrop) {
             battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
-            if (state.screen == ScreenState::PauseMenu || state.screen == ScreenState::PauseConfirmExit) {
+            if (state.screen == ScreenState::PauseMenu ||
+                state.screen == ScreenState::PauseConfirmExit ||
+                state.screen == ScreenState::PauseConfirmOverwriteSave) {
                 renderPauseScreen(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
             } else if (state.screen == ScreenState::Settings && state.settingsReturnScreen == ScreenState::PauseMenu) {
                 settingsMenu.render(window.getRenderer(), menuResources, state,
@@ -918,6 +1102,9 @@ int main(int argc, char** argv) {
         } else if (state.screen == ScreenState::Settings) {
             settingsMenu.render(window.getRenderer(), menuResources, state,
                                 window.getWidth(), window.getHeight(), false);
+        } else if (state.screen == ScreenState::LoadMenu ||
+                   state.screen == ScreenState::LoadConfirmDelete) {
+            renderLoadScreen(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
         } else if (state.screen == ScreenState::BattleDemo && battleSession != nullptr) {
             battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
         } else {

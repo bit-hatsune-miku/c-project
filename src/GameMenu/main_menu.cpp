@@ -142,8 +142,7 @@ private:
                 beginStory(state);
                 break;
             case MainMenuAction::Load:
-                state.noticeText = "Load is a dummy button for now. No save data yet.";
-                state.noticeTimer = 2.8f;
+                openLoadMenu(state, ScreenState::MainMenu);
                 break;
             case MainMenuAction::Battle:
                 beginBattleDemo(state);
