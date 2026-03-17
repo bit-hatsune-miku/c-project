@@ -112,6 +112,14 @@ void MikuSingPresentation::update(float deltaTime) {
             note.color.a = static_cast<Uint8>(255.0f * (1.0f - fadeT));
         }
     }
+
+    // Keep container bounded over time by dropping finished notes.
+    notes_.erase(
+        std::remove_if(notes_.begin(), notes_.end(), [](const ProjectileParticle& note) {
+            return !note.active;
+        }),
+        notes_.end()
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +177,33 @@ bool MikuSingPresentation::isComplete() const {
     }
     
     return true;
+}
+
+bool MikuSingPresentation::overridesCamera() const {
+    return false;
+}
+
+void MikuSingPresentation::applyCameraState(Camera3D& camera) const {
+    const float t = std::clamp(elapsedTime_ / std::max(0.001f, totalDuration_), 0.0f, 1.0f);
+    const float ease = easing::easeOutCubic(t);
+
+    const float anchorX = easing::lerp(casterWorldX_ - 460.0f, casterWorldX_ - 390.0f, ease);
+    const float anchorY = easing::lerp(casterWorldY_ - 90.0f, casterWorldY_ - 25.0f, ease);
+    const float anchorZ = casterWorldZ_ - 185.0f + std::sin(elapsedTime_ * 3.2f) * 8.0f;
+
+    camera.posX = anchorX;
+    camera.posY = anchorY;
+    camera.posZ = anchorZ;
+    camera.pitchDegrees = -6.0f + std::sin(elapsedTime_ * 2.1f) * 1.8f;
+    camera.yawDegrees = 21.0f + std::sin(elapsedTime_ * 2.7f) * 4.5f;
+    camera.focalLength = 36000.0f;
+}
+
+bool MikuSingPresentation::getCasterWorldOverride(float& outX, float& outY, float& outZ) const {
+    (void)outX;
+    (void)outY;
+    (void)outZ;
+    return false;
 }
 
 int MikuSingPresentation::consumeHitEvents() {

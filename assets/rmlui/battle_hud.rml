@@ -52,7 +52,7 @@
                 <div class="unit-fade-left"></div>
                 <div class="unit-fade-right"></div>
                 <div class="unit-fade-bottom"></div>
-                <div class="unit-name" id="unit-name-1">IROHA</div>
+                <div class="unit-name" id="unit-name-1">LYOO</div>
                 <div class="unit-orbs">
                     <div class="unit-orb" id="unit-1-orb-1"></div>
                     <div class="unit-orb" id="unit-1-orb-2"></div>
@@ -70,7 +70,7 @@
                 <div class="unit-fade-left"></div>
                 <div class="unit-fade-right"></div>
                 <div class="unit-fade-bottom"></div>
-                <div class="unit-name" id="unit-name-2">KAGUYA</div>
+                <div class="unit-name" id="unit-name-2">MIKU</div>
                 <div class="unit-orbs">
                     <div class="unit-orb" id="unit-2-orb-1"></div>
                     <div class="unit-orb" id="unit-2-orb-2"></div>
@@ -88,7 +88,7 @@
                 <div class="unit-fade-left"></div>
                 <div class="unit-fade-right"></div>
                 <div class="unit-fade-bottom"></div>
-                <div class="unit-name" id="unit-name-3">MIKU</div>
+                <div class="unit-name" id="unit-name-3">CUPCAKKE</div>
                 <div class="unit-orbs">
                     <div class="unit-orb" id="unit-3-orb-1"></div>
                     <div class="unit-orb" id="unit-3-orb-2"></div>
@@ -120,6 +120,9 @@
             </div>
         </div>
 
+        <!--
+        Legacy input restored: single Space action.
+        Keep the second button markup commented for future per-character input work.
         <div class="action-button action-button-skill" id="action-skill">
             <div class="action-button-core">
                 <img class="action-button-icon action-button-icon-stacked" src="icons/stacked-arrow-black.svg" />
@@ -127,13 +130,14 @@
             <div class="action-button-key">E</div>
             <div class="action-button-label">SKILL</div>
         </div>
+        -->
 
         <div class="action-button action-button-standard" id="action-standard">
             <div class="action-button-core">
                 <img class="action-button-icon action-button-icon-single" src="icons/arrow-black.svg" />
             </div>
-            <div class="action-button-key">Q</div>
-            <div class="action-button-label">STANDARD</div>
+            <div class="action-button-key">SPACE</div>
+            <div class="action-button-label">ABILITY</div>
         </div>
 
         <div class="battle-tutorial" id="battle-tutorial">

@@ -175,6 +175,11 @@ if (ENABLE_RMLUI)
         nlohmann_json::nlohmann_json
         RmlUi::RmlUi
     )
+    add_custom_command(TARGET battle_testing POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_FILE:battle_testing>
+            $<TARGET_FILE_DIR:battle_testing>/battle${CMAKE_EXECUTABLE_SUFFIX}
+    )
     if (SDL2_TTF_FOUND)
         target_include_directories(battle_testing PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
         target_compile_definitions(battle_testing PRIVATE BATTLE_ENABLE_TTF=1)

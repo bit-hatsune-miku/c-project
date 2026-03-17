@@ -528,12 +528,20 @@ bool BattleManager::commitCurrentPlayerSplitAttackTurn() {
 }
 
 bool BattleManager::executePlayerTurn() {
+<<<<<<< Updated upstream
     // Auto-select intended one-button flow:
     //   Extra turn => Ultimate, otherwise Skill if available, else Standard.
+=======
+    if (isBattleOver()) {
+        return false;
+    }
+
+>>>>>>> Stashed changes
     const TurnEvent next = peekNextTurnEvent();
     if (!next.valid || next.actingActorIndex >= turnState_.actors.size()) {
         return false;
     }
+<<<<<<< Updated upstream
     const TurnActor& actor = turnState_.actors[next.actingActorIndex];
     if (actor.type != ParticipantType::Character ||
         actor.partyIndex < 0 ||
@@ -550,6 +558,20 @@ bool BattleManager::executePlayerTurn() {
         return resolvePlayerAction(BattleAction::Skill);
     }
     return resolvePlayerAction(BattleAction::Standard);
+=======
+
+    if (turnState_.actors[next.actingActorIndex].type != ParticipantType::Character) {
+        return false;
+    }
+
+    const TurnEvent event = advanceToNextTurnEvent();
+    if (!event.valid) {
+        return false;
+    }
+
+    executeTurn(event.actingActorIndex);
+    return true;
+>>>>>>> Stashed changes
 }
 
 bool BattleManager::processAutomaticTurns() {
@@ -628,23 +650,76 @@ void BattleManager::executeTurn(size_t actorIndex) {
         executeBossAction(actorIndex, BattleAction::Standard);
     } else {
         if (actor.partyIndex < 0 || static_cast<size_t>(actor.partyIndex) >= characters_.size()) {
+            if (actorIndex < turnState_.actors.size()) {
+                if (turnState_.actors[actorIndex].isExtraTurn) {
+                    turnState_.actors.erase(turnState_.actors.begin() + actorIndex);
+                } else {
+                    turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
+                }
+            }
             return;
         }
 
         BattleCharacter& character = characters_[static_cast<size_t>(actor.partyIndex)];
         if (!character.isAlive()) {
+            if (actorIndex < turnState_.actors.size()) {
+                if (turnState_.actors[actorIndex].isExtraTurn) {
+                    turnState_.actors.erase(turnState_.actors.begin() + actorIndex);
+                } else {
+                    turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
+                }
+            }
             return;
         }
 
-        if (character.canUseUltimate()) {
+        // Legacy behavior:
+        // - Regular turn: use standard attack.
+        // - Extra turn: cast ultimate automatically.
+        if (actor.isExtraTurn) {
             executeCharacterAction(actorIndex, character, BattleAction::Ultimate);
-        } else if (character.canUseSkill()) {
-            executeCharacterAction(actorIndex, character, BattleAction::Skill);
         } else {
             executeCharacterAction(actorIndex, character, BattleAction::Standard);
         }
+
+        // Newer multi-action behavior (kept for future toggle/reference):
+        // if (character.canUseUltimate()) {
+        //     executeCharacterAction(actorIndex, character, BattleAction::Ultimate);
+        // } else if (character.canUseSkill()) {
+        //     executeCharacterAction(actorIndex, character, BattleAction::Skill);
+        // } else {
+        //     executeCharacterAction(actorIndex, character, BattleAction::Standard);
+        // }
     }
 
+<<<<<<< Updated upstream
+=======
+    // Resolve actor timeline slot.
+    if (actorIndex >= turnState_.actors.size()) {
+        return;
+    }
+
+    size_t resolvedActorIndex = turnState_.actors.size();
+    for (size_t i = 0; i < turnState_.actors.size(); ++i) {
+        const TurnActor& candidate = turnState_.actors[i];
+        if (candidate.type == actor.type &&
+            candidate.key == actor.key &&
+            candidate.partyIndex == actor.partyIndex &&
+            candidate.isExtraTurn == actor.isExtraTurn) {
+            resolvedActorIndex = i;
+            break;
+        }
+    }
+
+    if (resolvedActorIndex >= turnState_.actors.size()) {
+        return;
+    }
+
+    if (turnState_.actors[resolvedActorIndex].isExtraTurn) {
+        turnState_.actors.erase(turnState_.actors.begin() + resolvedActorIndex);
+    } else {
+        turnState_.actors[resolvedActorIndex].currentActionValue = turnState_.actors[resolvedActorIndex].baseActionValue;
+    }
+>>>>>>> Stashed changes
 }
 
 void BattleManager::queueExtraTurnForCharacter(int partyIndex) {
@@ -803,6 +878,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
     actionEvent.bossHpAfter = bossCurrentHp_;
     actionEvent.hitVoicesHandledDuringPresentation = consumePresentationHitAudioPlayed();
 
+<<<<<<< Updated upstream
     const bool wasExtraTurn = turnState_.actors[actorIndex].isExtraTurn;
 
     if (action == BattleAction::Standard || action == BattleAction::Skill) {
@@ -820,15 +896,36 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
             }
         }
     } else if (action == BattleAction::Ultimate) {
+=======
+    if (action == BattleAction::Ultimate) {
+>>>>>>> Stashed changes
         character.consumeUltimate();
+    } else {
+        // Legacy behavior: normal ability builds ultimate charge.
+        character.gainUltimatePoint(1);
+        if (character.canUseUltimate()) {
+            queueExtraTurnForCharacter(character.partyIndex());
+        }
+
+        // Newer orb-spend behavior (kept for future toggle/reference):
+        // if (action == BattleAction::Standard) {
+        //     character.gainUltimatePoint(1);
+        // } else if (action == BattleAction::Skill) {
+        //     character.consumeUltimatePoint(1);
+        // } else {
+        //     character.consumeUltimate();
+        // }
     }
 
+<<<<<<< Updated upstream
     if (wasExtraTurn) {
         turnState_.actors.erase(turnState_.actors.begin() + static_cast<long>(actorIndex));
     } else {
         turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
     }
 
+=======
+>>>>>>> Stashed changes
     recentActionEvents_.push_back(std::move(actionEvent));
     return true;
 }
