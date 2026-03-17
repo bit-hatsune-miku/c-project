@@ -199,9 +199,8 @@ void applySelectionAfterDelete(AppState& state, std::size_t remainingSlotCount) 
 class LoadMenuController {
 public:
     void render(SDL_Renderer* renderer, const MenuResources& resources, AppState& state,
-                int windowWidth, int windowHeight) const {
-        const std::vector<save::SlotInfo> slots = save::listSlots();
-        clampSelection(state, slots.size());
+                int windowWidth, int windowHeight) {
+        const std::vector<save::SlotInfo>& slots = currentSlots(state);
 
         if (state.loadReturnScreen == ScreenState::PauseMenu) {
             renderPauseBackdrop(renderer, windowWidth, windowHeight);
@@ -220,9 +219,8 @@ public:
     }
 
     void handleEvent(AppState& state, Window& window, const SDL_Event& event,
-                     int windowWidth, int windowHeight) const {
-        std::vector<save::SlotInfo> slots = save::listSlots();
-        clampSelection(state, slots.size());
+                     int windowWidth, int windowHeight) {
+        const std::vector<save::SlotInfo>& slots = currentSlots(state);
 
         if (state.screen == ScreenState::LoadConfirmDelete) {
             handleDeleteConfirmEvent(state, window, event, windowWidth, windowHeight);
@@ -315,7 +313,24 @@ public:
         }
     }
 
+    void open(AppState& state) {
+        refreshSlots(state);
+    }
+
 private:
+    const std::vector<save::SlotInfo>& currentSlots(AppState& state) {
+        if (!slotsLoaded_) {
+            refreshSlots(state);
+        }
+        return cachedSlots_;
+    }
+
+    void refreshSlots(AppState& state) {
+        cachedSlots_ = save::listSlots();
+        slotsLoaded_ = true;
+        clampSelection(state, cachedSlots_.size());
+    }
+
     void renderOverlay(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
                        const std::vector<save::SlotInfo>& slots) const {
         drawSlantedPanel(renderer,
@@ -454,10 +469,11 @@ private:
         return nullptr;
     }
 
-    void finishDelete(AppState& state) const {
+    void finishDelete(AppState& state) {
         const std::filesystem::path path = state.pendingDeletePath;
         const bool deleted = !path.empty() && save::deleteManualSave(path);
-        const std::size_t remainingSlotCount = save::listSlots().size();
+        refreshSlots(state);
+        const std::size_t remainingSlotCount = cachedSlots_.size();
 
         if (deleted) {
             applySelectionAfterDelete(state, remainingSlotCount);
@@ -474,7 +490,7 @@ private:
     }
 
     void handleDeleteConfirmEvent(AppState& state, Window& window, const SDL_Event& event,
-                                  int windowWidth, int windowHeight) const {
+                                  int windowWidth, int windowHeight) {
         if (event.type == SDL_MOUSEMOTION ||
             (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT)) {
             SDL_FPoint confirmPoint{};
@@ -513,7 +529,7 @@ private:
         }
     }
 
-    void activateDeleteConfirmAction(AppState& state) const {
+    void activateDeleteConfirmAction(AppState& state) {
         if (state.confirmSelection == ConfirmAction::Cancel) {
             clearDeletePromptState(state);
             state.screen = ScreenState::LoadMenu;
@@ -589,10 +605,13 @@ private:
 #endif
         }
     }
+
+    std::vector<save::SlotInfo> cachedSlots_;
+    bool slotsLoaded_ = false;
 };
 
-const LoadMenuController& loadMenuController() {
-    static const LoadMenuController controller;
+LoadMenuController& loadMenuController() {
+    static LoadMenuController controller;
     return controller;
 }
 
@@ -603,13 +622,13 @@ void openLoadMenu(AppState& state, ScreenState returnScreen) {
     state.loadSelection = 0;
     state.loadSlotSelection = 0;
     clearDeletePromptState(state);
+    loadMenuController().open(state);
     state.screen = ScreenState::LoadMenu;
 }
 
-void renderLoadScreen(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
+void renderLoadScreen(SDL_Renderer* renderer, const MenuResources& resources, AppState& state,
                       int windowWidth, int windowHeight) {
-    AppState mutableState = state;
-    loadMenuController().render(renderer, resources, mutableState, windowWidth, windowHeight);
+    loadMenuController().render(renderer, resources, state, windowWidth, windowHeight);
 }
 
 void handleLoadMenuEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight) {

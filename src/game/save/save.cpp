@@ -79,6 +79,27 @@ bool writeJsonFile(const fs::path& path, const json& value) {
     return static_cast<bool>(file);
 }
 
+fs::path uniqueManualSavePath() {
+    const std::string baseName = std::string(kSavePrefix) + makeTimestampFilenameStem();
+    std::error_code error;
+
+    for (int suffix = 0; suffix < 1000; ++suffix) {
+        std::string filename = baseName;
+        if (suffix > 0) {
+            filename += "_" + std::to_string(suffix);
+        }
+        filename += ".idol";
+
+        const fs::path candidate = gSavesDir / filename;
+        if (!fs::exists(candidate, error)) {
+            return candidate;
+        }
+        error.clear();
+    }
+
+    return fs::path();
+}
+
 std::map<std::string, std::string> chapterSceneMap(const std::string& chapterId) {
     if (chapterId == "ch0") {
         return {
@@ -202,8 +223,11 @@ bool manualSave(const SaveGame& saveGame) {
         return false;
     }
 
-    SaveGame normalized = normalizedSaveGame(saveGame);
-    const fs::path path = savesDir() / (std::string(kSavePrefix) + makeTimestampFilenameStem() + ".idol");
+    const SaveGame normalized = normalizedSaveGame(saveGame);
+    const fs::path path = uniqueManualSavePath();
+    if (path.empty()) {
+        return false;
+    }
     return writeJsonFile(path, json(normalized));
 }
 
@@ -361,7 +385,12 @@ std::string makeIsoUtcTimestamp() {
 }
 
 std::string makeTimestampFilenameStem() {
-    return formatTm(localTime(systemClockNow()), "%Y%m%d_%H%M%S");
+    const auto now = std::chrono::system_clock::now();
+    const auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    std::ostringstream stream;
+    stream << formatTm(localTime(std::chrono::system_clock::to_time_t(now)), "%Y%m%d_%H%M%S")
+           << '_' << std::setw(3) << std::setfill('0') << millis.count();
+    return stream.str();
 }
 
 std::string formatTimestampForDisplay(const std::string& isoTimestamp) {

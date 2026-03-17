@@ -168,7 +168,7 @@ void renderPauseScreen(SDL_Renderer* renderer, const MenuResources& resources, c
 void renderExitToMainMenuOverlay(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state);
 void handlePauseMenuEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
 void handlePauseConfirmEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
-void renderLoadScreen(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
+void renderLoadScreen(SDL_Renderer* renderer, const MenuResources& resources, AppState& state,
                       int windowWidth, int windowHeight);
 void handleLoadMenuEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
 
