@@ -121,6 +121,7 @@ private:
 
     render::BattleFeedbackSystem feedback_;
     std::size_t processedBattleEventCount_ = 0;
+    bool discardNextUpdateDelta_ = false;
     Hooks hooks_;
 };
 

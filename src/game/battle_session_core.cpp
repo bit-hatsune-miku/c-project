@@ -123,6 +123,7 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
     frameAccumulator_ = 0.0f;
     feedback_.reset(manager_);
     processedBattleEventCount_ = manager_.getRecentActionEvents().size();
+    discardNextUpdateDelta_ = false;
     finished_    = false;
     initialized_ = true;
     return true;
@@ -154,6 +155,7 @@ void BattleSessionCore::shutdown() {
     if (hooks_.onShutdown) hooks_.onShutdown();
     hooks_ = {};
     processedBattleEventCount_ = 0;
+    discardNextUpdateDelta_ = false;
 
     initialized_ = false;
     finished_    = false;
@@ -220,6 +222,14 @@ void BattleSessionCore::update(float deltaSeconds) {
     if (combatBeginAnimation_.isActive()) {
         combatBeginAnimation_.update(deltaSeconds);
         return;
+    }
+
+    // Ability presentations run their own blocking loop. The next outer-frame delta
+    // would otherwise include that whole playback time and instantly consume the
+    // short camera intro that starts for the next character turn.
+    if (discardNextUpdateDelta_) {
+        discardNextUpdateDelta_ = false;
+        deltaSeconds = 0.0f;
     }
 
     if (hooks_.onPreUpdate) hooks_.onPreUpdate(manager_, deltaSeconds);
@@ -499,6 +509,8 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
     if (hooks_.onPresentationEnd) {
         hooks_.onPresentationEnd(context, result.resultText);
     }
+
+    discardNextUpdateDelta_ = true;
 
     return result.multiplier;
 }
