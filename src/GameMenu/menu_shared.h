@@ -17,10 +17,13 @@ class Window;
 enum class ScreenState {
     MainMenu,
     Settings,
+    LoadMenu,
+    LoadConfirmDelete,
     BattleDemo,
     Playing,
     PauseMenu,
-    PauseConfirmExit
+    PauseConfirmExit,
+    PauseConfirmOverwriteSave
 };
 
 enum class MainMenuAction {
@@ -33,6 +36,7 @@ enum class MainMenuAction {
 
 enum class PauseAction {
     Continue,
+    Save,
     Load,
     Settings,
     ExitToMainMenu
@@ -83,17 +87,26 @@ struct MenuResources {
 struct AppState {
     ScreenState screen = ScreenState::MainMenu;
     ScreenState settingsReturnScreen = ScreenState::MainMenu;
+    ScreenState loadReturnScreen = ScreenState::MainMenu;
     MainMenuAction mainSelection = MainMenuAction::Start;
     SettingsItem settingsSelection = SettingsItem::DisplayMode;
     PauseAction pauseSelection = PauseAction::Continue;
     PauseContext pauseContext = PauseContext::Story;
     ConfirmAction confirmSelection = ConfirmAction::Cancel;
+    std::size_t loadSelection = 0;
+    std::size_t loadSlotSelection = 0;
     float menuIntroTime = 0.0f;
     float pauseIntroTime = 0.0f;
     GameSettings settings;
     StorySession story;
     std::string noticeText;
     float noticeTimer = 0.0f;
+    bool requestStoryManualSave = false;
+    bool requestStoryOverwriteSave = false;
+    std::string pendingLoadPath;
+    std::string pendingOverwriteSavePath;
+    std::string pendingDeletePath;
+    std::size_t pendingDeleteSelection = 0;
 };
 
 inline constexpr float kMenuIntroMaxTime = 0.52f + 0.09f * 4.0f;
@@ -148,11 +161,15 @@ void renderMainMenu(SDL_Renderer* renderer, const MenuResources& resources, cons
 void handleMainMenuEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
 
 void openPauseMenu(AppState& state, PauseContext context = PauseContext::Story);
+void openLoadMenu(AppState& state, ScreenState returnScreen);
 void renderPauseBackdrop(SDL_Renderer* renderer, int windowWidth, int windowHeight);
 void renderPauseScreen(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
                        int windowWidth, int windowHeight);
 void renderExitToMainMenuOverlay(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state);
 void handlePauseMenuEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
 void handlePauseConfirmEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
+void renderLoadScreen(SDL_Renderer* renderer, const MenuResources& resources, AppState& state,
+                      int windowWidth, int windowHeight);
+void handleLoadMenuEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
 
 #endif

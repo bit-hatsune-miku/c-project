@@ -28,12 +28,14 @@ pkg_check_modules(SDL2_IMAGE QUIET SDL2_image)
 set(MAIN_APP_SOURCES
     src/main.cpp
     src/GameMenu/main_menu.cpp
+    src/GameMenu/load_menu.cpp
     src/GameMenu/pause_menu.cpp
     src/GameMenu/exit_to_main_menu.cpp
     src/Settings/settings.cpp
     src/window.cpp
     src/game/vn/vn_system.cpp
     src/game/vn/vn_script.cpp
+    src/game/save/save.cpp
 )
 
 set(BATTLE_CORE_SOURCES
@@ -110,6 +112,7 @@ set(HEADERS
     src/window.h
     src/game/vn/vn_system.h
     src/game/vn/vn_script.h
+    src/game/save/save.h
 )
 
 # Create executable

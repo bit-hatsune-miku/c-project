@@ -39,6 +39,8 @@ void update(float deltaSeconds);
 void setPaused(bool paused);
 bool isPaused();
 void stopVoicePlayback();
+bool isVoicePlaying();
+void reset();
 void render();
 void onSpacePressed();
 
