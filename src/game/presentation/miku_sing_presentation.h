@@ -23,6 +23,7 @@ public:
     void update(float deltaTime) override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
+<<<<<<< Updated upstream
     int  consumeHitEvents() override;
     int  getDamageLabelHitCount() const override;
 
@@ -32,6 +33,12 @@ public:
     float       getInputMultiplier()  const override;
     std::string getInputResultText()  const override;
     bool        shouldRenderAboveHud() const override;
+=======
+    bool overridesCamera() const override;
+    void applyCameraState(Camera3D& camera) const override;
+    bool getCasterWorldOverride(float& outX, float& outY, float& outZ) const override;
+    int consumeHitEvents() override;
+>>>>>>> Stashed changes
 
 private:
     void spawnNote();

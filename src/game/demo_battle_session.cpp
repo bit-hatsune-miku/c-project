@@ -335,6 +335,8 @@ public:
         shutdown();
         renderer_ = renderer;
 
+        battle::registerAllPresentations();
+
         battle::ability::setPresentationInteractionRunner([this](const PresentationContext& context) {
             return runPresentationInteraction(context);
         });
@@ -491,6 +493,7 @@ public:
             }
 
             if (dialogueInProgress) {
+                bool closedDialogueThisPress = false;
                 if (dialogueClosing) {
                     const bool finalVictoryDialogue = activeDialogueLines == &bossDefeatedDialogueLines;
                     dialogueInProgress = false;
@@ -502,9 +505,12 @@ public:
                     }
                     if (finalVictoryDialogue) {
                         finished = true;
+                        return;
                     }
+                    closedDialogueThisPress = true;
                 } else if (!vn::isLineFinished()) {
                     vn::onSpacePressed();
+                    return;
                 } else {
                     ++currentDialogueLine;
                     if (activeDialogueLines != nullptr &&
@@ -515,8 +521,12 @@ public:
                         vn::showLine("", "", "");
                         dialogueClosing = true;
                     }
+                    return;
                 }
-                return;
+
+                if (!closedDialogueThisPress) {
+                    return;
+                }
             }
 
             if (!spaceEnabledForBattle || manager.isBattleOver()) {
