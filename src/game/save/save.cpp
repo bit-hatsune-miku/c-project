@@ -237,6 +237,20 @@ bool writeToPath(const fs::path& path, const SaveGame& saveGame) {
         return false;
     }
 
+    std::error_code error;
+    const fs::path canonicalSavesDir = fs::weakly_canonical(gSavesDir, error);
+    if (error) {
+        return false;
+    }
+    const fs::path canonicalTarget = fs::weakly_canonical(path, error);
+    if (error) {
+        return false;
+    }
+    const auto [end, _] = std::mismatch(canonicalSavesDir.begin(), canonicalSavesDir.end(), canonicalTarget.begin());
+    if (end != canonicalSavesDir.end()) {
+        return false;
+    }
+
     const SaveGame normalized = normalizedSaveGame(saveGame);
     return writeJsonFile(path, json(normalized));
 }

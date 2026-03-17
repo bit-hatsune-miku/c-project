@@ -951,8 +951,8 @@ int main(int argc, char** argv) {
                 state.noticeText = "Save file corrupted.";
                 state.noticeTimer = 2.4f;
             } else {
-                SettingsMenuController::applyDisplayMode(window, state.settings, saveGame->settings.fullscreen);
                 if (restoreStorySave(state, *saveGame)) {
+                    SettingsMenuController::applyDisplayMode(window, state.settings, saveGame->settings.fullscreen);
                     state.noticeText = "Game loaded.";
                     state.noticeTimer = 2.0f;
                 } else {

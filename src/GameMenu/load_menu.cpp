@@ -245,12 +245,14 @@ public:
                 return;
             }
 
-            const std::size_t start = visibleWindowStart(state.loadSelection, slots.size());
+            const std::size_t visibleSelection =
+                state.loadSelection < slots.size() ? state.loadSelection : state.loadSlotSelection;
+            const std::size_t start = visibleWindowStart(visibleSelection, slots.size());
             const std::size_t visibleCount = std::min<std::size_t>(kVisibleSlotCount, slots.size() - std::min(start, slots.size()));
             for (std::size_t i = 0; i < visibleCount; ++i) {
                 if (pointInRect(loadPoint.x, loadPoint.y, slotRectForVisibleIndex(static_cast<int>(i)))) {
                     state.loadSelection = start + i;
-                    state.loadSlotSelection = state.loadSelection;
+                    state.loadSlotSelection = start + i;
                     if (event.type == SDL_MOUSEBUTTONDOWN) {
                         activateSelection(state, slots);
                     }
