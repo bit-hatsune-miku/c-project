@@ -706,6 +706,53 @@ void stopVoicePlayback() {
     stopAndFreeVoiceBuffer();
 }
 
+bool isVoicePlaying() {
+    return gVoicePlaying;
+}
+
+void reset() {
+    stopAndFreeVoiceBuffer();
+
+    if (gIconTexture != nullptr) {
+        SDL_DestroyTexture(gIconTexture);
+        gIconTexture = nullptr;
+    }
+    if (gBackgroundTexture != nullptr) {
+        SDL_DestroyTexture(gBackgroundTexture);
+        gBackgroundTexture = nullptr;
+    }
+
+    gSpeakerName.clear();
+    gText.clear();
+    gVoicePath.clear();
+    gFontPath.clear();
+
+    gIconFrameCount = 1;
+    gIconFrameWidth = 96;
+    gIconFrameHeight = 96;
+    gIconFps = 8.0f;
+    gIconAnimTime = 0.0f;
+    gIconCurrentFrame = 0;
+
+    gCharsPerSecond = std::max(1.0f, gCharsPerSecond);
+    gTypeAccumulator = 0.0f;
+    gVisibleChars = 0;
+    gTotalVisibleChars = 0;
+    gAutoAdvanceOnVoiceEnd = false;
+    gAdvanceRequested = false;
+    gPaused = false;
+    gVoicePlaying = false;
+
+#ifdef VN_ENABLE_TTF
+    if (gFont != nullptr) {
+        TTF_CloseFont(gFont);
+        gFont = nullptr;
+    }
+    gFontSize = 28;
+    gBaseFontSize = 28;
+#endif
+}
+
 void render() {
     if (gRenderer == nullptr) {
         return;

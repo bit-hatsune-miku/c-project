@@ -42,11 +42,12 @@ struct PauseButton {
     SDL_FRect rect;
 };
 
-constexpr std::array<PauseButton, 4> kStoryPauseButtons{{
-    {PauseAction::Continue, "Continue", SDL_FRect{kPauseButtonX, 356.0f, kPauseButtonWidth, 58.0f}},
-    {PauseAction::Load, "Load", SDL_FRect{kPauseButtonX, 430.0f, kPauseButtonWidth, 58.0f}},
-    {PauseAction::Settings, "Settings", SDL_FRect{kPauseButtonX, 504.0f, kPauseButtonWidth, 58.0f}},
-    {PauseAction::ExitToMainMenu, "Exit", SDL_FRect{kPauseButtonX, 578.0f, kPauseButtonWidth, 58.0f}}
+constexpr std::array<PauseButton, 5> kStoryPauseButtons{{
+    {PauseAction::Continue, "Continue", SDL_FRect{kPauseButtonX, 332.0f, kPauseButtonWidth, 58.0f}},
+    {PauseAction::Save, "Save", SDL_FRect{kPauseButtonX, 398.0f, kPauseButtonWidth, 58.0f}},
+    {PauseAction::Load, "Load", SDL_FRect{kPauseButtonX, 464.0f, kPauseButtonWidth, 58.0f}},
+    {PauseAction::Settings, "Settings", SDL_FRect{kPauseButtonX, 530.0f, kPauseButtonWidth, 58.0f}},
+    {PauseAction::ExitToMainMenu, "Exit", SDL_FRect{kPauseButtonX, 596.0f, kPauseButtonWidth, 58.0f}}
 }};
 
 constexpr std::array<PauseButton, 3> kBattlePauseButtons{{
@@ -75,7 +76,8 @@ public:
 
         const bool usingReferenceLayout = beginReferenceLayout(renderer, windowWidth, windowHeight);
         renderPauseMenuOverlay(renderer, resources, state);
-        if (state.screen == ScreenState::PauseConfirmExit) {
+        if (state.screen == ScreenState::PauseConfirmExit ||
+            state.screen == ScreenState::PauseConfirmOverwriteSave) {
             renderExitToMainMenuOverlay(renderer, resources, state);
         }
         if (usingReferenceLayout) {
@@ -174,9 +176,11 @@ private:
             case PauseAction::Continue:
                 resumePausedMode(state);
                 break;
+            case PauseAction::Save:
+                state.requestStoryManualSave = true;
+                break;
             case PauseAction::Load:
-                state.noticeText = "Load is still a dummy button. No save data yet.";
-                state.noticeTimer = 2.8f;
+                openLoadMenu(state, ScreenState::PauseMenu);
                 break;
             case PauseAction::Settings:
                 state.settingsSelection = SettingsItem::DisplayMode;

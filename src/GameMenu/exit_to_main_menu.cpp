@@ -31,6 +31,7 @@ constexpr std::array<ConfirmButton, 2> kConfirmButtons{{
 class ExitToMainMenuController {
 public:
     void renderOverlay(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state) const {
+        const bool overwriteMode = state.screen == ScreenState::PauseConfirmOverwriteSave;
         drawCyberPanel(renderer, kPauseConfirmShellRect, 28.0f, 20.0f,
                        SDL_Color{10, 20, 42, 242}, SDL_Color{80, 228, 255, 244},
                        SDL_Color{72, 156, 255, 30}, SDL_Color{3, 8, 18, 220});
@@ -44,12 +45,16 @@ public:
 
 #ifdef VN_ENABLE_TTF
         drawShadowedTextInRect(renderer, resources.itemFont,
-                               state.pauseContext == PauseContext::Battle ? "Exit Battle?" : "Exit To Main Menu?",
+                               overwriteMode
+                                   ? "Overwrite Save?"
+                                   : (state.pauseContext == PauseContext::Battle ? "Exit Battle?" : "Exit To Main Menu?"),
                                SDL_Color{240, 248, 255, 255}, kPauseConfirmTitleRect);
         drawShadowedWrappedTextInRect(renderer, resources.smallFont,
-                                      state.pauseContext == PauseContext::Battle
-                                          ? "You will lose the current battle progress\nif you leave now."
-                                          : "You will lose the current chapter progress\nif you leave now.",
+                                      overwriteMode
+                                          ? "A manual save already exists at this story point.\nOverwrite that save file?"
+                                          : (state.pauseContext == PauseContext::Battle
+                                              ? "You will lose the current battle progress\nif you leave now."
+                                              : "You will lose the current chapter progress\nif you leave now."),
                                       SDL_Color{236, 246, 252, 255}, kPauseConfirmBodyRect);
 #endif
 
@@ -62,10 +67,10 @@ public:
                            button.action == ConfirmAction::Cancel ? "01" : "02",
                            selected ? SDL_Color{24, 34, 68, 255} : SDL_Color{236, 246, 255, 255},
                            codeRect);
-            const bool isExitButton = button.action == ConfirmAction::ExitToMainMenu;
+            const bool isPrimaryButton = button.action == ConfirmAction::ExitToMainMenu;
             drawShadowedTextInRect(renderer,
-                                   isExitButton && resources.tinyFont != nullptr ? resources.tinyFont : resources.smallFont,
-                                   button.label,
+                                   isPrimaryButton && resources.tinyFont != nullptr ? resources.tinyFont : resources.smallFont,
+                                   confirmButtonLabel(state, button.action),
                                    selected ? SDL_Color{12, 28, 48, 255} : SDL_Color{216, 248, 255, 255},
                                    SDL_FRect{button.rect.x + 68.0f, button.rect.y, button.rect.w - 82.0f, button.rect.h},
                                    false);
@@ -122,9 +127,16 @@ private:
         return nullptr;
     }
 
+    const char* confirmButtonLabel(const AppState& state, ConfirmAction action) const {
+        if (action == ConfirmAction::Cancel) {
+            return state.screen == ScreenState::PauseConfirmOverwriteSave ? "Cancel" : "Stay";
+        }
+        return state.screen == ScreenState::PauseConfirmOverwriteSave ? "Overwrite Save" : "Exit To Menu";
+    }
+
     void exitStoryToMainMenu(AppState& state) const {
         vn::setPaused(false);
-        vn::stopVoicePlayback();
+        vn::reset();
         state.story.entryIndex = 0;
         state.pauseSelection = PauseAction::Continue;
         state.confirmSelection = ConfirmAction::Cancel;
@@ -137,7 +149,7 @@ private:
 
     void exitBattleToMainMenu(AppState& state) const {
         vn::setPaused(false);
-        vn::stopVoicePlayback();
+        vn::reset();
         state.pauseSelection = PauseAction::Continue;
         state.pauseContext = PauseContext::Story;
         state.confirmSelection = ConfirmAction::Cancel;
@@ -149,6 +161,19 @@ private:
     }
 
     void activateConfirmAction(AppState& state) const {
+        if (state.screen == ScreenState::PauseConfirmOverwriteSave) {
+            switch (state.confirmSelection) {
+                case ConfirmAction::Cancel:
+                    state.screen = ScreenState::PauseMenu;
+                    break;
+                case ConfirmAction::ExitToMainMenu:
+                    state.requestStoryOverwriteSave = true;
+                    state.screen = ScreenState::PauseMenu;
+                    break;
+            }
+            return;
+        }
+
         switch (state.confirmSelection) {
             case ConfirmAction::Cancel:
                 state.screen = ScreenState::PauseMenu;
