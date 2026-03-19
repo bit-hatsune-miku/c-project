@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <unordered_map>
 #include <vector>
 
 #include <nlohmann/json.hpp>
@@ -10,6 +11,107 @@ using json = nlohmann::json;
 
 namespace battle::loader {
 namespace {
+
+bool readJsonRoot(const std::string& path, json& outRoot, const char* label) {
+    std::string contents;
+    if (!readJsonFile(path, contents)) {
+        if (label != nullptr) {
+            std::cerr << "[Battle] Could not read " << label << " JSON: " << path << "\n";
+        }
+        return false;
+    }
+
+    try {
+        outRoot = json::parse(contents);
+        return true;
+    } catch (const json::exception& e) {
+        if (label != nullptr) {
+            std::cerr << "[Battle] Failed parsing " << label << " JSON: " << e.what() << "\n";
+        }
+        return false;
+    }
+}
+
+std::string getUnitAbilityReferenceId(const json& unitJson, const char* slotName) {
+    if (!unitJson.is_object() || slotName == nullptr) {
+        return std::string();
+    }
+
+    const std::string slot(slotName);
+    if (slot == "skill") {
+        return unitJson.value("skillAbility", unitJson.value("ability", ""));
+    }
+    if (slot == "ultimate") {
+        return unitJson.value("ultimate", "");
+    }
+    if (slot == "standard") {
+        return unitJson.value("standardAbility", "");
+    }
+
+    return std::string();
+}
+
+bool parseNestedUnitAbilities(const json& unitJson,
+                              const std::string& unitKey,
+                              std::unordered_map<std::string, AbilityDefinition>& outAbilities) {
+    if (!unitJson.is_object() || !unitJson.contains("abilities")) {
+        return true;
+    }
+
+    const json& abilitiesJson = unitJson.at("abilities");
+    if (!abilitiesJson.is_object()) {
+        std::cerr << "[Battle] Invalid nested abilities for unit: " << unitKey << "\n";
+        return false;
+    }
+
+    for (auto it = abilitiesJson.begin(); it != abilitiesJson.end(); ++it) {
+        if (!it.value().is_object()) {
+            std::cerr << "[Battle] Invalid nested ability entry '" << it.key()
+                      << "' for unit: " << unitKey << "\n";
+            return false;
+        }
+
+        const std::string fallbackId = getUnitAbilityReferenceId(unitJson, it.key().c_str());
+        const std::string abilityId = it.value().value("id", fallbackId);
+        if (abilityId.empty()) {
+            std::cerr << "[Battle] Nested ability '" << it.key()
+                      << "' for unit '" << unitKey << "' is missing an id reference\n";
+            return false;
+        }
+
+        AbilityDefinition def;
+        if (!parseAbilityDefinition(it.value(), abilityId, def)) {
+            std::cerr << "[Battle] Failed parsing nested ability '" << abilityId
+                      << "' for unit: " << unitKey << "\n";
+            return false;
+        }
+
+        outAbilities[abilityId] = std::move(def);
+    }
+
+    return true;
+}
+
+bool loadNestedAbilityDefinitionsFromFile(const std::string& relativePath,
+                                          const char* label,
+                                          std::unordered_map<std::string, AbilityDefinition>& outAbilities) {
+    json root;
+    if (!readJsonRoot(resolveAssetPath(relativePath), root, label)) {
+        return false;
+    }
+    if (!root.is_object()) {
+        std::cerr << "[Battle] Invalid " << label << " JSON root\n";
+        return false;
+    }
+
+    for (auto it = root.begin(); it != root.end(); ++it) {
+        if (!parseNestedUnitAbilities(it.value(), it.key(), outAbilities)) {
+            return false;
+        }
+    }
+
+    return true;
+}
 
 bool parseBossDefinition(const json& bossJson, const std::string& key, BossDefinition& outBoss) {
     if (!bossJson.is_object()) {
@@ -84,76 +186,54 @@ std::string resolveAssetPath(const std::string& relativePath) {
 }
 
 bool loadBossDefinition(const std::string& bossKey, BossDefinition& outBoss) {
-    const std::string path = resolveAssetPath("assets/combat/boss.json");
-    std::string contents;
-    if (!readJsonFile(path, contents)) {
-        std::cerr << "[Battle] Could not read boss JSON: " << path << "\n";
+    json root;
+    if (!readJsonRoot(resolveAssetPath("assets/combat/boss.json"), root, "boss")) {
+        return false;
+    }
+    if (!root.contains(bossKey)) {
+        std::cerr << "[Battle] Boss key not found: " << bossKey << "\n";
         return false;
     }
 
-    try {
-        const json root = json::parse(contents);
-        if (!root.contains(bossKey)) {
-            std::cerr << "[Battle] Boss key not found: " << bossKey << "\n";
-            return false;
-        }
-
-        if (!parseBossDefinition(root.at(bossKey), bossKey, outBoss)) {
-            std::cerr << "[Battle] Invalid boss entry for key: " << bossKey << "\n";
-            return false;
-        }
-
-        return true;
-    } catch (const json::exception& e) {
-        std::cerr << "[Battle] Failed parsing boss JSON: " << e.what() << "\n";
+    if (!parseBossDefinition(root.at(bossKey), bossKey, outBoss)) {
+        std::cerr << "[Battle] Invalid boss entry for key: " << bossKey << "\n";
         return false;
     }
+
+    return true;
 }
 
 bool loadCharacterDefinition(const std::string& characterKey, CharacterDefinition& outCharacter) {
-    const std::string path = resolveAssetPath("assets/combat/characters.json");
-    std::string contents;
-    if (!readJsonFile(path, contents)) {
-        std::cerr << "[Battle] Could not read character JSON: " << path << "\n";
+    json root;
+    if (!readJsonRoot(resolveAssetPath("assets/combat/characters.json"), root, "character")) {
+        return false;
+    }
+    if (!root.contains(characterKey)) {
+        std::cerr << "[Battle] Character key not found: " << characterKey << "\n";
         return false;
     }
 
-    try {
-        const json root = json::parse(contents);
-        if (!root.contains(characterKey)) {
-            std::cerr << "[Battle] Character key not found: " << characterKey << "\n";
-            return false;
-        }
-
-        if (!parseCharacterDefinition(root.at(characterKey), characterKey, outCharacter)) {
-            std::cerr << "[Battle] Invalid character entry for key: " << characterKey << "\n";
-            return false;
-        }
-
-        return true;
-    } catch (const json::exception& e) {
-        std::cerr << "[Battle] Failed parsing character JSON: " << e.what() << "\n";
+    if (!parseCharacterDefinition(root.at(characterKey), characterKey, outCharacter)) {
+        std::cerr << "[Battle] Invalid character entry for key: " << characterKey << "\n";
         return false;
     }
+
+    return true;
 }
 
 bool loadAbilityDefinition(const std::string& abilityId, AbilityDefinition& outAbility) {
-    const std::string path = resolveAssetPath("assets/combat/abilities.json");
-    std::string contents;
-    if (!readJsonFile(path, contents)) {
+    std::unordered_map<std::string, AbilityDefinition> abilities;
+    if (!loadAllAbilities(abilities)) {
         return false;
     }
 
-    try {
-        const json root = json::parse(contents);
-        if (!root.contains(abilityId)) {
-            return false;
-        }
-
-        return parseAbilityDefinition(root[abilityId], abilityId, outAbility);
-    } catch (const json::exception&) {
+    const auto it = abilities.find(abilityId);
+    if (it == abilities.end()) {
         return false;
     }
+
+    outAbility = it->second;
+    return true;
 }
 
 bool parseAbilityDefinition(const json& abilityJson, const std::string& abilityId, AbilityDefinition& outAbility) {
@@ -166,6 +246,7 @@ bool parseAbilityDefinition(const json& abilityJson, const std::string& abilityI
     outAbility.name = abilityJson.value("name", abilityId);
     outAbility.multiplier = abilityJson.value("multiplier", 1.0f);
     outAbility.flatHeal = abilityJson.value("flatHeal", 0);
+    outAbility.reviveDeadAllies = abilityJson.value("reviveDeadAllies", false);
     outAbility.presentationId = abilityJson.value("presentationId", "");
 
     const std::string typeStr = abilityJson.value("type", "attack");
@@ -207,29 +288,32 @@ bool parseAbilityDefinition(const json& abilityJson, const std::string& abilityI
 bool loadAllAbilities(std::unordered_map<std::string, AbilityDefinition>& outAbilities) {
     outAbilities.clear();
 
-    const std::string path = resolveAssetPath("assets/combat/abilities.json");
-    std::string contents;
-    if (!readJsonFile(path, contents)) {
-        std::cerr << "[Battle] Could not read abilities JSON: " << path << "\n";
+    json root;
+    if (!readJsonRoot(resolveAssetPath("assets/combat/abilities.json"), root, "abilities")) {
+        return false;
+    }
+    if (!root.is_object()) {
+        std::cerr << "[Battle] Invalid abilities JSON root\n";
         return false;
     }
 
-    try {
-        const json root = json::parse(contents);
-        for (auto it = root.begin(); it != root.end(); ++it) {
-            AbilityDefinition def;
-            if (!parseAbilityDefinition(it.value(), it.key(), def)) {
-                continue;
-            }
-            outAbilities[it.key()] = def;
+    for (auto it = root.begin(); it != root.end(); ++it) {
+        AbilityDefinition def;
+        if (!parseAbilityDefinition(it.value(), it.key(), def)) {
+            continue;
         }
+        outAbilities[it.key()] = def;
+    }
 
-        std::cout << "[Battle] Loaded " << outAbilities.size() << " abilities.\n";
-        return true;
-    } catch (const json::exception& e) {
-        std::cerr << "[Battle] Failed parsing abilities JSON: " << e.what() << "\n";
+    if (!loadNestedAbilityDefinitionsFromFile("assets/combat/characters.json", "character", outAbilities)) {
         return false;
     }
+    if (!loadNestedAbilityDefinitionsFromFile("assets/combat/boss.json", "boss", outAbilities)) {
+        return false;
+    }
+
+    std::cout << "[Battle] Loaded " << outAbilities.size() << " abilities.\n";
+    return true;
 }
 
 } // namespace battle::loader

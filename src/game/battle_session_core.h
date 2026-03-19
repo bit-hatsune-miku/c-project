@@ -4,6 +4,7 @@
 #include <functional>
 #include <cstddef>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -11,13 +12,16 @@
 
 #include "core/battle_manager.h"
 #include "core/battle_flow_controller.h"
+#include "core/battle_turn_flow.h"
 #include "presentation/ability_presentation.h"
+#include "presentation/splash_art_animation.h"
 #include "render/battle_camera_staging.h"
 #include "render/battle_combat_begin_animation.h"
 #include "render/battle_feedback.h"
 #include "render/battle_scene_types.h"
 #include "render/battle_ui.h"
 #include "render/camera_3d.h"
+#include "render/free_view_camera_debug_log.h"
 
 namespace battle {
 
@@ -49,7 +53,7 @@ public:
 
         // Called immediately when a presentation reports hit events.
         // Use for hit voice playback that should land exactly on hit timing.
-        std::function<void(bool isBossCaster, int hitEvents, BattleManager&)> onPresentationHitAudio;
+        std::function<void(const PresentationContext&, int hitEvents, BattleManager&)> onPresentationHitAudio;
 
         // Called when a presentation emits an explicit ability-audio cue.
         // Use for voice lines that should begin slightly after the animation starts.
@@ -90,7 +94,10 @@ public:
     const BattleManager& getBattleManager() const;
 
 private:
+    void maybeStartUltimateTurnSplash(const flow::PreviewActorContext& preview, bool dialogueActive);
+    void updateSceneEntities(float deltaSeconds, bool bossActing, int actingPartyIndex);
     void computeCharacterPositions(bool bossActing, int actingPartyIndex);
+    void updateCharacterVisibilityTransitions(float deltaSeconds);
     float runPresentationInteraction(const PresentationContext& context);
 
     bool initialized_ = false;
@@ -107,6 +114,7 @@ private:
     Camera3D camera_;
     render::BattleCameraStaging cameraStaging_;
     render::BattleCombatBeginAnimation combatBeginAnimation_;
+    render::FreeViewCameraDebugLog freeViewCameraDebugLog_;
     bool freeViewEnabled_ = false;
     float frameAccumulator_ = 0.0f;
 
@@ -114,6 +122,8 @@ private:
     bool presentationCasterIsBoss_ = false;
     int presentationCasterPartyIndex_ = -1;
     AbilityPresentation* activePresentation_ = nullptr;
+    std::unique_ptr<SplashArtAnimation> activeUltimateTurnSplash_;
+    int previewUltimateSplashPartyIndex_ = -1;
 
     // Set by runPresentationInteraction during the splash pre-loop;
     // called between world render and SDL_RenderPresent each frame.

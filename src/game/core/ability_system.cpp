@@ -1,6 +1,7 @@
 #include "ability_system.h"
 
 #include <algorithm>
+#include <cmath>
 #include <utility>
 
 namespace battle::ability {
@@ -33,11 +34,18 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
         }
 
         case AbilityType::Heal: {
-            const int healAmount = ability.flatHeal;
+            const int baseHeal = std::max(0, context.baseHeal > 0 ? context.baseHeal : ability.flatHeal);
+            const int healAmount = baseHeal <= 0
+                ? 0
+                : std::max(1, static_cast<int>(std::lround(
+                    static_cast<float>(baseHeal) * std::max(0.0f, context.presentationMultiplier)
+                )));
             if (ability.targetRule == TargetRule::AllAllies) {
                 for (BattleCharacter& c : characters) {
                     if (c.isAlive()) {
                         c.receiveHealing(healAmount);
+                    } else if (ability.reviveDeadAllies && healAmount > 0) {
+                        c.revive(healAmount);
                     }
                 }
             }

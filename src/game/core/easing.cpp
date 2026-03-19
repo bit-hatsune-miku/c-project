@@ -12,6 +12,21 @@ float lerp(float a, float b, float t) {
     return a + (b - a) * t;
 }
 
+float easeInCubic(float t) {
+    const float x = clamp01(t);
+    return x * x * x;
+}
+
+float easeInQuint(float t) {
+    const float x = clamp01(t);
+    return x * x * x * x * x;
+}
+
+float easeOutQuint(float t) {
+    const float x = 1.0f - clamp01(t);
+    return 1.0f - x * x * x * x * x;
+}
+
 float easeOutCubic(float t) {
     const float x = 1.0f - clamp01(t);
     return 1.0f - x * x * x;

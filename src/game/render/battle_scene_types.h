@@ -17,6 +17,9 @@ struct SceneEntity {
     SDL_Color fallbackColor{200, 200, 200, 255};
     int partyIndex = -1;
     bool visible = true;
+    bool lineupVisible = true;
+    float spriteAlpha = 1.0f;
+    float spriteOffsetYPx = 0.0f;
 };
 
 } // namespace battle::render

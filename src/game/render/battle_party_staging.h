@@ -8,7 +8,7 @@
 namespace battle::render {
 
 void computeDefaultPartyCharacterPositions(std::vector<SceneEntity>& entities,
-                                           int partySize,
+                                           const std::vector<bool>& livingPartyMembers,
                                            bool bossActing,
                                            int actingPartyIndex);
 

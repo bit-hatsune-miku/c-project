@@ -5,6 +5,9 @@ namespace battle::easing {
 
 float clamp01(float t);
 float lerp(float a, float b, float t);
+float easeInCubic(float t);
+float easeInQuint(float t);
+float easeOutQuint(float t);
 float easeOutCubic(float t);
 float easeOutBounce(float t);
 float easeOutBack(float t);

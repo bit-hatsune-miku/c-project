@@ -1,5 +1,7 @@
 #include "battle_party_staging.h"
 
+#include <algorithm>
+
 namespace battle::render {
 namespace {
 
@@ -14,25 +16,50 @@ constexpr float kBossTurnCharacterBaseY = 420.0f;
 } // namespace
 
 void computeDefaultPartyCharacterPositions(std::vector<SceneEntity>& entities,
-                                           int partySize,
+                                           const std::vector<bool>& livingPartyMembers,
                                            bool bossActing,
                                            int actingPartyIndex) {
+    std::vector<int> visibleSlotByPartyIndex(livingPartyMembers.size(), -1);
+    int visiblePartySize = 0;
+    for (size_t i = 0; i < livingPartyMembers.size(); ++i) {
+        if (!livingPartyMembers[i]) {
+            continue;
+        }
+        visibleSlotByPartyIndex[i] = visiblePartySize;
+        ++visiblePartySize;
+    }
+
+    const int actingVisibleSlot =
+        actingPartyIndex >= 0 &&
+        static_cast<size_t>(actingPartyIndex) < visibleSlotByPartyIndex.size()
+            ? visibleSlotByPartyIndex[static_cast<size_t>(actingPartyIndex)]
+            : -1;
+
     for (SceneEntity& entity : entities) {
         if (entity.isBoss) {
+            entity.lineupVisible = true;
             continue;
         }
 
-        entity.visible = true;
-        entity.worldY = bossActing || actingPartyIndex < 0 ? kBossTurnCharacterBaseY : kDuelCharacterBaseY;
+        if (entity.partyIndex < 0 ||
+            static_cast<size_t>(entity.partyIndex) >= livingPartyMembers.size() ||
+            !livingPartyMembers[static_cast<size_t>(entity.partyIndex)]) {
+            entity.lineupVisible = false;
+            continue;
+        }
+
+        entity.lineupVisible = true;
+        entity.worldY = bossActing || actingVisibleSlot < 0 ? kBossTurnCharacterBaseY : kDuelCharacterBaseY;
         entity.worldZ = 0.0f;
 
         const int pi = entity.partyIndex;
-        if (bossActing || actingPartyIndex < 0) {
-            const float totalWidth = (partySize - 1) * kBossTurnCharacterSpacingWorld;
+        const int visibleSlot = visibleSlotByPartyIndex[static_cast<size_t>(pi)];
+        if (bossActing || actingVisibleSlot < 0) {
+            const float totalWidth = std::max(0, visiblePartySize - 1) * kBossTurnCharacterSpacingWorld;
             const float startX = kDuelBossSlotX - totalWidth * 0.5f;
-            entity.worldX = startX + pi * kBossTurnCharacterSpacingWorld;
+            entity.worldX = startX + visibleSlot * kBossTurnCharacterSpacingWorld;
         } else {
-            const int relativeSlot = pi - actingPartyIndex;
+            const int relativeSlot = visibleSlot - actingVisibleSlot;
             entity.worldX = kDuelCharacterSlotX + relativeSlot * kCharacterSpacingWorld;
         }
     }

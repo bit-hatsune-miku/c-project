@@ -73,6 +73,7 @@ struct AbilityDefinition {
     TargetRule targetRule = TargetRule::SingleEnemy;
     float multiplier = 1.0f;
     int flatHeal = 0;
+    bool reviveDeadAllies = false;
     InteractionType interactionType = InteractionType::None;
     std::string presentationId;
 };
@@ -84,6 +85,7 @@ struct PresentationContext {
     int casterIndex = -1;
     int targetIndex = -1;
     bool isBoss = false;
+    bool isUltimate = false;
 };
 
 struct AbilityExecutionContext {
@@ -108,6 +110,7 @@ public:
     bool isAlive() const;
     void receiveDamage(int amount);
     void receiveHealing(int amount);
+    void revive(int amount);
 
     int ultimateCharge() const;
     void gainUltimatePoint(int amount = 1);
@@ -187,10 +190,14 @@ public:
     int getBossUltimateRequired() const;
     int getCharacterCurrentHp(int partyIndex) const;
     int getCharacterMaxHp(int partyIndex) const;
+    bool isCharacterAlive(int partyIndex) const;
+    bool reviveCharacter(int partyIndex, int amount);
     int getCharacterUltimateCharge(int partyIndex) const;
     int getCharacterUltimateRequired(int partyIndex) const;
     void applyPresentationHitDamage(bool isBossCaster, int perHitDamage, int hitEvents);
+    void applyPresentationHealing(bool isBossCaster, int perHitHeal, int hitEvents, bool reviveDeadAllies = false);
     bool consumePresentationHitDamageApplied();
+    bool consumePresentationHealingApplied();
     void markPresentationHitAudioPlayed();
     bool consumePresentationHitAudioPlayed();
     const AbilityDefinition* findAbilityDefinition(const std::string& abilityId) const;
@@ -225,6 +232,9 @@ private:
     bool resolveBossAction();
     bool executeCharacterAction(size_t actorIndex, BattleCharacter& character, BattleAction action);
     bool executeBossAction(size_t actorIndex, BattleAction action);
+    void syncCharacterTurnParticipation(int partyIndex);
+    void syncAllCharacterTurnParticipation();
+    void syncCharacterUltimateTurn(int partyIndex);
 
     BattleState state_;
     TurnState turnState_;
@@ -236,6 +246,7 @@ private:
     std::unordered_map<std::string, AbilityDefinition> abilities_;
     std::vector<BattleActionEvent> recentActionEvents_;
     bool presentationHitDamageApplied_ = false;
+    bool presentationHealingApplied_ = false;
     bool presentationHitAudioPlayed_ = false;
 };
 

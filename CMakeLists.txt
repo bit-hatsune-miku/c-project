@@ -83,6 +83,8 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/miku_diandong_presentation.h
     src/game/presentation/cupcakke_drum_presentation.cpp
     src/game/presentation/cupcakke_drum_presentation.h
+    src/game/presentation/lyoo_heal_presentation.cpp
+    src/game/presentation/lyoo_heal_presentation.h
     src/game/presentation/lyoo_boss_presentation.cpp
     src/game/presentation/lyoo_boss_presentation.h
     src/game/presentation/presentation_runtime.cpp

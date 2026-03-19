@@ -37,6 +37,7 @@
 #include "game/core/turn_system.h"
 #include "game/render/battle_scene_renderer.h"
 #include "game/render/camera_3d.h"
+#include "game/render/free_view_camera_debug_log.h"
 #include "game/render/gl_screen_blitter.h"
 #include "game/vn/vn_script.h"
 #include "game/audio/wav_one_shot.h"
@@ -1061,6 +1062,7 @@ int main(int argc, char** argv) {
 
     CameraIntroAnimation cameraIntro;
     bool freeViewEnabled = false;
+    battle::render::FreeViewCameraDebugLog freeViewCameraDebugLog;
     float cameraOscillationTime = 0.0f;
     float frameAccumulator = 0.0f;
     Uint64 lastFrameTime = SDL_GetTicks64();
@@ -1104,6 +1106,7 @@ int main(int argc, char** argv) {
                     freeViewEnabled = !freeViewEnabled;
                     if (!freeViewEnabled) {
                         applyGoalCamera(camera);
+                        freeViewCameraDebugLog.clear();
                     }
                 } else if (event.key.keysym.sym == SDLK_BACKSPACE && tutorialOverlay.step != TutorialStep::None) {
                     tutorialOverlay.standardShown = true;
@@ -1208,7 +1211,7 @@ int main(int argc, char** argv) {
         if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_RIGHT]) camera.yawDegrees += rotationSpeed;
         if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_UP]) camera.pitchDegrees -= rotationSpeed;
         if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_DOWN]) camera.pitchDegrees += rotationSpeed;
-        camera.pitchDegrees = std::clamp(camera.pitchDegrees, 5.0f, 85.0f);
+        camera.pitchDegrees = battle::clampFreeViewPitchDegrees(camera.pitchDegrees);
 
         updateActionIntroCamera(camera, cameraIntro, deltaTime);
 
@@ -1221,6 +1224,8 @@ int main(int argc, char** argv) {
                 camera.yawDegrees = kGoalCameraYaw + std::sin(cameraOscillationTime * kOscillationSpeed) * kOscillationAmplitudeDegrees;
             }
         }
+
+        freeViewCameraDebugLog.update(freeViewEnabled && !cameraIntro.active, camera);
 
         battle::render::renderBattleScene(sceneRenderer, camera, entities, nextIsCharacter ? 0 : 1, frameAccumulator);
         screenBlitter.uploadSurface(sceneRenderer.surface);
@@ -1240,6 +1245,7 @@ int main(int argc, char** argv) {
         SDL_GL_SwapWindow(window);
     }
 
+    freeViewCameraDebugLog.clear();
     document->Close();
     gOneShotAudio.shutdown();
     destroyNativeRenderers(&sceneRenderer);

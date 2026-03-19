@@ -1,5 +1,6 @@
 #include "ability_presentation.h"
 #include "cupcakke_drum_presentation.h"
+#include "lyoo_heal_presentation.h"
 #include "lyoo_boss_presentation.h"
 #include "miku_sing_presentation.h"
 #include "miku_diandong_presentation.h"
@@ -39,6 +40,29 @@ void registerAllPresentations() {
         return std::make_unique<CupcakkeDrumPresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    // Register Lyoo's healing animation (heal_hearts).
+    registry.registerPresentation("heal_hearts", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<LyooHealPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ,
+            LyooHealPresentation::Variant::Skill
+        );
+    });
+
+    registry.registerPresentation("lyoo_revive_heal", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<LyooHealPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ,
+            LyooHealPresentation::Variant::Ultimate
         );
     });
 

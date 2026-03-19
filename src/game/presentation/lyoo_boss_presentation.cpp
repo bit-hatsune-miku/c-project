@@ -151,10 +151,22 @@ void LyooBossPresentation::render(SDL_Renderer* renderer, int screenW, int scree
         if (!zoomInitialized_) {
             enterZoomOutPhase(camera, screenW, screenH);
         }
-
-        renderWorldBossFrame(renderer, screenW, screenH, camera);
         renderPulses(renderer, camera);
     }
+}
+
+void LyooBossPresentation::renderBelowWorld(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) {
+    ensureFramesLoaded(renderer);
+
+    if (phase_ != Phase::ZoomOut && phase_ != Phase::Complete) {
+        return;
+    }
+
+    if (!zoomInitialized_) {
+        enterZoomOutPhase(camera, screenW, screenH);
+    }
+
+    renderWorldBossFrame(renderer, screenW, screenH, camera);
 }
 
 bool LyooBossPresentation::isComplete() const {
@@ -226,8 +238,9 @@ bool LyooBossPresentation::shouldHideNonCasterCharacters() const {
 }
 
 bool LyooBossPresentation::shouldRenderCasterEntity() const {
-    // Keep boss hidden while fullscreen hand-drawn UI animation is on top.
-    return phase_ == Phase::Complete;
+    // Keep the real boss entity hidden for the full presentation.
+    // The storyboard uses the frame-based fake boss all the way through the attack.
+    return false;
 }
 
 bool LyooBossPresentation::shouldRenderAboveHud() const {
@@ -484,6 +497,7 @@ void LyooBossPresentation::renderWorldBossFrame(SDL_Renderer* renderer, int scre
     dst.y = center.y - drawH;
 
     if (frame13 != nullptr) {
+        SDL_SetTextureAlphaMod(frame13, 255);
         SDL_RenderCopyF(renderer, frame13, nullptr, &dst);
     } else {
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);

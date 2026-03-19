@@ -36,6 +36,7 @@
 #include "presentation/ability_presentation.h"
 #include "render/battle_scene_renderer.h"
 #include "render/camera_3d.h"
+#include "render/free_view_camera_debug_log.h"
 #include "render/gl_screen_blitter.h"
 #include "ui/battle_session_document_updates.h"
 #include "ui/battle_session_overlay_bindings.h"
@@ -524,11 +525,7 @@ public:
             Rml::LoadFontFace(fontPath);
         }
 
-<<<<<<< Updated upstream
-        if (!manager_.initialize("lyooBoss", {"iroha", "kaguya", "miku", "cupcakke"})) {
-=======
         if (!manager_.initialize("lyoo", {"miku", "cupcakke", "lyoo"})) {
->>>>>>> Stashed changes
             std::cerr << "[Battle] Initialization failed.\n";
             shutdown();
             return false;
@@ -692,6 +689,7 @@ public:
     void shutdown() {
         initialized_ = false;
         battle::ability::setPresentationInteractionRunner(nullptr);
+        freeViewCameraDebugLog_.clear();
         if (document_ != nullptr) {
             document_->Close();
             document_ = nullptr;
@@ -782,6 +780,7 @@ public:
                 freeViewEnabled_ = !freeViewEnabled_;
                 if (!freeViewEnabled_) {
                     applyGoalCamera(camera_);
+                    freeViewCameraDebugLog_.clear();
                 }
             } else if (event.key.keysym.sym == SDLK_SPACE && tutorialOverlay_.step != TutorialStep::None) {
                 const float textSpeed = settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond;
@@ -919,7 +918,7 @@ public:
         if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_RIGHT]) camera_.yawDegrees += rotationSpeed;
         if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_UP]) camera_.pitchDegrees -= rotationSpeed;
         if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_DOWN]) camera_.pitchDegrees += rotationSpeed;
-        camera_.pitchDegrees = std::clamp(camera_.pitchDegrees, 5.0f, 85.0f);
+        camera_.pitchDegrees = battle::clampFreeViewPitchDegrees(camera_.pitchDegrees);
 
         updateActionIntroCamera(camera_, cameraIntro_, deltaSeconds);
 
@@ -932,6 +931,8 @@ public:
                 camera_.yawDegrees = kGoalCameraYaw + std::sin(cameraOscillationTime_ * kOscillationSpeed) * kOscillationAmplitudeDegrees;
             }
         }
+
+        freeViewCameraDebugLog_.update(freeViewEnabled_ && !cameraIntro_.active, camera_);
 
         battle::app::ui::updateBattleHudDocument(document_, manager_, hudFeedback_, tutorialOverlay_,
                                                  rhythmChallenge_, paused_, pauseOverlayMode_, pauseSelection_,
@@ -1367,6 +1368,7 @@ private:
     Rml::ElementDocument* document_ = nullptr;
     battle::Camera3D camera_;
     CameraIntroAnimation cameraIntro_;
+    battle::render::FreeViewCameraDebugLog freeViewCameraDebugLog_;
     bool freeViewEnabled_ = false;
     bool presentationPlaybackActive_ = false;
     bool presentationCasterIsBoss_ = false;

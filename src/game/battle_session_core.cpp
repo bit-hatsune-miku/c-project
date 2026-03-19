@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "core/ability_system.h"
+#include "core/easing.h"
 #include "core/battle_flow_controller.h"
 #include "core/battle_turn_flow.h"
 #include "presentation/presentation_runtime.h"
@@ -23,6 +24,8 @@ constexpr float kCharacterGapWorld          = 1200.0f;
 constexpr float kDuelCharacterSlotX         = -0.5f * kCharacterGapWorld;
 constexpr float kDuelBossSlotX              = 0.0f;
 constexpr float kDuelCharacterBaseY         = 300.0f;
+constexpr float kCharacterVisibilityAnimSeconds = 0.22f;
+constexpr float kCharacterVisibilityOffsetPx    = 70.0f;
 
 using WorldEntity = render::SceneEntity;
 
@@ -122,6 +125,8 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
     freeViewEnabled_  = false;
     frameAccumulator_ = 0.0f;
     feedback_.reset(manager_);
+    activeUltimateTurnSplash_.reset();
+    previewUltimateSplashPartyIndex_ = -1;
     processedBattleEventCount_ = manager_.getRecentActionEvents().size();
     discardNextUpdateDelta_ = false;
     finished_    = false;
@@ -130,6 +135,7 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
 }
 
 void BattleSessionCore::shutdown() {
+    freeViewCameraDebugLog_.clear();
     ability::setPresentationInteractionRunner(nullptr);
     renderer_ = nullptr;
 
@@ -151,6 +157,8 @@ void BattleSessionCore::shutdown() {
     feedback_.shutdown();
     hud_.reset();
     entities_.clear();
+    activeUltimateTurnSplash_.reset();
+    previewUltimateSplashPartyIndex_ = -1;
 
     if (hooks_.onShutdown) hooks_.onShutdown();
     hooks_ = {};
@@ -178,16 +186,41 @@ void BattleSessionCore::handleEvent(const SDL_Event& event) {
     }
 
     if (event.type == SDL_KEYDOWN) {
+        if (activeUltimateTurnSplash_) {
+            if (event.key.keysym.sym == SDLK_ESCAPE) {
+                finished_ = true;
+                return;
+            }
+            if (event.key.keysym.sym == SDLK_SPACE) {
+                activeUltimateTurnSplash_->skip();
+            }
+            return;
+        }
+
         if (event.key.keysym.sym == SDLK_ESCAPE) {
             finished_ = true;
             return;
         }
         if (event.key.keysym.sym == SDLK_f) {
             freeViewEnabled_ = !freeViewEnabled_;
-            if (!freeViewEnabled_) cameraStaging_.snapToGoalCamera(camera_);
+            if (!freeViewEnabled_) {
+                cameraStaging_.snapToGoalCamera(camera_);
+                freeViewCameraDebugLog_.clear();
+            }
             return;
         }
         if (event.key.keysym.sym != SDLK_SPACE) return;
+
+        const flow::PreviewActorContext preview = flow::inspectPreviewActor(manager_);
+        if (preview.valid &&
+            preview.type == ParticipantType::Character &&
+            preview.isExtraTurn &&
+            preview.partyIndex != previewUltimateSplashPartyIndex_) {
+            maybeStartUltimateTurnSplash(preview, false);
+            if (activeUltimateTurnSplash_) {
+                return;
+            }
+        }
 
         if (hooks_.onSpacePressed && hooks_.onSpacePressed()) return;
 
@@ -251,7 +284,15 @@ void BattleSessionCore::update(float deltaSeconds) {
             bossActing       = false;
             actingPartyIndex = preview.partyIndex;
         }
-        computeCharacterPositions(bossActing, actingPartyIndex);
+        updateSceneEntities(deltaSeconds, bossActing, actingPartyIndex);
+        maybeStartUltimateTurnSplash(preview, dialogueActive);
+    }
+
+    if (activeUltimateTurnSplash_) {
+        activeUltimateTurnSplash_->update(deltaSeconds);
+        if (activeUltimateTurnSplash_->isComplete()) {
+            activeUltimateTurnSplash_.reset();
+        }
     }
 
     const auto& actionEvents = manager_.getRecentActionEvents();
@@ -275,15 +316,23 @@ void BattleSessionCore::update(float deltaSeconds) {
     const Uint8* keys = SDL_GetKeyboardState(nullptr);
     if (freeViewEnabled_ && !cameraStaging_.isIntroActive()) {
         constexpr float kCamSpeed = 15.0f;
-        if (keys[SDL_SCANCODE_W] || keys[SDL_SCANCODE_UP])    camera_.posY += kCamSpeed;
-        if (keys[SDL_SCANCODE_S] || keys[SDL_SCANCODE_DOWN])  camera_.posY -= kCamSpeed;
-        if (keys[SDL_SCANCODE_A] || keys[SDL_SCANCODE_LEFT])  camera_.posX -= kCamSpeed;
-        if (keys[SDL_SCANCODE_D] || keys[SDL_SCANCODE_RIGHT]) camera_.posX += kCamSpeed;
-        if (keys[SDL_SCANCODE_Q]) camera_.pitchDegrees -= 2.0f;
-        if (keys[SDL_SCANCODE_E]) camera_.pitchDegrees += 2.0f;
+        constexpr float kRotationSpeed = 2.0f;
+        if (keys[SDL_SCANCODE_W]) camera_.posY += kCamSpeed;
+        if (keys[SDL_SCANCODE_S]) camera_.posY -= kCamSpeed;
+        if (keys[SDL_SCANCODE_A]) camera_.posX -= kCamSpeed;
+        if (keys[SDL_SCANCODE_D]) camera_.posX += kCamSpeed;
+        if (keys[SDL_SCANCODE_E]) camera_.posZ += kCamSpeed;
+        if (keys[SDL_SCANCODE_Q]) camera_.posZ -= kCamSpeed;
+
+        if (keys[SDL_SCANCODE_LEFT])  camera_.yawDegrees -= kRotationSpeed;
+        if (keys[SDL_SCANCODE_RIGHT]) camera_.yawDegrees += kRotationSpeed;
+        if (keys[SDL_SCANCODE_UP])    camera_.pitchDegrees -= kRotationSpeed;
+        if (keys[SDL_SCANCODE_DOWN])  camera_.pitchDegrees += kRotationSpeed;
+        camera_.pitchDegrees = clampFreeViewPitchDegrees(camera_.pitchDegrees);
     }
 
     cameraStaging_.update(camera_, deltaSeconds, freeViewEnabled_);
+    freeViewCameraDebugLog_.update(freeViewEnabled_ && !cameraStaging_.isIntroActive(), camera_);
 
     feedback_.syncFromManager(manager_, presentationPlaybackActive_);
     feedback_.update(deltaSeconds);
@@ -336,6 +385,10 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
     SDL_SetRenderDrawColor(renderer, 20, 20, 25, 255);
     SDL_RenderClear(renderer);
 
+    if (activePresentation_ != nullptr) {
+        activePresentation_->renderBelowWorld(renderer, screenWidth, screenHeight, camera_);
+    }
+
     render::renderBattleWorld(
         renderer,
         screenWidth,
@@ -376,6 +429,10 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
     }
     feedback_.render(renderer, camera_, anchors);
 
+    if (activeUltimateTurnSplash_) {
+        activeUltimateTurnSplash_->renderOverlay(renderer, screenWidth, screenHeight);
+    }
+
     if (hooks_.onPostRender) hooks_.onPostRender();
 }
 
@@ -393,30 +450,132 @@ const BattleManager& BattleSessionCore::getBattleManager() const { return manage
 // private helpers
 // ---------------------------------------------------------------------------
 
+void BattleSessionCore::maybeStartUltimateTurnSplash(const flow::PreviewActorContext& preview, bool dialogueActive) {
+    if (dialogueActive || presentationPlaybackActive_ || activeUltimateTurnSplash_) {
+        return;
+    }
+
+    const bool isCharacterUltimatePreview =
+        preview.valid &&
+        preview.type == ParticipantType::Character &&
+        preview.isExtraTurn &&
+        preview.partyIndex >= 0;
+
+    if (!isCharacterUltimatePreview) {
+        previewUltimateSplashPartyIndex_ = -1;
+        return;
+    }
+
+    if (preview.partyIndex == previewUltimateSplashPartyIndex_) {
+        return;
+    }
+
+    const BattleState& battleState = manager_.getBattleState();
+    if (static_cast<size_t>(preview.partyIndex) >= battleState.party.size()) {
+        return;
+    }
+
+    const CharacterDefinition& character = battleState.party[static_cast<size_t>(preview.partyIndex)];
+    const std::string& abilityId = character.ultimate;
+    const AbilityDefinition* abilityDef = manager_.findAbilityDefinition(abilityId);
+
+    SplashArtConfig cfg;
+    cfg.abilityName = abilityDef != nullptr ? abilityDef->name : abilityId;
+    if (const auto texIt = textureByAsset_.find(character.assets); texIt != textureByAsset_.end()) {
+        cfg.sprite = texIt->second;
+    }
+
+    activeUltimateTurnSplash_ = std::make_unique<SplashArtAnimation>(cfg);
+    activeUltimateTurnSplash_->start();
+    previewUltimateSplashPartyIndex_ = preview.partyIndex;
+}
+
+void BattleSessionCore::updateSceneEntities(float deltaSeconds, bool bossActing, int actingPartyIndex) {
+    computeCharacterPositions(bossActing, actingPartyIndex);
+    updateCharacterVisibilityTransitions(deltaSeconds);
+}
+
 void BattleSessionCore::computeCharacterPositions(bool bossActing, int actingPartyIndex) {
+    std::vector<bool> livingPartyMembers(manager_.getBattleState().party.size(), false);
+    for (size_t i = 0; i < livingPartyMembers.size(); ++i) {
+        livingPartyMembers[i] = manager_.isCharacterAlive(static_cast<int>(i));
+    }
+
     render::computeDefaultPartyCharacterPositions(
         entities_,
-        static_cast<int>(manager_.getBattleState().party.size()),
+        livingPartyMembers,
         bossActing,
         actingPartyIndex
     );
 }
 
+void BattleSessionCore::updateCharacterVisibilityTransitions(float deltaSeconds) {
+    const float step = kCharacterVisibilityAnimSeconds <= 0.0f
+        ? 1.0f
+        : deltaSeconds / kCharacterVisibilityAnimSeconds;
+
+    for (WorldEntity& entity : entities_) {
+        if (entity.isBoss) {
+            entity.visible = true;
+            entity.lineupVisible = true;
+            entity.spriteAlpha = 1.0f;
+            entity.spriteOffsetYPx = 0.0f;
+            continue;
+        }
+
+        if (entity.lineupVisible) {
+            entity.spriteAlpha = std::min(1.0f, entity.spriteAlpha + step);
+            const float eased = easing::easeOutCubic(easing::clamp01(entity.spriteAlpha));
+            entity.spriteOffsetYPx = -kCharacterVisibilityOffsetPx * (1.0f - eased);
+            entity.visible = true;
+            continue;
+        }
+
+        entity.spriteAlpha = std::max(0.0f, entity.spriteAlpha - step);
+        const float fadeT = easing::clamp01(1.0f - entity.spriteAlpha);
+        entity.spriteOffsetYPx = -kCharacterVisibilityOffsetPx * easing::easeOutCubic(fadeT);
+        entity.visible = entity.spriteAlpha > 0.001f;
+        if (!entity.visible) {
+            entity.spriteOffsetYPx = 0.0f;
+        }
+    }
+}
+
 float BattleSessionCore::runPresentationInteraction(const PresentationContext& context) {
     if (!initialized_ || finished_ || renderer_ == nullptr) return 1.0f;
 
-    // Resolve the caster's sprite texture for the splash animation.
-    SDL_Texture* casterSprite = nullptr;
-    for (const auto& entity : entities_) {
-        const bool isCaster = context.isBoss
-            ? entity.isBoss
-            : (!entity.isBoss && entity.partyIndex == context.casterIndex);
-        if (isCaster) {
-            auto it = textureByAsset_.find(entity.assetName);
-            if (it != textureByAsset_.end()) casterSprite = it->second;
-            break;
+    // Resolve the caster's and target's sprite textures for the splash animation.
+    auto resolveTexture = [this](const render::SceneEntity& entity) -> SDL_Texture* {
+        auto it = textureByAsset_.find(entity.assetName);
+        return (it != textureByAsset_.end()) ? it->second : nullptr;
+    };
+
+    auto resolveTextureForEntity = [&](auto predicate) -> SDL_Texture* {
+        for (const auto& entity : entities_) {
+            if (!predicate(entity)) {
+                continue;
+            }
+            if (SDL_Texture* texture = resolveTexture(entity)) {
+                return texture;
+            }
         }
-    }
+        return nullptr;
+    };
+
+    SDL_Texture* casterSprite = resolveTextureForEntity([&context](const render::SceneEntity& entity) {
+        return context.isBoss ? entity.isBoss
+                              : (!entity.isBoss && entity.partyIndex == context.casterIndex);
+    });
+
+    SDL_Texture* targetSprite = resolveTextureForEntity([&context](const render::SceneEntity& entity) {
+        if (context.isBoss) {
+            if (context.targetIndex >= 0) {
+                return !entity.isBoss && entity.partyIndex == context.targetIndex;
+            }
+            return !entity.isBoss;
+        }
+        return entity.isBoss;
+    });
 
     presentation_runtime::PlaybackStateRefs stateRefs;
     stateRefs.playbackActive      = &presentationPlaybackActive_;
@@ -426,6 +585,7 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
 
     presentation_runtime::PlaybackCallbacks callbacks;
     callbacks.casterSpriteTexture = casterSprite;
+    callbacks.targetSpriteTexture = targetSprite;
     callbacks.onWindowResized     = hooks_.onWindowResized;
     callbacks.onAbilityAudioCues  = [&](int cueCount) {
         if (cueCount <= 0) {
@@ -443,6 +603,24 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         const AbilityDefinition* abilityDef = manager_.findAbilityDefinition(context.abilityId);
         if (abilityDef == nullptr) {
             feedback_.queuePresentationHitShakes(context.isBoss, hitEvents, manager_);
+            return;
+        }
+
+        if (abilityDef->type == AbilityType::Heal) {
+            const float healMultiplier = activePresentation_ != nullptr
+                ? std::max(0.0f, activePresentation_->getInputMultiplier())
+                : 1.0f;
+            const int totalHeal = std::max(0, static_cast<int>(std::lround(
+                static_cast<float>(abilityDef->flatHeal) * healMultiplier
+            )));
+            const int perHitHeal = totalHeal / std::max(1, hitEvents);
+            manager_.applyPresentationHealing(
+                context.isBoss,
+                perHitHeal,
+                hitEvents,
+                abilityDef->reviveDeadAllies
+            );
+            feedback_.queuePresentationHealFeedback(context.isBoss, hitEvents, perHitHeal, manager_);
             return;
         }
 
@@ -469,12 +647,13 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
 
         manager_.applyPresentationHitDamage(context.isBoss, perHitDamage, hitEvents);
         if (hooks_.onPresentationHitAudio) {
-            hooks_.onPresentationHitAudio(context.isBoss, hitEvents, manager_);
+            hooks_.onPresentationHitAudio(context, hitEvents, manager_);
             manager_.markPresentationHitAudioPlayed();
         }
         feedback_.queuePresentationHitFeedback(context.isBoss, hitEvents, perHitDamage, manager_);
     };
     callbacks.onPostUpdate = [&](float deltaSeconds) {
+        updateSceneEntities(deltaSeconds, context.isBoss, context.isBoss ? -1 : context.casterIndex);
         feedback_.syncFromManager(manager_, presentationPlaybackActive_);
         feedback_.update(deltaSeconds);
     };
