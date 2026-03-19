@@ -33,7 +33,7 @@
                 "presentationId": "lyoo_revive_heal"
             }
         },
-        "ultimatePoints": 1,
+        "ultimatePoints": 4,
         "startingOrbs": 0
     },
     "miku": {
@@ -67,8 +67,8 @@
                 "presentationId": "diandong_power_cutscene"
             }
         },
-        "ultimatePoints": 1,
-        "startingOrbs": 0
+        "ultimatePoints": 3,
+        "startingOrbs": 2
     },
     "iroha": {
         "title": "Iroha",
@@ -169,8 +169,8 @@
                 "presentationId": "niagara_falls_ultimate"
             }
         },
-        "ultimatePoints": 1,
-        "startingOrbs": 0
+        "ultimatePoints": 5,
+        "startingOrbs": 4
     },
     "jiafei": {
         "title": "Jiafei",

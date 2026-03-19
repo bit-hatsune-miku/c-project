@@ -1146,6 +1146,18 @@ public:
 
             if (!context.isBoss) {
                 const std::string casterVoiceKey = getPresentationCasterVoiceKey(context, manager);
+                if (context.presentationId == "niagara_falls_ultimate" && casterVoiceKey == "cupcakke") {
+                    if (!cupcakkeUltimateVoicePlayed_) {
+                        playCombatVoiceClip(casterVoiceKey, "ultimate", 1.0f, 1);
+                        cupcakkeUltimateVoicePlayed_ = true;
+                        if (cueCount > 1) {
+                            playCombatVoiceClip(casterVoiceKey, "ability2", 1.0f, cueCount - 1);
+                        }
+                    } else {
+                        playCombatVoiceClip(casterVoiceKey, "ability2", 1.0f, cueCount);
+                    }
+                    return;
+                }
                 if (context.presentationId == "drum_attack" && casterVoiceKey == "cupcakke") {
                     playCombatVoiceClip(casterVoiceKey, "ability", 1.0f, cueCount);
                 }
@@ -1170,6 +1182,9 @@ public:
             core_.setHint("Press SPACE upon being hit to reduce damage taken");
         };
         hooks.onPresentationEnd = [this](const PresentationContext& context, const std::string& resultText) {
+            if (context.presentationId == "niagara_falls_ultimate") {
+                cupcakkeUltimateVoicePlayed_ = false;
+            }
             if (!resultText.empty() && (context.isBoss
                     || context.presentationId == "drum_attack"
                     || context.presentationId == "musical_notes"
@@ -1305,6 +1320,7 @@ private:
     bool narrativeInitialized_ = false;
     BattleSessionCore core_;
     DemoNarrativeFlow narrative_;
+    bool cupcakkeUltimateVoicePlayed_ = false;
 };
 
 Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
