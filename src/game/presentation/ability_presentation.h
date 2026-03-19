@@ -54,6 +54,12 @@ public:
     virtual void start() = 0;
     virtual void update(float deltaTime) = 0;
     virtual void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) = 0;
+    virtual void renderBelowWorld(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) {
+        (void)renderer;
+        (void)screenW;
+        (void)screenH;
+        (void)camera;
+    }
     virtual bool isComplete() const = 0;
     
     // Input handling
@@ -75,8 +81,13 @@ public:
         (void)outZ;
         return false;
     }
+    virtual void setExternalTextures(SDL_Texture* caster, SDL_Texture* target) {
+        (void)caster;
+        (void)target;
+    }
     virtual bool shouldHideNonCasterCharacters() const { return true; }
     virtual bool shouldRenderCasterEntity() const { return true; }
+    virtual bool shouldRenderBossEntity() const { return true; }
     virtual bool shouldRenderAboveHud() const { return true; }
 
     // Override to play a splash art intro before the ability animation.

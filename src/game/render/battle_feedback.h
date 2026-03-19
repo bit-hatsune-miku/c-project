@@ -36,6 +36,10 @@ public:
                                       int hitEvents,
                                       int perHitDamage,
                                       const BattleManager& manager);
+    void queuePresentationHealFeedback(bool isBossCaster,
+                                       int hitEvents,
+                                       int perHitHealing,
+                                       const BattleManager& manager);
     float getShakeOffsetX(bool isBoss, int partyIndex) const;
 
     void render(SDL_Renderer* renderer,
@@ -43,10 +47,11 @@ public:
                 const std::vector<FeedbackEntityAnchor>& anchors);
 
 private:
-    struct DamagePopup {
+    struct FeedbackPopup {
         bool onBoss = false;
         int partyIndex = -1;
-        int damage = 0;
+        int amount = 0;
+        bool healing = false;
         float elapsed = 0.0f;
         float lifetime = 0.95f;
         float jitterX = 0.0f;
@@ -61,15 +66,19 @@ private:
     };
 
     void spawnDamagePopup(bool onBoss, int partyIndex, int damage);
+    void spawnHealingPopup(bool onBoss, int partyIndex, int amount);
+    void spawnFeedbackPopup(bool onBoss, int partyIndex, int amount, bool healing);
     void queueDamageShake(bool onBoss, int partyIndex, int hitCount = 1);
     void updateOneDamageShakeState(DamageShakeState& state, float deltaSeconds);
 
     std::vector<int> lastCharacterHp_;
     int lastBossHp_ = -1;
-    bool suppressBossNextDeltaPopup_ = false;
-    std::vector<bool> suppressCharacterNextDeltaPopup_;
+    bool suppressBossNextDamagePopup_ = false;
+    bool suppressBossNextHealingPopup_ = false;
+    std::vector<bool> suppressCharacterNextDamagePopup_;
+    std::vector<bool> suppressCharacterNextHealingPopup_;
 
-    std::vector<DamagePopup> popups_;
+    std::vector<FeedbackPopup> popups_;
     DamageShakeState bossShakeState_;
     std::vector<DamageShakeState> characterShakeStates_;
 

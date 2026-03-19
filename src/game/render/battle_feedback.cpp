@@ -13,12 +13,12 @@
 namespace battle::render {
 namespace {
 
-constexpr float kDamagePopupLifetimeSeconds = 0.95f;
-constexpr float kDamagePopupSlidePixels = 26.0f;
-constexpr float kDamagePopupBaseYOffset = -14.0f;
-constexpr int kDamagePopupFontSize = 30;
-constexpr float kDamageShakeDurationSeconds = 0.065f;
-constexpr float kDamageShakeAmplitudePixels = 2.8f;
+constexpr float kFeedbackPopupLifetimeSeconds = 0.95f;
+constexpr float kFeedbackPopupSlidePixels = 26.0f;
+constexpr float kFeedbackPopupBaseYOffset = -14.0f;
+constexpr int kFeedbackPopupFontSize = 30;
+constexpr float kPopupShakeDurationSeconds = 0.065f;
+constexpr float kPopupShakeAmplitudePixels = 2.8f;
 constexpr int kSuggestedBaseSpriteHeight = 260;
 
 std::mt19937& popupRng() {
@@ -57,15 +57,17 @@ void BattleFeedbackSystem::reset(const BattleManager& manager) {
         lastCharacterHp_[i] = manager.getCharacterCurrentHp(static_cast<int>(i));
     }
     lastBossHp_ = manager.getBossCurrentHp();
-    suppressBossNextDeltaPopup_ = false;
+    suppressBossNextDamagePopup_ = false;
+    suppressBossNextHealingPopup_ = false;
 
     bossShakeState_ = DamageShakeState{};
     characterShakeStates_.assign(state.party.size(), DamageShakeState{});
-    suppressCharacterNextDeltaPopup_.assign(state.party.size(), false);
+    suppressCharacterNextDamagePopup_.assign(state.party.size(), false);
+    suppressCharacterNextHealingPopup_.assign(state.party.size(), false);
 
 #ifdef BATTLE_ENABLE_TTF
     if (font_ == nullptr) {
-        font_ = openBestAvailablePopupFont(kDamagePopupFontSize);
+        font_ = openBestAvailablePopupFont(kFeedbackPopupFontSize);
     }
 #endif
 }
@@ -74,8 +76,10 @@ void BattleFeedbackSystem::shutdown() {
     popups_.clear();
     lastCharacterHp_.clear();
     lastBossHp_ = -1;
-    suppressBossNextDeltaPopup_ = false;
-    suppressCharacterNextDeltaPopup_.clear();
+    suppressBossNextDamagePopup_ = false;
+    suppressBossNextHealingPopup_ = false;
+    suppressCharacterNextDamagePopup_.clear();
+    suppressCharacterNextHealingPopup_.clear();
     bossShakeState_ = DamageShakeState{};
     characterShakeStates_.clear();
 
@@ -87,23 +91,32 @@ void BattleFeedbackSystem::shutdown() {
 #endif
 }
 
-void BattleFeedbackSystem::spawnDamagePopup(bool onBoss, int partyIndex, int damage) {
-    if (damage <= 0) {
+void BattleFeedbackSystem::spawnFeedbackPopup(bool onBoss, int partyIndex, int amount, bool healing) {
+    if (amount <= 0) {
         return;
     }
 
     std::uniform_real_distribution<float> xDist(-10.0f, 10.0f);
     std::uniform_real_distribution<float> yDist(-7.0f, 7.0f);
 
-    DamagePopup popup;
+    FeedbackPopup popup;
     popup.onBoss = onBoss;
     popup.partyIndex = partyIndex;
-    popup.damage = damage;
+    popup.amount = amount;
+    popup.healing = healing;
     popup.elapsed = 0.0f;
-    popup.lifetime = kDamagePopupLifetimeSeconds;
+    popup.lifetime = kFeedbackPopupLifetimeSeconds;
     popup.jitterX = xDist(popupRng());
     popup.jitterY = yDist(popupRng());
     popups_.push_back(popup);
+}
+
+void BattleFeedbackSystem::spawnDamagePopup(bool onBoss, int partyIndex, int damage) {
+    spawnFeedbackPopup(onBoss, partyIndex, damage, false);
+}
+
+void BattleFeedbackSystem::spawnHealingPopup(bool onBoss, int partyIndex, int amount) {
+    spawnFeedbackPopup(onBoss, partyIndex, amount, true);
 }
 
 void BattleFeedbackSystem::queueDamageShake(bool onBoss, int partyIndex, int hitCount) {
@@ -125,14 +138,21 @@ void BattleFeedbackSystem::queueDamageShake(bool onBoss, int partyIndex, int hit
 
 void BattleFeedbackSystem::syncFromManager(const BattleManager& manager, bool presentationPlaybackActive) {
     const int bossHpNow = manager.getBossCurrentHp();
-    if (lastBossHp_ >= 0 && bossHpNow < lastBossHp_) {
-        if (!suppressBossNextDeltaPopup_) {
-            spawnDamagePopup(true, -1, lastBossHp_ - bossHpNow);
+    if (lastBossHp_ >= 0) {
+        if (bossHpNow < lastBossHp_) {
+            if (!suppressBossNextDamagePopup_) {
+                spawnDamagePopup(true, -1, lastBossHp_ - bossHpNow);
+            }
+            if (!presentationPlaybackActive && !suppressBossNextDamagePopup_) {
+                queueDamageShake(true, -1, 1);
+            }
+            suppressBossNextDamagePopup_ = false;
+        } else if (bossHpNow > lastBossHp_) {
+            if (!suppressBossNextHealingPopup_) {
+                spawnHealingPopup(true, -1, bossHpNow - lastBossHp_);
+            }
+            suppressBossNextHealingPopup_ = false;
         }
-        if (!presentationPlaybackActive && !suppressBossNextDeltaPopup_) {
-            queueDamageShake(true, -1, 1);
-        }
-        suppressBossNextDeltaPopup_ = false;
     }
     lastBossHp_ = bossHpNow;
 
@@ -140,7 +160,8 @@ void BattleFeedbackSystem::syncFromManager(const BattleManager& manager, bool pr
     if (lastCharacterHp_.size() != state.party.size()) {
         lastCharacterHp_.assign(state.party.size(), 0);
         characterShakeStates_.assign(state.party.size(), DamageShakeState{});
-        suppressCharacterNextDeltaPopup_.assign(state.party.size(), false);
+        suppressCharacterNextDamagePopup_.assign(state.party.size(), false);
+        suppressCharacterNextHealingPopup_.assign(state.party.size(), false);
         for (size_t i = 0; i < state.party.size(); ++i) {
             lastCharacterHp_[i] = manager.getCharacterCurrentHp(static_cast<int>(i));
         }
@@ -150,16 +171,25 @@ void BattleFeedbackSystem::syncFromManager(const BattleManager& manager, bool pr
     for (size_t i = 0; i < state.party.size(); ++i) {
         const int hpNow = manager.getCharacterCurrentHp(static_cast<int>(i));
         if (hpNow < lastCharacterHp_[i]) {
-            const bool suppress = i < suppressCharacterNextDeltaPopup_.size() &&
-                                  suppressCharacterNextDeltaPopup_[i];
+            const bool suppress = i < suppressCharacterNextDamagePopup_.size() &&
+                                  suppressCharacterNextDamagePopup_[i];
             if (!suppress) {
                 spawnDamagePopup(false, static_cast<int>(i), lastCharacterHp_[i] - hpNow);
             }
             if (!presentationPlaybackActive && !suppress) {
                 queueDamageShake(false, static_cast<int>(i), 1);
             }
-            if (i < suppressCharacterNextDeltaPopup_.size()) {
-                suppressCharacterNextDeltaPopup_[i] = false;
+            if (i < suppressCharacterNextDamagePopup_.size()) {
+                suppressCharacterNextDamagePopup_[i] = false;
+            }
+        } else if (hpNow > lastCharacterHp_[i]) {
+            const bool suppress = i < suppressCharacterNextHealingPopup_.size() &&
+                                  suppressCharacterNextHealingPopup_[i];
+            if (!suppress) {
+                spawnHealingPopup(false, static_cast<int>(i), hpNow - lastCharacterHp_[i]);
+            }
+            if (i < suppressCharacterNextHealingPopup_.size()) {
+                suppressCharacterNextHealingPopup_[i] = false;
             }
         }
         lastCharacterHp_[i] = hpNow;
@@ -196,8 +226,8 @@ void BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
 
     if (isBossCaster) {
         const BattleState& state = manager.getBattleState();
-        if (suppressCharacterNextDeltaPopup_.size() != state.party.size()) {
-            suppressCharacterNextDeltaPopup_.assign(state.party.size(), false);
+        if (suppressCharacterNextDamagePopup_.size() != state.party.size()) {
+            suppressCharacterNextDamagePopup_.assign(state.party.size(), false);
         }
 
         for (size_t i = 0; i < state.party.size(); ++i) {
@@ -209,7 +239,7 @@ void BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
                 spawnDamagePopup(false, static_cast<int>(i), perHitDamage);
             }
             queueDamageShake(false, static_cast<int>(i), hitEvents);
-            suppressCharacterNextDeltaPopup_[i] = true;
+            suppressCharacterNextDamagePopup_[i] = true;
         }
         return;
     }
@@ -222,7 +252,43 @@ void BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
         spawnDamagePopup(true, -1, perHitDamage);
     }
     queueDamageShake(true, -1, hitEvents);
-    suppressBossNextDeltaPopup_ = true;
+    suppressBossNextDamagePopup_ = true;
+}
+
+void BattleFeedbackSystem::queuePresentationHealFeedback(bool isBossCaster,
+                                                        int hitEvents,
+                                                        int perHitHealing,
+                                                        const BattleManager& manager) {
+    if (hitEvents <= 0 || perHitHealing <= 0) {
+        return;
+    }
+
+    if (isBossCaster) {
+        if (manager.getBossCurrentHp() <= 0) {
+            return;
+        }
+        for (int h = 0; h < hitEvents; ++h) {
+            spawnHealingPopup(true, -1, perHitHealing);
+        }
+        suppressBossNextHealingPopup_ = true;
+        return;
+    }
+
+    const BattleState& state = manager.getBattleState();
+    if (suppressCharacterNextHealingPopup_.size() != state.party.size()) {
+        suppressCharacterNextHealingPopup_.assign(state.party.size(), false);
+    }
+
+    for (size_t i = 0; i < state.party.size(); ++i) {
+        if (manager.getCharacterCurrentHp(static_cast<int>(i)) <= 0) {
+            continue;
+        }
+
+        for (int h = 0; h < hitEvents; ++h) {
+            spawnHealingPopup(false, static_cast<int>(i), perHitHealing);
+        }
+        suppressCharacterNextHealingPopup_[i] = true;
+    }
 }
 
 void BattleFeedbackSystem::updateOneDamageShakeState(DamageShakeState& state, float deltaSeconds) {
@@ -238,19 +304,19 @@ void BattleFeedbackSystem::updateOneDamageShakeState(DamageShakeState& state, fl
     }
 
     state.elapsed += deltaSeconds;
-    if (state.elapsed >= kDamageShakeDurationSeconds) {
+    if (state.elapsed >= kPopupShakeDurationSeconds) {
         state.active = false;
         state.elapsed = 0.0f;
     }
 }
 
 void BattleFeedbackSystem::update(float deltaSeconds) {
-    for (DamagePopup& popup : popups_) {
+    for (FeedbackPopup& popup : popups_) {
         popup.elapsed += deltaSeconds;
     }
 
     popups_.erase(
-        std::remove_if(popups_.begin(), popups_.end(), [](const DamagePopup& popup) {
+        std::remove_if(popups_.begin(), popups_.end(), [](const FeedbackPopup& popup) {
             return popup.elapsed >= popup.lifetime;
         }),
         popups_.end()
@@ -274,9 +340,9 @@ float BattleFeedbackSystem::getShakeOffsetX(bool isBoss, int partyIndex) const {
         return 0.0f;
     }
 
-    const float t = std::clamp(state->elapsed / std::max(0.0001f, kDamageShakeDurationSeconds), 0.0f, 1.0f);
+    const float t = std::clamp(state->elapsed / std::max(0.0001f, kPopupShakeDurationSeconds), 0.0f, 1.0f);
     const float wave = std::sin(t * 6.2831853f);
-    return wave * kDamageShakeAmplitudePixels * static_cast<float>(state->directionSign);
+    return wave * kPopupShakeAmplitudePixels * static_cast<float>(state->directionSign);
 }
 
 void BattleFeedbackSystem::render(SDL_Renderer* renderer,
@@ -287,7 +353,7 @@ void BattleFeedbackSystem::render(SDL_Renderer* renderer,
         return;
     }
 
-    for (const DamagePopup& popup : popups_) {
+    for (const FeedbackPopup& popup : popups_) {
         const FeedbackEntityAnchor* anchor = nullptr;
         for (const FeedbackEntityAnchor& candidate : anchors) {
             if (popup.onBoss && candidate.isBoss) {
@@ -309,10 +375,10 @@ void BattleFeedbackSystem::render(SDL_Renderer* renderer,
         const float spriteScale = anchor->isBoss ? 1.28f : 1.0f;
         const float approxSpriteHeight = kSuggestedBaseSpriteHeight * popupScale * spriteScale;
         const float t = std::clamp(popup.elapsed / std::max(0.001f, popup.lifetime), 0.0f, 1.0f);
-        const float slide = kDamagePopupSlidePixels * t;
+        const float slide = kFeedbackPopupSlidePixels * t;
         const float alphaNorm = 1.0f - t;
 
-        const std::string text = std::to_string(popup.damage);
+        const std::string text = (popup.healing ? "+" : "") + std::to_string(popup.amount);
         int textW = 0;
         int textH = 0;
         if (TTF_SizeUTF8(font_, text.c_str(), &textW, &textH) != 0) {
@@ -321,10 +387,12 @@ void BattleFeedbackSystem::render(SDL_Renderer* renderer,
 
         const int drawX = static_cast<int>(std::lround(baseScreen.x + popup.jitterX)) - textW / 2;
         const int drawY = static_cast<int>(std::lround(baseScreen.y - approxSpriteHeight * 0.95f +
-                                                       kDamagePopupBaseYOffset + popup.jitterY - slide)) - textH / 2;
+                                                       kFeedbackPopupBaseYOffset + popup.jitterY - slide)) - textH / 2;
 
         SDL_Color outlineColor{0, 0, 0, static_cast<Uint8>(220.0f * alphaNorm)};
-        SDL_Color mainColor{255, 255, 255, static_cast<Uint8>(255.0f * alphaNorm)};
+        SDL_Color mainColor = popup.healing
+            ? SDL_Color{114, 255, 163, static_cast<Uint8>(255.0f * alphaNorm)}
+            : SDL_Color{255, 255, 255, static_cast<Uint8>(255.0f * alphaNorm)};
 
         SDL_Surface* shadowSurface = TTF_RenderUTF8_Blended(font_, text.c_str(), outlineColor);
         SDL_Surface* textSurface = TTF_RenderUTF8_Blended(font_, text.c_str(), mainColor);

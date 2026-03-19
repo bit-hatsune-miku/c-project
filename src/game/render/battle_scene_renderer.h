@@ -94,6 +94,95 @@ struct SoftwareSceneRenderer {
 
 namespace detail {
 
+inline constexpr float kFloorNearClipDepth = 1.0f;
+inline constexpr float kClipEpsilon = 0.0001f;
+
+struct FloorVertex {
+    float worldX = 0.0f;
+    float worldY = 0.0f;
+    float depth = 0.0f;
+    float u = 0.0f;
+    float v = 0.0f;
+};
+
+inline FloorVertex interpolateToNearPlane(const FloorVertex& from, const FloorVertex& to) {
+    const float depthDelta = to.depth - from.depth;
+    float t = 0.0f;
+    if (std::fabs(depthDelta) > kClipEpsilon) {
+        t = (kFloorNearClipDepth - from.depth) / depthDelta;
+    }
+    t = std::clamp(t, 0.0f, 1.0f);
+
+    return FloorVertex{
+        from.worldX + (to.worldX - from.worldX) * t,
+        from.worldY + (to.worldY - from.worldY) * t,
+        kFloorNearClipDepth,
+        from.u + (to.u - from.u) * t,
+        from.v + (to.v - from.v) * t
+    };
+}
+
+inline int clipFloorQuadToNearPlane(const std::array<FloorVertex, 4>& input, std::array<FloorVertex, 6>& output) {
+    std::array<FloorVertex, 6> working{};
+    for (size_t i = 0; i < input.size(); ++i) {
+        working[i] = input[i];
+    }
+    const int workingCount = static_cast<int>(input.size());
+
+    int outCount = 0;
+    for (int i = 0; i < workingCount; ++i) {
+        const FloorVertex& current = working[static_cast<size_t>(i)];
+        const FloorVertex& next = working[static_cast<size_t>((i + 1) % workingCount)];
+        const bool currentInside = current.depth > kFloorNearClipDepth;
+        const bool nextInside = next.depth > kFloorNearClipDepth;
+
+        if (currentInside && nextInside) {
+            output[static_cast<size_t>(outCount++)] = next;
+            continue;
+        }
+        if (currentInside && !nextInside) {
+            output[static_cast<size_t>(outCount++)] = interpolateToNearPlane(current, next);
+            continue;
+        }
+        if (!currentInside && nextInside) {
+            output[static_cast<size_t>(outCount++)] = interpolateToNearPlane(current, next);
+            output[static_cast<size_t>(outCount++)] = next;
+        }
+    }
+
+    return outCount;
+}
+
+inline bool clipLineToNearPlane(float& x0, float& y0, float& d0, float& x1, float& y1, float& d1) {
+    if (d0 <= kFloorNearClipDepth && d1 <= kFloorNearClipDepth) {
+        return false;
+    }
+    if (d0 > kFloorNearClipDepth && d1 > kFloorNearClipDepth) {
+        return true;
+    }
+
+    const float depthDelta = d1 - d0;
+    if (std::fabs(depthDelta) <= kClipEpsilon) {
+        return false;
+    }
+
+    const float t = std::clamp((kFloorNearClipDepth - d0) / depthDelta, 0.0f, 1.0f);
+    const float ix = x0 + (x1 - x0) * t;
+    const float iy = y0 + (y1 - y0) * t;
+
+    if (d0 <= kFloorNearClipDepth) {
+        x0 = ix;
+        y0 = iy;
+        d0 = kFloorNearClipDepth;
+    } else {
+        x1 = ix;
+        y1 = iy;
+        d1 = kFloorNearClipDepth;
+    }
+
+    return true;
+}
+
 inline SDL_Texture* createFloorTileTexture(SDL_Renderer* renderer) {
     constexpr int texSize = 64;
     constexpr int cell = 16;
@@ -156,18 +245,36 @@ inline void drawFloorGridLines(SDL_Renderer* renderer, int screenW, int screenH,
 
     SDL_SetRenderDrawColor(renderer, 62, 70, 90, 160);
     for (int tx = 0; tx <= tilesX; ++tx) {
-        const float x = startX + tx * tileSize;
-        const SDL_FPoint p0 = camera.worldToScreen(x, startY, floorZ);
-        const SDL_FPoint p1 = camera.worldToScreen(x, startY + tilesY * tileSize, floorZ);
+        float x0 = startX + tx * tileSize;
+        float y0 = startY;
+        float x1 = x0;
+        float y1 = startY + tilesY * tileSize;
+        float d0 = camera.getDepth(x0, y0, floorZ);
+        float d1 = camera.getDepth(x1, y1, floorZ);
+        if (!clipLineToNearPlane(x0, y0, d0, x1, y1, d1)) {
+            continue;
+        }
+
+        const SDL_FPoint p0 = camera.worldToScreen(x0, y0, floorZ);
+        const SDL_FPoint p1 = camera.worldToScreen(x1, y1, floorZ);
         if ((p0.x > -200.0f || p1.x > -200.0f) && (p0.x < screenW + 200.0f || p1.x < screenW + 200.0f) &&
             (p0.y > -200.0f || p1.y > -200.0f) && (p0.y < screenH + 200.0f || p1.y < screenH + 200.0f)) {
             SDL_RenderDrawLineF(renderer, p0.x, p0.y, p1.x, p1.y);
         }
     }
     for (int ty = 0; ty <= tilesY; ++ty) {
-        const float y = startY + ty * tileSize;
-        const SDL_FPoint p0 = camera.worldToScreen(startX, y, floorZ);
-        const SDL_FPoint p1 = camera.worldToScreen(startX + tilesX * tileSize, y, floorZ);
+        float x0 = startX;
+        float y0 = startY + ty * tileSize;
+        float x1 = startX + tilesX * tileSize;
+        float y1 = y0;
+        float d0 = camera.getDepth(x0, y0, floorZ);
+        float d1 = camera.getDepth(x1, y1, floorZ);
+        if (!clipLineToNearPlane(x0, y0, d0, x1, y1, d1)) {
+            continue;
+        }
+
+        const SDL_FPoint p0 = camera.worldToScreen(x0, y0, floorZ);
+        const SDL_FPoint p1 = camera.worldToScreen(x1, y1, floorZ);
         if ((p0.x > -200.0f || p1.x > -200.0f) && (p0.x < screenW + 200.0f || p1.x < screenW + 200.0f) &&
             (p0.y > -200.0f || p1.y > -200.0f) && (p0.y < screenH + 200.0f || p1.y < screenH + 200.0f)) {
             SDL_RenderDrawLineF(renderer, p0.x, p0.y, p1.x, p1.y);
@@ -191,7 +298,6 @@ inline void drawFloor(SDL_Renderer* renderer,
         const float startX = centerX - (tilesX * tileSize * 0.5f);
         const float startY = centerY - (tilesY * tileSize * 0.30f);
 
-        const int indices[6] = {0, 1, 2, 0, 2, 3};
         for (int ty = 0; ty < tilesY; ++ty) {
             for (int tx = 0; tx < tilesX; ++tx) {
                 const float x0 = startX + tx * tileSize;
@@ -203,38 +309,67 @@ inline void drawFloor(SDL_Renderer* renderer,
                 const float d10 = camera.getDepth(x1, y0, floorZ);
                 const float d11 = camera.getDepth(x1, y1, floorZ);
                 const float d01 = camera.getDepth(x0, y1, floorZ);
-                if (d00 <= 1.0f && d10 <= 1.0f && d11 <= 1.0f && d01 <= 1.0f) {
+                if (d00 <= kFloorNearClipDepth && d10 <= kFloorNearClipDepth &&
+                    d11 <= kFloorNearClipDepth && d01 <= kFloorNearClipDepth) {
                     continue;
                 }
 
-                const SDL_FPoint p00 = camera.worldToScreen(x0, y0, floorZ);
-                const SDL_FPoint p10 = camera.worldToScreen(x1, y0, floorZ);
-                const SDL_FPoint p11 = camera.worldToScreen(x1, y1, floorZ);
-                const SDL_FPoint p01 = camera.worldToScreen(x0, y1, floorZ);
+                const std::array<FloorVertex, 4> tile = {{
+                    FloorVertex{x0, y0, d00, 0.0f, 0.0f},
+                    FloorVertex{x1, y0, d10, 1.0f, 0.0f},
+                    FloorVertex{x1, y1, d11, 1.0f, 1.0f},
+                    FloorVertex{x0, y1, d01, 0.0f, 1.0f}
+                }};
+                std::array<FloorVertex, 6> clippedTile{};
+                const int clippedCount = clipFloorQuadToNearPlane(tile, clippedTile);
+                if (clippedCount < 3) {
+                    continue;
+                }
 
-                const float minX = std::min(std::min(p00.x, p10.x), std::min(p11.x, p01.x));
-                const float maxX = std::max(std::max(p00.x, p10.x), std::max(p11.x, p01.x));
-                const float minY = std::min(std::min(p00.y, p10.y), std::min(p11.y, p01.y));
-                const float maxY = std::max(std::max(p00.y, p10.y), std::max(p11.y, p01.y));
+                std::array<SDL_Vertex, 6> verts{};
+                float minX = 0.0f;
+                float maxX = 0.0f;
+                float minY = 0.0f;
+                float maxY = 0.0f;
+                for (int i = 0; i < clippedCount; ++i) {
+                    const FloorVertex& vertex = clippedTile[static_cast<size_t>(i)];
+                    const SDL_FPoint projected = camera.worldToScreen(vertex.worldX, vertex.worldY, floorZ);
+                    verts[static_cast<size_t>(i)].position = projected;
+                    verts[static_cast<size_t>(i)].color = SDL_Color{255, 255, 255, 255};
+                    verts[static_cast<size_t>(i)].tex_coord = SDL_FPoint{vertex.u, vertex.v};
+
+                    if (i == 0) {
+                        minX = projected.x;
+                        maxX = projected.x;
+                        minY = projected.y;
+                        maxY = projected.y;
+                    } else {
+                        minX = std::min(minX, projected.x);
+                        maxX = std::max(maxX, projected.x);
+                        minY = std::min(minY, projected.y);
+                        maxY = std::max(maxY, projected.y);
+                    }
+                }
                 if (maxX < -200.0f || minX > screenW + 200.0f || maxY < -200.0f || minY > screenH + 200.0f) {
                     continue;
                 }
 
-                SDL_Vertex verts[4];
-                verts[0].position = p00;
-                verts[1].position = p10;
-                verts[2].position = p11;
-                verts[3].position = p01;
-                verts[0].color = SDL_Color{255, 255, 255, 255};
-                verts[1].color = SDL_Color{255, 255, 255, 255};
-                verts[2].color = SDL_Color{255, 255, 255, 255};
-                verts[3].color = SDL_Color{255, 255, 255, 255};
-                verts[0].tex_coord = SDL_FPoint{0.0f, 0.0f};
-                verts[1].tex_coord = SDL_FPoint{1.0f, 0.0f};
-                verts[2].tex_coord = SDL_FPoint{1.0f, 1.0f};
-                verts[3].tex_coord = SDL_FPoint{0.0f, 1.0f};
+                std::array<int, 12> indices{};
+                int indexCount = 0;
+                for (int i = 1; i + 1 < clippedCount; ++i) {
+                    indices[static_cast<size_t>(indexCount++)] = 0;
+                    indices[static_cast<size_t>(indexCount++)] = i;
+                    indices[static_cast<size_t>(indexCount++)] = i + 1;
+                }
 
-                SDL_RenderGeometry(renderer, floorTileTexture, verts, 4, indices, 6);
+                SDL_RenderGeometry(
+                    renderer,
+                    floorTileTexture,
+                    verts.data(),
+                    clippedCount,
+                    indices.data(),
+                    indexCount
+                );
             }
         }
     }

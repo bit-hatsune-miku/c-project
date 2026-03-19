@@ -6,9 +6,20 @@
         "atk": 7,
         "hp": 300,
         "standardAbility": "BossStandardAttack",
-        "skillAbility": "MoonSpiralDildoAttack",
-        "ability": "MoonSpiralDildoAttack",
-        "ultimate": "MoonSpiralOverload",
+        "skillAbility": "MoonSpiralHeartAttack",
+        "ability": "MoonSpiralHeartAttack",
+        "ultimate": "MoonSpiralHeartAttack",
+        "abilities": {
+            "skill": {
+                "id": "MoonSpiralHeartAttack",
+                "name": "Moon Spiral Heart Attack!",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.0,
+                "interactionType": "parry",
+                "presentationId": "boss_attack_lyoo"
+            }
+        },
         "ultimatePoints": 6,
         "startingOrbs": 1,
         "bgm": "lyooBoss",
@@ -21,23 +32,205 @@
         "atk": 50,
         "hp": 500,
         "standardAbility": "BossStandardAttack",
-        "skillAbility": "MoonSpiralDildoAttack",
-        "ability": "MoonSpiralDildoAttack",
-        "ultimate": "MoonSpiralOverload",
+        "skillAbility": "IfICantHaveWingsThenIllJustLetTheSkyFall",
+        "ability": "IfICantHaveWingsThenIllJustLetTheSkyFall",
+        "ultimate": "IfICantHaveWingsThenIllJustLetTheSkyFall",
+        "abilities": {
+            "skill": {
+                "id": "IfICantHaveWingsThenIllJustLetTheSkyFall",
+                "name": "If I can't have wings, then I'll just let the sky fall",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.7,
+                "interactionType": "none",
+                "presentationId": "boss_attack_lyoo_ultimate"
+            }
+        },
         "ultimatePoints": 6,
-        "startingOrbs": 1
+        "startingOrbs": 1,
+        "bgm": "I want to be your heart",
+        "bgmVolume": 0.4
     },
     "miku": {
-        "title": "IsraelGPT Syndrome Infected Hatsune Miku",
+        "title": "Hatsune Miku",
         "assets": "miku",
         "spd": 200,
         "atk": 80,
         "hp": 700,
         "standardAbility": "BossStandardAttack",
-        "skillAbility": "DianDongPower",
-        "ability": "DianDongPower",
-        "ultimate": "MoonSpiralOverload",
+        "skillAbility": "SelfCorruption",
+        "ability": "SelfCorruption",
+        "ultimate": "SelfCorruption",
+        "abilities": {
+            "skill": {
+                "id": "SelfCorruption",
+                "name": "Self Corruption",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.8,
+                "interactionType": "none",
+                "presentationId": "self_corruption"
+            }
+        },
         "ultimatePoints": 6,
-        "startingOrbs": 1
+        "startingOrbs": 1,
+        "bgm": "The Disapperance of Hatsune Miku",
+        "bgmVolume": 0.4
+    },
+    "jiafeiBoss": {
+        "title": "Jiafei",
+        "assets": "jiafei",
+        "spd": 185,
+        "atk": 32,
+        "hp": 420,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "AestheticWarning",
+        "ability": "AestheticWarning",
+        "ultimate": "AestheticWarning",
+        "abilities": {
+            "skill": {
+                "id": "AestheticWarning",
+                "name": "Aesthetic Warning",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.2,
+                "interactionType": "parry",
+                "presentationId": "aesthetic_warning"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "野花香",
+        "bgmVolume": 0.4
+    },
+    "luotianyiBoss": {
+        "title": "洛天依",
+        "assets": "luotianyi",
+        "spd": 170,
+        "atk": 42,
+        "hp": 520,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "YinLong",
+        "ability": "YinLong",
+        "ultimate": "YinLong",
+        "abilities": {
+            "skill": {
+                "id": "YinLong",
+                "name": "音龙",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.5,
+                "interactionType": "none",
+                "presentationId": "yin_long"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "【洛天依】《權御天下》",
+        "bgmVolume": 0.4
+    },
+    "wechatalipayBoss": {
+        "title": "WeChat-Jie & Alipay-Jie",
+        "assets": "wechatalipay",
+        "spd": 165,
+        "atk": 30,
+        "hp": 480,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "QRCodeAttack",
+        "ability": "QRCodeAttack",
+        "ultimate": "QRCodeAttack",
+        "abilities": {
+            "skill": {
+                "id": "QRCodeAttack",
+                "name": "QR Code Attack",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.3,
+                "interactionType": "parry",
+                "presentationId": "qr_code_attack"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "Ravings",
+        "bgmVolume": 0.4
+    },
+    "ariBoss": {
+        "title": "Ariana Grande",
+        "assets": "ari",
+        "spd": 175,
+        "atk": 34,
+        "hp": 430,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "WhistleNote",
+        "ability": "WhistleNote",
+        "ultimate": "WhistleNote",
+        "abilities": {
+            "skill": {
+                "id": "WhistleNote",
+                "name": "Whistle Note",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.25,
+                "interactionType": "parry",
+                "presentationId": "whistle_note"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "",
+        "bgmVolume": 0.4
+    },
+    "sansBoss": {
+        "title": "Sans",
+        "assets": "sans",
+        "spd": 240,
+        "atk": 28,
+        "hp": 360,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "KRAttack",
+        "ability": "KRAttack",
+        "ultimate": "KRAttack",
+        "abilities": {
+            "skill": {
+                "id": "KRAttack",
+                "name": "KR Attack",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.1,
+                "interactionType": "none",
+                "presentationId": "kr_attack"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "MEGALOVANIA",
+        "bgmVolume": 0.4
+    },
+    "kaguyaBoss": {
+        "title": "Kaguya",
+        "assets": "kaguya",
+        "spd": 190,
+        "atk": 48,
+        "hp": 560,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "MoonBeam",
+        "ability": "MoonBeam",
+        "ultimate": "MoonBeam",
+        "abilities": {
+            "skill": {
+                "id": "MoonBeam",
+                "name": "Moon beam",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.9,
+                "interactionType": "parry",
+                "presentationId": "moon_beam"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "私は、わたしの事が好き",
+        "bgmVolume": 0.4
     }
 }

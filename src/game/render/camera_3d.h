@@ -2,9 +2,17 @@
 #define CAMERA_3D_H
 
 #include <SDL2/SDL.h>
+#include <algorithm>
 #include <cmath>
 
 namespace battle {
+
+constexpr float kMinFreeViewPitchDegrees = -85.0f;
+constexpr float kMaxFreeViewPitchDegrees = 85.0f;
+
+inline float clampFreeViewPitchDegrees(float pitchDegrees) {
+    return std::clamp(pitchDegrees, kMinFreeViewPitchDegrees, kMaxFreeViewPitchDegrees);
+}
 
 class Camera3D {
 public:

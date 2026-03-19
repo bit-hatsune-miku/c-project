@@ -8,7 +8,6 @@
 #include "../core/ability_system.h"
 
 namespace battle::presentation_runtime {
-
 PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
                                       bool& finished,
                                       Camera3D& camera,
@@ -65,7 +64,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     // Splash art intro (pre-presentation)
     // ------------------------------------------------------------------
     auto splashCfg = presentation->getSplashConfig(callbacks.casterSpriteTexture);
-    if (splashCfg && callbacks.setRenderOverlay && callbacks.clearRenderOverlay) {
+    if (!context.isUltimate && splashCfg && callbacks.setRenderOverlay && callbacks.clearRenderOverlay) {
         if (!context.abilityId.empty()) {
             splashCfg->abilityName = context.abilityId;
         } else {
@@ -112,6 +111,8 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     if (stateRefs.activePresentation) {
         *stateRefs.activePresentation = presentation.get();
     }
+
+    presentation->setExternalTextures(callbacks.casterSpriteTexture, callbacks.targetSpriteTexture);
 
     presentation->start();
     Uint64 lastCounter = SDL_GetPerformanceCounter();
@@ -181,28 +182,37 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
 
         const bool hideNonCasterCharacters = presentation->shouldHideNonCasterCharacters();
         const bool renderCasterEntity = presentation->shouldRenderCasterEntity();
+        const bool renderBossEntity = presentation->shouldRenderBossEntity();
 
-        for (render::SceneEntity& entity : entities) {
+        for (size_t entityIndex = 0; entityIndex < entities.size(); ++entityIndex) {
+            render::SceneEntity& entity = entities[entityIndex];
+            const bool wasVisible = entityIndex < previousEntities.size()
+                ? previousEntities[entityIndex].visible
+                : entity.visible;
+
             if (entity.isBoss) {
                 if (context.isBoss) {
                     entity.visible = renderCasterEntity;
                 } else {
-                    entity.visible = true;
+                    entity.visible = renderBossEntity;
                 }
                 continue;
             }
 
-            if (!hideNonCasterCharacters) {
-                entity.visible = true;
+            if (!wasVisible) {
+                entity.visible = false;
                 continue;
             }
 
             if (context.isBoss) {
-                entity.visible = false;
-            } else if (entity.partyIndex == context.casterIndex) {
+                entity.visible = !hideNonCasterCharacters;
+                continue;
+            }
+
+            if (entity.partyIndex == context.casterIndex) {
                 entity.visible = renderCasterEntity;
             } else {
-                entity.visible = false;
+                entity.visible = !hideNonCasterCharacters;
             }
         }
 

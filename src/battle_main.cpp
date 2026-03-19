@@ -17,8 +17,9 @@
 
 #include "window.h"
 #include "game/core/battle_manager.h"
-#include "game/render/camera_3d.h"
 #include "game/render/battle_ui.h"
+#include "game/render/camera_3d.h"
+#include "game/render/free_view_camera_debug_log.h"
 #include "game/core/easing.h"
 
 namespace {
@@ -579,6 +580,7 @@ int main(int argc, char** argv) {
     std::string lastTurnToken;
     bool freeViewEnabled = false;
     float cameraOscillationTime = 0.0f;
+    battle::render::FreeViewCameraDebugLog freeViewCameraDebugLog;
 
     {
     battle::ui::BattleHud hud;
@@ -604,6 +606,7 @@ int main(int argc, char** argv) {
                     freeViewEnabled = !freeViewEnabled;
                     if (!freeViewEnabled) {
                         applyGoalCamera(camera);
+                        freeViewCameraDebugLog.clear();
                     }
                 } else if (event.key.keysym.sym == SDLK_SPACE) {
                     // Player confirms current character action.
@@ -698,7 +701,7 @@ int main(int argc, char** argv) {
         if (freeViewEnabled && !cameraIntro.active && keys[SDL_SCANCODE_DOWN]) {
             camera.pitchDegrees += rotationSpeed;  // Look down
         }
-        camera.pitchDegrees = std::clamp(camera.pitchDegrees, 5.0f, 85.0f);
+        camera.pitchDegrees = battle::clampFreeViewPitchDegrees(camera.pitchDegrees);
 
         updateActionIntroCamera(camera, cameraIntro, deltaTime);
 
@@ -816,18 +819,13 @@ int main(int argc, char** argv) {
 
         hud.draw(renderer, window.getWidth(), window.getHeight(), iconByAsset);
 
-        // Debug HUD: Camera info
-        {
-            char debugText[512];
-            snprintf(debugText, sizeof(debugText),
-                     "Cam: (%.0f, %.0f, %.0f) | Pitch: %.0f° Yaw: %.0f° | Focal: %.0f",
-                     camera.posX, camera.posY, camera.posZ, camera.pitchDegrees, camera.yawDegrees, camera.focalLength);
-            std::cout << "\r" << debugText << std::flush;
-        }
+        freeViewCameraDebugLog.update(freeViewEnabled && !cameraIntro.active, camera);
 
         window.present();
     }
     }
+
+    freeViewCameraDebugLog.clear();
 
     // Cleanup
     shutdownHitVoiceAudio();

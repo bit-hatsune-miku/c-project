@@ -19,6 +19,7 @@ public:
     void start() override;
     void update(float deltaTime) override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
+    void renderBelowWorld(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
     void onSpacePressed() override;
     bool overridesCamera() const override;

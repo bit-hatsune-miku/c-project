@@ -2,63 +2,146 @@
     "lyoo": {
         "title": "Lyoo",
         "assets": "lyoo",
-        "class": "healer",
-        "spd": 170,
+        "class": "Healer",
+        "spd": 200,
         "atk": 0,
         "hp": 50,
         "standardAbility": "BasicAttack",
         "skillAbility": "ILoveEveryoneAndEverything",
         "ability": "ILoveEveryoneAndEverything",
-        "ultimate": "HeartsEverywhere",
-        "ultimatePoints": 4,
+        "ultimate": "ILoveYou",
+        "abilities": {
+            "skill": {
+                "id": "ILoveEveryoneAndEverything",
+                "name": "I love everyone and everything!",
+                "type": "heal",
+                "targetRule": "all_allies",
+                "flatHeal": 2,
+                "multiplier": 0.0,
+                "interactionType": "rhythm",
+                "presentationId": "heal_hearts"
+            },
+            "ultimate": {
+                "id": "ILoveYou",
+                "name": "I love you!",
+                "type": "heal",
+                "targetRule": "all_allies",
+                "flatHeal": 30,
+                "multiplier": 0.0,
+                "interactionType": "none",
+                "reviveDeadAllies": true,
+                "presentationId": "lyoo_revive_heal"
+            }
+        },
+        "ultimatePoints": 1,
         "startingOrbs": 0
     },
     "miku": {
-        "title": "Miku",
+        "title": "Hatsune Miku",
         "assets": "miku",
-        "class": "dps",
+        "class": "DPS",
         "spd": 134,
-        "hp": 40,
         "atk": 20,
+        "hp": 40,
         "standardAbility": "BasicAttack",
         "skillAbility": "LetsSing",
         "ability": "LetsSing",
         "ultimate": "DianDongPower",
-        "ultimatePoints": 3,
+        "abilities": {
+            "skill": {
+                "id": "LetsSing",
+                "name": "Let's Sing!",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.0,
+                "interactionType": "rhythm",
+                "presentationId": "musical_notes"
+            },
+            "ultimate": {
+                "id": "DianDongPower",
+                "name": "Diandong Power",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 2.0,
+                "interactionType": "none",
+                "presentationId": "diandong_power_cutscene"
+            }
+        },
+        "ultimatePoints": 1,
         "startingOrbs": 0
     },
     "iroha": {
         "title": "Iroha",
         "assets": "iroha",
-        "class": "vanguard",
+        "class": "Vanguard",
         "spd": 142,
-        "hp": 72,
         "atk": 18,
+        "hp": 72,
         "standardAbility": "BasicAttack",
         "skillAbility": "LetsSing",
         "ability": "LetsSing",
         "ultimate": "DianDongPower",
+        "abilities": {
+            "skill": {
+                "id": "LetsSing",
+                "name": "Let's Sing!",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.0,
+                "interactionType": "rhythm",
+                "presentationId": "musical_notes"
+            },
+            "ultimate": {
+                "id": "DianDongPower",
+                "name": "Diandong Power",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 2.0,
+                "interactionType": "none",
+                "presentationId": "diandong_power_cutscene"
+            }
+        },
         "ultimatePoints": 4,
         "startingOrbs": 0
     },
     "kaguya": {
         "title": "Kaguya",
         "assets": "kaguya",
-        "class": "buffer",
+        "class": "aoe / fua sub DPS",
         "spd": 128,
-        "hp": 54,
         "atk": 24,
+        "hp": 54,
         "standardAbility": "BasicAttack",
-        "skillAbility": "LetsSing",
-        "ability": "LetsSing",
-        "ultimate": "NiagaraFalls",
+        "skillAbility": "KuruKuru",
+        "ability": "KuruKuru",
+        "ultimate": "CelestialHockeyPuck",
+        "abilities": {
+            "skill": {
+                "id": "KuruKuru",
+                "name": "Kuru kuru",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.0,
+                "interactionType": "rhythm",
+                "presentationId": "kuru_kuru"
+            },
+            "ultimate": {
+                "id": "CelestialHockeyPuck",
+                "name": "Celestial hockey puck",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.8,
+                "interactionType": "none",
+                "presentationId": "celestial_hockey_puck"
+            }
+        },
         "ultimatePoints": 3,
         "startingOrbs": 0
     },
     "cupcakke": {
-        "title": "CupcakKe",
+        "title": "Cupcakke",
         "assets": "cupcakke",
-        "class": "dps",
+        "class": "Tank",
         "spd": 99,
         "atk": 35,
         "hp": 60,
@@ -66,21 +149,232 @@
         "skillAbility": "SmackMyAssLikeADrum",
         "ability": "SmackMyAssLikeADrum",
         "ultimate": "NiagaraFalls",
-        "ultimatePoints": 6,
+        "abilities": {
+            "skill": {
+                "id": "SmackMyAssLikeADrum",
+                "name": "Smack my *** like a drum",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.2,
+                "interactionType": "rhythm",
+                "presentationId": "drum_attack"
+            },
+            "ultimate": {
+                "id": "NiagaraFalls",
+                "name": "Niagara Falls",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.8,
+                "interactionType": "none",
+                "presentationId": "niagara_falls_ultimate"
+            }
+        },
+        "ultimatePoints": 1,
+        "startingOrbs": 0
+    },
+    "jiafei": {
+        "title": "Jiafei",
+        "assets": "jiafei",
+        "class": "DPS",
+        "spd": 112,
+        "atk": 28,
+        "hp": 48,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "AestheticScream",
+        "ability": "AestheticScream",
+        "ultimate": "MeiCiDuXiangZhuang",
+        "abilities": {
+            "skill": {
+                "id": "AestheticScream",
+                "name": "Aesthetic Scream",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.1,
+                "interactionType": "none",
+                "presentationId": "aesthetic_scream"
+            },
+            "ultimate": {
+                "id": "MeiCiDuXiangZhuang",
+                "name": "每次都想装",
+                "type": "debuff",
+                "targetRule": "single_enemy",
+                "multiplier": 0.0,
+                "interactionType": "none",
+                "presentationId": "mei_ci_du_xiang_zhuang"
+            }
+        },
+        "ultimatePoints": 4,
         "startingOrbs": 0
     },
     "luotianyi": {
         "title": "洛天依",
         "assets": "luotianyi",
-        "class": "buffer",
-        "spd": 99,
-        "atk": 35,
+        "class": "Buffer",
+        "spd": 160,
+        "atk": 40,
         "hp": 60,
         "standardAbility": "BasicAttack",
-        "skillAbility": "DalabengbaBandebeidiBuduobiluweng",
-        "ability": "DalabengbaBandebeidiBuduobiluweng",
-        "ultimate": "KuntukutakatikaoteSuwaxilasong",
+        "skillAbility": "RangWoMenShuoZhongWen",
+        "ability": "RangWoMenShuoZhongWen",
+        "ultimate": "QuanYuTianXia",
+        "abilities": {
+            "skill": {
+                "id": "RangWoMenShuoZhongWen",
+                "name": "让我们说中文",
+                "type": "buff",
+                "targetRule": "all_allies",
+                "multiplier": 0.0,
+                "interactionType": "rhythm",
+                "presentationId": "rang_wo_men_shuo_zhong_wen"
+            },
+            "ultimate": {
+                "id": "QuanYuTianXia",
+                "name": "權御天下",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 2.2,
+                "interactionType": "none",
+                "presentationId": "quan_yu_tian_xia"
+            }
+        },
         "ultimatePoints": 3,
+        "startingOrbs": 0
+    },
+    "wechatalipay": {
+        "title": "WeChat-Jie & Alipay-Jie",
+        "assets": "wechatalipay",
+        "class": "Shielder",
+        "spd": 96,
+        "atk": 14,
+        "hp": 64,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "SaoMaZhiFu",
+        "ability": "SaoMaZhiFu",
+        "ultimate": "8888",
+        "abilities": {
+            "skill": {
+                "id": "SaoMaZhiFu",
+                "name": "扫码支付",
+                "type": "buff",
+                "targetRule": "all_allies",
+                "multiplier": 0.0,
+                "interactionType": "rhythm",
+                "presentationId": "sao_ma_zhi_fu"
+            },
+            "ultimate": {
+                "id": "8888",
+                "name": "8888",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.6,
+                "interactionType": "none",
+                "presentationId": "eight_eight_eight_eight"
+            }
+        },
+        "ultimatePoints": 4,
+        "startingOrbs": 0
+    },
+    "ari": {
+        "title": "Ariana Grande",
+        "assets": "ari",
+        "class": "Buffer",
+        "spd": 118,
+        "atk": 18,
+        "hp": 52,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "IWantItIGotIt",
+        "ability": "IWantItIGotIt",
+        "ultimate": "HighNote",
+        "abilities": {
+            "skill": {
+                "id": "IWantItIGotIt",
+                "name": "I want it, I got it",
+                "type": "buff",
+                "targetRule": "all_allies",
+                "multiplier": 0.0,
+                "interactionType": "none",
+                "presentationId": "i_want_it_i_got_it"
+            },
+            "ultimate": {
+                "id": "HighNote",
+                "name": "High Note",
+                "type": "buff",
+                "targetRule": "all_allies",
+                "multiplier": 0.0,
+                "interactionType": "none",
+                "presentationId": "high_note"
+            }
+        },
+        "ultimatePoints": 3,
+        "startingOrbs": 0
+    },
+    "teto": {
+        "title": "Kasane Teto",
+        "assets": "teto",
+        "class": "Healer",
+        "spd": 102,
+        "atk": 12,
+        "hp": 62,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "HealAlliesLeastHpBonus",
+        "ability": "HealAlliesLeastHpBonus",
+        "ultimate": "HitRecoveryEncore",
+        "abilities": {
+            "skill": {
+                "id": "HealAlliesLeastHpBonus",
+                "name": "Heal all allies",
+                "type": "heal",
+                "targetRule": "all_allies",
+                "flatHeal": 18,
+                "multiplier": 0.0,
+                "interactionType": "none",
+                "presentationId": "teto_group_heal"
+            },
+            "ultimate": {
+                "id": "HitRecoveryEncore",
+                "name": "Recovery Encore",
+                "type": "buff",
+                "targetRule": "all_allies",
+                "multiplier": 0.0,
+                "interactionType": "none",
+                "presentationId": "teto_recovery_encore"
+            }
+        },
+        "ultimatePoints": 4,
+        "startingOrbs": 0
+    },
+    "sans": {
+        "title": "Sans",
+        "assets": "sans",
+        "class": "DPS / DOT",
+        "spd": 140,
+        "atk": 26,
+        "hp": 44,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "BoneThrow",
+        "ability": "BoneThrow",
+        "ultimate": "GasterBlaster",
+        "abilities": {
+            "skill": {
+                "id": "BoneThrow",
+                "name": "Bone Throw",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.0,
+                "interactionType": "rhythm",
+                "presentationId": "bone_throw"
+            },
+            "ultimate": {
+                "id": "GasterBlaster",
+                "name": "Gaster Blaster",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 2.4,
+                "interactionType": "none",
+                "presentationId": "gaster_blaster"
+            }
+        },
+        "ultimatePoints": 4,
         "startingOrbs": 0
     }
 }

@@ -1016,6 +1016,32 @@ namespace {
 game::audio::WavOneShotPlayer gOneShotAudio;
 game::audio::BgmPlayer gBgmPlayer;
 
+std::string getPresentationCasterVoiceKey(const PresentationContext& context, const BattleManager& manager) {
+    if (context.isBoss) {
+        return manager.getBattleState().boss.key;
+    }
+
+    const BattleState& battleState = manager.getBattleState();
+    if (context.casterIndex < 0 || static_cast<size_t>(context.casterIndex) >= battleState.party.size()) {
+        return std::string();
+    }
+
+    return battleState.party[static_cast<size_t>(context.casterIndex)].assets;
+}
+
+void playCombatVoiceClip(const std::string& assetName, const std::string& clipName, float volume, int repeatCount = 1) {
+    if (assetName.empty() || clipName.empty() || repeatCount <= 0) {
+        return;
+    }
+
+    if (const auto clipPath = platform::path::resolveCombatVoicePath(assetName, clipName);
+        clipPath.has_value()) {
+        for (int index = 0; index < repeatCount; ++index) {
+            (void)gOneShotAudio.playWavOneShot(*clipPath, volume);
+        }
+    }
+}
+
 void consumeBattleActionEvents(BattleManager& manager, float voiceVolume) {
     const BattleState& battleState = manager.getBattleState();
     for (const BattleActionEvent& event : manager.getRecentActionEvents()) {
@@ -1119,10 +1145,17 @@ public:
             }
 
             if (!context.isBoss) {
+                const std::string casterVoiceKey = getPresentationCasterVoiceKey(context, manager);
+                if (context.presentationId == "drum_attack" && casterVoiceKey == "cupcakke") {
+                    playCombatVoiceClip(casterVoiceKey, "ability", 1.0f, cueCount);
+                }
+
                 if (context.presentationId == "drum_attack") {
                     core_.setHint("Press SPACE as much as possible to increase damage dealt");
                 } else if (context.presentationId == "musical_notes") {
                     core_.setHint(MikuRhythmGame::hintText());
+                } else if (context.presentationId == "heal_hearts") {
+                    core_.setHint("Smash your keyboard for stronger heals! Pressing the same keys will not work.");
                 }
                 return;
             }
@@ -1132,30 +1165,29 @@ public:
                 return;
             }
 
-            if (const auto abilityVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "ability");
-                abilityVoice.has_value()) {
-                for (int cueIndex = 0; cueIndex < cueCount; ++cueIndex) {
-                    (void)gOneShotAudio.playWavOneShot(*abilityVoice, 1.0f);
-                }
-            }
+            playCombatVoiceClip(battleState.boss.key, "ability", 1.0f, cueCount);
 
             core_.setHint("Press SPACE upon being hit to reduce damage taken");
         };
         hooks.onPresentationEnd = [this](const PresentationContext& context, const std::string& resultText) {
             if (!resultText.empty() && (context.isBoss
                     || context.presentationId == "drum_attack"
-                    || context.presentationId == "musical_notes")) {
+                    || context.presentationId == "musical_notes"
+                    || context.presentationId == "heal_hearts")) {
                 core_.setHint(resultText, 2200);
                 return;
             }
 
-            if (context.isBoss || context.presentationId == "drum_attack" || context.presentationId == "musical_notes") {
+            if (context.isBoss
+                    || context.presentationId == "drum_attack"
+                    || context.presentationId == "musical_notes"
+                    || context.presentationId == "heal_hearts") {
                 core_.clearHint();
             }
         };
-        hooks.onPresentationHitAudio = [](bool isBossCaster, int hitEvents, BattleManager& manager) {
+        hooks.onPresentationHitAudio = [](const PresentationContext& context, int hitEvents, BattleManager& manager) {
             const BattleState& battleState = manager.getBattleState();
-            if (isBossCaster) {
+            if (context.isBoss) {
                 for (int hit = 0; hit < hitEvents; ++hit) {
                     for (size_t i = 0; i < battleState.party.size(); ++i) {
                         if (manager.getCharacterCurrentHp(static_cast<int>(i)) <= 0) {
@@ -1167,6 +1199,12 @@ public:
                         }
                     }
                 }
+                return;
+            }
+
+            const std::string casterVoiceKey = getPresentationCasterVoiceKey(context, manager);
+            if (context.presentationId == "drum_attack" && casterVoiceKey == "cupcakke") {
+                playCombatVoiceClip(casterVoiceKey, "ability2", 1.0f, hitEvents);
                 return;
             }
 
@@ -1194,7 +1232,7 @@ public:
             gOneShotAudio.shutdown();
         };
 
-        const std::vector<std::string> partyKeys = {"miku", "cupcakke"};
+        const std::vector<std::string> partyKeys = {"miku", "cupcakke", "lyoo"};
         if (!core_.initialize(renderer, "lyooBoss", partyKeys, std::move(hooks))) {
             narrative_.shutdown();
             return false;
