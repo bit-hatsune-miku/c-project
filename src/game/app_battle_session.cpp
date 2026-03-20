@@ -1,5 +1,3 @@
-#define GL_GLEXT_PROTOTYPES
-
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -14,7 +12,6 @@
 #include <vector>
 
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_opengl.h>
 
 #include <RmlUi/Core/Context.h>
 #include <RmlUi/Core/Core.h>
@@ -29,16 +26,16 @@
 #endif
 
 #include "RmlUi_Platform_SDL.h"
-#include "RmlUi_Renderer_GL3.h"
 #include "core/ability_system.h"
 #include "core/battle_manager.h"
 #include "core/easing.h"
 #include "presentation/ability_presentation.h"
 #include "render/battle_scene_renderer.h"
 #include "render/camera_3d.h"
-#include "render/gl_screen_blitter.h"
+#include "render/sdl_surface_blitter.h"
 #include "ui/battle_session_document_updates.h"
 #include "ui/battle_session_overlay_bindings.h"
+#include "ui/rmlui_sdl_render_interface.h"
 #include "ui/battle_session_ui_state.h"
 #include "vn/vn_script.h"
 #include "audio/wav_one_shot.h"
@@ -111,7 +108,7 @@ using battle::app::ui::TutorialScriptLibrary;
 using battle::app::ui::TutorialStep;
 using battle::app::ui::getActiveCharacterPartyIndex;
 using battle::app::ui::getRhythmProgress;
-using battle::render::GlScreenBlitter;
+using battle::render::SdlSurfaceBlitter;
 using battle::render::SoftwareSceneRenderer;
 using battle::render::WorldEntity;
 
@@ -393,63 +390,6 @@ void updateActionIntroCamera(battle::Camera3D& camera, CameraIntroAnimation& ani
     }
 }
 
-class RenderInterfaceGL3SDL final : public RenderInterface_GL3 {
-public:
-    Rml::TextureHandle LoadTexture(Rml::Vector2i& textureDimensions, const Rml::String& source) override {
-#ifdef BATTLE_ENABLE_IMAGE
-        Rml::FileInterface* fileInterface = Rml::GetFileInterface();
-        Rml::FileHandle fileHandle = fileInterface->Open(source);
-        if (!fileHandle) {
-            return {};
-        }
-
-        fileInterface->Seek(fileHandle, 0, SEEK_END);
-        const size_t bufferSize = fileInterface->Tell(fileHandle);
-        fileInterface->Seek(fileHandle, 0, SEEK_SET);
-
-        using Rml::byte;
-        Rml::UniquePtr<byte[]> buffer(new byte[bufferSize]);
-        fileInterface->Read(buffer.get(), bufferSize, fileHandle);
-        fileInterface->Close(fileHandle);
-
-        const size_t extIndex = source.rfind('.');
-        const Rml::String extension = (extIndex == Rml::String::npos ? Rml::String() : source.substr(extIndex + 1));
-
-        SDL_Surface* surface = IMG_LoadTyped_RW(SDL_RWFromMem(buffer.get(), static_cast<int>(bufferSize)), 1, extension.c_str());
-        if (surface == nullptr) {
-            Rml::Log::Message(Rml::Log::LT_ERROR, "Could not load texture: %s", source.c_str());
-            return {};
-        }
-
-        if (surface->format->format != SDL_PIXELFORMAT_RGBA32) {
-            SDL_Surface* convertedSurface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_RGBA32, 0);
-            SDL_FreeSurface(surface);
-            if (convertedSurface == nullptr) {
-                return {};
-            }
-            surface = convertedSurface;
-        }
-
-        textureDimensions = {surface->w, surface->h};
-
-        byte* pixels = static_cast<byte*>(surface->pixels);
-        const size_t pixelBytes = static_cast<size_t>(surface->w) * static_cast<size_t>(surface->h) * 4;
-        for (size_t i = 0; i < pixelBytes; i += 4) {
-            const byte alpha = pixels[i + 3];
-            pixels[i + 0] = byte((int(pixels[i + 0]) * int(alpha)) / 255);
-            pixels[i + 1] = byte((int(pixels[i + 1]) * int(alpha)) / 255);
-            pixels[i + 2] = byte((int(pixels[i + 2]) * int(alpha)) / 255);
-        }
-
-        const Rml::TextureHandle textureHandle = GenerateTexture({pixels, pixelBytes}, textureDimensions);
-        SDL_FreeSurface(surface);
-        return textureHandle;
-#else
-        return RenderInterface_GL3::LoadTexture(textureDimensions, source);
-#endif
-    }
-};
-
 } // namespace
 
 namespace battle::app {
@@ -462,9 +402,9 @@ public:
         windowHost_ = &hostWindow;
         settings_ = &settings;
         window_ = hostWindow.getNativeWindow();
-        glContext_ = hostWindow.getGlContext();
-        if (window_ == nullptr || glContext_ == nullptr) {
-            std::cerr << "[Battle] Window is not in OpenGL mode.\n";
+        renderer_ = hostWindow.getRenderer();
+        if (window_ == nullptr || renderer_ == nullptr) {
+            std::cerr << "[Battle] Window renderer is unavailable.\n";
             return false;
         }
 
@@ -475,8 +415,6 @@ public:
 
         SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
         SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
-        SDL_GL_MakeCurrent(window_, glContext_);
-        SDL_GL_SetSwapInterval(1);
         SDL_StopTextInput();
 
 #ifdef BATTLE_ENABLE_IMAGE
@@ -488,27 +426,9 @@ public:
         }
 #endif
 
-        Rml::String glInitMessage;
-        if (!RmlGL3::Initialize(&glInitMessage)) {
-            std::cerr << "RmlGL3 initialization failed: " << glInitMessage << "\n";
-            shutdown();
-            return false;
-        }
-        rmlGlInitialized_ = true;
-
-        if (!screenBlitter_.initialize()) {
-            std::cerr << "Failed to initialize screen blitter\n";
-            shutdown();
-            return false;
-        }
-
         systemInterface_.SetWindow(window_);
-        renderInterface_ = std::make_unique<RenderInterfaceGL3SDL>();
-        if (!(*renderInterface_)) {
-            std::cerr << "RmlUi GL3 render interface construction failed\n";
-            shutdown();
-            return false;
-        }
+        screenBlitter_.setRenderer(renderer_);
+        renderInterface_ = std::make_unique<battle::app::ui::RmlUiSdlRenderInterface>(renderer_);
 
         Rml::SetSystemInterface(&systemInterface_);
         Rml::SetRenderInterface(renderInterface_.get());
@@ -524,11 +444,7 @@ public:
             Rml::LoadFontFace(fontPath);
         }
 
-<<<<<<< Updated upstream
         if (!manager_.initialize("lyooBoss", {"iroha", "kaguya", "miku", "cupcakke"})) {
-=======
-        if (!manager_.initialize("lyoo", {"miku", "cupcakke", "lyoo"})) {
->>>>>>> Stashed changes
             std::cerr << "[Battle] Initialization failed.\n";
             shutdown();
             return false;
@@ -579,7 +495,6 @@ public:
             battle::render::colorFromKey(state.boss.key, true)
         });
 
-        renderInterface_->SetViewport(windowWidth_, windowHeight_);
         context_ = Rml::CreateContext("battle-app", Rml::Vector2i(windowWidth_, windowHeight_));
         if (context_ == nullptr) {
             std::cerr << "Failed to create RmlUi context\n";
@@ -700,10 +615,6 @@ public:
             Rml::Shutdown();
             rmlInitialized_ = false;
         }
-        if (rmlGlInitialized_) {
-            RmlGL3::Shutdown();
-            rmlGlInitialized_ = false;
-        }
         uiListeners_.clear();
         renderInterface_.reset();
         screenBlitter_.destroy();
@@ -717,8 +628,8 @@ public:
         }
 #endif
         context_ = nullptr;
+        renderer_ = nullptr;
         window_ = nullptr;
-        glContext_ = nullptr;
         windowHost_ = nullptr;
         finished_ = false;
         paused_ = false;
@@ -746,7 +657,6 @@ public:
         if (isWindowResizeEvent(event)) {
             windowWidth_ = windowHost_->getWidth();
             windowHeight_ = windowHost_->getHeight();
-            renderInterface_->SetViewport(windowWidth_, windowHeight_);
             context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
             camera_.screenCenterX = windowWidth_ * 0.5f;
             camera_.screenCenterY = windowHeight_ * 0.5f;
@@ -955,17 +865,15 @@ public:
             }
         }
         battle::render::renderBattleScene(sceneRenderer_, camera_, entities_, focusedIndex, frameAccumulator_);
-        screenBlitter_.uploadSurface(sceneRenderer_.surface);
+        SDL_SetRenderDrawColor(renderer_, 9, 11, 18, 255);
+        SDL_RenderClear(renderer_);
+        if (screenBlitter_.uploadSurface(sceneRenderer_.surface)) {
+            screenBlitter_.draw();
+        }
 
-        glViewport(0, 0, windowWidth_, windowHeight_);
-        glClearColor(0.035f, 0.043f, 0.07f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-        screenBlitter_.draw();
-
-        renderInterface_->BeginFrame();
+        renderInterface_->PrepareRender();
         context_->Update();
         context_->Render();
-        renderInterface_->EndFrame();
     }
 
     bool isFinished() const {
@@ -1026,7 +934,6 @@ private:
                     windowHost_->handleEvent(event);
                     windowWidth_ = windowHost_->getWidth();
                     windowHeight_ = windowHost_->getHeight();
-                    renderInterface_->SetViewport(windowWidth_, windowHeight_);
                     context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
                     camera_.screenCenterX = windowWidth_ * 0.5f;
                     camera_.screenCenterY = windowHeight_ * 0.5f;
@@ -1205,9 +1112,6 @@ private:
         }
         windowWidth_ = windowHost_->getWidth();
         windowHeight_ = windowHost_->getHeight();
-        if (renderInterface_ != nullptr) {
-            renderInterface_->SetViewport(windowWidth_, windowHeight_);
-        }
         if (context_ != nullptr) {
             context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
         }
@@ -1338,12 +1242,11 @@ private:
 
     Window* windowHost_ = nullptr;
     SDL_Window* window_ = nullptr;
-    SDL_GLContext glContext_ = nullptr;
+    SDL_Renderer* renderer_ = nullptr;
     bool initialized_ = false;
     bool finished_ = false;
     bool paused_ = false;
     bool rmlInitialized_ = false;
-    bool rmlGlInitialized_ = false;
     bool imageInitialized_ = false;
     int windowWidth_ = kWindowWidth;
     int windowHeight_ = kWindowHeight;
@@ -1360,9 +1263,9 @@ private:
     std::vector<std::string> worldAssets_;
     std::vector<WorldEntity> entities_;
     SoftwareSceneRenderer sceneRenderer_;
-    GlScreenBlitter screenBlitter_;
+    SdlSurfaceBlitter screenBlitter_;
     SystemInterface_SDL systemInterface_;
-    std::unique_ptr<RenderInterfaceGL3SDL> renderInterface_;
+    std::unique_ptr<battle::app::ui::RmlUiSdlRenderInterface> renderInterface_;
     Rml::Context* context_ = nullptr;
     Rml::ElementDocument* document_ = nullptr;
     battle::Camera3D camera_;

@@ -7,7 +7,7 @@
 
 class Window {
 public:
-    Window(const std::string& title, int width, int height);
+    Window(const std::string& title, int width, int height, Uint32 extraWindowFlags = 0);
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
     ~Window();

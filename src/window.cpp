@@ -2,7 +2,7 @@
 #include <SDL2/SDL_opengl.h>
 #include <iostream>
 
-Window::Window(const std::string& title, int windowWidth, int windowHeight)
+Window::Window(const std::string& title, int windowWidth, int windowHeight, Uint32 extraWindowFlags)
     : width(windowWidth), height(windowHeight), windowedWidth(windowWidth), windowedHeight(windowHeight), open(true) {
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -11,18 +11,20 @@ Window::Window(const std::string& title, int windowWidth, int windowHeight)
         return;
     }
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    if ((extraWindowFlags & SDL_WINDOW_OPENGL) != 0) {
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    }
 
     window = SDL_CreateWindow(
         title.c_str(),
         SDL_WINDOWPOS_CENTERED,
         SDL_WINDOWPOS_CENTERED,
         windowWidth, windowHeight,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL
+        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | extraWindowFlags
     );
 
     if (!window) {
@@ -111,6 +113,11 @@ void Window::clear(Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
 
 bool Window::enableOpenGL() {
     if (window == nullptr) {
+        return false;
+    }
+
+    if ((SDL_GetWindowFlags(window) & SDL_WINDOW_OPENGL) == 0) {
+        std::cerr << "OpenGL was requested on a window without SDL_WINDOW_OPENGL." << std::endl;
         return false;
     }
 

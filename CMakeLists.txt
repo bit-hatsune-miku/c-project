@@ -138,7 +138,6 @@ add_executable(demo
 )
 
 if (ENABLE_RMLUI)
-    find_package(OpenGL REQUIRED)
     set(RMLUI_SAMPLES OFF CACHE BOOL "" FORCE)
     set(RMLUI_TESTS OFF CACHE BOOL "" FORCE)
     set(RMLUI_LUA_BINDINGS OFF CACHE BOOL "" FORCE)
@@ -156,16 +155,16 @@ if (ENABLE_RMLUI)
         src/window.cpp
         src/window.h
         src/game/vn/vn_script.cpp
+        src/game/ui/rmlui_sdl_render_interface.cpp
         ${RMLUI_APP_BATTLE_SOURCES}
         ${BATTLE_CORE_SOURCES}
         ${BATTLE_PRESENTATION_SOURCES}
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
-        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
     )
     target_sources(OurUndergroundBITIdol PRIVATE
         ${RMLUI_APP_BATTLE_SOURCES}
+        src/game/ui/rmlui_sdl_render_interface.cpp
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
-        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
     )
     target_include_directories(battle_testing PRIVATE
         ${SDL2_INCLUDE_DIRS}
@@ -174,7 +173,6 @@ if (ENABLE_RMLUI)
     target_compile_definitions(battle_testing PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
     target_link_libraries(battle_testing PRIVATE
         ${SDL2_LIBRARIES}
-        OpenGL::GL
         nlohmann_json::nlohmann_json
         RmlUi::RmlUi
     )
@@ -250,7 +248,7 @@ target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_LIBRARIES} nlohmann_j
 target_link_libraries(demo PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 if (ENABLE_RMLUI)
     target_compile_definitions(OurUndergroundBITIdol PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
-    target_link_libraries(OurUndergroundBITIdol PRIVATE OpenGL::GL RmlUi::RmlUi)
+    target_link_libraries(OurUndergroundBITIdol PRIVATE RmlUi::RmlUi)
 endif()
 if (NOT ENABLE_RMLUI)
     target_link_libraries(battle_testing PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)

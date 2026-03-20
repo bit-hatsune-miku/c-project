@@ -16,10 +16,6 @@ int main(int argc, char** argv) {
     }
 
     window.setEscapeToQuitEnabled(false);
-    if (!window.enableOpenGL()) {
-        std::cerr << "Failed to enable OpenGL backend\n";
-        return 1;
-    }
 
     GameSettings settings;
     battle::app::Session session;
