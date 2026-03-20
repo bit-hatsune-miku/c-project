@@ -2,6 +2,7 @@
 #define DEMO_BATTLE_SESSION_H
 
 #include <memory>
+#include <string>
 
 #include <SDL2/SDL.h>
 
@@ -17,7 +18,7 @@ public:
     Session(const Session&) = delete;
     Session& operator=(const Session&) = delete;
 
-    bool initialize(SDL_Renderer* renderer);
+    bool initialize(SDL_Renderer* renderer, const std::string& battleKey = "tutorial_vs_lyoo");
     void shutdown();
     void handleEvent(const SDL_Event& event);
     void update(float deltaSeconds);

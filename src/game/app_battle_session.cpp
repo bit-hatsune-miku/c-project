@@ -8,6 +8,7 @@
 #include <functional>
 #include <iostream>
 #include <map>
+#include <unordered_map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -64,6 +65,7 @@ constexpr float kActionIntroOffsetY = -110.0f;
 constexpr float kActionIntroOffsetZ = 28.0f;
 constexpr float kActionIntroDurationSeconds = 0.22f;
 constexpr float kNarrationCharsPerSecond = 42.0f;
+constexpr Uint64 kIdleDelayMs = 5000;
 constexpr float kMinSettingsTextSpeed = 18.0f;
 constexpr float kMaxSettingsTextSpeed = 90.0f;
 
@@ -688,6 +690,7 @@ public:
 
     void shutdown() {
         initialized_ = false;
+        resetIdleVoicelineState();
         battle::ability::setPresentationInteractionRunner(nullptr);
         freeViewCameraDebugLog_.clear();
         if (document_ != nullptr) {
@@ -776,6 +779,9 @@ public:
 
         if (event.type == SDL_KEYDOWN) {
             const Uint64 nowMs = SDL_GetTicks64();
+            if (event.key.keysym.sym == SDLK_SPACE) {
+                handleSpaceKeyIdle(nowMs);
+            }
             if (event.key.keysym.sym == SDLK_f) {
                 freeViewEnabled_ = !freeViewEnabled_;
                 if (!freeViewEnabled_) {
@@ -878,11 +884,13 @@ public:
         int previewActorIndex = manager_.getPreviewNextActorIndex();
         std::string turnToken = "none";
         bool nextIsCharacter = false;
+        const battle::TurnActor* previewActor = nullptr;
         const battle::BattleState& state = manager_.getBattleState();
         if (previewActorIndex >= 0) {
             const battle::TurnState& turnState = manager_.getTurnState();
             if (previewActorIndex < static_cast<int>(turnState.actors.size())) {
                 const battle::TurnActor& actor = turnState.actors[static_cast<size_t>(previewActorIndex)];
+                previewActor = &actor;
                 turnToken = (actor.type == battle::ParticipantType::Boss ? "B:" : "C:") +
                             actor.key + ":" + std::to_string(actor.partyIndex) + ":" +
                             (actor.isExtraTurn ? "E" : "N");
@@ -902,6 +910,7 @@ public:
                 startActionIntroCamera(camera_, cameraIntro_);
             }
             lastTurnToken_ = turnToken;
+            onActiveActorChanged(previewActor, state, nowMs);
         }
 
         const Uint8* keys = SDL_GetKeyboardState(nullptr);
@@ -933,6 +942,8 @@ public:
         }
 
         freeViewCameraDebugLog_.update(freeViewEnabled_ && !cameraIntro_.active, camera_);
+
+        maybeHandleIdleVoiceline(nowMs);
 
         battle::app::ui::updateBattleHudDocument(document_, manager_, hudFeedback_, tutorialOverlay_,
                                                  rhythmChallenge_, paused_, pauseOverlayMode_, pauseSelection_,
@@ -1337,6 +1348,93 @@ private:
         consumeBattleActionEvents(hudFeedback_, manager_, settings_ != nullptr ? settings_->voiceVolume : 1.0f, nowMs);
     }
 
+    void onActiveActorChanged(const battle::TurnActor* actor, const battle::BattleState& state, Uint64 nowMs) {
+        if (actor == nullptr || actor->type != battle::ParticipantType::Character ||
+            actor->partyIndex < 0 || actor->partyIndex >= static_cast<int>(state.party.size())) {
+            resetIdleVoicelineState();
+            return;
+        }
+
+        const battle::CharacterDefinition& character = state.party[static_cast<size_t>(actor->partyIndex)];
+        scheduleIdleVoiceline(character.assets, actor->partyIndex, nowMs);
+    }
+
+    void scheduleIdleVoiceline(const std::string& assetName, int partyIndex, Uint64 nowMs) {
+        stopIdleVoicelinePlayback();
+        idleActorPartyIndex_ = partyIndex;
+        idleVoiceClipPath_ = findIdleVoicePath(assetName);
+        idlePlayingPath_.clear();
+        idleNextPlayMs_ = idleVoiceClipPath_.has_value() ? nowMs + kIdleDelayMs : 0;
+    }
+
+    void resetIdleVoicelineState() {
+        stopIdleVoicelinePlayback();
+        idleActorPartyIndex_.reset();
+        idleVoiceClipPath_.reset();
+        idleNextPlayMs_ = 0;
+    }
+
+    void stopIdleVoicelinePlayback() {
+        if (!idlePlayingPath_.empty()) {
+            gOneShotAudio.stopPlayback(idlePlayingPath_);
+            idlePlayingPath_.clear();
+        }
+    }
+
+    void handleSpaceKeyIdle(Uint64 nowMs) {
+        if (!idleActorPartyIndex_.has_value()) {
+            return;
+        }
+        stopIdleVoicelinePlayback();
+        if (idleVoiceClipPath_.has_value()) {
+            idleNextPlayMs_ = nowMs + kIdleDelayMs;
+        } else {
+            idleNextPlayMs_ = 0;
+        }
+    }
+
+    void maybeHandleIdleVoiceline(Uint64 nowMs) {
+        if (!idleActorPartyIndex_.has_value() || !idleVoiceClipPath_.has_value()) {
+            return;
+        }
+
+        const std::optional<int> activeIndex = getActiveCharacterPartyIndex(manager_);
+        if (!activeIndex.has_value() || activeIndex != idleActorPartyIndex_) {
+            resetIdleVoicelineState();
+            return;
+        }
+
+        if (!idlePlayingPath_.empty()) {
+            if (!gOneShotAudio.isPlaying(idlePlayingPath_)) {
+                idlePlayingPath_.clear();
+                idleNextPlayMs_ = nowMs + kIdleDelayMs;
+            }
+            return;
+        }
+
+        if (idleNextPlayMs_ == 0 || nowMs < idleNextPlayMs_) {
+            return;
+        }
+
+        const float voiceVolume = settings_ != nullptr ? settings_->voiceVolume : 1.0f;
+        if (gOneShotAudio.playWavOneShot(*idleVoiceClipPath_, voiceVolume)) {
+            idlePlayingPath_ = *idleVoiceClipPath_;
+            idleNextPlayMs_ = 0;
+        } else {
+            idleNextPlayMs_ = nowMs + kIdleDelayMs;
+        }
+    }
+
+    std::optional<std::string> findIdleVoicePath(const std::string& assetName) {
+        const auto it = idleVoicePathCache_.find(assetName);
+        if (it != idleVoicePathCache_.end()) {
+            return it->second;
+        }
+        const std::optional<std::string> resolved = platform::path::resolveCombatVoicePath(assetName, "idle");
+        idleVoicePathCache_.emplace(assetName, resolved);
+        return resolved;
+    }
+
     Window* windowHost_ = nullptr;
     SDL_Window* window_ = nullptr;
     SDL_GLContext glContext_ = nullptr;
@@ -1375,6 +1473,11 @@ private:
     int presentationCasterPartyIndex_ = -1;
     float cameraOscillationTime_ = 0.0f;
     float frameAccumulator_ = 0.0f;
+    std::optional<int> idleActorPartyIndex_;
+    std::optional<std::string> idleVoiceClipPath_;
+    std::string idlePlayingPath_;
+    Uint64 idleNextPlayMs_ = 0;
+    std::unordered_map<std::string, std::optional<std::string>> idleVoicePathCache_;
     std::string lastTurnToken_;
 };
 

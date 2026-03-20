@@ -86,6 +86,9 @@ void CupcakkeUltimatePresentation::start() {
     ability2Accumulator_ = 0.0f;
     rectangles_.clear();
     pendingAbilityAudioCues_ = 1;
+    pendingHitEvents_ = 0;
+    damageLabelHitCount_ = 0;
+    totalRectanglesSpawned_ = 0;
 }
 
 void CupcakkeUltimatePresentation::update(float deltaTime) {
@@ -195,7 +198,7 @@ int CupcakkeUltimatePresentation::consumeAbilityAudioCues() {
 int CupcakkeUltimatePresentation::consumeHitEvents() {
     const int hits = pendingHitEvents_;
     pendingHitEvents_ = 0;
-    damageLabelHitCount_ = 0;
+    damageLabelHitCount_ = std::max(1, totalRectanglesSpawned_);
     return hits;
 }
 
@@ -229,6 +232,7 @@ void CupcakkeUltimatePresentation::spawnRectangles(int count) {
         rect.active = true;
         rect.hitRegistered = false;
         rectangles_.push_back(rect);
+        ++totalRectanglesSpawned_;
     }
 }
 

@@ -39,6 +39,8 @@ struct PlaybackCallbacks {
     std::function<void(std::function<void(SDL_Renderer*, int, int)>)> setRenderOverlay;
     // Clear the render overlay set above.
     std::function<void()> clearRenderOverlay;
+    // Called immediately before the splash art overlay starts rendering.
+    std::function<void()> onSplashArtStart;
 };
 
 PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,

@@ -40,6 +40,15 @@ struct CharacterDefinition {
     int startingOrbs = 1;
 };
 
+struct BattleDefinition {
+    std::string key;
+    int id = -1;
+    std::string name;
+    std::string bossKey;
+    bool isLineupFixed = true;
+    std::vector<std::string> lineup;
+};
+
 struct BattleState {
     BossDefinition boss;
     std::vector<CharacterDefinition> party;

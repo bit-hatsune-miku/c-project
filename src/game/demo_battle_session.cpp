@@ -338,7 +338,7 @@ public:
         battle::registerAllPresentations();
 
         battle::ability::setPresentationInteractionRunner([this](const PresentationContext& context) {
-            return runPresentationInteraction(context);
+            return runPresentationInteraction(context, manager);
         });
 
         std::vector<std::string> partyKeys = {"miku", "cupcakke"};
@@ -1003,6 +1003,7 @@ bool Session::isFinished() const {
 #include "audio/bgm_player.h"
 #include "audio/wav_one_shot.h"
 #include "battle_session_core.h"
+#include "core/battle_loader.h"
 #include "demo/demo_narrative_flow.h"
 #include "presentation/ability_presentation.h"
 #include "presentation/miku_rhythm_game.h"
@@ -1029,17 +1030,22 @@ std::string getPresentationCasterVoiceKey(const PresentationContext& context, co
     return battleState.party[static_cast<size_t>(context.casterIndex)].assets;
 }
 
-void playCombatVoiceClip(const std::string& assetName, const std::string& clipName, float volume, int repeatCount = 1) {
+bool playCombatVoiceClip(const std::string& assetName, const std::string& clipName, float volume, int repeatCount = 1) {
     if (assetName.empty() || clipName.empty() || repeatCount <= 0) {
-        return;
+        return false;
     }
 
     if (const auto clipPath = platform::path::resolveCombatVoicePath(assetName, clipName);
         clipPath.has_value()) {
+        bool played = false;
         for (int index = 0; index < repeatCount; ++index) {
-            (void)gOneShotAudio.playWavOneShot(*clipPath, volume);
+            if (gOneShotAudio.playWavOneShot(*clipPath, volume)) {
+                played = true;
+            }
         }
+        return played;
     }
+    return false;
 }
 
 void consumeBattleActionEvents(BattleManager& manager, float voiceVolume) {
@@ -1093,11 +1099,22 @@ void consumeBattleActionEvents(BattleManager& manager, float voiceVolume) {
 
 class SessionImpl {
 public:
-    bool initialize(SDL_Renderer* renderer) {
+    bool initialize(SDL_Renderer* renderer, const std::string& battleKey) {
         shutdown();
 
         registerAllPresentations();
         narrativeInitialized_ = false;
+
+        // BattleDefinition battleDefinition;
+        // if (!loader::loadBattleDefinition(battleKey, battleDefinition)) {
+        //     return false;
+        // }
+        // if (!battleDefinition.isLineupFixed) {
+        //     return false;
+        // }
+        // if (battleDefinition.lineup.empty()) {
+        //     return false;
+        // }
 
         BattleSessionCore::Hooks hooks;
         hooks.isDialogueInProgress = [this]() {
@@ -1139,47 +1156,30 @@ public:
             narrative_.handleAutomaticProgression(manager);
             consumeBattleActionEvents(manager, 1.0f);
         };
-        hooks.onPresentationAbilityAudio = [this](const PresentationContext& context, int cueCount, BattleManager& manager) {
-            if (cueCount <= 0) {
-                return;
-            }
-
-            if (!context.isBoss) {
-                const std::string casterVoiceKey = getPresentationCasterVoiceKey(context, manager);
-                if (context.presentationId == "niagara_falls_ultimate" && casterVoiceKey == "cupcakke") {
-                    if (!cupcakkeUltimateVoicePlayed_) {
-                        playCombatVoiceClip(casterVoiceKey, "ultimate", 1.0f, 1);
-                        cupcakkeUltimateVoicePlayed_ = true;
-                        if (cueCount > 1) {
-                            playCombatVoiceClip(casterVoiceKey, "ability2", 1.0f, cueCount - 1);
-                        }
-                    } else {
-                        playCombatVoiceClip(casterVoiceKey, "ability2", 1.0f, cueCount);
-                    }
+        hooks.onPresentationSplashVoice = [this](const PresentationContext& context, const std::string& casterAssets) {
+            if (context.isBoss) {
+                const BattleState& battleState = core_.getBattleManager().getBattleState();
+                if (playCombatVoiceClip(battleState.boss.key, "ready", 1.0f)) {
                     return;
                 }
-                if (context.presentationId == "drum_attack" && casterVoiceKey == "cupcakke") {
-                    playCombatVoiceClip(casterVoiceKey, "ability", 1.0f, cueCount);
-                }
-
-                if (context.presentationId == "drum_attack") {
-                    core_.setHint("Press SPACE as much as possible to increase damage dealt");
-                } else if (context.presentationId == "musical_notes") {
-                    core_.setHint(MikuRhythmGame::hintText());
-                } else if (context.presentationId == "heal_hearts") {
-                    core_.setHint("Smash your keyboard for stronger heals! Pressing the same keys will not work.");
+                if (!battleState.boss.assets.empty()) {
+                    playCombatVoiceClip(battleState.boss.assets, "ready", 1.0f);
                 }
                 return;
             }
-
+            playCombatVoiceClip(casterAssets, "ready", 1.0f);
+        };
+        hooks.onPresentationHealAudio = [](const PresentationContext& context, int hitEvents, BattleManager& manager) {
+            if (context.isBoss || hitEvents <= 0) {
+                return;
+            }
             const BattleState& battleState = manager.getBattleState();
-            if (battleState.boss.key != "lyooBoss") {
-                return;
+            for (size_t i = 0; i < battleState.party.size(); ++i) {
+                if (manager.getCharacterCurrentHp(static_cast<int>(i)) <= 0) {
+                    continue;
+                }
+                playCombatVoiceClip(battleState.party[i].assets, "healed", 1.0f);
             }
-
-            playCombatVoiceClip(battleState.boss.key, "ability", 1.0f, cueCount);
-
-            core_.setHint("Press SPACE upon being hit to reduce damage taken");
         };
         hooks.onPresentationEnd = [this](const PresentationContext& context, const std::string& resultText) {
             if (context.presentationId == "niagara_falls_ultimate") {
@@ -1247,8 +1247,10 @@ public:
             gOneShotAudio.shutdown();
         };
 
-        const std::vector<std::string> partyKeys = {"miku", "cupcakke", "lyoo"};
-        if (!core_.initialize(renderer, "lyooBoss", partyKeys, std::move(hooks))) {
+        // Hardcoded bossKey and lineup (legacy style)
+        std::string bossKey = "lyooBoss";
+        std::vector<std::string> lineup = {"miku", "cupcakke", "lyoo"};
+        if (!core_.initialize(renderer, bossKey, lineup, std::move(hooks))) {
             narrative_.shutdown();
             return false;
         }
@@ -1327,8 +1329,8 @@ Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
 
 Session::~Session() = default;
 
-bool Session::initialize(SDL_Renderer* renderer) {
-    return impl_->initialize(renderer);
+bool Session::initialize(SDL_Renderer* renderer, const std::string& battleKey) {
+    return impl_->initialize(renderer, battleKey);
 }
 
 void Session::shutdown() {

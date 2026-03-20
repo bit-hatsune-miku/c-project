@@ -55,9 +55,17 @@ public:
         // Use for hit voice playback that should land exactly on hit timing.
         std::function<void(const PresentationContext&, int hitEvents, BattleManager&)> onPresentationHitAudio;
 
+        // Called immediately when a presentation applies heal events.
+        // Use for healing voice playback that should land as soon as the heal resolves.
+        std::function<void(const PresentationContext&, int hitEvents, BattleManager&)> onPresentationHealAudio;
+
         // Called when a presentation emits an explicit ability-audio cue.
         // Use for voice lines that should begin slightly after the animation starts.
         std::function<void(const PresentationContext&, int cueCount, BattleManager&)> onPresentationAbilityAudio;
+
+        // Called when a splash art intro is about to start rendering.
+        // Use for ready/announcement voice lines tied to the caster.
+        std::function<void(const PresentationContext&, const std::string& casterAssets)> onPresentationSplashVoice;
 
         // Called immediately after a presentation finishes playback.
         // Use for cleanup like clearing hint messages.
@@ -99,6 +107,8 @@ private:
     void computeCharacterPositions(bool bossActing, int actingPartyIndex);
     void updateCharacterVisibilityTransitions(float deltaSeconds);
     float runPresentationInteraction(const PresentationContext& context);
+
+    std::string resolvePresentationCasterAsset(const PresentationContext& context) const;
 
     bool initialized_ = false;
     bool finished_ = false;

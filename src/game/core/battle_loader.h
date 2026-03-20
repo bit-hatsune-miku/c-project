@@ -4,7 +4,7 @@
 #include <string>
 #include <unordered_map>
 
-#include <nlohmann/json_fwd.hpp>
+#include <nlohmann/json.hpp>
 
 #include "battle_manager.h"
 
@@ -15,6 +15,9 @@ std::string resolveAssetPath(const std::string& relativePath);
 
 bool loadBossDefinition(const std::string& bossKey, BossDefinition& outBoss);
 bool loadCharacterDefinition(const std::string& characterKey, CharacterDefinition& outCharacter);
+
+bool loadBattleDefinition(const std::string& battleKey, BattleDefinition& outBattle);
+bool loadBattleDefinitionById(int battleId, BattleDefinition& outBattle);
 
 bool loadAbilityDefinition(const std::string& abilityId, AbilityDefinition& outAbility);
 bool parseAbilityDefinition(const nlohmann::json& abilityJson,

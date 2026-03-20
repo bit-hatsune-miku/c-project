@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 
 #include <SDL2/SDL.h>
 
@@ -7,8 +8,10 @@
 #include "game/vn/vn_system.h"
 
 int main(int argc, char** argv) {
-    (void)argc;
-    (void)argv;
+    std::string battleKey = "test_ground";
+    if (argc > 1 && argv[1] != nullptr && argv[1][0] != '\0') {
+        battleKey = argv[1];
+    }
 
     Window window("Demo - Tutorial Battle (Space=dialogue/act, F=toggle freeview)", 1280, 720);
     if (!window.isOpen()) {
@@ -23,7 +26,7 @@ int main(int argc, char** argv) {
     }
 
     battle::demo::Session session;
-    if (!session.initialize(window.getRenderer())) {
+    if (!session.initialize(window.getRenderer(), battleKey)) {
         session.shutdown();
         vn::shutdown();
         return 1;

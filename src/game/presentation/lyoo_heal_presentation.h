@@ -70,6 +70,7 @@ private:
     void renderHearts(SDL_Renderer* renderer, int screenW, int screenH) const;
     void renderUiSprite(SDL_Renderer* renderer, int screenW, int screenH) const;
     Uint8 currentOverlayAlpha() const;
+    void triggerCameraShake();
 
     float casterX_ = 0.0f;
     float casterY_ = 0.0f;
@@ -98,6 +99,8 @@ private:
     std::vector<HeartParticle> hearts_;
     mutable Camera3D inputCamera_{};
     mutable Camera3D outroCamera_{};
+    float cameraShakeRemaining_ = 0.0f;
+    float cameraShakePhase_ = 0.0f;
     std::mt19937 rng_;
 };
 
