@@ -10,6 +10,8 @@
 
 namespace battle::loader {
 
+bool readJsonRoot(const std::string& path, nlohmann::json& outRoot, const char* label);
+
 bool readJsonFile(const std::string& path, std::string& outContents);
 std::string resolveAssetPath(const std::string& relativePath);
 

@@ -10,7 +10,88 @@
 using json = nlohmann::json;
 
 namespace battle::loader {
-namespace {
+
+std::string resolveAssetPath(const std::string& relativePath) {
+    // Simple passthrough; customize as needed for your platform
+    return relativePath;
+}
+
+bool readJsonFile(const std::string& path, std::string& outContents) {
+    std::ifstream file(path);
+    if (!file) return false;
+    outContents.assign((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+    return true;
+}
+// Implementation of readJsonRoot
+bool loadBattleDefinition(const std::string& battleKey, BattleDefinition& outBattle) {
+    json root;
+    if (!battle::loader::readJsonRoot(resolveAssetPath("assets/combat/battles.json"), root, "battles")) {
+        return false;
+    }
+    if (!root.contains("battles")) {
+        std::cerr << "[Battle] battles.json missing 'battles' object" << std::endl;
+        return false;
+    }
+    const auto& battlesObj = root["battles"];
+    if (!battlesObj.is_object()) {
+        std::cerr << "[Battle] 'battles' is not an object" << std::endl;
+        return false;
+    }
+    auto it = battlesObj.find(battleKey);
+    if (it == battlesObj.end()) {
+        std::cerr << "[Battle] Battle key not found: " << battleKey << std::endl;
+        return false;
+    }
+    const auto& battleJson = it.value();
+    outBattle.key = battleKey;
+    outBattle.id = battleJson.value("id", -1);
+    outBattle.name = battleJson.value("name", battleKey);
+    outBattle.bossKey = battleJson.value("bossKey", "");
+    outBattle.isLineupFixed = battleJson.value("isLineupFixed", true);
+    outBattle.lineup.clear();
+    if (battleJson.contains("lineup") && battleJson["lineup"].is_array()) {
+        for (const auto& c : battleJson["lineup"]) {
+            if (c.is_string()) outBattle.lineup.push_back(c.get<std::string>());
+        }
+    }
+    return true;
+}
+
+bool loadBattleDefinitionById(int battleId, BattleDefinition& outBattle) {
+    json root;
+    if (!battle::loader::readJsonRoot(resolveAssetPath("assets/combat/battles.json"), root, "battles")) {
+        return false;
+    }
+    if (!root.contains("battles")) {
+        std::cerr << "[Battle] battles.json missing 'battles' object" << std::endl;
+        return false;
+    }
+    const auto& battlesObj = root["battles"];
+    if (!battlesObj.is_object()) {
+        std::cerr << "[Battle] 'battles' is not an object" << std::endl;
+        return false;
+    }
+    for (auto it = battlesObj.begin(); it != battlesObj.end(); ++it) {
+        const auto& battleJson = it.value();
+        if (battleJson.value("id", -1) == battleId) {
+            outBattle.key = it.key();
+            outBattle.id = battleJson.value("id", -1);
+            outBattle.name = battleJson.value("name", it.key());
+            outBattle.bossKey = battleJson.value("bossKey", "");
+            outBattle.isLineupFixed = battleJson.value("isLineupFixed", true);
+            outBattle.lineup.clear();
+            if (battleJson.contains("lineup") && battleJson["lineup"].is_array()) {
+                for (const auto& c : battleJson["lineup"]) {
+                    if (c.is_string()) outBattle.lineup.push_back(c.get<std::string>());
+                }
+            }
+            return true;
+        }
+    }
+    std::cerr << "[Battle] Battle id not found: " << battleId << std::endl;
+    return false;
+}
+
 
 bool readJsonRoot(const std::string& path, json& outRoot, const char* label) {
     std::string contents;
@@ -156,35 +237,6 @@ bool parseCharacterDefinition(const json& characterJson, const std::string& key,
     return true;
 }
 
-} // namespace
-
-bool readJsonFile(const std::string& path, std::string& outContents) {
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        return false;
-    }
-
-    outContents.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-    return true;
-}
-
-std::string resolveAssetPath(const std::string& relativePath) {
-    const std::vector<std::string> candidates = {
-        relativePath,
-        "../" + relativePath,
-        "../../" + relativePath
-    };
-
-    for (const std::string& candidate : candidates) {
-        std::ifstream test(candidate);
-        if (test.good()) {
-            return candidate;
-        }
-    }
-
-    return relativePath;
-}
-
 bool loadBossDefinition(const std::string& bossKey, BossDefinition& outBoss) {
     json root;
     if (!readJsonRoot(resolveAssetPath("assets/combat/boss.json"), root, "boss")) {
@@ -317,3 +369,5 @@ bool loadAllAbilities(std::unordered_map<std::string, AbilityDefinition>& outAbi
 }
 
 } // namespace battle::loader
+
+
