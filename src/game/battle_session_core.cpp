@@ -544,6 +544,8 @@ void BattleSessionCore::updateCharacterVisibilityTransitions(float deltaSeconds)
 float BattleSessionCore::runPresentationInteraction(const PresentationContext& context) {
     if (!initialized_ || finished_ || renderer_ == nullptr) return 1.0f;
 
+    const std::string casterAssets = resolvePresentationCasterAsset(context);
+
     // Resolve the caster's and target's sprite textures for the splash animation.
     auto resolveTexture = [this](const render::SceneEntity& entity) -> SDL_Texture* {
         auto it = textureByAsset_.find(entity.assetName);
@@ -621,6 +623,9 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
                 abilityDef->reviveDeadAllies
             );
             feedback_.queuePresentationHealFeedback(context.isBoss, hitEvents, perHitHeal, manager_);
+            if (hooks_.onPresentationHealAudio) {
+                hooks_.onPresentationHealAudio(context, hitEvents, manager_);
+            }
             return;
         }
 
@@ -674,6 +679,11 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         if (activeOverlay_) activeOverlay_(renderer_, screenWidth, screenHeight);
         SDL_RenderPresent(renderer_);
     };
+    callbacks.onSplashArtStart = [this, casterAssets, &context]() {
+        if (hooks_.onPresentationSplashVoice) {
+            hooks_.onPresentationSplashVoice(context, casterAssets);
+        }
+    };
 
     const presentation_runtime::PlaybackResult result = presentation_runtime::runAbilityPresentation(
         renderer_,
@@ -692,6 +702,17 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
     discardNextUpdateDelta_ = true;
 
     return result.multiplier;
+}
+
+std::string BattleSessionCore::resolvePresentationCasterAsset(const PresentationContext& context) const {
+    const BattleState& battleState = manager_.getBattleState();
+    if (context.isBoss) {
+        return battleState.boss.assets;
+    }
+    if (context.casterIndex >= 0 && static_cast<size_t>(context.casterIndex) < battleState.party.size()) {
+        return battleState.party[static_cast<size_t>(context.casterIndex)].assets;
+    }
+    return std::string();
 }
 
 void BattleSessionCore::setHint(const std::string& text, Uint32 displayMs) { hud_.setHint(text, displayMs); }

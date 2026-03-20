@@ -70,6 +70,9 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
         } else {
             splashCfg->abilityName = context.presentationId;
         }
+        if (callbacks.onSplashArtStart) {
+            callbacks.onSplashArtStart();
+        }
         SplashArtAnimation splash(*splashCfg);
         splash.start();
         callbacks.setRenderOverlay([&splash](SDL_Renderer* r, int w, int h) {

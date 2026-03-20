@@ -21,6 +21,13 @@ constexpr float kHealApplyTimeSeconds = 0.32f;
 constexpr float kPressFrameHoldSeconds = 0.09f;
 constexpr float kHealBonusPerValidKey = 0.015f;
 constexpr float kMaxHealMultiplier = 1.40f;
+constexpr float kKeyPressCameraShakeDurationSeconds = 0.35f;
+constexpr float kKeyPressCameraShakeFrequency = 42.0f;
+constexpr float kKeyPressCameraShakePositionMagnitude = 18.0f;
+constexpr float kKeyPressCameraShakeDepthMagnitude = 6.0f;
+constexpr float kKeyPressCameraShakePitchMagnitude = 0.30f;
+constexpr float kKeyPressCameraShakeFocalMagnitude = 520.0f;
+constexpr float kCameraShakeTwoPi = 6.283185307179586f;
 
 float lerpF(float a, float b, float t) {
     return a + (b - a) * t;
@@ -74,6 +81,8 @@ void LyooHealPresentation::start() {
     healEventTriggered_ = false;
     recentKeys_.clear();
     hearts_.clear();
+    cameraShakeRemaining_ = 0.0f;
+    cameraShakePhase_ = 0.0f;
     inputWindow_.startTime = 0.0f;
     inputWindow_.endTime = (variant_ == Variant::Skill) ? kInputDurationSeconds : 0.0f;
     inputWindow_.active = variant_ == Variant::Skill;
@@ -98,6 +107,10 @@ void LyooHealPresentation::start() {
 void LyooHealPresentation::update(float deltaTime) {
     elapsedTime_ += deltaTime;
     ambientTime_ += deltaTime;
+
+    if (cameraShakeRemaining_ > 0.0f) {
+        cameraShakeRemaining_ = std::max(0.0f, cameraShakeRemaining_ - deltaTime);
+    }
 
     if (pressFrameHoldRemaining_ > 0.0f) {
         pressFrameHoldRemaining_ = std::max(0.0f, pressFrameHoldRemaining_ - deltaTime);
@@ -160,6 +173,8 @@ void LyooHealPresentation::onKeyPressed(SDL_Keycode key) {
         recentKeys_.pop_front();
     }
 
+    triggerCameraShake();
+
     if (isRecent) {
         return;
     }
@@ -170,6 +185,7 @@ void LyooHealPresentation::onKeyPressed(SDL_Keycode key) {
     pressFrameHoldRemaining_ = kPressFrameHoldSeconds;
 
     spawnHeartsForValidPress();
+
 }
 
 float LyooHealPresentation::getInputMultiplier() const {
@@ -218,6 +234,20 @@ void LyooHealPresentation::applyCameraState(Camera3D& camera) const {
         camera.posZ += std::sin(ambientTime_ * 0.85f) * 3.0f;
         camera.pitchDegrees += std::sin(ambientTime_ * 0.70f) * 0.18f;
         camera.focalLength += std::sin(ambientTime_ * 0.65f) * 280.0f;
+        if (cameraShakeRemaining_ > 0.0f) {
+            const float duration = std::max(0.001f, kKeyPressCameraShakeDurationSeconds);
+            const float fade = std::clamp(cameraShakeRemaining_ / duration, 0.0f, 1.0f);
+            const float shakeTime = ambientTime_ * kKeyPressCameraShakeFrequency + cameraShakePhase_;
+            const float xShake = std::sin(shakeTime) * kKeyPressCameraShakePositionMagnitude * fade;
+            const float zShake = std::cos(shakeTime * 1.25f) * kKeyPressCameraShakeDepthMagnitude * fade;
+            const float pitchShake = std::sin(shakeTime * 0.6f) * kKeyPressCameraShakePitchMagnitude * fade;
+            const float focalShake = std::cos(shakeTime * 0.9f) * kKeyPressCameraShakeFocalMagnitude * fade;
+
+            camera.posX += xShake;
+            camera.posZ += zShake;
+            camera.pitchDegrees += pitchShake;
+            camera.focalLength += focalShake;
+        }
         return;
     }
 
@@ -387,6 +417,12 @@ void LyooHealPresentation::spawnHeartsForValidPress() {
         heart.fadeDuration = fadeDist(rng_);
         hearts_.push_back(heart);
     }
+}
+
+void LyooHealPresentation::triggerCameraShake() {
+    cameraShakeRemaining_ = kKeyPressCameraShakeDurationSeconds;
+    std::uniform_real_distribution<float> phaseDistribution(0.0f, kCameraShakeTwoPi);
+    cameraShakePhase_ = phaseDistribution(rng_);
 }
 
 void LyooHealPresentation::renderHearts(SDL_Renderer* renderer, int screenW, int screenH) const {

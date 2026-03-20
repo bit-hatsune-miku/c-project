@@ -72,6 +72,7 @@ private:
     int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;
     int damageLabelHitCount_ = 0;
+    int totalRectanglesSpawned_ = 0;
     std::mt19937 rng_;
 };
 

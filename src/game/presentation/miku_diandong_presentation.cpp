@@ -108,6 +108,7 @@ void MikuDiandongPresentation::start() {
     impactCameraProgress_ = 0.0f;
     impactHitTriggered_ = false;
     pendingHitEvents_ = 0;
+    pendingAbilityAudioCues_ = 1;
     mikuWorldX_ = mikuStartX_;
     mikuWorldY_ = mikuStartY_;
     mikuWorldZ_ = mikuStartZ_;
@@ -221,6 +222,12 @@ int MikuDiandongPresentation::consumeHitEvents() {
     const int hits = pendingHitEvents_;
     pendingHitEvents_ = 0;
     return hits;
+}
+
+int MikuDiandongPresentation::consumeAbilityAudioCues() {
+    const int cues = pendingAbilityAudioCues_;
+    pendingAbilityAudioCues_ = 0;
+    return cues;
 }
 
 bool MikuDiandongPresentation::shouldRenderCasterEntity() const {

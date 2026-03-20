@@ -19,6 +19,7 @@ public:
     bool getCasterWorldOverride(float& outX, float& outY, float& outZ) const override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     int consumeHitEvents() override;
+    int consumeAbilityAudioCues() override;
     bool shouldRenderCasterEntity() const override;
     bool shouldRenderAboveHud() const override;
     void setExternalTextures(SDL_Texture* casterSprite, SDL_Texture* targetSprite) override;
@@ -73,6 +74,7 @@ private:
     float easeOutProgress_;
     bool impactHitTriggered_;
     int pendingHitEvents_ = 0;
+    int pendingAbilityAudioCues_ = 0;
 
     Phase phase_;
 

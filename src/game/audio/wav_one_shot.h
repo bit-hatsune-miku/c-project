@@ -81,6 +81,29 @@ public:
         return true;
     }
 
+    void stopPlayback(const std::string& wavPath) {
+        for (auto it = activePlayback_.begin(); it != activePlayback_.end(); ) {
+            if (it->wavPath == wavPath) {
+                if (it->device != 0) {
+                    SDL_ClearQueuedAudio(it->device);
+                    SDL_CloseAudioDevice(it->device);
+                }
+                it = activePlayback_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    bool isPlaying(const std::string& wavPath) const {
+        for (const ActivePlayback& playback : activePlayback_) {
+            if (playback.device != 0 && playback.wavPath == wavPath) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 private:
     struct ActivePlayback {
         SDL_AudioDeviceID device = 0;

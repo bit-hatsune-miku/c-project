@@ -28,7 +28,7 @@ MikuSingPresentation::MikuSingPresentation(
 // ---------------------------------------------------------------------------
 void MikuSingPresentation::start() {
     phase_                   = Phase::RhythmGame;
-    pendingAbilityAudioCue_  = true;
+    pendingAbilityAudioCue_  = false;
     rhythmGame_.start();
 
     // Pre-clear animation state (properly reset on phase transition)
@@ -53,6 +53,7 @@ void MikuSingPresentation::update(float deltaTime) {
             notesSpawned_     = 0;
             pendingHitEvents_ = 0;
             notes_.clear();
+            pendingAbilityAudioCue_ = true;
         }
         return;
     }

@@ -21,6 +21,7 @@
 #include "game/render/camera_3d.h"
 #include "game/render/free_view_camera_debug_log.h"
 #include "game/core/easing.h"
+#include "platform/path_resolution.h"
 
 namespace {
 
@@ -230,28 +231,8 @@ bool startWavOneShotOnNewDevice(const std::string& wavPath) {
     return true;
 }
 
-std::optional<std::string> resolveHitVoicePath(const std::string& assetName) {
-    if (assetName.empty()) {
-        return std::nullopt;
-    }
-
-    const std::vector<std::string> candidates = {
-        "assets/combat/voices/" + assetName + "/hit.wav",
-        "assets/combat/voices/" + assetName + ".hit.wav"
-    };
-
-    for (const std::string& candidate : candidates) {
-        const std::string resolved = resolvePath(candidate);
-        if (std::filesystem::exists(resolved)) {
-            return resolved;
-        }
-    }
-
-    return std::nullopt;
-}
-
-void queueHitVoiceIfExists(const std::string& assetName, int staggerIndex) {
-    const std::optional<std::string> resolvedPath = resolveHitVoicePath(assetName);
+void queueCombatVoiceIfExists(const std::string& assetName, const std::string& clipName, int staggerIndex) {
+    const std::optional<std::string> resolvedPath = platform::path::resolveCombatVoicePath(assetName, clipName);
     if (!resolvedPath.has_value()) {
         return;
     }
@@ -259,6 +240,14 @@ void queueHitVoiceIfExists(const std::string& assetName, int staggerIndex) {
     const Uint32 now = SDL_GetTicks();
     const Uint32 offset = static_cast<Uint32>(std::max(0, staggerIndex)) * kHitVoiceStaggerMs;
     gPendingHitVoices.push_back(PendingHitVoice{*resolvedPath, now + offset});
+}
+
+void queueHitVoiceIfExists(const std::string& assetName, int staggerIndex) {
+    queueCombatVoiceIfExists(assetName, "hit", staggerIndex);
+}
+
+void queueHealingVoiceIfExists(const std::string& assetName, int staggerIndex) {
+    queueCombatVoiceIfExists(assetName, "healed", staggerIndex);
 }
 
 void processPendingHitVoices() {
@@ -286,8 +275,8 @@ void processPendingHitVoices() {
 void updateHitVoicesForHpDrops(const battle::BattleManager& manager,
                                const battle::BattleState& state,
                                int& lastBossHp,
-                               std::vector<int>& lastCharacterHp) {
-    int staggerIndex = 0;
+                               std::vector<int>& lastCharacterHp,
+                               int& staggerIndex) {
 
     const int bossHpNow = manager.getBossCurrentHp();
     if (bossHpNow < lastBossHp) {
@@ -297,11 +286,44 @@ void updateHitVoicesForHpDrops(const battle::BattleManager& manager,
 
     for (size_t i = 0; i < state.party.size(); ++i) {
         const int hpNow = manager.getCharacterCurrentHp(static_cast<int>(i));
-        if (i < lastCharacterHp.size() && hpNow < lastCharacterHp[i]) {
-            queueHitVoiceIfExists(state.party[i].assets, staggerIndex++);
-        }
         if (i < lastCharacterHp.size()) {
+            if (hpNow < lastCharacterHp[i]) {
+                queueHitVoiceIfExists(state.party[i].assets, staggerIndex++);
+            } else if (hpNow > lastCharacterHp[i]) {
+                queueHealingVoiceIfExists(state.party[i].assets, staggerIndex++);
+            }
             lastCharacterHp[i] = hpNow;
+        }
+    }
+}
+
+void queueHealingVoicesFromRecentEvents(const battle::BattleManager& manager,
+                                       const battle::BattleState& state,
+                                       int& staggerIndex) {
+    const std::vector<battle::BattleActionEvent>& events = manager.getRecentActionEvents();
+    if (events.empty()) {
+        return;
+    }
+
+    for (const battle::BattleActionEvent& event : events) {
+        const size_t targetCount = event.targetPartyIndices.size();
+        for (size_t targetIdx = 0; targetIdx < targetCount; ++targetIdx) {
+            const int partyIndex = event.targetPartyIndices[targetIdx];
+            if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= state.party.size()) {
+                continue;
+            }
+
+            if (targetIdx >= event.targetHpBefore.size() ||
+                targetIdx >= event.targetHpAfter.size()) {
+                continue;
+            }
+
+            const int hpBefore = event.targetHpBefore[targetIdx];
+            const int hpAfter = event.targetHpAfter[targetIdx];
+            if (hpAfter > hpBefore) {
+                queueHealingVoiceIfExists(state.party[static_cast<size_t>(partyIndex)].assets,
+                                           staggerIndex++);
+            }
         }
     }
 }
@@ -646,7 +668,10 @@ int main(int argc, char** argv) {
             lastTurnToken = turnToken;
         }
 
-        updateHitVoicesForHpDrops(manager, state, lastBossHp, lastCharacterHp);
+        int staggerIndex = 0;
+        updateHitVoicesForHpDrops(manager, state, lastBossHp, lastCharacterHp, staggerIndex);
+        queueHealingVoicesFromRecentEvents(manager, state, staggerIndex);
+        manager.clearRecentActionEvents();
         processPendingHitVoices();
 
         // WASD Camera Movement (horizontal plane, relative to camera yaw)
