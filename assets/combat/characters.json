@@ -245,7 +245,7 @@
         "startingOrbs": 0
     },
     "wechatalipay": {
-        "title": "WeChat-Jie & Alipay-Jie",
+        "title": "微信姐 & 支付宝姐",
         "assets": "wechatalipay",
         "class": "Shielder",
         "spd": 96,

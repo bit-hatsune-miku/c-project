@@ -3,9 +3,13 @@
     "tutorial_vs_lyoo": {
       "id": 0,
       "name": "Tutorial - vs Lyoo",
+      "description": "The first trial. Lyoo challenges Miku to prove she is worthy of entering the BIT Underground Idol Competition.",
+      "type": "tutorial",
       "bossKey": "lyooBoss",
-      "isLineupFixed": true,
-      "lineup": ["miku", "cupcakke"],
+      "isLineupFixed": false,
+      "partySize": 4,
+      "lineup": ["miku", "cupcakke", "lyoo", "iroha"],
+      "lockedLineup": ["miku"],
       "stageKey": "default_stage"
     },
     "test_ground": {
