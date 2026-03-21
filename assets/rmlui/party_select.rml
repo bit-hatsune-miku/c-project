@@ -1,0 +1,50 @@
+<rml>
+<head>
+    <title>Party Select</title>
+    <link type="text/rcss" href="party_select.rcss" />
+</head>
+<body>
+    <div id="stage">
+        <div id="left-panel">
+            <div class="panel-header">
+                <div class="panel-kicker">BATTLE PREPARATION</div>
+                <div class="panel-title">SELECT YOUR PARTY</div>
+                <div class="panel-hint">Choose up to 4 characters. Click a slot to remove.</div>
+            </div>
+
+            <div id="party-slots">
+                <div class="party-slot empty" id="party-slot-1">
+                    <div class="slot-portrait" id="slot-portrait-1"></div>
+                    <div class="slot-badge">1</div>
+                    <div class="slot-name" id="slot-name-1"></div>
+                </div>
+                <div class="party-slot empty" id="party-slot-2">
+                    <div class="slot-portrait" id="slot-portrait-2"></div>
+                    <div class="slot-badge">2</div>
+                    <div class="slot-name" id="slot-name-2"></div>
+                </div>
+                <div class="party-slot empty" id="party-slot-3">
+                    <div class="slot-portrait" id="slot-portrait-3"></div>
+                    <div class="slot-badge">3</div>
+                    <div class="slot-name" id="slot-name-3"></div>
+                </div>
+                <div class="party-slot empty" id="party-slot-4">
+                    <div class="slot-portrait" id="slot-portrait-4"></div>
+                    <div class="slot-badge">4</div>
+                    <div class="slot-name" id="slot-name-4"></div>
+                </div>
+            </div>
+
+            <div id="roster-grid">
+                <!-- Populated dynamically from characters.json -->
+            </div>
+
+            <div id="start-button" class="disabled">START BATTLE</div>
+        </div>
+
+        <div id="right-panel">
+            <div id="empty-hint">SELECT CHARACTERS TO PREVIEW</div>
+        </div>
+    </div>
+</body>
+</rml>

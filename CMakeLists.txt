@@ -111,6 +111,13 @@ set(RMLUI_APP_BATTLE_SOURCES
     src/game/app_battle_session.h
 )
 
+set(PARTY_SELECT_SOURCES
+    src/game/party_select/party_select_session.cpp
+    src/game/party_select/party_select_session.h
+    src/game/render/camera_3d.cpp
+    src/game/render/camera_3d.h
+)
+
 set(HEADERS
     src/GameMenu/menu_shared.h
     src/Settings/settings.h
@@ -198,6 +205,34 @@ if (ENABLE_RMLUI)
         target_compile_definitions(battle_testing PRIVATE BATTLE_ENABLE_IMAGE=1)
         target_link_libraries(battle_testing PRIVATE ${SDL2_IMAGE_LIBRARIES})
     endif()
+    add_executable(party_select
+        src/party_select_main.cpp
+        src/window.cpp
+        src/window.h
+        ${PARTY_SELECT_SOURCES}
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
+    )
+    target_include_directories(party_select PRIVATE
+        ${SDL2_INCLUDE_DIRS}
+        ${rmlui_SOURCE_DIR}/Backends
+    )
+    target_compile_definitions(party_select PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_link_libraries(party_select PRIVATE
+        ${SDL2_LIBRARIES}
+        OpenGL::GL
+        nlohmann_json::nlohmann_json
+        RmlUi::RmlUi
+    )
+    if (SDL2_IMAGE_FOUND)
+        target_include_directories(party_select PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+        target_compile_definitions(party_select PRIVATE BATTLE_ENABLE_IMAGE=1)
+        target_link_libraries(party_select PRIVATE ${SDL2_IMAGE_LIBRARIES})
+    endif()
+    set_target_properties(party_select PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+
     add_executable(battle_testing_legacy
         src/battle_main.cpp
         src/window.cpp

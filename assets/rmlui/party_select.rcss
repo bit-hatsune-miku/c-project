@@ -1,0 +1,264 @@
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    color: #f5efe2;
+    background-color: transparent;
+    font-family: "DejaVu Sans";
+}
+
+#stage {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background-color: transparent;
+}
+
+/* ===== Left Panel ===== */
+
+#left-panel {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 480dp;
+    background-color: rgba(6, 10, 20, 245);
+}
+
+.panel-header {
+    padding: 28dp 28dp 0 28dp;
+}
+
+.panel-kicker {
+    display: block;
+    color: #f0cd4d;
+    font-size: 11dp;
+    letter-spacing: 3dp;
+}
+
+.panel-title {
+    display: block;
+    margin-top: 6dp;
+    color: #fff3e2;
+    font-size: 28dp;
+    letter-spacing: 2dp;
+}
+
+.panel-hint {
+    display: block;
+    margin-top: 8dp;
+    color: #5a7a9a;
+    font-size: 13dp;
+    letter-spacing: 1dp;
+}
+
+/* ===== Party Slots ===== */
+
+#party-slots {
+    display: flex;
+    gap: 10dp;
+    padding: 20dp 28dp 0 28dp;
+}
+
+.party-slot {
+    position: relative;
+    width: 98dp;
+    height: 124dp;
+    background-color: rgba(10, 18, 32, 200);
+    border: 2dp #152030;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.party-slot.filled {
+    border-color: #b88a30;
+}
+
+.party-slot.filled:hover {
+    border-color: #f0cd4d;
+    box-shadow: 0 0 14dp rgba(240, 205, 77, 40);
+}
+
+.slot-portrait {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 98dp;
+    height: 98dp;
+}
+
+.slot-badge {
+    position: absolute;
+    right: 4dp;
+    top: 4dp;
+    width: 22dp;
+    height: 22dp;
+    background-color: rgba(240, 205, 77, 200);
+    color: #0a0e18;
+    font-size: 14dp;
+    text-align: center;
+    line-height: 22dp;
+}
+
+.party-slot.empty .slot-badge {
+    background-color: rgba(26, 40, 64, 200);
+    color: #3a5070;
+}
+
+.slot-name {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 24dp;
+    padding: 5dp 6dp 0 6dp;
+    background-color: rgba(0, 0, 0, 180);
+    color: #c8d4e0;
+    font-size: 10dp;
+    text-align: center;
+    letter-spacing: 1dp;
+    overflow: hidden;
+}
+
+/* ===== Roster Grid ===== */
+
+#roster-grid {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 244dp;
+    bottom: 72dp;
+    padding: 8dp 24dp;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6dp;
+    align-content: flex-start;
+    overflow: auto;
+}
+
+.roster-card {
+    position: relative;
+    width: 100dp;
+    height: 124dp;
+    background-color: rgba(12, 20, 36, 210);
+    border: 1dp #1a2840;
+    cursor: pointer;
+    overflow: hidden;
+}
+
+.roster-card:hover {
+    border-color: #3a5a7a;
+    background-color: rgba(18, 28, 48, 230);
+}
+
+.roster-card.selected {
+    border: 2dp #f0cd4d;
+    box-shadow: 0 0 18dp rgba(240, 205, 77, 36);
+}
+
+.roster-portrait {
+    position: relative;
+    width: 100dp;
+    height: 80dp;
+    background-color: rgba(6, 12, 24, 180);
+}
+
+.roster-info {
+    padding: 4dp 6dp 2dp 6dp;
+}
+
+.roster-name {
+    display: block;
+    color: #d8e4f0;
+    font-size: 11dp;
+    letter-spacing: 1dp;
+}
+
+.roster-class {
+    display: block;
+    color: #4a6a8a;
+    font-size: 9dp;
+    margin-top: 2dp;
+}
+
+/* Scrollbar */
+
+#roster-grid scrollbarvertical {
+    width: 8dp;
+    background-color: rgba(10, 18, 32, 200);
+}
+
+#roster-grid scrollbarvertical slidertrack {
+    background-color: rgba(20, 30, 50, 200);
+}
+
+#roster-grid scrollbarvertical sliderbar {
+    background-color: #2a4060;
+}
+
+#roster-grid scrollbarvertical sliderbar:hover {
+    background-color: #3a5a7a;
+}
+
+#roster-grid scrollbarvertical sliderarrowdec,
+#roster-grid scrollbarvertical sliderarrowinc {
+    display: none;
+}
+
+/* ===== Start Button ===== */
+
+#start-button {
+    position: absolute;
+    left: 28dp;
+    right: 28dp;
+    bottom: 20dp;
+    height: 44dp;
+    background-color: #f0cd4d;
+    color: #0a0e18;
+    font-size: 16dp;
+    letter-spacing: 3dp;
+    text-align: center;
+    line-height: 44dp;
+    cursor: pointer;
+}
+
+#start-button:hover {
+    background-color: #ffe17f;
+}
+
+#start-button.disabled {
+    background-color: rgba(26, 36, 56, 220);
+    color: #2a3a50;
+}
+
+#start-button.disabled:hover {
+    background-color: rgba(26, 36, 56, 220);
+}
+
+/* ===== Right Panel (transparent — 3D scene shows through) ===== */
+
+#right-panel {
+    position: absolute;
+    left: 480dp;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: transparent;
+}
+
+#empty-hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    margin-top: -20dp;
+    color: rgba(80, 110, 150, 120);
+    font-size: 16dp;
+    letter-spacing: 3dp;
+    text-align: center;
+    line-height: 24dp;
+}
+
+#empty-hint.hidden {
+    display: none;
+}
