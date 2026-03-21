@@ -2,6 +2,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #include <unordered_map>
 #include <vector>
 
@@ -156,6 +157,49 @@ bool parseCharacterDefinition(const json& characterJson, const std::string& key,
     return true;
 }
 
+bool containsDuplicateNonEmptyKeys(const std::vector<std::string>& keys) {
+    std::vector<std::string> seen;
+    seen.reserve(keys.size());
+    for (const std::string& key : keys) {
+        if (key.empty()) {
+            return true;
+        }
+        if (std::find(seen.begin(), seen.end(), key) != seen.end()) {
+            return true;
+        }
+        seen.push_back(key);
+    }
+    return false;
+}
+
+bool isBattleDefinitionValid(const BattleDefinition& battle) {
+    if (battle.key.empty() || battle.bossKey.empty()) {
+        return false;
+    }
+    if (battle.partySize < 1 || battle.partySize > 4) {
+        return false;
+    }
+    if (containsDuplicateNonEmptyKeys(battle.lockedLineup) ||
+        containsDuplicateNonEmptyKeys(battle.lineup)) {
+        return false;
+    }
+    if (static_cast<int>(battle.lockedLineup.size()) > battle.partySize) {
+        return false;
+    }
+
+    std::vector<std::string> merged = battle.lockedLineup;
+    for (const std::string& key : battle.lineup) {
+        if (std::find(merged.begin(), merged.end(), key) == merged.end()) {
+            merged.push_back(key);
+        }
+    }
+    if (battle.isLineupFixed && static_cast<int>(merged.size()) != battle.partySize) {
+        return false;
+    }
+
+    return true;
+}
+
 } // namespace
 
 bool readJsonFile(const std::string& path, std::string& outContents) {
@@ -219,6 +263,125 @@ bool loadCharacterDefinition(const std::string& characterKey, CharacterDefinitio
     }
 
     return true;
+}
+
+bool loadAllCharacterDefinitions(std::vector<CharacterDefinition>& outCharacters) {
+    outCharacters.clear();
+
+    json root;
+    if (!readJsonRoot(resolveAssetPath("assets/combat/characters.json"), root, "character")) {
+        return false;
+    }
+    if (!root.is_object()) {
+        std::cerr << "[Battle] Invalid character JSON root\n";
+        return false;
+    }
+
+    outCharacters.reserve(root.size());
+    for (auto it = root.begin(); it != root.end(); ++it) {
+        CharacterDefinition character;
+        if (!parseCharacterDefinition(it.value(), it.key(), character)) {
+            std::cerr << "[Battle] Invalid character entry for key: " << it.key() << "\n";
+            return false;
+        }
+        outCharacters.push_back(std::move(character));
+    }
+
+    std::sort(outCharacters.begin(), outCharacters.end(), [](const CharacterDefinition& lhs, const CharacterDefinition& rhs) {
+        if (lhs.title != rhs.title) {
+            return lhs.title < rhs.title;
+        }
+        return lhs.key < rhs.key;
+    });
+
+    return true;
+}
+
+bool loadBattleDefinition(const std::string& battleKey, BattleDefinition& outBattle) {
+    json root;
+    if (!readJsonRoot(resolveAssetPath("assets/combat/battles.json"), root, "battle")) {
+        return false;
+    }
+
+    const json* battlesJson = nullptr;
+    if (root.is_array()) {
+        battlesJson = &root;
+    } else if (root.is_object() && root.contains("battles") && root.at("battles").is_array()) {
+        battlesJson = &root.at("battles");
+    }
+
+    if (battlesJson == nullptr) {
+        std::cerr << "[Battle] Invalid battles JSON root\n";
+        return false;
+    }
+
+    for (const json& battleJson : *battlesJson) {
+        if (!battleJson.is_object()) {
+            continue;
+        }
+
+        const std::string parsedKey = battleJson.value("key", "");
+        if (parsedKey != battleKey) {
+            continue;
+        }
+
+        outBattle = BattleDefinition{};
+        outBattle.key = parsedKey;
+        outBattle.id = battleJson.value("id", -1);
+        outBattle.name = battleJson.value("name", parsedKey);
+        outBattle.description = battleJson.value("description", "");
+        outBattle.bossKey = battleJson.value("bossKey", "");
+        outBattle.isLineupFixed = battleJson.value("isLineupFixed", true);
+        const int partySizeRaw = battleJson.value("partySize", 4);
+        outBattle.partySize = partySizeRaw;
+        outBattle.lineup = battleJson.value("lineup", std::vector<std::string>{});
+        outBattle.lockedLineup = battleJson.value("lockedLineup", std::vector<std::string>{});
+
+        if (!isBattleDefinitionValid(outBattle)) {
+            std::cerr << "[Battle] Invalid battle definition: " << battleKey << "\n";
+            return false;
+        }
+        outBattle.partySize = std::clamp(partySizeRaw, 1, 4);
+        return true;
+    }
+
+    std::cerr << "[Battle] Battle key not found: " << battleKey << "\n";
+    return false;
+}
+
+bool loadBattleDefinitionById(int battleId, BattleDefinition& outBattle) {
+    json root;
+    if (!readJsonRoot(resolveAssetPath("assets/combat/battles.json"), root, "battle")) {
+        return false;
+    }
+
+    const json* battlesJson = nullptr;
+    if (root.is_array()) {
+        battlesJson = &root;
+    } else if (root.is_object() && root.contains("battles") && root.at("battles").is_array()) {
+        battlesJson = &root.at("battles");
+    }
+
+    if (battlesJson == nullptr) {
+        std::cerr << "[Battle] Invalid battles JSON root\n";
+        return false;
+    }
+
+    for (const json& battleJson : *battlesJson) {
+        if (!battleJson.is_object() || battleJson.value("id", -1) != battleId) {
+            continue;
+        }
+
+        const std::string battleKey = battleJson.value("key", "");
+        if (battleKey.empty()) {
+            std::cerr << "[Battle] Battle id " << battleId << " is missing a key\n";
+            return false;
+        }
+        return loadBattleDefinition(battleKey, outBattle);
+    }
+
+    std::cerr << "[Battle] Battle id not found: " << battleId << "\n";
+    return false;
 }
 
 bool loadAbilityDefinition(const std::string& abilityId, AbilityDefinition& outAbility) {

@@ -8,7 +8,7 @@
 #include "game/vn/vn_system.h"
 
 int main(int argc, char** argv) {
-    std::string battleKey = "test_ground";
+    std::string battleKey = "tutorial_vs_lyoo";
     if (argc > 1 && argv[1] != nullptr && argv[1][0] != '\0') {
         battleKey = argv[1];
     }

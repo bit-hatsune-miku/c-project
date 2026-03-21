@@ -44,9 +44,12 @@ struct BattleDefinition {
     std::string key;
     int id = -1;
     std::string name;
+    std::string description;
     std::string bossKey;
     bool isLineupFixed = true;
+    int partySize = 4;
     std::vector<std::string> lineup;
+    std::vector<std::string> lockedLineup;
 };
 
 struct BattleState {
