@@ -360,13 +360,30 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
     const int nextActorIndex = manager_.getPreviewNextActorIndex();
 
     if (presentationPlaybackActive_) {
-        for (size_t i = 0; i < entities_.size(); ++i) {
-            const WorldEntity& e = entities_[i];
-            if (presentationCasterIsBoss_ && e.isBoss) {
-                focusedEntityIndex = static_cast<int>(i); break;
+        int presentationFocusedPartyIndex = -1;
+        if (activePresentation_) {
+            presentationFocusedPartyIndex = activePresentation_->getFocusedPartyIndex();
+        }
+
+        if (presentationFocusedPartyIndex >= 0) {
+            for (size_t i = 0; i < entities_.size(); ++i) {
+                const WorldEntity& e = entities_[i];
+                if (!e.isBoss && e.partyIndex == presentationFocusedPartyIndex) {
+                    focusedEntityIndex = static_cast<int>(i);
+                    break;
+                }
             }
-            if (!presentationCasterIsBoss_ && !e.isBoss && e.partyIndex == presentationCasterPartyIndex_) {
-                focusedEntityIndex = static_cast<int>(i); break;
+        } else {
+            for (size_t i = 0; i < entities_.size(); ++i) {
+                const WorldEntity& e = entities_[i];
+                if (presentationCasterIsBoss_ && e.isBoss) {
+                    focusedEntityIndex = static_cast<int>(i);
+                    break;
+                }
+                if (!presentationCasterIsBoss_ && !e.isBoss && e.partyIndex == presentationCasterPartyIndex_) {
+                    focusedEntityIndex = static_cast<int>(i);
+                    break;
+                }
             }
         }
     } else if (nextActorIndex >= 0 && nextActorIndex < static_cast<int>(liveTurnState.actors.size())) {
@@ -545,6 +562,13 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
     if (!initialized_ || finished_ || renderer_ == nullptr) return 1.0f;
 
     const std::string casterAssets = resolvePresentationCasterAsset(context);
+    const AbilityDefinition* abilityDef = manager_.findAbilityDefinition(context.abilityId);
+
+    if (abilityDef != nullptr && !abilityDef->instructionHint.empty()) {
+        setHint(abilityDef->instructionHint);
+    } else {
+        clearHint();
+    }
 
     // Resolve the caster's and target's sprite textures for the splash animation.
     auto resolveTexture = [this](const render::SceneEntity& entity) -> SDL_Texture* {
@@ -595,6 +619,7 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         }
         if (hooks_.onPresentationAbilityAudio) {
             hooks_.onPresentationAbilityAudio(context, cueCount, manager_);
+            manager_.markPresentationAbilityAudioPlayed();
         }
     };
     callbacks.onHitEvents = [&](int hitEvents, int damageLabelHitCount) {
@@ -602,7 +627,6 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             return;
         }
 
-        const AbilityDefinition* abilityDef = manager_.findAbilityDefinition(context.abilityId);
         if (abilityDef == nullptr) {
             feedback_.queuePresentationHitShakes(context.isBoss, hitEvents, manager_);
             return;
@@ -649,13 +673,25 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             baseAtk * abilityDef->multiplier * hitDamageMultiplier
         ));
         const int perHitDamage = std::max(1, totalDamage / std::max(1, damageLabelHitCount));
+        const int presentationTargetPartyIndex = context.isBoss ? context.targetIndex : -1;
 
-        manager_.applyPresentationHitDamage(context.isBoss, perHitDamage, hitEvents);
+        manager_.applyPresentationHitDamage(
+            context.isBoss,
+            perHitDamage,
+            hitEvents,
+            presentationTargetPartyIndex
+        );
         if (hooks_.onPresentationHitAudio) {
             hooks_.onPresentationHitAudio(context, hitEvents, manager_);
             manager_.markPresentationHitAudioPlayed();
         }
-        feedback_.queuePresentationHitFeedback(context.isBoss, hitEvents, perHitDamage, manager_);
+        feedback_.queuePresentationHitFeedback(
+            context.isBoss,
+            hitEvents,
+            perHitDamage,
+            manager_,
+            presentationTargetPartyIndex
+        );
     };
     callbacks.onPostUpdate = [&](float deltaSeconds) {
         updateSceneEntities(deltaSeconds, context.isBoss, context.isBoss ? -1 : context.casterIndex);
@@ -664,6 +700,24 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
     };
     callbacks.onBossPresentationFrame = [&]() {
         computeCharacterPositions(true, -1);
+
+        if (activePresentation_ == nullptr) {
+            return;
+        }
+
+        const int focusedPartyIndex = activePresentation_->getFocusedPartyIndex();
+        if (focusedPartyIndex < 0) {
+            return;
+        }
+
+        for (const WorldEntity& entity : entities_) {
+            if (entity.isBoss || entity.partyIndex != focusedPartyIndex) {
+                continue;
+            }
+
+            activePresentation_->setTargetWorldPosition(entity.worldX, entity.worldY, entity.worldZ);
+            break;
+        }
     };
     callbacks.setRenderOverlay = [this](std::function<void(SDL_Renderer*, int, int)> fn) {
         activeOverlay_ = std::move(fn);

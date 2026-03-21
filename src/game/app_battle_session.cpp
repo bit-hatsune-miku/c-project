@@ -58,6 +58,7 @@ constexpr float kGoalCameraPosY = 45.0f;
 constexpr float kGoalCameraPosZ = -175.0f;
 constexpr float kGoalCameraPitch = 5.0f;
 constexpr float kGoalCameraYaw = 4.0f;
+
 constexpr float kGoalCameraFocal = 50000.0f;
 
 constexpr float kActionIntroOffsetX = -130.0f;
@@ -103,6 +104,32 @@ private:
 };
 
 game::audio::WavOneShotPlayer gOneShotAudio;
+
+bool playResolvedVoicePath(const std::string& path, float voiceVolume) {
+    if (path.empty()) {
+        return false;
+    }
+
+    const std::string resolved = platform::path::resolvePath(path);
+    if (!std::filesystem::exists(resolved)) {
+        return false;
+    }
+
+    return gOneShotAudio.playWavOneShot(resolved, voiceVolume);
+}
+
+bool playBossHitVoice(const battle::BattleState& battleState, float voiceVolume) {
+    if (playResolvedVoicePath(battleState.boss.voiceHit, voiceVolume)) {
+        return true;
+    }
+    if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.assets, "hit"); hitVoice.has_value()) {
+        return gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
+    }
+    if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "hit"); hitVoice.has_value()) {
+        return gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
+    }
+    return false;
+}
 
 using battle::app::ui::HudFeedbackState;
 using battle::app::ui::PauseOverlayMode;
@@ -309,16 +336,14 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
                 ? battleState.party[static_cast<size_t>(event.actorPartyIndex)].assets
                 : std::string());
 
-        if (event.action == battle::BattleAction::Skill) {
+        if (!event.abilityVoicesHandledDuringPresentation && event.action == battle::BattleAction::Skill) {
             if (const auto skillVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "skill"); skillVoice.has_value()) {
                 (void)gOneShotAudio.playWavOneShot(*skillVoice, voiceVolume);
             }
         }
 
         if (event.bossHpAfter < event.bossHpBefore) {
-            if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "hit"); hitVoice.has_value()) {
-                (void)gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
-            }
+            (void)playBossHitVoice(battleState, voiceVolume);
         }
 
         for (size_t i = 0; i < event.targetPartyIndices.size() && i < event.targetHpBefore.size() && i < event.targetHpAfter.size(); ++i) {

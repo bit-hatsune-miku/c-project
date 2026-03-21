@@ -36,7 +36,7 @@ LyooBossPresentation::LyooBossPresentation(
 )
     : casterX_(casterWorldX)
     , casterY_(casterWorldY)
-    , casterZ_(casterWorldZ)
+    , casterZ_(1.0f) // Force boss sprite above floor regardless of input
     , targetX_(targetWorldX)
     , targetY_(targetWorldY)
     , targetZ_(targetWorldZ) {

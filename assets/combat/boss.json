@@ -2,6 +2,7 @@
     "lyooBoss": {
         "title": "[Underground BIT Host] Lyoo",
         "assets": "lyoo",
+        "voiceHit": "assets/combat/voices/lyoo/hit.wav",
         "spd": 220,
         "atk": 7,
         "hp": 300,
@@ -13,6 +14,7 @@
             "skill": {
                 "id": "MoonSpiralHeartAttack",
                 "name": "Moon Spiral Heart Attack!",
+                "instructionHint": "Press SPACE as each pulse reaches the party to parry and reduce damage.",
                 "type": "attack",
                 "targetRule": "all_enemies",
                 "multiplier": 1.0,
@@ -28,6 +30,7 @@
     "lyooPlotTwist": {
         "title": "[Reinforcement Learning Assistant] Lyoo",
         "assets": "lyoo",
+        "voiceHit": "assets/combat/voices/lyoo/hit.wav",
         "spd": 160,
         "atk": 50,
         "hp": 500,
@@ -54,6 +57,7 @@
     "miku": {
         "title": "Hatsune Miku",
         "assets": "miku",
+        "voiceHit": "assets/combat/voices/miku/hit.wav",
         "spd": 200,
         "atk": 80,
         "hp": 700,
@@ -80,8 +84,9 @@
     "jiafeiBoss": {
         "title": "Jiafei",
         "assets": "jiafei",
+        "voiceHit": "assets/combat/voices/jiafei/hit.wav",
         "spd": 185,
-        "atk": 32,
+        "atk": 85,
         "hp": 420,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "AestheticWarning",
@@ -91,6 +96,7 @@
             "skill": {
                 "id": "AestheticWarning",
                 "name": "Aesthetic Warning",
+                "instructionHint": "Press LEFT or RIGHT to dodge each wave in that screen direction.",
                 "type": "attack",
                 "targetRule": "all_enemies",
                 "multiplier": 1.2,
@@ -100,12 +106,13 @@
         },
         "ultimatePoints": 6,
         "startingOrbs": 1,
-        "bgm": "野花香",
+        "bgm": "yehuaxiang",
         "bgmVolume": 0.4
     },
     "luotianyiBoss": {
         "title": "洛天依",
         "assets": "luotianyi",
+        "voiceHit": "assets/combat/voices/luotianyi/hit.wav",
         "spd": 170,
         "atk": 42,
         "hp": 520,
@@ -132,6 +139,7 @@
     "wechatalipayBoss": {
         "title": "WeChat-Jie & Alipay-Jie",
         "assets": "wechatalipay",
+        "voiceHit": "assets/combat/voices/wechatalipay/hit.wav",
         "spd": 165,
         "atk": 30,
         "hp": 480,
@@ -158,6 +166,7 @@
     "ariBoss": {
         "title": "Ariana Grande",
         "assets": "ari",
+        "voiceHit": "assets/combat/voices/ari/hit.wav",
         "spd": 175,
         "atk": 34,
         "hp": 430,
@@ -184,6 +193,7 @@
     "sansBoss": {
         "title": "Sans",
         "assets": "sans",
+        "voiceHit": "assets/combat/voices/sans/hit.wav",
         "spd": 240,
         "atk": 28,
         "hp": 360,
@@ -210,6 +220,7 @@
     "kaguyaBoss": {
         "title": "Kaguya",
         "assets": "kaguya",
+        "voiceHit": "assets/combat/voices/kaguya/hit.wav",
         "spd": 190,
         "atk": 48,
         "hp": 560,

@@ -43,7 +43,7 @@ void DemoNarrativeFlow::shutdown() {
     bossDefeatedDialogueLines_.clear();
 
     activeDialogueLines_ = nullptr;
-    dialogueInProgress_ = true;
+    dialogueInProgress_ = false;
     spaceEnabledForBattle_ = false;
     currentDialogueLine_ = 0;
 
@@ -79,7 +79,7 @@ void DemoNarrativeFlow::onDialogueSpacePressed() {
         return;
     }
 
-    vn::showLine("", "", "");
+    vn::reset();
     finishDialogueSequence();
 }
 

@@ -37,6 +37,7 @@ void CupcakkeDrumPresentation::start() {
     casterCurrentY_ = casterStartY_;
     casterCurrentZ_ = casterStartZ_;
     hitTriggered_ = false;
+    followupAudioTriggered_ = false;
     pressCount_ = 0;
     inputWindow_.startTime = 0.0f;
     inputWindow_.endTime = orbitDuration_ + holdDuration_;
@@ -60,6 +61,11 @@ void CupcakkeDrumPresentation::update(float deltaTime) {
 
     const float t = easing::clamp01((elapsedTime_ - dashStart) / std::max(0.001f, dashDuration_));
     const float eased = easing::easeOutBack(t);
+
+    if (!followupAudioTriggered_ && t >= 0.78f) {
+        followupAudioTriggered_ = true;
+        ++pendingAbilityAudioCues_;
+    }
 
     if (!hitTriggered_ && t >= 0.88f) {
         hitTriggered_ = true;

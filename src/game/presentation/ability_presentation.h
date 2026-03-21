@@ -72,6 +72,9 @@ public:
     virtual int consumeHitEvents() { return 0; }
     virtual int getDamageLabelHitCount() const { return 1; }
 
+    // Focused target (optional)
+    virtual int getFocusedPartyIndex() const { return -1; }
+
     // Camera control
     virtual bool overridesCamera() const { return false; }
     virtual void applyCameraState(Camera3D& camera) const {}
@@ -80,6 +83,20 @@ public:
         (void)outY;
         (void)outZ;
         return false;
+    }
+    virtual bool getTargetWorldOverride(float& outX, float& outY, float& outZ) const {
+        (void)outX;
+        (void)outY;
+        (void)outZ;
+        return false;
+    }
+    virtual void setTargetPartyIndex(int index) {
+        (void)index;
+    }
+    virtual void setTargetWorldPosition(float x, float y, float z) {
+        (void)x;
+        (void)y;
+        (void)z;
     }
     virtual void setExternalTextures(SDL_Texture* caster, SDL_Texture* target) {
         (void)caster;

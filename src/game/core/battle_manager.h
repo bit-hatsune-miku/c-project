@@ -11,6 +11,7 @@ struct BossDefinition {
     std::string key;
     std::string title;
     std::string assets;
+    std::string voiceHit;
     int spd = 0;
     int atk = 0;
     int hp = 0;
@@ -78,6 +79,7 @@ enum class InteractionType {
 struct AbilityDefinition {
     std::string id;
     std::string name;
+    std::string instructionHint;
     AbilityType type = AbilityType::Attack;
     TargetRule targetRule = TargetRule::SingleEnemy;
     float multiplier = 1.0f;
@@ -180,6 +182,7 @@ struct BattleActionEvent {
     InteractionType interactionType = InteractionType::None;
     int bossHpBefore = 0;
     int bossHpAfter = 0;
+    bool abilityVoicesHandledDuringPresentation = false;
     bool hitVoicesHandledDuringPresentation = false;
     std::vector<int> targetPartyIndices;
     std::vector<int> targetHpBefore;
@@ -203,10 +206,15 @@ public:
     bool reviveCharacter(int partyIndex, int amount);
     int getCharacterUltimateCharge(int partyIndex) const;
     int getCharacterUltimateRequired(int partyIndex) const;
-    void applyPresentationHitDamage(bool isBossCaster, int perHitDamage, int hitEvents);
+    void applyPresentationHitDamage(bool isBossCaster,
+                                    int perHitDamage,
+                                    int hitEvents,
+                                    int targetPartyIndex = -1);
     void applyPresentationHealing(bool isBossCaster, int perHitHeal, int hitEvents, bool reviveDeadAllies = false);
     bool consumePresentationHitDamageApplied();
     bool consumePresentationHealingApplied();
+    void markPresentationAbilityAudioPlayed();
+    bool consumePresentationAbilityAudioPlayed();
     void markPresentationHitAudioPlayed();
     bool consumePresentationHitAudioPlayed();
     const AbilityDefinition* findAbilityDefinition(const std::string& abilityId) const;
@@ -256,6 +264,7 @@ private:
     std::vector<BattleActionEvent> recentActionEvents_;
     bool presentationHitDamageApplied_ = false;
     bool presentationHealingApplied_ = false;
+    bool presentationAbilityAudioPlayed_ = false;
     bool presentationHitAudioPlayed_ = false;
 };
 

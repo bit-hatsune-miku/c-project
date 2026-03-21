@@ -42,6 +42,17 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
         }
     }
 
+    if (context.isBoss && context.targetIndex >= 0) {
+        for (const render::SceneEntity& entity : entities) {
+            if (!entity.isBoss && entity.partyIndex == context.targetIndex) {
+                targetX = entity.worldX;
+                targetY = entity.worldY;
+                targetZ = entity.worldZ;
+                break;
+            }
+        }
+    }
+
     std::unique_ptr<AbilityPresentation> presentation = PresentationRegistry::instance().create(
         context.presentationId,
         casterX, casterY, casterZ,
@@ -116,6 +127,8 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     }
 
     presentation->setExternalTextures(callbacks.casterSpriteTexture, callbacks.targetSpriteTexture);
+    presentation->setTargetPartyIndex(context.targetIndex);
+    presentation->setTargetWorldPosition(targetX, targetY, targetZ);
 
     presentation->start();
     Uint64 lastCounter = SDL_GetPerformanceCounter();
@@ -184,6 +197,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
         }
 
         const bool hideNonCasterCharacters = presentation->shouldHideNonCasterCharacters();
+        const int focusedPartyIndex = presentation->getFocusedPartyIndex();
         const bool renderCasterEntity = presentation->shouldRenderCasterEntity();
         const bool renderBossEntity = presentation->shouldRenderBossEntity();
 
@@ -208,7 +222,11 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
             }
 
             if (context.isBoss) {
-                entity.visible = !hideNonCasterCharacters;
+                if (hideNonCasterCharacters && focusedPartyIndex >= 0) {
+                    entity.visible = entity.partyIndex == focusedPartyIndex;
+                } else {
+                    entity.visible = !hideNonCasterCharacters;
+                }
                 continue;
             }
 
@@ -243,12 +261,24 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
             }
         }
 
+        if (focusedPartyIndex >= 0 &&
+            presentation->getTargetWorldOverride(overrideX, overrideY, overrideZ)) {
+            for (render::SceneEntity& entity : entities) {
+                if (!entity.isBoss && entity.partyIndex == focusedPartyIndex) {
+                    entity.worldX = overrideX;
+                    entity.worldY = overrideY;
+                    entity.worldZ = overrideZ;
+                    break;
+                }
+            }
+        }
+
         if (callbacks.renderAndPresentFrame) {
             callbacks.renderAndPresentFrame();
         }
 
         entities = std::move(previousEntities);
-        camera = previousCamera;
+        // camera = previousCamera; // Removed to allow presentation camera overrides to persist
     }
 
     if (stateRefs.playbackActive) {

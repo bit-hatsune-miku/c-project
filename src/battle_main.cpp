@@ -479,8 +479,13 @@ std::optional<SDL_Texture*> tryLoadIcon(SDL_Renderer* renderer, const std::strin
 } // namespace
 
 int main(int argc, char** argv) {
+#ifdef JIAFEI_BATTLE_DEFAULT
+    std::string bossKey = "jiafeiBoss";
+    std::vector<std::string> partyKeys = {"miku", "cupcakke"};
+#else
     std::string bossKey = "lyooBoss";
     std::vector<std::string> partyKeys = {"lyoo", "miku"};
+#endif
 
     if (argc >= 2) {
         bossKey = argv[1];

@@ -15,6 +15,14 @@
       "isLineupFixed": true,
       "lineup": ["miku", "cupcakke"],
       "stageKey": "default_stage"
+    },
+    "wild_scent_flowers": {
+      "id": 2,
+      "name": "野花香",
+      "bossKey": "jiafeiBoss",
+      "isLineupFixed": true,
+      "lineup": ["miku", "cupcakke", "lyoo"],
+      "stageKey": "default_stage"
     }
   }
 }

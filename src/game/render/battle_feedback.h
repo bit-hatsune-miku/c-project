@@ -35,7 +35,8 @@ public:
     void queuePresentationHitFeedback(bool isBossCaster,
                                       int hitEvents,
                                       int perHitDamage,
-                                      const BattleManager& manager);
+                                      const BattleManager& manager,
+                                      int targetPartyIndex = -1);
     void queuePresentationHealFeedback(bool isBossCaster,
                                        int hitEvents,
                                        int perHitHealing,
