@@ -202,6 +202,7 @@ bool parseBossDefinition(const json& bossJson, const std::string& key, BossDefin
     outBoss.key = key;
     outBoss.title = bossJson.value("title", key);
     outBoss.assets = bossJson.value("assets", "");
+    outBoss.voiceHit = bossJson.value("voiceHit", "");
     outBoss.spd = bossJson.value("spd", 0);
     outBoss.atk = bossJson.value("atk", 0);
     outBoss.hp = bossJson.value("hp", 0);
@@ -296,6 +297,7 @@ bool parseAbilityDefinition(const json& abilityJson, const std::string& abilityI
     outAbility = AbilityDefinition{};
     outAbility.id = abilityId;
     outAbility.name = abilityJson.value("name", abilityId);
+    outAbility.instructionHint = abilityJson.value("instructionHint", "");
     outAbility.multiplier = abilityJson.value("multiplier", 1.0f);
     outAbility.flatHeal = abilityJson.value("flatHeal", 0);
     outAbility.reviveDeadAllies = abilityJson.value("reviveDeadAllies", false);
@@ -369,5 +371,3 @@ bool loadAllAbilities(std::unordered_map<std::string, AbilityDefinition>& outAbi
 }
 
 } // namespace battle::loader
-
-

@@ -357,13 +357,29 @@ int BattleManager::getCharacterUltimateRequired(int partyIndex) const {
     return std::max(1, characters_[static_cast<size_t>(partyIndex)].definition().ultimatePoints);
 }
 
-void BattleManager::applyPresentationHitDamage(bool isBossCaster, int perHitDamage, int hitEvents) {
+void BattleManager::applyPresentationHitDamage(bool isBossCaster,
+                                               int perHitDamage,
+                                               int hitEvents,
+                                               int targetPartyIndex) {
     if (perHitDamage <= 0 || hitEvents <= 0 || isBattleOver()) {
         return;
     }
 
     const int totalDamage = std::max(1, perHitDamage) * std::max(1, hitEvents);
     if (isBossCaster) {
+        if (targetPartyIndex >= 0 && static_cast<size_t>(targetPartyIndex) < characters_.size()) {
+            BattleCharacter& target = characters_[static_cast<size_t>(targetPartyIndex)];
+            if (!target.isAlive()) {
+                return;
+            }
+
+            target.receiveDamage(totalDamage);
+            syncCharacterTurnParticipation(targetPartyIndex);
+            syncCharacterUltimateTurn(targetPartyIndex);
+            presentationHitDamageApplied_ = true;
+            return;
+        }
+
         bool applied = false;
         for (BattleCharacter& c : characters_) {
             if (!c.isAlive()) {
@@ -430,6 +446,16 @@ bool BattleManager::consumePresentationHealingApplied() {
     const bool applied = presentationHealingApplied_;
     presentationHealingApplied_ = false;
     return applied;
+}
+
+void BattleManager::markPresentationAbilityAudioPlayed() {
+    presentationAbilityAudioPlayed_ = true;
+}
+
+bool BattleManager::consumePresentationAbilityAudioPlayed() {
+    const bool played = presentationAbilityAudioPlayed_;
+    presentationAbilityAudioPlayed_ = false;
+    return played;
 }
 
 void BattleManager::markPresentationHitAudioPlayed() {
@@ -917,6 +943,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
         }
     }
     actionEvent.bossHpAfter = bossCurrentHp_;
+    actionEvent.abilityVoicesHandledDuringPresentation = consumePresentationAbilityAudioPlayed();
     actionEvent.hitVoicesHandledDuringPresentation = consumePresentationHitAudioPlayed();
 
     const bool wasExtraTurn = turnState_.actors[actorIndex].isExtraTurn;
@@ -972,12 +999,40 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
         presContext.targetIndex = -1;
         presContext.isBoss = true;
         presContext.isUltimate = action == BattleAction::Ultimate;
+        int presentationTargetHpBefore = -1;
+
+        // For Jiafei boss parry interaction, pick a random alive character to focus.
+        if (abilityDef->id == "AestheticWarning" && abilityDef->targetRule == TargetRule::AllEnemies) {
+            std::vector<int> alive;
+            for (const BattleCharacter& c : characters_) {
+                if (c.isAlive()) {
+                    alive.push_back(c.partyIndex());
+                }
+            }
+            if (!alive.empty()) {
+                const int index = std::rand() % static_cast<int>(alive.size());
+                presContext.targetIndex = alive[static_cast<size_t>(index)];
+                if (static_cast<size_t>(presContext.targetIndex) < characters_.size()) {
+                    presentationTargetHpBefore =
+                        characters_[static_cast<size_t>(presContext.targetIndex)].hp();
+                }
+            }
+        }
 
         const float multiplier = runPresentationInteraction(presContext);
         presentationHitApplied = consumePresentationHitDamageApplied();
 
         if (presentationHitApplied && abilityDef->type == AbilityType::Attack) {
-            // Damage already applied in real time from presentation hit events.
+            if (presContext.targetIndex >= 0 &&
+                static_cast<size_t>(presContext.targetIndex) < characters_.size() &&
+                presentationTargetHpBefore >= 0) {
+                actionEvent.targetPartyIndices.push_back(presContext.targetIndex);
+                actionEvent.targetHpBefore.push_back(presentationTargetHpBefore);
+                actionEvent.targetHpAfter.push_back(
+                    characters_[static_cast<size_t>(presContext.targetIndex)].hp());
+            }
+        } else if (abilityDef->id == "AestheticWarning" && presContext.targetIndex >= 0) {
+            // Jiafei handles all damage through presentation hit events.
         } else if (abilityDef->targetRule == TargetRule::AllEnemies) {
             for (BattleCharacter& c : characters_) {
                 if (!c.isAlive()) {
@@ -1016,6 +1071,7 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
         }
     }
 
+    actionEvent.abilityVoicesHandledDuringPresentation = consumePresentationAbilityAudioPlayed();
     actionEvent.hitVoicesHandledDuringPresentation = consumePresentationHitAudioPlayed();
 
     turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;

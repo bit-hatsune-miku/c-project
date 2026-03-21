@@ -40,7 +40,7 @@ private:
     std::vector<DialogueLine> bossDefeatedDialogueLines_;
 
     const std::vector<DialogueLine>* activeDialogueLines_ = nullptr;
-    bool dialogueInProgress_ = true;
+    bool dialogueInProgress_ = false;
     bool spaceEnabledForBattle_ = false;
     int currentDialogueLine_ = 0;
 

@@ -219,7 +219,8 @@ void BattleFeedbackSystem::queuePresentationHitShakes(bool isBossCaster, int hit
 void BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
                                                         int hitEvents,
                                                         int perHitDamage,
-                                                        const BattleManager& manager) {
+                                                        const BattleManager& manager,
+                                                        int targetPartyIndex) {
     if (hitEvents <= 0 || perHitDamage <= 0) {
         return;
     }
@@ -228,6 +229,17 @@ void BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
         const BattleState& state = manager.getBattleState();
         if (suppressCharacterNextDamagePopup_.size() != state.party.size()) {
             suppressCharacterNextDamagePopup_.assign(state.party.size(), false);
+        }
+
+        if (targetPartyIndex >= 0 && static_cast<size_t>(targetPartyIndex) < state.party.size()) {
+            if (manager.getCharacterCurrentHp(targetPartyIndex) > 0) {
+                for (int h = 0; h < hitEvents; ++h) {
+                    spawnDamagePopup(false, targetPartyIndex, perHitDamage);
+                }
+                queueDamageShake(false, targetPartyIndex, hitEvents);
+                suppressCharacterNextDamagePopup_[static_cast<size_t>(targetPartyIndex)] = true;
+            }
+            return;
         }
 
         for (size_t i = 0; i < state.party.size(); ++i) {

@@ -42,6 +42,7 @@ private:
     float holdDuration_ = 0.45f;
     float dashDuration_ = 0.35f;
     bool hitTriggered_ = false;
+    bool followupAudioTriggered_ = false;
     int pressCount_ = 0;
     int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;

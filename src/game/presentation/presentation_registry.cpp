@@ -1,6 +1,7 @@
 #include "ability_presentation.h"
 #include "cupcakke_drum_presentation.h"
 #include "cupcakke_ultimate_presentation.h"
+#include "jiafei_boss_presentation.h"
 #include "lyoo_heal_presentation.h"
 #include "lyoo_boss_presentation.h"
 #include "miku_sing_presentation.h"
@@ -93,6 +94,16 @@ void registerAllPresentations() {
         float targetWorldX, float targetWorldY, float targetWorldZ
     ) -> std::unique_ptr<AbilityPresentation> {
         return std::make_unique<LyooBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("aesthetic_warning", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<JiafeiBossPresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
         );
