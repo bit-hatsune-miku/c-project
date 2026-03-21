@@ -1099,7 +1099,8 @@ void consumeBattleActionEvents(BattleManager& manager, float voiceVolume) {
 
 class SessionImpl {
 public:
-    bool initialize(SDL_Renderer* renderer, const std::string& battleKey) {
+    bool initialize(SDL_Renderer* renderer, const std::vector<std::string>& partyKeys,
+                    const std::string& battleKey) {
         shutdown();
 
         registerAllPresentations();
@@ -1247,9 +1248,11 @@ public:
             gOneShotAudio.shutdown();
         };
 
-        // Hardcoded bossKey and lineup (legacy style)
+        // Use provided party keys, falling back to hardcoded lineup
         std::string bossKey = "lyooBoss";
-        std::vector<std::string> lineup = {"miku", "cupcakke", "lyoo"};
+        std::vector<std::string> lineup = partyKeys.empty()
+            ? std::vector<std::string>{"miku", "cupcakke", "lyoo"}
+            : partyKeys;
         if (!core_.initialize(renderer, bossKey, lineup, std::move(hooks))) {
             narrative_.shutdown();
             return false;
@@ -1329,8 +1332,9 @@ Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
 
 Session::~Session() = default;
 
-bool Session::initialize(SDL_Renderer* renderer, const std::string& battleKey) {
-    return impl_->initialize(renderer, battleKey);
+bool Session::initialize(SDL_Renderer* renderer, const std::vector<std::string>& partyKeys,
+                         const std::string& battleKey) {
+    return impl_->initialize(renderer, partyKeys, battleKey);
 }
 
 void Session::shutdown() {

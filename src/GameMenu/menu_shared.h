@@ -19,6 +19,7 @@ enum class ScreenState {
     Settings,
     LoadMenu,
     LoadConfirmDelete,
+    PartySelect,
     BattleDemo,
     Playing,
     PauseMenu,
@@ -107,6 +108,8 @@ struct AppState {
     std::string pendingOverwriteSavePath;
     std::string pendingDeletePath;
     std::size_t pendingDeleteSelection = 0;
+    std::vector<std::string> selectedPartyKeys;
+    int partySelectCursor = 0;
 };
 
 inline constexpr float kMenuIntroMaxTime = 0.52f + 0.09f * 4.0f;
@@ -153,12 +156,17 @@ void endReferenceLayout(SDL_Renderer* renderer);
 bool mapWindowPointToReference(float windowX, float windowY, int windowWidth, int windowHeight, SDL_FPoint& outPoint);
 
 void beginStory(AppState& state);
+void beginPartySelect(AppState& state);
 void beginBattleDemo(AppState& state);
 void beginBattle(AppState& state, int battleId);  // dispatches to the right battle by ID
 
 void renderMainMenu(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
                     int windowWidth, int windowHeight);
 void handleMainMenuEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
+
+void renderPartySelect(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
+                       int windowWidth, int windowHeight);
+void handlePartySelectEvent(AppState& state, Window& window, const SDL_Event& event, int windowWidth, int windowHeight);
 
 void openPauseMenu(AppState& state, PauseContext context = PauseContext::Story);
 void openLoadMenu(AppState& state, ScreenState returnScreen);

@@ -689,6 +689,12 @@ void beginStory(AppState& state) {
     (void)save::autosave(buildStorySaveGame(state));
 }
 
+void beginPartySelect(AppState& state) {
+    state.selectedPartyKeys.clear();
+    state.partySelectCursor = 0;
+    state.screen = ScreenState::PartySelect;
+}
+
 void beginBattleDemo(AppState& state) {
     state.pauseSelection = PauseAction::Continue;
     state.pauseContext = PauseContext::Battle;
@@ -872,6 +878,10 @@ int main(int argc, char** argv) {
                     handleLoadMenuEvent(state, window, event, window.getWidth(), window.getHeight());
                     break;
 
+                case ScreenState::PartySelect:
+                    handlePartySelectEvent(state, window, event, window.getWidth(), window.getHeight());
+                    break;
+
                 case ScreenState::BattleDemo:
                     if (battleSession != nullptr) {
                         battleSession->handleEvent(event);
@@ -966,7 +976,7 @@ int main(int argc, char** argv) {
             destroyMenuResources(menuResources);
             vn::stopVoicePlayback();  // stop story audio; keep TTF alive (demo session uses VN internally)
             battleSession = std::make_unique<battle::demo::Session>();
-            if (!battleSession->initialize(window.getRenderer())) {
+            if (!battleSession->initialize(window.getRenderer(), state.selectedPartyKeys)) {
                 battleSession.reset();
                 if (!restoreRendererUi(window, menuResources, state.settings)) {
                     std::cerr << "Failed to restore renderer UI after battle load failure\n";
@@ -1105,6 +1115,8 @@ int main(int argc, char** argv) {
         } else if (state.screen == ScreenState::LoadMenu ||
                    state.screen == ScreenState::LoadConfirmDelete) {
             renderLoadScreen(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
+        } else if (state.screen == ScreenState::PartySelect) {
+            renderPartySelect(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
         } else if (state.screen == ScreenState::BattleDemo && battleSession != nullptr) {
             battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
         } else {

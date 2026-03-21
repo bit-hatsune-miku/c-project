@@ -3,6 +3,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <SDL2/SDL.h>
 
@@ -18,7 +19,9 @@ public:
     Session(const Session&) = delete;
     Session& operator=(const Session&) = delete;
 
-    bool initialize(SDL_Renderer* renderer, const std::string& battleKey = "tutorial_vs_lyoo");
+    bool initialize(SDL_Renderer* renderer,
+                    const std::vector<std::string>& partyKeys = {},
+                    const std::string& battleKey = "tutorial_vs_lyoo");
     void shutdown();
     void handleEvent(const SDL_Event& event);
     void update(float deltaSeconds);

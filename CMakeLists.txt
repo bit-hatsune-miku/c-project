@@ -28,6 +28,7 @@ pkg_check_modules(SDL2_IMAGE QUIET SDL2_image)
 set(MAIN_APP_SOURCES
     src/main.cpp
     src/GameMenu/main_menu.cpp
+    src/GameMenu/party_select.cpp
     src/GameMenu/load_menu.cpp
     src/GameMenu/pause_menu.cpp
     src/GameMenu/exit_to_main_menu.cpp

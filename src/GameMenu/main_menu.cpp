@@ -145,7 +145,7 @@ private:
                 openLoadMenu(state, ScreenState::MainMenu);
                 break;
             case MainMenuAction::Battle:
-                beginBattleDemo(state);
+                beginPartySelect(state);
                 break;
             case MainMenuAction::Settings:
                 state.settingsSelection = SettingsItem::DisplayMode;
