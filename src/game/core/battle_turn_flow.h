@@ -13,6 +13,8 @@ struct PreviewActorContext {
     std::string key;
     int partyIndex = -1;
     bool isExtraTurn = false;
+    BattleAction extraTurnAction = BattleAction::Skill;
+    bool autoExecute = false;
 };
 
 PreviewActorContext inspectPreviewActor(const BattleManager& manager);

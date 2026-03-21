@@ -137,6 +137,12 @@ private:
     int ultimateCharge_ = 0;
 };
 
+enum class BattleAction {
+    Standard,
+    Skill,
+    Ultimate
+};
+
 enum class ParticipantType {
     Boss,
     Character
@@ -150,6 +156,9 @@ struct TurnActor {
     int partyIndex = -1; // 0 = left-most character. -1 for boss.
     int priority = 0; // Higher comes first on same action value.
     bool isExtraTurn = false;
+    BattleAction extraTurnAction = BattleAction::Skill;
+    bool autoExecute = false;
+    bool grantsUltimatePointOnAction = true;
     int spd = 1;
     float baseActionValue = 10000.0f;
     float currentActionValue = 10000.0f;
@@ -163,12 +172,6 @@ struct TurnEvent {
 
 struct TurnState {
     std::vector<TurnActor> actors;
-};
-
-enum class BattleAction {
-    Standard,
-    Skill,
-    Ultimate
 };
 
 struct BattleActionEvent {
@@ -233,13 +236,24 @@ public:
     bool isBattleOver() const;
 
 private:
+    struct BossStatusState {
+        int magicEggSpinningMachineCharges = 0;
+    };
+
     bool buildInitialTurnState();
     TurnEvent peekNextTurnEvent() const;
     TurnEvent advanceToNextTurnEvent();
     void runPseudoBattle(int maxActions);
     void executeTurn(size_t actorIndex);
     void queueExtraTurnForCharacter(int partyIndex);
+    void queueExtraTurnForCharacter(int partyIndex,
+                                    BattleAction action,
+                                    bool autoExecute,
+                                    bool grantsUltimatePointOnAction,
+                                    int priority);
     int firstLivingCharacterPartyIndex() const;
+    int findCharacterPartyIndexByKey(const std::string& characterKey) const;
+    bool hasQueuedExtraTurn(int partyIndex, BattleAction action, bool autoExecute) const;
     static int normalizeDamage(int value);
     const AbilityDefinition* getAbility(const std::string& abilityId) const;
     void executeAbilityEffect(const AbilityExecutionContext& context);
@@ -249,6 +263,9 @@ private:
     bool resolveBossAction();
     bool executeCharacterAction(size_t actorIndex, BattleCharacter& character, BattleAction action);
     bool executeBossAction(size_t actorIndex, BattleAction action);
+    void applyJiafeiUltimateDebuff();
+    void consumeJiafeiUltimateDebuff();
+    void tryQueueJiafeiFollowUp(const BattleActionEvent& actionEvent);
     void syncCharacterTurnParticipation(int partyIndex);
     void syncAllCharacterTurnParticipation();
     void syncCharacterUltimateTurn(int partyIndex);
@@ -266,6 +283,7 @@ private:
     bool presentationHealingApplied_ = false;
     bool presentationAbilityAudioPlayed_ = false;
     bool presentationHitAudioPlayed_ = false;
+    BossStatusState bossStatus_;
 };
 
 } // namespace battle

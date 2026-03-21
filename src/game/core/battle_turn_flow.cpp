@@ -21,6 +21,8 @@ PreviewActorContext inspectPreviewActor(const BattleManager& manager) {
     ctx.key = actor.key;
     ctx.partyIndex = actor.partyIndex;
     ctx.isExtraTurn = actor.isExtraTurn;
+    ctx.extraTurnAction = actor.extraTurnAction;
+    ctx.autoExecute = actor.autoExecute;
     return ctx;
 }
 

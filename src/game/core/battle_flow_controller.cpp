@@ -11,7 +11,10 @@ PlayerTurnExecution executeDefaultPlayerTurn(BattleManager& manager) {
     result.actorWasMiku = preview.valid &&
                           preview.type == ParticipantType::Character &&
                           preview.key == "miku";
-    result.actorWasMikuUltimateExtra = result.actorWasMiku && preview.isExtraTurn;
+    result.actorWasMikuUltimateExtra =
+        result.actorWasMiku &&
+        preview.isExtraTurn &&
+        preview.extraTurnAction == BattleAction::Ultimate;
 
     result.executed = manager.executePlayerTurn();
     return result;

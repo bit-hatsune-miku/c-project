@@ -23,6 +23,14 @@
       "isLineupFixed": true,
       "lineup": ["miku", "cupcakke", "lyoo"],
       "stageKey": "default_stage"
+    },
+    "lyoo_plot_twist": {
+      "id": 99,
+      "name": "A turn up of events",
+      "bossKey": "lyooPlotTwist",
+      "isLineupFixed": true,
+      "lineup": ["miku", "cupcakke", "jiafei"],
+      "stageKey": "default_stage"
     }
   }
 }
