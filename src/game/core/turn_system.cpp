@@ -44,6 +44,9 @@ bool buildInitialTurnState(const BattleState& state, TurnState& outTurnState) {
     bossActor.partyIndex = -1;
     bossActor.priority = 0;
     bossActor.isExtraTurn = false;
+    bossActor.extraTurnAction = BattleAction::Skill;
+    bossActor.autoExecute = false;
+    bossActor.grantsUltimatePointOnAction = false;
     bossActor.spd = state.boss.spd;
     bossActor.baseActionValue = actionValueFromSpeed(state.boss.spd);
     bossActor.currentActionValue = bossActor.baseActionValue;
@@ -59,6 +62,9 @@ bool buildInitialTurnState(const BattleState& state, TurnState& outTurnState) {
         actor.partyIndex = static_cast<int>(i);
         actor.priority = 0;
         actor.isExtraTurn = false;
+        actor.extraTurnAction = BattleAction::Skill;
+        actor.autoExecute = false;
+        actor.grantsUltimatePointOnAction = true;
         actor.spd = c.spd;
         actor.baseActionValue = actionValueFromSpeed(c.spd);
         actor.currentActionValue = actor.baseActionValue;
@@ -116,15 +122,24 @@ TurnEvent advanceToNextTurnEvent(TurnState& turnState) {
     return event;
 }
 
-void queueExtraTurnForCharacter(TurnState& turnState, const CharacterDefinition& character, int partyIndex) {
+void queueExtraTurnForCharacter(TurnState& turnState,
+                                const CharacterDefinition& character,
+                                int partyIndex,
+                                BattleAction action,
+                                bool autoExecute,
+                                bool grantsUltimatePointOnAction,
+                                int priority) {
     TurnActor extra;
     extra.type = ParticipantType::Character;
     extra.key = character.key;
     extra.assetId = character.assets;
     extra.title = character.title;
     extra.partyIndex = partyIndex;
-    extra.priority = 100;
+    extra.priority = priority;
     extra.isExtraTurn = true;
+    extra.extraTurnAction = action;
+    extra.autoExecute = autoExecute;
+    extra.grantsUltimatePointOnAction = grantsUltimatePointOnAction;
     extra.spd = character.spd;
     extra.baseActionValue = actionValueFromSpeed(character.spd);
     extra.currentActionValue = 0.0f;

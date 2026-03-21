@@ -55,7 +55,7 @@
       "text": "WHAT DID YOU JUST CALL ME-",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/demo/what.wav",
       "fontPath": "",
       "icon": "assets/combat/icons/miku.png",
       "iconFrameCount": 1,

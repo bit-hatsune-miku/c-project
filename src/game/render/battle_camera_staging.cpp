@@ -104,7 +104,9 @@ void BattleCameraStaging::notifyTurnPreview(const TurnState& turnState,
         turnToken = (actor.type == ParticipantType::Boss ? "B:" : "C:") +
                     actor.key + ":" +
                     std::to_string(actor.partyIndex) + ":" +
-                    (actor.isExtraTurn ? "E" : "N");
+                    (actor.isExtraTurn ? "E" : "N") + ":" +
+                    std::to_string(static_cast<int>(actor.extraTurnAction)) + ":" +
+                    (actor.autoExecute ? "A" : "M");
         nextIsCharacter = actor.type == ParticipantType::Character;
     }
 

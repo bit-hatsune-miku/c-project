@@ -187,10 +187,10 @@ bool BattleManager::initialize(const std::string& bossKey, const std::vector<std
         return false;
     }
 
-    if (characterKeys.empty() || characterKeys.size() > 4) {
-        std::cerr << "[Battle] Party size must be between 1 and 4.\n";
-        return false;
-    }
+    // if (characterKeys.empty() || characterKeys.size() > 4) {
+    //     std::cerr << "[Battle] Party size must be between 1 and 4.\n";
+    //     return false;
+    // }
 
     if (!loader::loadBossDefinition(bossKey, state_.boss)) {
         return false;

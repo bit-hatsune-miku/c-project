@@ -1,7 +1,7 @@
 {
     "lyooBoss": {
         "title": "[Underground BIT Host] Lyoo",
-        "assets": "lyoo",
+        "assets": "lyooBoss",
         "voiceHit": "assets/combat/voices/lyoo/hit.wav",
         "spd": 220,
         "atk": 7,
@@ -25,7 +25,7 @@
         "ultimatePoints": 6,
         "startingOrbs": 1,
         "bgm": "lyooBoss",
-        "bgmVolume": 0.4
+        "bgmVolume": 0.1
     },
     "lyooPlotTwist": {
         "title": "[Reinforcement Learning Assistant] Lyoo",
