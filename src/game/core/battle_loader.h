@@ -15,6 +15,7 @@ std::string resolveAssetPath(const std::string& relativePath);
 
 bool loadBossDefinition(const std::string& bossKey, BossDefinition& outBoss);
 bool loadCharacterDefinition(const std::string& characterKey, CharacterDefinition& outCharacter);
+bool loadAllCharacterDefinitions(std::vector<CharacterDefinition>& outCharacters);
 
 bool loadBattleDefinition(const std::string& battleKey, BattleDefinition& outBattle);
 bool loadBattleDefinitionById(int battleId, BattleDefinition& outBattle);

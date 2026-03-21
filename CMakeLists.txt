@@ -101,6 +101,10 @@ set(BATTLE_DEMO_SOURCES
     src/game/demo_battle_session.h
     src/game/battle_session_core.cpp
     src/game/battle_session_core.h
+    src/game/demo/battle_party_setup.cpp
+    src/game/demo/battle_party_setup.h
+    src/game/demo/battle_party_setup_ui.cpp
+    src/game/demo/battle_party_setup_ui.h
     src/game/demo/demo_narrative_flow.cpp
     src/game/demo/demo_narrative_flow.h
 )

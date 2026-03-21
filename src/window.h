@@ -32,8 +32,10 @@ public:
     bool setFullscreen(bool enabled);
 
 private:
+    bool recreateWindow(bool enableOpenGLFlag);
     void refreshSize();
 
+    std::string title;
     SDL_Window* window = nullptr;
     SDL_Renderer* renderer = nullptr;
     SDL_GLContext glContext = nullptr;

@@ -92,6 +92,26 @@ inline std::string findFontPath() {
     return std::string();
 }
 
+inline std::string findCjkFontPath() {
+    const std::vector<std::string> candidates = {
+        resolvePath("assets/fonts/NotoSansCJK-Regular.ttc"),
+        resolvePath("assets/fonts/NotoSansCJK-Bold.ttc"),
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/noto-cjk/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc"
+    };
+
+    for (const auto& path : candidates) {
+        if (std::filesystem::exists(path)) {
+            return path;
+        }
+    }
+
+    return std::string();
+}
+
 inline std::string findCombatImagePath(const std::string& folder, const std::string& assetName) {
     const std::array<std::pair<std::string, std::string>, 2> candidates = {
         std::pair<std::string, std::string>{
