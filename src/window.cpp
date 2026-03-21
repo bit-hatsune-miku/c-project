@@ -3,7 +3,12 @@
 #include <iostream>
 
 Window::Window(const std::string& title, int windowWidth, int windowHeight)
-    : width(windowWidth), height(windowHeight), windowedWidth(windowWidth), windowedHeight(windowHeight), open(true) {
+    : title(title),
+      width(windowWidth),
+      height(windowHeight),
+      windowedWidth(windowWidth),
+      windowedHeight(windowHeight),
+      open(true) {
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL initialization failed: " << SDL_GetError() << std::endl;
@@ -11,27 +16,7 @@ Window::Window(const std::string& title, int windowWidth, int windowHeight)
         return;
     }
 
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-
-    window = SDL_CreateWindow(
-        title.c_str(),
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        windowWidth, windowHeight,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE | SDL_WINDOW_OPENGL
-    );
-
-    if (!window) {
-        std::cerr << "Window creation failed: " << SDL_GetError() << std::endl;
-        open = false;
-        return;
-    }
-    
-    if (!enableRenderer()) {
+    if (!recreateWindow(false) || !enableRenderer()) {
         std::cerr << "Renderer creation failed: " << SDL_GetError() << std::endl;
         open = false;
         return;
@@ -109,14 +94,65 @@ void Window::clear(Uint8 r, Uint8 g, Uint8 b, Uint8 a) {
     SDL_RenderClear(renderer);
 }
 
+bool Window::recreateWindow(bool enableOpenGLFlag) {
+    if (renderer != nullptr) {
+        SDL_DestroyRenderer(renderer);
+        renderer = nullptr;
+    }
+    if (glContext != nullptr) {
+        SDL_GL_DeleteContext(glContext);
+        glContext = nullptr;
+    }
+    if (window != nullptr) {
+        SDL_DestroyWindow(window);
+        window = nullptr;
+    }
+
+    if (enableOpenGLFlag) {
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    }
+
+    Uint32 windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
+    if (enableOpenGLFlag) {
+        windowFlags |= SDL_WINDOW_OPENGL;
+    }
+
+    window = SDL_CreateWindow(
+        title.c_str(),
+        SDL_WINDOWPOS_CENTERED,
+        SDL_WINDOWPOS_CENTERED,
+        windowedWidth,
+        windowedHeight,
+        windowFlags
+    );
+
+    if (window == nullptr) {
+        std::cerr << "Window creation failed: " << SDL_GetError() << std::endl;
+        return false;
+    }
+
+    if (fullscreen) {
+        if (SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP) != 0) {
+            std::cerr << "Failed to restore fullscreen state: " << SDL_GetError() << std::endl;
+            return false;
+        }
+    }
+
+    refreshSize();
+    return true;
+}
+
 bool Window::enableOpenGL() {
     if (window == nullptr) {
         return false;
     }
 
-    if (renderer != nullptr) {
-        SDL_DestroyRenderer(renderer);
-        renderer = nullptr;
+    if ((SDL_GetWindowFlags(window) & SDL_WINDOW_OPENGL) == 0 && !recreateWindow(true)) {
+        return false;
     }
 
     if (glContext == nullptr) {
@@ -142,6 +178,10 @@ bool Window::enableRenderer() {
         SDL_GL_MakeCurrent(window, nullptr);
         SDL_GL_DeleteContext(glContext);
         glContext = nullptr;
+    }
+
+    if ((SDL_GetWindowFlags(window) & SDL_WINDOW_OPENGL) != 0 && !recreateWindow(false)) {
+        return false;
     }
 
     if (renderer == nullptr) {

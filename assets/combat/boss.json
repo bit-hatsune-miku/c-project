@@ -137,7 +137,7 @@
         "bgmVolume": 0.4
     },
     "wechatalipayBoss": {
-        "title": "WeChat-Jie & Alipay-Jie",
+        "title": "微信姐 & 支付宝姐",
         "assets": "wechatalipay",
         "voiceHit": "assets/combat/voices/wechatalipay/hit.wav",
         "spd": 165,

@@ -1007,6 +1007,7 @@ bool Session::isFinished() const {
 #include "audio/wav_one_shot.h"
 #include "battle_session_core.h"
 #include "core/battle_loader.h"
+#include "demo/battle_party_setup.h"
 #include "demo/demo_narrative_flow.h"
 #include "presentation/ability_presentation.h"
 #include "presentation/miku_rhythm_game.h"
@@ -1148,20 +1149,140 @@ class SessionImpl {
 public:
     bool initialize(SDL_Renderer* renderer, const std::string& battleKey) {
         shutdown();
+        renderer_ = renderer;
 
         registerAllPresentations();
         narrativeInitialized_ = false;
 
-        // BattleDefinition battleDefinition;
-        // if (!loader::loadBattleDefinition(battleKey, battleDefinition)) {
-        //     return false;
-        // }
-        // if (!battleDefinition.isLineupFixed) {
-        //     return false;
-        // }
-        // if (battleDefinition.lineup.empty()) {
-        //     return false;
-        // }
+        if (!loader::loadBattleDefinition(battleKey, battleDefinition_)) {
+            return false;
+        }
+
+        if (!partySetup_.initialize(renderer, battleDefinition_)) {
+            return false;
+        }
+
+        if (partySetup_.shouldSkipSetup()) {
+            PartySetupResult startupSelection;
+            if (!partySetup_.consumeStartRequest(startupSelection)) {
+                shutdown();
+                return false;
+            }
+            if (!startBattleWithParty(renderer, startupSelection.partyKeys)) {
+                shutdown();
+                return false;
+            }
+            partySetup_.complete();
+        }
+
+        initialized_ = true;
+        return true;
+    }
+
+    void shutdown() {
+        partySetup_.shutdown();
+        battleDefinition_ = BattleDefinition{};
+        core_.shutdown();
+        narrative_.shutdown();
+        initialized_ = false;
+        narrativeInitialized_ = false;
+    }
+
+    void handleEvent(const SDL_Event& event) {
+        if (!initialized_) {
+            return;
+        }
+
+        if (partySetup_.isActive()) {
+            int windowWidth = lastRenderWidth_;
+            int windowHeight = lastRenderHeight_;
+            getCurrentWindowSize(windowWidth, windowHeight);
+            if (event.type == SDL_KEYDOWN && event.key.repeat == 0 && event.key.keysym.sym == SDLK_ESCAPE) {
+                partySetup_.handleEvent(event, windowWidth, windowHeight);
+                return;
+            }
+            partySetup_.handleEvent(event, windowWidth, windowHeight);
+            return;
+        }
+
+        core_.handleEvent(event);
+    }
+
+    void update(float deltaSeconds) {
+        if (!initialized_) {
+            return;
+        }
+
+        if (partySetup_.consumeCancelRequest()) {
+            shutdown();
+            return;
+        }
+
+        PartySetupResult selection;
+        if (partySetup_.consumeStartRequest(selection)) {
+            if (!startBattleWithParty(renderer_, selection.partyKeys)) {
+                shutdown();
+                return;
+            }
+            partySetup_.complete();
+        }
+
+        if (partySetup_.isActive()) {
+            return;
+        }
+
+        if (!narrativeInitialized_ && !core_.isCombatBeginAnimationActive()) {
+            if (!narrative_.initialize()) {
+                shutdown();
+                return;
+            }
+            narrativeInitialized_ = true;
+        }
+
+        core_.update(deltaSeconds);
+    }
+
+    void render(SDL_Renderer* renderer, int screenWidth, int screenHeight) {
+        if (!initialized_) {
+            return;
+        }
+
+        renderer_ = renderer;
+        lastRenderWidth_ = screenWidth;
+        lastRenderHeight_ = screenHeight;
+
+        if (partySetup_.isActive()) {
+            partySetup_.render(renderer, screenWidth, screenHeight);
+            return;
+        }
+
+        core_.render(renderer, screenWidth, screenHeight);
+    }
+
+    bool isFinished() const {
+        return !initialized_ || core_.isFinished();
+    }
+
+private:
+    void getCurrentWindowSize(int& outWidth, int& outHeight) const {
+        outWidth = lastRenderWidth_;
+        outHeight = lastRenderHeight_;
+        if (renderer_ == nullptr) {
+            return;
+        }
+
+#if SDL_VERSION_ATLEAST(2, 0, 22)
+        SDL_Window* window = SDL_RenderGetWindow(renderer_);
+        if (window != nullptr) {
+            SDL_GetWindowSize(window, &outWidth, &outHeight);
+        }
+#else
+        SDL_GetRendererOutputSize(renderer_, &outWidth, &outHeight);
+#endif
+    }
+
+    bool startBattleWithParty(SDL_Renderer* renderer, const std::vector<std::string>& lineup) {
+        renderer_ = renderer;
 
         BattleSessionCore::Hooks hooks;
         hooks.isDialogueInProgress = [this]() {
@@ -1346,6 +1467,7 @@ public:
             gOneShotAudio.shutdown();
         };
 
+<<<<<<< HEAD
         // Try to load from battles.json, fallback to hardcoded if not found
         BattleDefinition battleDefinition;
         std::string chosenBattleKey = battleKey.empty() ? "tutorial_vs_lyoo" : battleKey;
@@ -1357,6 +1479,17 @@ public:
         narrativeInitialized_ = !narrativeEnabled_;
 
         if (!core_.initialize(renderer, bossKey, lineup, std::move(hooks))) {
+=======
+        if (lineup.empty()) {
+            return false;
+        }
+
+        core_.shutdown();
+        narrative_.shutdown();
+        narrativeInitialized_ = false;
+
+        if (!core_.initialize(renderer, battleDefinition_.bossKey, lineup, std::move(hooks))) {
+>>>>>>> a278e17f2d05bb3c77c50310bea2aafb055a43e6
             narrative_.shutdown();
             return false;
         }
@@ -1370,10 +1503,10 @@ public:
             }
         }
 
-        initialized_ = true;
         return true;
     }
 
+<<<<<<< HEAD
     void shutdown() {
         if (!initialized_) {
             narrative_.shutdown();
@@ -1439,13 +1572,24 @@ public:
     }
 
 private:
+=======
+>>>>>>> a278e17f2d05bb3c77c50310bea2aafb055a43e6
     bool initialized_ = false;
     bool narrativeEnabled_ = true;
     bool narrativeInitialized_ = false;
+    SDL_Renderer* renderer_ = nullptr;
+    int lastRenderWidth_ = 1280;
+    int lastRenderHeight_ = 720;
     BattleSessionCore core_;
     DemoNarrativeFlow narrative_;
+<<<<<<< HEAD
     std::string presentationAudioSequenceId_;
     int presentationAudioCueIndex_ = 0;
+=======
+    BattleDefinition battleDefinition_;
+    BattlePartySetupScreen partySetup_;
+    bool cupcakkeUltimateVoicePlayed_ = false;
+>>>>>>> a278e17f2d05bb3c77c50310bea2aafb055a43e6
 };
 
 Session::Session() : impl_(std::make_unique<SessionImpl>()) {}

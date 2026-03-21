@@ -8,12 +8,11 @@
 #include "game/vn/vn_system.h"
 
 int main(int argc, char** argv) {
-#ifdef JIAFEI_DEMO
-    std::string battleKey = "wild_scent_flowers";
-#else
-    std::string battleKey = "test_ground";
-#endif
-
+    #ifdef JIAFEI_DEMO
+        std::string battleKey = "wild_scent_flowers";
+    #else
+        std::string battleKey = "test_ground";
+    #endif
     if (argc > 1 && argv[1] != nullptr && argv[1][0] != '\0') {
         battleKey = argv[1];
     }
