@@ -225,7 +225,9 @@ bool fillBattleDefinitionFromJson(const std::string& battleKey,
     battle.id = battleJson.value("id", -1);
     battle.name = battleJson.value("name", battle.key);
     battle.description = battleJson.value("description", "");
+    battle.type = battleJson.value("type", "");
     battle.bossKey = battleJson.value("bossKey", "");
+    battle.stageKey = battleJson.value("stageKey", "");
     battle.isLineupFixed = battleJson.value("isLineupFixed", true);
     battle.lineup = battleJson.value("lineup", std::vector<std::string>{});
     battle.lockedLineup = battleJson.value("lockedLineup", std::vector<std::string>{});
