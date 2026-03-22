@@ -24,6 +24,21 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
 
     const AbilityDefinition& ability = *context.ability;
 
+    // Special case: Wechatalipay's ultimate (id: 8888, presentationId: wechatalipay_ultimate)
+    if (ability.id == "8888" || ability.presentationId == "wechatalipay_ultimate") {
+        // Sum all team shield values
+        int totalShield = 0;
+        for (BattleCharacter& c : characters) {
+            if (c.isAlive()) {
+                totalShield += c.getShield();
+            }
+        }
+        if (totalShield > 0) {
+            bossCurrentHp = std::max(0, bossCurrentHp - totalShield);
+            // Shields are NOT consumed by the ultimate
+        }
+        return;
+    }
     switch (ability.type) {
         case AbilityType::Attack: {
             const int finalDamage = normalizeDamage(static_cast<int>(

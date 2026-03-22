@@ -12,11 +12,19 @@
 
 #include "qr_code_attack_presentation.h"
 #include "qr_code_shield_presentation.h"
+#include "wechatalipay_ultimate_presentation.h"
 
 namespace battle {
 
 void registerAllPresentations() {
     auto& registry = PresentationRegistry::instance();
+    // Register Wechatalipay's ultimate presentation
+    registry.registerPresentation("wechatalipay_ultimate", [](float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ) -> std::unique_ptr<AbilityPresentation> {
+        battle::PresentationContext context;
+        // Optionally set up context fields if needed
+        return std::make_unique<battle::WechatalipayUltimatePresentation>(context);
+    });
 
     // Register Miku's singing ability (musical_notes)
         // Register Wechatalipay's shield minigame (sao_ma_zhi_fu)
