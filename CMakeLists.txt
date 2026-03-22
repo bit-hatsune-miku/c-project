@@ -95,6 +95,8 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/jiafei_ultimate_presentation.h
     src/game/presentation/lyoo_boss_presentation.cpp
     src/game/presentation/lyoo_boss_presentation.h
+    src/game/presentation/lyoo_plot_twist_presentation.cpp
+    src/game/presentation/lyoo_plot_twist_presentation.h
     src/game/presentation/presentation_runtime.cpp
     src/game/presentation/presentation_runtime.h
     src/game/presentation/splash_art_animation.cpp
@@ -165,6 +167,21 @@ add_executable(demo_jiafei
 )
 
 target_compile_definitions(demo_jiafei PRIVATE JIAFEI_DEMO=1)
+
+add_executable(demo_lyoo_plot_twist
+    src/demo.cpp
+    src/window.cpp
+    src/window.h
+    ${BATTLE_CORE_SOURCES}
+    ${BATTLE_DEMO_SOURCES}
+    ${BATTLE_PRESENTATION_SOURCES}
+    src/game/vn/vn_system.cpp
+    src/game/vn/vn_system.h
+    src/game/vn/vn_script.cpp
+    src/game/vn/vn_script.h
+)
+
+target_compile_definitions(demo_lyoo_plot_twist PRIVATE LYOO_PLOT_TWIST_DEMO=1)
 
 if (ENABLE_RMLUI)
     find_package(OpenGL REQUIRED)
@@ -263,6 +280,7 @@ target_include_directories(OurUndergroundBITIdol PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(battle_testing PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(demo PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(demo_jiafei PRIVATE ${SDL2_INCLUDE_DIRS})
+target_include_directories(demo_lyoo_plot_twist PRIVATE ${SDL2_INCLUDE_DIRS})
 if (ENABLE_RMLUI)
     target_include_directories(OurUndergroundBITIdol PRIVATE ${rmlui_SOURCE_DIR}/Backends)
 endif()
@@ -280,6 +298,8 @@ if (SDL2_TTF_FOUND)
     target_compile_definitions(demo PRIVATE BATTLE_ENABLE_TTF=1 VN_ENABLE_TTF=1)
     target_include_directories(demo_jiafei PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
     target_compile_definitions(demo_jiafei PRIVATE BATTLE_ENABLE_TTF=1 VN_ENABLE_TTF=1)
+    target_include_directories(demo_lyoo_plot_twist PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
+    target_compile_definitions(demo_lyoo_plot_twist PRIVATE BATTLE_ENABLE_TTF=1 VN_ENABLE_TTF=1)
     if (TARGET battle_testing_legacy)
         target_include_directories(battle_testing_legacy PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
         target_compile_definitions(battle_testing_legacy PRIVATE BATTLE_ENABLE_TTF=1)
@@ -296,6 +316,8 @@ if (SDL2_IMAGE_FOUND)
     target_compile_definitions(demo PRIVATE BATTLE_ENABLE_IMAGE=1 VN_ENABLE_IMAGE=1)
     target_include_directories(demo_jiafei PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
     target_compile_definitions(demo_jiafei PRIVATE BATTLE_ENABLE_IMAGE=1 VN_ENABLE_IMAGE=1)
+    target_include_directories(demo_lyoo_plot_twist PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+    target_compile_definitions(demo_lyoo_plot_twist PRIVATE BATTLE_ENABLE_IMAGE=1 VN_ENABLE_IMAGE=1)
     if (TARGET battle_testing_legacy)
         target_include_directories(battle_testing_legacy PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
         target_compile_definitions(battle_testing_legacy PRIVATE BATTLE_ENABLE_IMAGE=1)
@@ -306,6 +328,7 @@ endif()
 target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 target_link_libraries(demo PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 target_link_libraries(demo_jiafei PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
+target_link_libraries(demo_lyoo_plot_twist PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 if (ENABLE_RMLUI)
     target_compile_definitions(OurUndergroundBITIdol PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
     target_link_libraries(OurUndergroundBITIdol PRIVATE OpenGL::GL RmlUi::RmlUi)
@@ -322,6 +345,7 @@ if (SDL2_TTF_FOUND)
     target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_TTF_LIBRARIES})
     target_link_libraries(demo PRIVATE ${SDL2_TTF_LIBRARIES})
     target_link_libraries(demo_jiafei PRIVATE ${SDL2_TTF_LIBRARIES})
+    target_link_libraries(demo_lyoo_plot_twist PRIVATE ${SDL2_TTF_LIBRARIES})
     if (NOT ENABLE_RMLUI)
         target_link_libraries(battle_testing PRIVATE ${SDL2_TTF_LIBRARIES})
     endif()
@@ -333,6 +357,7 @@ if (SDL2_IMAGE_FOUND)
     target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_IMAGE_LIBRARIES})
     target_link_libraries(demo PRIVATE ${SDL2_IMAGE_LIBRARIES})
     target_link_libraries(demo_jiafei PRIVATE ${SDL2_IMAGE_LIBRARIES})
+    target_link_libraries(demo_lyoo_plot_twist PRIVATE ${SDL2_IMAGE_LIBRARIES})
     if (NOT ENABLE_RMLUI)
         target_link_libraries(battle_testing PRIVATE ${SDL2_IMAGE_LIBRARIES})
     endif()
@@ -365,5 +390,9 @@ set_target_properties(demo PROPERTIES
 )
 
 set_target_properties(demo_jiafei PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+set_target_properties(demo_lyoo_plot_twist PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )

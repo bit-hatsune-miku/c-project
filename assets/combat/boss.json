@@ -28,12 +28,12 @@
         "bgmVolume": 0.1
     },
     "lyooPlotTwist": {
-        "title": "[Reinforcement Learning Assistant] Lyoo",
-        "assets": "lyoo",
+        "title": "断川",
+        "assets": "lyooPlotTwist",
         "voiceHit": "assets/combat/voices/lyoo/hit.wav",
         "spd": 160,
         "atk": 50,
-        "hp": 500,
+        "hp": 1000,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "IfICantHaveWingsThenIllJustLetTheSkyFall",
         "ability": "IfICantHaveWingsThenIllJustLetTheSkyFall",
@@ -44,9 +44,9 @@
                 "name": "If I can't have wings, then I'll just let the sky fall",
                 "type": "attack",
                 "targetRule": "all_enemies",
-                "multiplier": 1.7,
+                "multiplier": 1.4,
                 "interactionType": "none",
-                "presentationId": "boss_attack_lyoo_ultimate"
+                "presentationId": "boss_attack_lyoo_plot_twist"
             }
         },
         "ultimatePoints": 6,
@@ -60,7 +60,7 @@
         "voiceHit": "assets/combat/voices/miku/hit.wav",
         "spd": 200,
         "atk": 80,
-        "hp": 700,
+        "hp": 2000,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "SelfCorruption",
         "ability": "SelfCorruption",

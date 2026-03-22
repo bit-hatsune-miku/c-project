@@ -1476,7 +1476,7 @@ private:
         narrative_.shutdown();
         presentationAudioSequenceId_.clear();
         presentationAudioCueIndex_ = 0;
-        narrativeEnabled_ = (battleDefinition_.bossKey != "jiafeiBoss");
+        narrativeEnabled_ = (battleDefinition_.type == "tutorial");
         narrativeInitialized_ = false;
         if (!narrativeEnabled_) {
             narrativeInitialized_ = true;
