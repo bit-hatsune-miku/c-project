@@ -2,6 +2,8 @@
 #include "cupcakke_drum_presentation.h"
 #include "cupcakke_ultimate_presentation.h"
 #include "jiafei_boss_presentation.h"
+#include "jiafei_scream_presentation.h"
+#include "jiafei_ultimate_presentation.h"
 #include "lyoo_heal_presentation.h"
 #include "lyoo_boss_presentation.h"
 #include "miku_sing_presentation.h"
@@ -104,6 +106,26 @@ void registerAllPresentations() {
         float targetWorldX, float targetWorldY, float targetWorldZ
     ) -> std::unique_ptr<AbilityPresentation> {
         return std::make_unique<JiafeiBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("aesthetic_scream", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<JiafeiScreamPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("mei_ci_du_xiang_zhuang", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<JiafeiUltimatePresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
         );

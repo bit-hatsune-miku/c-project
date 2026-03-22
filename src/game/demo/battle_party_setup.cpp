@@ -60,7 +60,7 @@ bool BattlePartySetupScreen::validateBattleDefinition() const {
         std::cerr << "[Battle] Battle definition missing bossKey: " << battleDefinition_.key << "\n";
         return false;
     }
-    if (battleDefinition_.partySize < 1 || battleDefinition_.partySize > 4) {
+    if (battleDefinition_.partySize < 1) {
         std::cerr << "[Battle] Battle definition has invalid partySize: " << battleDefinition_.key << "\n";
         return false;
     }

@@ -215,6 +215,8 @@ void BattleSessionCore::handleEvent(const SDL_Event& event) {
         if (preview.valid &&
             preview.type == ParticipantType::Character &&
             preview.isExtraTurn &&
+            preview.extraTurnAction == BattleAction::Ultimate &&
+            !preview.autoExecute &&
             preview.partyIndex != previewUltimateSplashPartyIndex_) {
             maybeStartUltimateTurnSplash(preview, false);
             if (activeUltimateTurnSplash_) {
@@ -399,7 +401,12 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
         }
     }
 
-    SDL_SetRenderDrawColor(renderer, 20, 20, 25, 255);
+    const bool blackoutWorld = activePresentation_ != nullptr && activePresentation_->shouldBlackoutWorld();
+    SDL_SetRenderDrawColor(renderer,
+                           blackoutWorld ? 0 : 20,
+                           blackoutWorld ? 0 : 20,
+                           blackoutWorld ? 0 : 25,
+                           255);
     SDL_RenderClear(renderer);
 
     if (activePresentation_ != nullptr) {
@@ -411,7 +418,7 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
         screenWidth,
         screenHeight,
         camera_,
-        floorTileTexture_,
+        blackoutWorld ? nullptr : floorTileTexture_,
         entities_,
         focusedEntityIndex,
         textureByAsset_,
@@ -476,6 +483,8 @@ void BattleSessionCore::maybeStartUltimateTurnSplash(const flow::PreviewActorCon
         preview.valid &&
         preview.type == ParticipantType::Character &&
         preview.isExtraTurn &&
+        preview.extraTurnAction == BattleAction::Ultimate &&
+        !preview.autoExecute &&
         preview.partyIndex >= 0;
 
     if (!isCharacterUltimatePreview) {
@@ -560,6 +569,12 @@ void BattleSessionCore::updateCharacterVisibilityTransitions(float deltaSeconds)
 
 float BattleSessionCore::runPresentationInteraction(const PresentationContext& context) {
     if (!initialized_ || finished_ || renderer_ == nullptr) return 1.0f;
+
+    // Automatic follow-up turns can fire before the outer update loop restages the party.
+    // Force the scene into the current actor's duel layout so projectile paths and camera
+    // framing match a normal turn for that same character.
+    updateSceneEntities(0.0f, context.isBoss, context.isBoss ? -1 : context.casterIndex);
+    cameraStaging_.snapToGoalCamera(camera_);
 
     const std::string casterAssets = resolvePresentationCasterAsset(context);
     const AbilityDefinition* abilityDef = manager_.findAbilityDefinition(context.abilityId);
