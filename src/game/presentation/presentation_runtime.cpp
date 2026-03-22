@@ -74,8 +74,15 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     // ------------------------------------------------------------------
     // Splash art intro (pre-presentation)
     // ------------------------------------------------------------------
-    auto splashCfg = presentation->getSplashConfig(callbacks.casterSpriteTexture);
-    if (!context.isUltimate && splashCfg && callbacks.setRenderOverlay && callbacks.clearRenderOverlay) {
+    std::optional<SplashArtConfig> splashCfg = presentation->getSplashConfig(callbacks.casterSpriteTexture);
+    if (!splashCfg.has_value() && context.isBoss) {
+        SplashArtConfig cfg;
+        cfg.sprite = callbacks.casterSpriteTexture;
+        splashCfg = std::move(cfg);
+    }
+
+    const bool allowSplash = context.isBoss || !context.isUltimate;
+    if (allowSplash && splashCfg && callbacks.setRenderOverlay && callbacks.clearRenderOverlay) {
         if (!context.abilityId.empty()) {
             splashCfg->abilityName = context.abilityId;
         } else {

@@ -118,6 +118,33 @@ bool playResolvedVoicePath(const std::string& path, float voiceVolume) {
     return gOneShotAudio.playWavOneShot(resolved, voiceVolume);
 }
 
+std::optional<std::string> resolveBossHitVoicePath(const battle::BattleState& battleState) {
+    if (!battleState.boss.voiceHit.empty()) {
+        const std::string resolved = platform::path::resolvePath(battleState.boss.voiceHit);
+        if (std::filesystem::exists(resolved)) {
+            return resolved;
+        }
+    }
+
+    if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.assets, "hit"); hitVoice.has_value()) {
+        return *hitVoice;
+    }
+    if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "hit"); hitVoice.has_value()) {
+        return *hitVoice;
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string> resolveBossDeadVoicePath(const battle::BattleState& battleState) {
+    if (const auto deadVoice = platform::path::resolveCombatVoicePath(battleState.boss.assets, "dead"); deadVoice.has_value()) {
+        return *deadVoice;
+    }
+    if (const auto deadVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "dead"); deadVoice.has_value()) {
+        return *deadVoice;
+    }
+    return std::nullopt;
+}
+
 bool playBossHitVoice(const battle::BattleState& battleState, float voiceVolume) {
     if (playResolvedVoicePath(battleState.boss.voiceHit, voiceVolume)) {
         return true;
@@ -343,7 +370,19 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
         }
 
         if (event.bossHpAfter < event.bossHpBefore) {
-            (void)playBossHitVoice(battleState, voiceVolume);
+            if (event.bossHpBefore > 0 && event.bossHpAfter <= 0) {
+                const auto deadVoice = resolveBossDeadVoicePath(battleState);
+                if (deadVoice.has_value()) {
+                    if (const auto hitVoice = resolveBossHitVoicePath(battleState); hitVoice.has_value()) {
+                        gOneShotAudio.stopPlayback(*hitVoice);
+                    }
+                    (void)gOneShotAudio.playWavOneShot(*deadVoice, voiceVolume);
+                } else {
+                    (void)playBossHitVoice(battleState, voiceVolume);
+                }
+            } else {
+                (void)playBossHitVoice(battleState, voiceVolume);
+            }
         }
 
         for (size_t i = 0; i < event.targetPartyIndices.size() && i < event.targetHpBefore.size() && i < event.targetHpAfter.size(); ++i) {
@@ -354,8 +393,17 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
             if (partyIndex < 0 || partyIndex >= static_cast<int>(battleState.party.size())) {
                 continue;
             }
-            if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.party[static_cast<size_t>(partyIndex)].assets, "hit");
-                hitVoice.has_value()) {
+            const std::string& assetKey = battleState.party[static_cast<size_t>(partyIndex)].assets;
+            if (event.targetHpBefore[i] > 0 && event.targetHpAfter[i] <= 0) {
+                if (const auto deadVoice = platform::path::resolveCombatVoicePath(assetKey, "dead"); deadVoice.has_value()) {
+                    if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
+                        gOneShotAudio.stopPlayback(*hitVoice);
+                    }
+                    (void)gOneShotAudio.playWavOneShot(*deadVoice, voiceVolume);
+                } else if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
+                    (void)gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
+                }
+            } else if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
                 (void)gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
             }
         }
@@ -1047,6 +1095,86 @@ private:
         presentationPlaybackActive_ = true;
         presentationCasterIsBoss_ = context.isBoss;
         presentationCasterPartyIndex_ = context.casterIndex;
+
+        // ------------------------------------------------------------------
+        // Splash art intro (pre-presentation)
+        // ------------------------------------------------------------------
+        const battle::BattleState& battleState = manager_.getBattleState();
+        auto resolveSpriteTexture = [&](const std::string& assetName) -> SDL_Texture* {
+            auto it = sceneRenderer_.textureByAsset.find(assetName);
+            return (it != sceneRenderer_.textureByAsset.end()) ? it->second : nullptr;
+        };
+        SDL_Texture* casterSpriteTexture = nullptr;
+        if (context.isBoss) {
+            casterSpriteTexture = resolveSpriteTexture(battleState.boss.assets);
+        } else if (context.casterIndex >= 0 &&
+                   static_cast<size_t>(context.casterIndex) < battleState.party.size()) {
+            casterSpriteTexture = resolveSpriteTexture(battleState.party[static_cast<size_t>(context.casterIndex)].assets);
+        }
+
+        std::optional<battle::SplashArtConfig> splashCfg = presentation->getSplashConfig(casterSpriteTexture);
+        if (!splashCfg.has_value() && context.isBoss) {
+            battle::SplashArtConfig cfg;
+            cfg.sprite = casterSpriteTexture;
+            splashCfg = std::move(cfg);
+        }
+
+        const bool allowSplash = context.isBoss || !context.isUltimate;
+        if (allowSplash && splashCfg.has_value()) {
+            splashCfg->abilityName = !context.abilityId.empty() ? context.abilityId : context.presentationId;
+
+            battle::SplashArtAnimation splash(*splashCfg);
+            splash.start();
+            Uint64 splashCounter = SDL_GetPerformanceCounter();
+            while (!finished_ && !splash.isComplete()) {
+                SDL_Event event;
+                while (SDL_PollEvent(&event)) {
+                    if (event.type == SDL_QUIT) {
+                        finished_ = true;
+                        break;
+                    }
+
+                    if (isWindowResizeEvent(event)) {
+                        windowHost_->handleEvent(event);
+                        windowWidth_ = windowHost_->getWidth();
+                        windowHeight_ = windowHost_->getHeight();
+                        renderInterface_->SetViewport(windowWidth_, windowHeight_);
+                        context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
+                        camera_.screenCenterX = windowWidth_ * 0.5f;
+                        camera_.screenCenterY = windowHeight_ * 0.5f;
+                        if (!sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
+                            finished_ = true;
+                            break;
+                        }
+                    }
+
+                    if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
+                        if (event.key.keysym.sym == SDLK_ESCAPE) {
+                            finished_ = true;
+                            break;
+                        }
+                        if (event.key.keysym.sym == SDLK_SPACE) {
+                            splash.skip();
+                        }
+                    }
+                }
+                if (finished_) break;
+
+                const Uint64 splashNow = SDL_GetPerformanceCounter();
+                const float splashDt = static_cast<float>(splashNow - splashCounter) /
+                    static_cast<float>(SDL_GetPerformanceFrequency());
+                splashCounter = splashNow;
+                splash.update(splashDt);
+
+                render();
+                if (SDL_Renderer* renderer = windowHost_ != nullptr ? windowHost_->getRenderer() : nullptr) {
+                    splash.renderOverlay(renderer, windowWidth_, windowHeight_);
+                }
+                if (windowHost_ != nullptr) {
+                    windowHost_->present();
+                }
+            }
+        }
 
         presentation->start();
         Uint64 lastCounter = SDL_GetPerformanceCounter();

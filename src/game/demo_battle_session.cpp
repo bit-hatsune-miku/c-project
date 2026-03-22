@@ -1127,6 +1127,33 @@ bool playBossHitVoice(const BattleState& battleState, float volume, int repeatCo
     return playCombatVoiceClip(battleState.boss.key, "hit", volume, repeatCount);
 }
 
+std::optional<std::string> resolveBossHitVoicePath(const BattleState& battleState) {
+    if (!battleState.boss.voiceHit.empty()) {
+        const std::string resolved = platform::path::resolvePath(battleState.boss.voiceHit);
+        if (std::filesystem::exists(resolved)) {
+            return resolved;
+        }
+    }
+
+    if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.assets, "hit"); hitVoice.has_value()) {
+        return *hitVoice;
+    }
+    if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "hit"); hitVoice.has_value()) {
+        return *hitVoice;
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string> resolveBossDeadVoicePath(const BattleState& battleState) {
+    if (const auto deadVoice = platform::path::resolveCombatVoicePath(battleState.boss.assets, "dead"); deadVoice.has_value()) {
+        return *deadVoice;
+    }
+    if (const auto deadVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "dead"); deadVoice.has_value()) {
+        return *deadVoice;
+    }
+    return std::nullopt;
+}
+
 void consumeBattleActionEvents(BattleManager& manager, float voiceVolume) {
     const BattleState& battleState = manager.getBattleState();
     for (const BattleActionEvent& event : manager.getRecentActionEvents()) {
@@ -1156,7 +1183,18 @@ void consumeBattleActionEvents(BattleManager& manager, float voiceVolume) {
         }
 
         if (!event.hitVoicesHandledDuringPresentation && event.bossHpAfter < event.bossHpBefore) {
-            (void)playBossHitVoice(battleState, voiceVolume);
+            if (event.bossHpBefore > 0 && event.bossHpAfter <= 0) {
+                if (const auto bossDeadVoicePath = resolveBossDeadVoicePath(battleState); bossDeadVoicePath.has_value()) {
+                    if (const auto bossHitVoicePath = resolveBossHitVoicePath(battleState); bossHitVoicePath.has_value()) {
+                        gOneShotAudio.stopPlayback(*bossHitVoicePath);
+                    }
+                    (void)gOneShotAudio.playWavOneShot(*bossDeadVoicePath, voiceVolume);
+                } else {
+                    (void)playBossHitVoice(battleState, voiceVolume);
+                }
+            } else {
+                (void)playBossHitVoice(battleState, voiceVolume);
+            }
         }
 
         if (event.hitVoicesHandledDuringPresentation) {
@@ -1171,10 +1209,17 @@ void consumeBattleActionEvents(BattleManager& manager, float voiceVolume) {
             if (partyIndex < 0 || partyIndex >= static_cast<int>(battleState.party.size())) {
                 continue;
             }
-            if (const auto hitVoice = platform::path::resolveCombatVoicePath(
-                    battleState.party[static_cast<size_t>(partyIndex)].assets,
-                    "hit");
-                hitVoice.has_value()) {
+            const std::string& assetKey = battleState.party[static_cast<size_t>(partyIndex)].assets;
+            if (event.targetHpBefore[i] > 0 && event.targetHpAfter[i] <= 0) {
+                if (const auto deadVoice = platform::path::resolveCombatVoicePath(assetKey, "dead"); deadVoice.has_value()) {
+                    if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
+                        gOneShotAudio.stopPlayback(*hitVoice);
+                    }
+                    (void)gOneShotAudio.playWavOneShot(*deadVoice, voiceVolume);
+                } else if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
+                    (void)gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
+                }
+            } else if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
                 (void)gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
             }
         }
@@ -1230,6 +1275,8 @@ public:
         narrativeInitialized_ = false;
         presentationAudioSequenceId_.clear();
         presentationAudioCueIndex_ = 0;
+        lastPartyHp_.clear();
+        lastBossHp_ = 0;
         renderer_ = nullptr;
     }
 
@@ -1309,6 +1356,15 @@ public:
     }
 
 private:
+    void syncHpSnapshots(BattleManager& manager) {
+        lastBossHp_ = manager.getBossCurrentHp();
+        const BattleState& state = manager.getBattleState();
+        lastPartyHp_.assign(state.party.size(), 0);
+        for (size_t i = 0; i < state.party.size(); ++i) {
+            lastPartyHp_[i] = manager.getCharacterCurrentHp(static_cast<int>(i));
+        }
+    }
+
     void getCurrentWindowSize(int& outWidth, int& outHeight) const {
         outWidth = lastRenderWidth_;
         outHeight = lastRenderHeight_;
@@ -1370,16 +1426,19 @@ private:
             if (!narrativeEnabled_) {
                 manager.processAutomaticTurns();
                 consumeBattleActionEvents(manager, 1.0f);
+                syncHpSnapshots(manager);
                 return;
             }
             if (!narrativeInitialized_) {
                 consumeBattleActionEvents(manager, 1.0f);
+                syncHpSnapshots(manager);
                 return;
             }
             vn::update(deltaSeconds);
             narrative_.maybeStartBossDefeatedDialogue(manager);
             narrative_.handleAutomaticProgression(manager);
             consumeBattleActionEvents(manager, 1.0f);
+            syncHpSnapshots(manager);
         };
         hooks.onPresentationSplashVoice = nullptr;
         hooks.onPresentationAudioCommands = [](const PresentationContext& context,
@@ -1494,35 +1553,51 @@ private:
                 core_.clearHint();
             }
         };
-        hooks.onPresentationHitAudio = [](const PresentationContext& context, int hitEvents, BattleManager& manager) {
+        hooks.onPresentationHitAudio = [this](const PresentationContext& context, int hitEvents, BattleManager& manager) {
             const BattleState& battleState = manager.getBattleState();
             if (context.isBoss) {
-                if (context.targetIndex >= 0 &&
-                    context.targetIndex < static_cast<int>(battleState.party.size())) {
-                    if (manager.getCharacterCurrentHp(context.targetIndex) <= 0) {
+                auto handlePartyHitAudio = [&](int partyIndex, int repeatCount) {
+                    if (partyIndex < 0 || partyIndex >= static_cast<int>(battleState.party.size())) {
                         return;
                     }
 
-                    if (const auto hitVoice = platform::path::resolveCombatVoicePath(
-                            battleState.party[static_cast<size_t>(context.targetIndex)].assets,
-                            "hit");
-                        hitVoice.has_value()) {
-                        for (int hit = 0; hit < hitEvents; ++hit) {
+                    const int nowHp = manager.getCharacterCurrentHp(partyIndex);
+                    const int prevHp =
+                        (partyIndex >= 0 && static_cast<size_t>(partyIndex) < lastPartyHp_.size())
+                            ? lastPartyHp_[static_cast<size_t>(partyIndex)]
+                            : nowHp;
+                    if (partyIndex >= 0 && static_cast<size_t>(partyIndex) < lastPartyHp_.size()) {
+                        lastPartyHp_[static_cast<size_t>(partyIndex)] = nowHp;
+                    }
+
+                    const std::string& assetKey = battleState.party[static_cast<size_t>(partyIndex)].assets;
+                    const bool diedNow = prevHp > 0 && nowHp <= 0;
+                    const auto deadVoice = platform::path::resolveCombatVoicePath(assetKey, "dead");
+                    if (diedNow && deadVoice.has_value()) {
+                        if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
+                            gOneShotAudio.stopPlayback(*hitVoice);
+                        }
+                        (void)gOneShotAudio.playWavOneShot(*deadVoice, 1.0f);
+                        return;
+                    }
+
+                    if (nowHp <= 0 && !diedNow) {
+                        return;
+                    }
+
+                    if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
+                        for (int hit = 0; hit < repeatCount; ++hit) {
                             (void)gOneShotAudio.playWavOneShot(*hitVoice, 1.0f);
                         }
                     }
-                    return;
-                }
+                };
 
-                for (int hit = 0; hit < hitEvents; ++hit) {
+                if (context.targetIndex >= 0 &&
+                    context.targetIndex < static_cast<int>(battleState.party.size())) {
+                    handlePartyHitAudio(context.targetIndex, hitEvents);
+                } else {
                     for (size_t i = 0; i < battleState.party.size(); ++i) {
-                        if (manager.getCharacterCurrentHp(static_cast<int>(i)) <= 0) {
-                            continue;
-                        }
-                        if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.party[i].assets, "hit");
-                            hitVoice.has_value()) {
-                            (void)gOneShotAudio.playWavOneShot(*hitVoice, 1.0f);
-                        }
+                        handlePartyHitAudio(static_cast<int>(i), hitEvents);
                     }
                 }
                 return;
@@ -1531,6 +1606,20 @@ private:
             const std::string casterVoiceKey = getPresentationCasterVoiceKey(context, manager);
             if (context.presentationId == "drum_attack" && casterVoiceKey == "cupcakke") {
                 playCombatVoiceClip(casterVoiceKey, "ability2", 1.0f, hitEvents);
+                return;
+            }
+
+            const int nowBossHp = manager.getBossCurrentHp();
+            const int prevBossHp = lastBossHp_;
+            lastBossHp_ = nowBossHp;
+
+            const bool bossDiedNow = prevBossHp > 0 && nowBossHp <= 0;
+            const auto bossDeadVoice = resolveBossDeadVoicePath(battleState);
+            if (bossDiedNow && bossDeadVoice.has_value()) {
+                if (const auto bossHitVoice = resolveBossHitVoicePath(battleState); bossHitVoice.has_value()) {
+                    gOneShotAudio.stopPlayback(*bossHitVoice);
+                }
+                (void)gOneShotAudio.playWavOneShot(*bossDeadVoice, 1.0f);
                 return;
             }
 
@@ -1573,6 +1662,8 @@ private:
             return false;
         }
 
+        syncHpSnapshots(core_.getBattleManager());
+
         // Start boss BGM if defined in boss.json.
         const BattleState& initBattleState = core_.getBattleManager().getBattleState();
         if (!initBattleState.boss.bgm.empty()) {
@@ -1597,6 +1688,8 @@ private:
     int presentationAudioCueIndex_ = 0;
     BattleDefinition battleDefinition_;
     BattlePartySetupScreen partySetup_;
+    std::vector<int> lastPartyHp_;
+    int lastBossHp_ = 0;
 };
 
 Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
