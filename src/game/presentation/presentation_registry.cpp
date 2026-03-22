@@ -9,6 +9,7 @@
 #include "lyoo_plot_twist_presentation.h"
 #include "miku_sing_presentation.h"
 #include "miku_diandong_presentation.h"
+#include "qr_code_attack_presentation.h"
 
 namespace battle {
 
@@ -137,6 +138,16 @@ void registerAllPresentations() {
         float targetWorldX, float targetWorldY, float targetWorldZ
     ) -> std::unique_ptr<AbilityPresentation> {
         return std::make_unique<JiafeiUltimatePresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("qr_code_attack", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<QrCodeAttackPresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
         );

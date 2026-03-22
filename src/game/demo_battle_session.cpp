@@ -1485,6 +1485,12 @@ private:
             if (cueCount <= 0) {
                 return;
             }
+            if (context.isBoss && context.presentationId == "qr_code_attack") {
+                for (int i = 0; i < cueCount; ++i) {
+                    playCombatVoiceClip(manager.getBattleState().boss.key, "ability", 1.0f);
+                }
+                return;
+            }
             const std::string casterVoiceKey = getPresentationCasterVoiceKey(context, manager);
             const std::string audioSequenceId = casterVoiceKey + "|" + context.presentationId;
             if (presentationAudioSequenceId_ != audioSequenceId) {
