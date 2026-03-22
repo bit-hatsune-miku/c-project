@@ -290,7 +290,7 @@
         "hp": 52,
         "standardAbility": "BasicAttack",
         "skillAbility": "IWantItIGotIt",
-        "ability": "IWantItIGotIt",
+        "ability": "RocketAttack",
         "ultimate": "HighNote",
         "abilities": {
             "skill": {

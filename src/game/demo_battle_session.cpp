@@ -1485,12 +1485,30 @@ private:
             if (cueCount <= 0) {
                 return;
             }
+            const BattleState& battleState = manager.getBattleState();
             if (context.isBoss && context.presentationId == "qr_code_attack") {
                 for (int i = 0; i < cueCount; ++i) {
-                    playCombatVoiceClip(manager.getBattleState().boss.key, "ability", 1.0f);
+                    playCombatVoiceClip(battleState.boss.key, "ability", 1.0f);
                 }
                 return;
             }
+            if (context.isBoss) {
+                const std::string audioSequenceId = battleState.boss.key + "|" + context.presentationId;
+                if (presentationAudioSequenceId_ != audioSequenceId) {
+                    presentationAudioSequenceId_ = audioSequenceId;
+                    presentationAudioCueIndex_ = 0;
+                }
+
+                for (int i = 0; i < cueCount; ++i) {
+                    ++presentationAudioCueIndex_;
+                    if (playCombatVoiceClip(battleState.boss.key, "ability", 1.0f)) {
+                        continue;
+                    }
+                    (void)playCombatVoiceClip(battleState.boss.assets, "ability", 1.0f);
+                }
+                return;
+            }
+
             const std::string casterVoiceKey = getPresentationCasterVoiceKey(context, manager);
             const std::string audioSequenceId = casterVoiceKey + "|" + context.presentationId;
             if (presentationAudioSequenceId_ != audioSequenceId) {
@@ -1502,9 +1520,7 @@ private:
                 ++presentationAudioCueIndex_;
 
                 std::string clipName = "ability";
-                if (context.isBoss) {
-                    clipName = "ability";
-                } else if (casterVoiceKey == "cupcakke" && context.presentationId == "drum_attack") {
+                if (casterVoiceKey == "cupcakke" && context.presentationId == "drum_attack") {
                     clipName = (presentationAudioCueIndex_ == 1) ? "ability" : "ability2";
                 } else if (casterVoiceKey == "cupcakke" && context.presentationId == "niagara_falls_ultimate") {
                     clipName = (presentationAudioCueIndex_ == 1) ? "ultimate" : "ability2";

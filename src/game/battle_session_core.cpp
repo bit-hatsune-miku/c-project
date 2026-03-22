@@ -409,16 +409,23 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
                            255);
     SDL_RenderClear(renderer);
 
-    if (activePresentation_ != nullptr) {
-        activePresentation_->renderBelowWorld(renderer, screenWidth, screenHeight, camera_);
-    }
-
-    render::renderBattleWorld(
+    render::renderBattleFloor(
         renderer,
         screenWidth,
         screenHeight,
         camera_,
-        blackoutWorld ? nullptr : floorTileTexture_,
+        blackoutWorld ? nullptr : floorTileTexture_
+    );
+
+    if (activePresentation_ != nullptr) {
+        activePresentation_->renderBelowWorld(renderer, screenWidth, screenHeight, camera_);
+    }
+
+    render::renderBattleEntities(
+        renderer,
+        screenWidth,
+        screenHeight,
+        camera_,
         entities_,
         focusedEntityIndex,
         textureByAsset_,

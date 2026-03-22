@@ -179,6 +179,7 @@
             "skill": {
                 "id": "WhistleNote",
                 "name": "Whistle Note",
+                "instructionHint": "Press SPACE right after each attack starts to reduce damage.",
                 "type": "attack",
                 "targetRule": "all_enemies",
                 "multiplier": 1.25,
@@ -188,7 +189,7 @@
         },
         "ultimatePoints": 6,
         "startingOrbs": 1,
-        "bgm": "",
+        "bgm": "ari",
         "bgmVolume": 0.4
     },
     "sansBoss": {
