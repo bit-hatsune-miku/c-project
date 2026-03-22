@@ -348,6 +348,19 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
         detail::setPortraitDecorator(document, "unit-portrait-" + index, character.assets, dependencies);
         detail::updateUnitOrbRow(document, i + 1, manager.getCharacterUltimateCharge(i), manager.getCharacterUltimateRequired(i));
 
+        // Shield bar (drawn behind HP bar, animated)
+        const int shield = manager.getCharacterShield ? manager.getCharacterShield(i) : 0;
+        if (Rml::Element* shieldFill = document->GetElementById("unit-shield-fill-" + index)) {
+            // Shield ratio is shield/maxHp, capped at 1.0 for full bar
+            float shieldRatio = 0.0f;
+            if (maxHp > 0 && shield > 0) {
+                shieldRatio = std::min(1.0f, static_cast<float>(shield) / static_cast<float>(maxHp));
+            }
+            const int shieldWidth = std::clamp(static_cast<int>(std::round(shieldRatio * 174.0f)), 0, 174);
+            shieldFill->SetProperty("width", std::to_string(shieldWidth) + "px");
+            shieldFill->SetProperty("background-color", "#6ec1e4"); // Light blue for shield
+            shieldFill->SetProperty("display", shield > 0 ? "block" : "none");
+        }
         if (Rml::Element* hpFill = document->GetElementById("unit-hp-fill-" + index)) {
             const int fillWidth = std::clamp(static_cast<int>(std::round(ratio * 174.0f)), 0, 174);
             hpFill->SetProperty("width", std::to_string(fillWidth) + "px");

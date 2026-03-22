@@ -18,7 +18,8 @@
       "bossKey": "lyooBoss",
       "isLineupFixed": true,
       "lineup": ["miku", "cupcakke"],
-      "stageKey": "default_stage"
+      "stageKey": "default_stage",
+      "type": "tutorial"
     },
     "wild_scent_flowers": {
       "id": 2,
@@ -33,7 +34,7 @@
       "name": "A turn up of events",
       "bossKey": "lyooPlotTwist",
       "isLineupFixed": true,
-      "lineup": ["miku", "cupcakke", "jiafei", "lyoo"],
+      "lineup": ["wechatalipay", "cupcakke", "jiafei", "lyoo"],
       "stageKey": "default_stage"
     },
     "scan_to_pay": {
@@ -41,7 +42,7 @@
       "name": "Scan To Pay",
       "bossKey": "wechatalipayBoss",
       "isLineupFixed": true,
-      "lineup": ["miku", "cupcakke", "jiafei", "lyoo"],
+      "lineup": ["wechatalipay", "cupcakke", "jiafei", "lyoo"],
       "stageKey": "default_stage"
     }
   }

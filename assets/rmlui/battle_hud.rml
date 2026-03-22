@@ -62,7 +62,10 @@
                     <div class="unit-orb" id="unit-1-orb-6"></div>
                 </div>
                 <div class="unit-power" id="unit-hp-text-1">72 / 72</div>
-                <div class="hp-track hp-track-wide"><div class="hp-fill" id="unit-hp-fill-1"></div></div>
+                <div class="hp-track hp-track-wide">
+                    <div class="shield-fill" id="unit-shield-fill-1"></div>
+                    <div class="hp-fill" id="unit-hp-fill-1"></div>
+                </div>
             </div>
 
             <div class="unit-card" id="unit-card-2">
@@ -80,7 +83,10 @@
                     <div class="unit-orb" id="unit-2-orb-6"></div>
                 </div>
                 <div class="unit-power" id="unit-hp-text-2">54 / 54</div>
-                <div class="hp-track hp-track-wide"><div class="hp-fill" id="unit-hp-fill-2"></div></div>
+                <div class="hp-track hp-track-wide">
+                    <div class="shield-fill" id="unit-shield-fill-2"></div>
+                    <div class="hp-fill" id="unit-hp-fill-2"></div>
+                </div>
             </div>
 
             <div class="unit-card" id="unit-card-3">
@@ -98,7 +104,10 @@
                     <div class="unit-orb" id="unit-3-orb-6"></div>
                 </div>
                 <div class="unit-power" id="unit-hp-text-3">40 / 40</div>
-                <div class="hp-track hp-track-wide"><div class="hp-fill" id="unit-hp-fill-3"></div></div>
+                <div class="hp-track hp-track-wide">
+                    <div class="shield-fill" id="unit-shield-fill-3"></div>
+                    <div class="hp-fill" id="unit-hp-fill-3"></div>
+                </div>
             </div>
 
             <div class="unit-card" id="unit-card-4">
@@ -116,7 +125,10 @@
                     <div class="unit-orb" id="unit-4-orb-6"></div>
                 </div>
                 <div class="unit-power" id="unit-hp-text-4">60 / 60</div>
-                <div class="hp-track hp-track-wide"><div class="hp-fill" id="unit-hp-fill-4"></div></div>
+                <div class="hp-track hp-track-wide">
+                    <div class="shield-fill" id="unit-shield-fill-4"></div>
+                    <div class="hp-fill" id="unit-hp-fill-4"></div>
+                </div>
             </div>
         </div>
 

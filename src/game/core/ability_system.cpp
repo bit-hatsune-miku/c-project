@@ -52,9 +52,26 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
             break;
         }
 
-        case AbilityType::Buff:
-            // TODO: Implement buff system later
+
+        case AbilityType::Shield: {
+            // Shielding ability (e.g., Wechatalipay's SaoMaZhiFu)
+            int baseShield = 0;
+            if (context.casterPartyIndex >= 0 && context.casterPartyIndex < (int)characters.size()) {
+                baseShield = characters[context.casterPartyIndex].definition().baseShield;
+            }
+            int shieldAmount = static_cast<int>(std::round(baseShield * context.presentationMultiplier));
+            std::cout << "[ShieldLogic] Entered: baseShield=" << baseShield << ", presentationMultiplier=" << context.presentationMultiplier << ", shieldAmount=" << shieldAmount << ", targetRule=" << static_cast<int>(ability.targetRule) << std::endl;
+            if (ability.targetRule == TargetRule::AllAllies) {
+                for (BattleCharacter& c : characters) {
+                    if (c.isAlive()) {
+                        c.addShield(shieldAmount);
+                    }
+                }
+            } else if (ability.targetRule == TargetRule::SingleAlly && context.casterPartyIndex >= 0 && context.casterPartyIndex < (int)characters.size()) {
+                characters[context.casterPartyIndex].addShield(shieldAmount);
+            }
             break;
+        }
 
         case AbilityType::Debuff:
             if (ability.multiplier > 0.0f) {

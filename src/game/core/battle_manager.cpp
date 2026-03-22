@@ -1,4 +1,17 @@
+
 #include "battle_manager.h"
+#include <cstddef>
+
+namespace battle {
+// Returns the shield value for a party member at the given index, or 0 if out of range.
+int BattleManager::getCharacterShield(int partyIndex) const {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
+        return 0;
+    }
+    return characters_[static_cast<size_t>(partyIndex)].getShield();
+}
+} // namespace battle
+
 #include "ability_system.h"
 #include "battle_loader.h"
 #include "../presentation/ability_presentation.h"
@@ -105,6 +118,7 @@ BattleCharacter::BattleCharacter(const CharacterDefinition& definition, int part
     , partyIndex_(partyIndex)
     , hp_(definition.hp)
     , ultimateCharge_(std::clamp(definition.startingOrbs, 0, std::max(1, definition.ultimatePoints)))
+    , shield_(0)
 {}
 
 const CharacterDefinition& BattleCharacter::definition() const {
@@ -128,9 +142,15 @@ bool BattleCharacter::isAlive() const {
 }
 
 void BattleCharacter::receiveDamage(int amount) {
-    hp_ -= std::max(0, amount);
-    if (hp_ < 0) {
-        hp_ = 0;
+    int dmg = std::max(0, amount);
+    if (shield_ > 0) {
+        int absorbed = std::min(shield_, dmg);
+        shield_ -= absorbed;
+        dmg -= absorbed;
+    }
+    if (dmg > 0) {
+        hp_ -= dmg;
+        if (hp_ < 0) hp_ = 0;
     }
 }
 

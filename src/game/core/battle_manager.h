@@ -2,10 +2,13 @@
 #define BATTLE_MANAGER_H
 
 #include <string>
+#include <iostream>
 #include <unordered_map>
 #include <vector>
 
 namespace battle {
+
+using namespace std;
 
 struct BossDefinition {
     std::string key;
@@ -39,6 +42,7 @@ struct CharacterDefinition {
     std::string ultimate;
     int ultimatePoints = 0;
     int startingOrbs = 1;
+    int baseShield = 0; // New: base shield value for shield abilities
 };
 
 struct BattleDefinition {
@@ -63,6 +67,7 @@ struct BattleState {
 enum class AbilityType {
     Attack,
     Heal,
+    Shield,
     Buff,
     Debuff
 };
@@ -135,11 +140,28 @@ public:
     void consumeUltimatePoint(int amount = 1);
     void consumeUltimate();
 
+    // Shield support
+    int getShield() const { return shield_; }
+    void addShield(int amount) {
+        if (amount > 0) {
+            shield_ += amount;
+            std::cout << "[Shield] " << definition_.key << " gained " << amount << " shield (now " << shield_ << ")\n";
+        }
+    }
+    void reduceShield(int amount) {
+        int before = shield_;
+        shield_ = std::max(0, shield_ - amount);
+        if (before != shield_) {
+            std::cout << "[Shield] " << definition_.key << " lost " << (before - shield_) << " shield (now " << shield_ << ")\n";
+        }
+    }
+
 private:
     CharacterDefinition definition_;
     int partyIndex_ = 0;
     int hp_ = 0;
     int ultimateCharge_ = 0;
+    int shield_ = 0; // New: shield value (overcapped HP)
 };
 
 enum class BattleAction {
@@ -198,6 +220,9 @@ struct BattleActionEvent {
 };
 
 class BattleManager {
+public:
+    // Returns the shield value for a party member at the given index, or 0 if out of range.
+    int getCharacterShield(int partyIndex) const;
 public:
     bool initialize(const std::string& bossKey, const std::vector<std::string>& characterKeys);
     void printBattleSummary() const;

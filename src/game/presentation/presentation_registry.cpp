@@ -9,7 +9,9 @@
 #include "lyoo_plot_twist_presentation.h"
 #include "miku_sing_presentation.h"
 #include "miku_diandong_presentation.h"
+
 #include "qr_code_attack_presentation.h"
+#include "qr_code_shield_presentation.h"
 
 namespace battle {
 
@@ -17,6 +19,16 @@ void registerAllPresentations() {
     auto& registry = PresentationRegistry::instance();
 
     // Register Miku's singing ability (musical_notes)
+        // Register Wechatalipay's shield minigame (sao_ma_zhi_fu)
+        registry.registerPresentation("sao_ma_zhi_fu", [](
+            float casterWorldX, float casterWorldY, float casterWorldZ,
+            float targetWorldX, float targetWorldY, float targetWorldZ
+        ) -> std::unique_ptr<AbilityPresentation> {
+            return std::make_unique<QrCodeShieldPresentation>(
+                casterWorldX, casterWorldY, casterWorldZ,
+                targetWorldX, targetWorldY, targetWorldZ
+            );
+        });
     registry.registerPresentation("musical_notes", [](
         float casterWorldX, float casterWorldY, float casterWorldZ,
         float targetWorldX, float targetWorldY, float targetWorldZ

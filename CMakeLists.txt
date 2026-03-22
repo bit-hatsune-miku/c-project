@@ -99,6 +99,8 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/lyoo_plot_twist_presentation.h
     src/game/presentation/qr_code_attack_presentation.cpp
     src/game/presentation/qr_code_attack_presentation.h
+    src/game/presentation/qr_code_shield_presentation.cpp
+    src/game/presentation/qr_code_shield_presentation.h
     src/game/presentation/presentation_runtime.cpp
     src/game/presentation/presentation_runtime.h
     src/game/presentation/splash_art_animation.cpp

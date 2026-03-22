@@ -31,8 +31,8 @@
         "title": "断川",
         "assets": "lyooPlotTwist",
         "voiceHit": "assets/combat/voices/lyooPlotTwist/hit.wav",
-        "spd": 50,
-        "atk": 50,
+        "spd": 90,
+        "atk": 55,
         "hp": 1000,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "IfICantHaveWingsThenIllJustLetTheSkyFall",
@@ -44,7 +44,7 @@
                 "name": "If I can't have wings, then I'll just let the sky fall",
                 "type": "attack",
                 "targetRule": "all_enemies",
-                "multiplier": 1.4,
+                "multiplier": 1.25,
                 "interactionType": "none",
                 "presentationId": "boss_attack_lyoo_plot_twist"
             }
@@ -52,7 +52,7 @@
         "ultimatePoints": 6,
         "startingOrbs": 1,
         "bgm": "lyooPlotTwist",
-        "bgmVolume": 0.4
+        "bgmVolume": 0.1
     },
     "miku": {
         "title": "Hatsune Miku",
