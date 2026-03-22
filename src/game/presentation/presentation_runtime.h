@@ -28,6 +28,7 @@ struct PlaybackCallbacks {
     std::function<void(int width, int height)> onWindowResized;
     std::function<void(int cueCount)> onAbilityAudioCues;
     std::function<void(int hitEvents, int damageLabelHitCount)> onHitEvents;
+    std::function<void(const std::vector<PresentationAudioCommand>& commands)> onAudioCommands;
     std::function<void(float deltaSeconds)> onPostUpdate;
     std::function<void()> onBossPresentationFrame;
     std::function<void()> renderAndPresentFrame;
