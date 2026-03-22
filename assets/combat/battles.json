@@ -44,6 +44,14 @@
       "isLineupFixed": true,
       "lineup": ["wechatalipay", "cupcakke", "jiafei", "lyoo"],
       "stageKey": "default_stage"
+    },
+    "ari_boss_demo": {
+      "id": 101,
+      "name": "Whistle Note",
+      "bossKey": "ariBoss",
+      "isLineupFixed": true,
+      "lineup": ["miku", "cupcakke", "jiafei", "lyoo"],
+      "stageKey": "default_stage"
     }
   }
 }

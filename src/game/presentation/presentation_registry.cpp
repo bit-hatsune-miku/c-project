@@ -1,3 +1,4 @@
+#include "ari_boss_presentation.h"
 #include "ability_presentation.h"
 #include "cupcakke_drum_presentation.h"
 #include "cupcakke_ultimate_presentation.h"
@@ -18,12 +19,14 @@ namespace battle {
 
 void registerAllPresentations() {
     auto& registry = PresentationRegistry::instance();
-    // Register Wechatalipay's ultimate presentation
-    registry.registerPresentation("wechatalipay_ultimate", [](float casterWorldX, float casterWorldY, float casterWorldZ,
-        float targetWorldX, float targetWorldY, float targetWorldZ) -> std::unique_ptr<AbilityPresentation> {
-        battle::PresentationContext context;
-        // Optionally set up context fields if needed
-        return std::make_unique<battle::WechatalipayUltimatePresentation>(context);
+    registry.registerPresentation("wechatalipay_ultimate", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<WechatalipayUltimatePresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
     });
 
     // Register Miku's singing ability (musical_notes)
@@ -128,6 +131,16 @@ void registerAllPresentations() {
         float targetWorldX, float targetWorldY, float targetWorldZ
     ) -> std::unique_ptr<AbilityPresentation> {
         return std::make_unique<LyooPlotTwistPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("whistle_note", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<AriBossPresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
         );

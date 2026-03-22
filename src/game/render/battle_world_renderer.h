@@ -16,6 +16,22 @@ using WorldShakeOffsetFn = std::function<float(const SceneEntity&)>;
 
 SDL_Texture* createBattleWorldFloorTileTexture(SDL_Renderer* renderer);
 
+void renderBattleFloor(SDL_Renderer* renderer,
+                       int screenWidth,
+                       int screenHeight,
+                       const Camera3D& camera,
+                       SDL_Texture* floorTileTexture);
+
+void renderBattleEntities(SDL_Renderer* renderer,
+                          int screenWidth,
+                          int screenHeight,
+                          const Camera3D& camera,
+                          const std::vector<SceneEntity>& entities,
+                          int focusedEntityIndex,
+                          const std::map<std::string, SDL_Texture*>& textureByAsset,
+                          float frameAccumulator,
+                          const WorldShakeOffsetFn& shakeOffsetFn);
+
 void renderBattleWorld(SDL_Renderer* renderer,
                        int screenWidth,
                        int screenHeight,

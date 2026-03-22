@@ -69,6 +69,8 @@ int clipFloorQuadToNearPlane(const std::array<FloorVertex, 4>& input, std::array
     return outCount;
 }
 
+} // namespace
+
 void renderBattleFloor(SDL_Renderer* renderer,
                        int screenWidth,
                        int screenHeight,
@@ -156,8 +158,6 @@ void renderBattleFloor(SDL_Renderer* renderer,
     }
 }
 
-} // namespace
-
 SDL_Texture* createBattleWorldFloorTileTexture(SDL_Renderer* renderer) {
     constexpr int texSize = 64;
     constexpr int cell = 16;
@@ -184,18 +184,15 @@ SDL_Texture* createBattleWorldFloorTileTexture(SDL_Renderer* renderer) {
     return texture;
 }
 
-void renderBattleWorld(SDL_Renderer* renderer,
-                       int screenWidth,
-                       int screenHeight,
-                       const Camera3D& camera,
-                       SDL_Texture* floorTileTexture,
-                       const std::vector<SceneEntity>& entities,
-                       int focusedEntityIndex,
-                       const std::map<std::string, SDL_Texture*>& textureByAsset,
-                       float frameAccumulator,
-                       const WorldShakeOffsetFn& shakeOffsetFn) {
-    renderBattleFloor(renderer, screenWidth, screenHeight, camera, floorTileTexture);
-
+void renderBattleEntities(SDL_Renderer* renderer,
+                          int screenWidth,
+                          int screenHeight,
+                          const Camera3D& camera,
+                          const std::vector<SceneEntity>& entities,
+                          int focusedEntityIndex,
+                          const std::map<std::string, SDL_Texture*>& textureByAsset,
+                          float frameAccumulator,
+                          const WorldShakeOffsetFn& shakeOffsetFn) {
     struct DrawCall {
         size_t index;
         float depth;
@@ -279,6 +276,30 @@ void renderBattleWorld(SDL_Renderer* renderer,
             SDL_RenderDrawRect(renderer, &ringRect);
         }
     }
+}
+
+void renderBattleWorld(SDL_Renderer* renderer,
+                       int screenWidth,
+                       int screenHeight,
+                       const Camera3D& camera,
+                       SDL_Texture* floorTileTexture,
+                       const std::vector<SceneEntity>& entities,
+                       int focusedEntityIndex,
+                       const std::map<std::string, SDL_Texture*>& textureByAsset,
+                       float frameAccumulator,
+                       const WorldShakeOffsetFn& shakeOffsetFn) {
+    renderBattleFloor(renderer, screenWidth, screenHeight, camera, floorTileTexture);
+    renderBattleEntities(
+        renderer,
+        screenWidth,
+        screenHeight,
+        camera,
+        entities,
+        focusedEntityIndex,
+        textureByAsset,
+        frameAccumulator,
+        shakeOffsetFn
+    );
 }
 
 } // namespace battle::render
