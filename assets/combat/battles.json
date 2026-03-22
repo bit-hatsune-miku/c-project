@@ -35,6 +35,14 @@
       "isLineupFixed": true,
       "lineup": ["miku", "cupcakke", "jiafei", "lyoo"],
       "stageKey": "default_stage"
+    },
+    "scan_to_pay": {
+      "id": 100,
+      "name": "Scan To Pay",
+      "bossKey": "wechatalipayBoss",
+      "isLineupFixed": true,
+      "lineup": ["miku", "cupcakke", "jiafei", "lyoo"],
+      "stageKey": "default_stage"
     }
   }
 }

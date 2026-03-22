@@ -140,8 +140,8 @@
         "title": "微信姐 & 支付宝姐",
         "assets": "wechatalipay",
         "voiceHit": "assets/combat/voices/wechatalipay/hit.wav",
-        "spd": 165,
-        "atk": 30,
+        "spd": 200,
+        "atk": 17,
         "hp": 480,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "QRCodeAttack",
@@ -151,6 +151,7 @@
             "skill": {
                 "id": "QRCodeAttack",
                 "name": "QR Code Attack",
+                "instructionHint": "Use ARROW KEYS to move the phone and keep its center cursor away from the QR code.",
                 "type": "attack",
                 "targetRule": "all_enemies",
                 "multiplier": 1.3,
@@ -160,7 +161,7 @@
         },
         "ultimatePoints": 6,
         "startingOrbs": 1,
-        "bgm": "Ravings",
+        "bgm": "weizhi",
         "bgmVolume": 0.4
     },
     "ariBoss": {
