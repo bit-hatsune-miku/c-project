@@ -533,6 +533,15 @@ void BattleSessionCore::computeCharacterPositions(bool bossActing, int actingPar
         bossActing,
         actingPartyIndex
     );
+
+    const bool bossAlive = manager_.getBossCurrentHp() > 0;
+    for (WorldEntity& entity : entities_) {
+        if (!entity.isBoss) {
+            continue;
+        }
+        entity.lineupVisible = bossAlive;
+        break;
+    }
 }
 
 void BattleSessionCore::updateCharacterVisibilityTransitions(float deltaSeconds) {
@@ -541,14 +550,6 @@ void BattleSessionCore::updateCharacterVisibilityTransitions(float deltaSeconds)
         : deltaSeconds / kCharacterVisibilityAnimSeconds;
 
     for (WorldEntity& entity : entities_) {
-        if (entity.isBoss) {
-            entity.visible = true;
-            entity.lineupVisible = true;
-            entity.spriteAlpha = 1.0f;
-            entity.spriteOffsetYPx = 0.0f;
-            continue;
-        }
-
         if (entity.lineupVisible) {
             entity.spriteAlpha = std::min(1.0f, entity.spriteAlpha + step);
             const float eased = easing::easeOutCubic(easing::clamp01(entity.spriteAlpha));

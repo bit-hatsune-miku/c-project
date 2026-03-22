@@ -539,10 +539,16 @@ void LyooPlotTwistPresentation::renderTransitionToVoid(SDL_Renderer* renderer, i
 
     SDL_Texture* frame = nullptr;
     if (frames_.size() > 10) {
-        frame = frames_[localT < 0.28f ? 9 : 10];
+        // Keep frame0009 stable; only start the "fake sprite zoom-out" once frame0010 is reached.
+        constexpr float kZoomStartT = 0.28f;
+        frame = frames_[localT < kZoomStartT ? 9 : 10];
     }
 
-    const float sizeT = std::pow(std::max(0.0f, 1.0f - localT), 3.4f);
+    constexpr float kZoomStartT = 0.28f;
+    const float zoomT = localT < kZoomStartT
+        ? 0.0f
+        : easing::clamp01((localT - kZoomStartT) / std::max(0.001f, 1.0f - kZoomStartT));
+    const float sizeT = std::pow(std::max(0.0f, 1.0f - zoomT), 3.4f);
     const float height = std::max(1.0f, static_cast<float>(screenH) * 0.76f * sizeT);
     const float width = height * (320.0f / 170.0f);
     drawCenteredTexture(
@@ -553,7 +559,7 @@ void LyooPlotTwistPresentation::renderTransitionToVoid(SDL_Renderer* renderer, i
         width,
         height,
         0.0,
-        static_cast<Uint8>(255.0f * (1.0f - localT * 0.2f))
+        static_cast<Uint8>(255.0f * (1.0f - zoomT * 0.2f))
     );
 }
 
