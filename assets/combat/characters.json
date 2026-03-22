@@ -180,7 +180,7 @@
         "title": "Jiafei",
         "assets": "jiafei",
         "class": "DPS",
-        "spd": 112,
+        "spd": 145,
         "atk": 28,
         "hp": 48,
         "standardAbility": "BasicAttack",
@@ -202,7 +202,7 @@
                 "name": "每次都想装",
                 "type": "debuff",
                 "targetRule": "single_enemy",
-                "multiplier": 0.0,
+                "multiplier": 1.2,
                 "interactionType": "none",
                 "presentationId": "mei_ci_du_xiang_zhuang"
             }

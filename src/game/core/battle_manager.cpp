@@ -57,8 +57,20 @@ bool consumeInvalidPreviewCharacterTurn(const std::vector<BattleCharacter>& char
         return false;
     }
 
-    if (previewActor.isExtraTurn && previewCharacter.isAlive() && previewCharacter.canUseUltimate()) {
-        return false;
+    if (previewActor.isExtraTurn && previewCharacter.isAlive()) {
+        switch (previewActor.extraTurnAction) {
+            case BattleAction::Standard:
+            case BattleAction::Skill:
+                if (previewCharacter.canUseSkill()) {
+                    return false;
+                }
+                break;
+            case BattleAction::Ultimate:
+                if (previewCharacter.canUseUltimate()) {
+                    return false;
+                }
+                break;
+        }
     }
 
     TurnEvent consumed = turn::advanceToNextTurnEvent(turnState);
@@ -180,6 +192,7 @@ bool BattleManager::initialize(const std::string& bossKey, const std::vector<std
     bossUltimateCharge_ = 0;
     characters_.clear();
     recentActionEvents_.clear();
+    bossStatus_ = BossStatusState{};
     simulatedActions_ = 0;
 
     if (bossKey.empty()) {
@@ -498,8 +511,22 @@ bool BattleManager::isPlayerActionReady(BattleAction action) const {
 
     const BattleCharacter& character = characters_[static_cast<size_t>(actor.partyIndex)];
 
+    if (actor.autoExecute) {
+        return false;
+    }
+
     if (actor.isExtraTurn) {
-        return action == BattleAction::Ultimate && character.isAlive() && character.canUseUltimate();
+        if (!character.isAlive()) {
+            return false;
+        }
+
+        switch (actor.extraTurnAction) {
+            case BattleAction::Standard:
+            case BattleAction::Skill:
+                return action == actor.extraTurnAction && character.canUseSkill();
+            case BattleAction::Ultimate:
+                return action == BattleAction::Ultimate && character.canUseUltimate();
+        }
     }
 
     switch (action) {
@@ -673,7 +700,7 @@ bool BattleManager::executePlayerTurn() {
     }
 
     if (actor.isExtraTurn) {
-        return resolvePlayerAction(BattleAction::Ultimate);
+        return resolvePlayerAction(actor.extraTurnAction);
     }
 
     return resolvePlayerAction(BattleAction::Skill);
@@ -688,10 +715,38 @@ bool BattleManager::processAutomaticTurns() {
             break;
         }
 
-        if (turnState_.actors[next.actingActorIndex].type != ParticipantType::Boss) {
+        const TurnActor& nextActor = turnState_.actors[next.actingActorIndex];
+        if (nextActor.type == ParticipantType::Boss) {
+            if (!resolveBossAction()) {
+                break;
+            }
+            progressed = true;
+            continue;
+        }
+
+        if (!(nextActor.isExtraTurn && nextActor.autoExecute)) {
             break;
         }
-        if (!resolveBossAction()) {
+
+        if (nextActor.partyIndex < 0 || static_cast<size_t>(nextActor.partyIndex) >= characters_.size()) {
+            break;
+        }
+
+        BattleCharacter& character = characters_[static_cast<size_t>(nextActor.partyIndex)];
+        if (!character.isAlive()) {
+            if (!consumeInvalidPreviewCharacterTurn(characters_, turnState_, next)) {
+                break;
+            }
+            progressed = true;
+            continue;
+        }
+
+        const TurnEvent event = advanceToNextTurnEvent();
+        if (!event.valid || event.actingActorIndex >= turnState_.actors.size()) {
+            break;
+        }
+
+        if (!executeCharacterAction(event.actingActorIndex, character, nextActor.extraTurnAction)) {
             break;
         }
         progressed = true;
@@ -781,7 +836,7 @@ void BattleManager::executeTurn(size_t actorIndex) {
         // - Regular turn: use the character's only non-ultimate ability.
         // - Extra turn: cast ultimate automatically.
         if (actor.isExtraTurn) {
-            executeCharacterAction(actorIndex, character, BattleAction::Ultimate);
+            executeCharacterAction(actorIndex, character, actor.extraTurnAction);
         } else {
             executeCharacterAction(actorIndex, character, BattleAction::Skill);
         }
@@ -789,12 +844,34 @@ void BattleManager::executeTurn(size_t actorIndex) {
 }
 
 void BattleManager::queueExtraTurnForCharacter(int partyIndex) {
+    queueExtraTurnForCharacter(
+        partyIndex,
+        BattleAction::Ultimate,
+        false,
+        false,
+        100
+    );
+}
+
+void BattleManager::queueExtraTurnForCharacter(int partyIndex,
+                                               BattleAction action,
+                                               bool autoExecute,
+                                               bool grantsUltimatePointOnAction,
+                                               int priority) {
     if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
         return;
     }
 
     const BattleCharacter& c = characters_[static_cast<size_t>(partyIndex)];
-    turn::queueExtraTurnForCharacter(turnState_, c.definition(), partyIndex);
+    turn::queueExtraTurnForCharacter(
+        turnState_,
+        c.definition(),
+        partyIndex,
+        action,
+        autoExecute,
+        grantsUltimatePointOnAction,
+        priority
+    );
 }
 
 bool BattleManager::canUseBossAction(BattleAction action) const {
@@ -836,7 +913,10 @@ bool BattleManager::resolvePlayerAction(BattleAction action) {
         return false;
     }
 
-    if (previewActor.isExtraTurn && action != BattleAction::Ultimate) {
+    if (previewActor.autoExecute) {
+        return false;
+    }
+    if (previewActor.isExtraTurn && action != previewActor.extraTurnAction) {
         return false;
     }
     if (!previewActor.isExtraTurn && action == BattleAction::Ultimate) {
@@ -929,8 +1009,11 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
         const bool presentationHitApplied = consumePresentationHitDamageApplied();
         const bool presentationHealingApplied = consumePresentationHealingApplied();
 
-        if (!((presentationHitApplied && abilityDef->type == AbilityType::Attack) ||
-              (presentationHealingApplied && abilityDef->type == AbilityType::Heal))) {
+        const bool presentationAppliedPrimaryEffect =
+            (presentationHealingApplied && abilityDef->type == AbilityType::Heal) ||
+            (presentationHitApplied && abilityDef->type != AbilityType::Heal);
+
+        if (!presentationAppliedPrimaryEffect) {
             AbilityExecutionContext execContext;
             execContext.ability = abilityDef;
             execContext.casterPartyIndex = character.partyIndex();
@@ -947,11 +1030,18 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
     actionEvent.hitVoicesHandledDuringPresentation = consumePresentationHitAudioPlayed();
 
     const bool wasExtraTurn = turnState_.actors[actorIndex].isExtraTurn;
+    const bool grantsUltimatePointOnAction = turnState_.actors[actorIndex].grantsUltimatePointOnAction;
 
-    if (action != BattleAction::Ultimate) {
-        character.gainUltimatePoint(1);
-    } else {
+    if (abilityDef != nullptr &&
+        abilityDef->id == "MeiCiDuXiangZhuang" &&
+        bossCurrentHp_ > 0) {
+        applyJiafeiUltimateDebuff();
+    }
+
+    if (action == BattleAction::Ultimate) {
         character.consumeUltimate();
+    } else if (grantsUltimatePointOnAction) {
+        character.gainUltimatePoint(1);
     }
 
     if (wasExtraTurn) {
@@ -960,6 +1050,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
         turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
     }
     syncCharacterUltimateTurn(character.partyIndex());
+    tryQueueJiafeiFollowUp(actionEvent);
     recentActionEvents_.push_back(std::move(actionEvent));
     return true;
 }
@@ -1177,7 +1268,9 @@ void BattleManager::syncCharacterUltimateTurn(int partyIndex) {
         const bool matchesExtraTurn =
             actor.type == ParticipantType::Character &&
             actor.partyIndex == partyIndex &&
-            actor.isExtraTurn;
+            actor.isExtraTurn &&
+            actor.extraTurnAction == BattleAction::Ultimate &&
+            !actor.autoExecute;
         if (!matchesExtraTurn) {
             ++i;
             continue;
@@ -1194,6 +1287,68 @@ void BattleManager::syncCharacterUltimateTurn(int partyIndex) {
 
     if (shouldHaveExtraTurn && !hasExtraTurn) {
         queueExtraTurnForCharacter(partyIndex);
+    }
+}
+
+int BattleManager::findCharacterPartyIndexByKey(const std::string& characterKey) const {
+    for (const BattleCharacter& character : characters_) {
+        if (character.definition().key == characterKey) {
+            return character.partyIndex();
+        }
+    }
+    return -1;
+}
+
+bool BattleManager::hasQueuedExtraTurn(int partyIndex, BattleAction action, bool autoExecute) const {
+    for (const TurnActor& actor : turnState_.actors) {
+        if (actor.type != ParticipantType::Character ||
+            actor.partyIndex != partyIndex ||
+            !actor.isExtraTurn) {
+            continue;
+        }
+
+        if (actor.extraTurnAction == action && actor.autoExecute == autoExecute) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void BattleManager::applyJiafeiUltimateDebuff() {
+    bossStatus_.magicEggSpinningMachineCharges = 2;
+}
+
+void BattleManager::consumeJiafeiUltimateDebuff() {
+    bossStatus_.magicEggSpinningMachineCharges = 0;
+}
+
+void BattleManager::tryQueueJiafeiFollowUp(const BattleActionEvent& actionEvent) {
+    if (bossStatus_.magicEggSpinningMachineCharges <= 0 ||
+        bossCurrentHp_ <= 0 ||
+        actionEvent.actorType != ParticipantType::Character ||
+        actionEvent.actorKey == "jiafei" ||
+        actionEvent.bossHpAfter >= actionEvent.bossHpBefore) {
+        return;
+    }
+
+    const int jiafeiPartyIndex = findCharacterPartyIndexByKey("jiafei");
+    if (jiafeiPartyIndex < 0 ||
+        static_cast<size_t>(jiafeiPartyIndex) >= characters_.size() ||
+        !characters_[static_cast<size_t>(jiafeiPartyIndex)].isAlive()) {
+        return;
+    }
+
+    queueExtraTurnForCharacter(
+        jiafeiPartyIndex,
+        BattleAction::Skill,
+        true,
+        false,
+        200
+    );
+
+    --bossStatus_.magicEggSpinningMachineCharges;
+    if (bossStatus_.magicEggSpinningMachineCharges <= 0) {
+        consumeJiafeiUltimateDebuff();
     }
 }
 

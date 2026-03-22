@@ -25,7 +25,7 @@
       "name": "野花香",
       "bossKey": "jiafeiBoss",
       "isLineupFixed": true,
-      "lineup": ["miku", "cupcakke", "lyoo"],
+      "lineup": ["cupcakke", "jiafei"],
       "stageKey": "default_stage"
     },
     "lyoo_plot_twist": {

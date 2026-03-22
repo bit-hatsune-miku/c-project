@@ -53,8 +53,16 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
         }
 
         case AbilityType::Buff:
+            // TODO: Implement buff system later
+            break;
+
         case AbilityType::Debuff:
-            // TODO: Implement buff/debuff system later
+            if (ability.multiplier > 0.0f) {
+                const int finalDamage = normalizeDamage(static_cast<int>(
+                    context.baseDamage * ability.multiplier * context.presentationMultiplier
+                ));
+                bossCurrentHp = std::max(0, bossCurrentHp - finalDamage);
+            }
             break;
     }
 }
