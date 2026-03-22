@@ -998,6 +998,7 @@ bool Session::isFinished() const {
 
 #endif
 
+#include <filesystem>
 #include <memory>
 #include <string>
 #include <utility>
@@ -1019,7 +1020,9 @@ namespace battle::demo {
 namespace {
 
 game::audio::WavOneShotPlayer gOneShotAudio;
+game::audio::WavOneShotPlayer gPresentationSfxAudio;
 game::audio::BgmPlayer gBgmPlayer;
+game::audio::BgmPlayer gPresentationLoopAudio;
 
 std::string getPresentationCasterVoiceKey(const PresentationContext& context, const BattleManager& manager) {
     if (context.isBoss) {
@@ -1073,6 +1076,43 @@ bool playResolvedVoicePath(const std::string& path, float volume, int repeatCoun
         }
     }
     return played;
+}
+
+bool playResolvedOneShot(game::audio::WavOneShotPlayer& player,
+                         const std::string& path,
+                         float volume,
+                         bool replaceExisting = true) {
+    if (path.empty()) {
+        return false;
+    }
+
+    const std::string resolved = platform::path::resolvePath(path);
+    if (!std::filesystem::exists(resolved)) {
+        return false;
+    }
+
+    return player.playWavOneShot(resolved, volume, replaceExisting);
+}
+
+bool playResolvedLoop(game::audio::BgmPlayer& player, const std::string& path, float volume) {
+    if (path.empty()) {
+        return false;
+    }
+
+    const std::string resolved = platform::path::resolvePath(path);
+    if (!std::filesystem::exists(resolved)) {
+        return false;
+    }
+
+    return player.play(resolved, volume);
+}
+
+void stopPresentationAudioPlayback(bool resumeBgm = false) {
+    gPresentationLoopAudio.stop();
+    gPresentationSfxAudio.stopAllPlayback();
+    if (resumeBgm) {
+        gBgmPlayer.resume();
+    }
 }
 
 bool playBossHitVoice(const BattleState& battleState, float volume, int repeatCount = 1) {
@@ -1326,6 +1366,7 @@ private:
         };
         hooks.onPreUpdate = [this](BattleManager& manager, float deltaSeconds) {
             gOneShotAudio.cleanupFinishedPlayback();
+            gPresentationSfxAudio.cleanupFinishedPlayback();
             if (!narrativeEnabled_) {
                 manager.processAutomaticTurns();
                 consumeBattleActionEvents(manager, 1.0f);
@@ -1341,6 +1382,46 @@ private:
             consumeBattleActionEvents(manager, 1.0f);
         };
         hooks.onPresentationSplashVoice = nullptr;
+        hooks.onPresentationAudioCommands = [](const PresentationContext& context,
+                                               const std::vector<PresentationAudioCommand>& commands) {
+            (void)context;
+
+            for (const PresentationAudioCommand& command : commands) {
+                switch (command.type) {
+                    case PresentationAudioCommandType::PlayOneShot:
+                        (void)playResolvedOneShot(
+                            gPresentationSfxAudio,
+                            command.id,
+                            command.volume,
+                            true
+                        );
+                        break;
+                    case PresentationAudioCommandType::PlayOneShotAllowOverlap:
+                        (void)playResolvedOneShot(
+                            gPresentationSfxAudio,
+                            command.id,
+                            command.volume,
+                            false
+                        );
+                        break;
+                    case PresentationAudioCommandType::StartLoop:
+                        (void)playResolvedLoop(gPresentationLoopAudio, command.id, command.volume);
+                        break;
+                    case PresentationAudioCommandType::StopLoop:
+                        gPresentationLoopAudio.stop();
+                        break;
+                    case PresentationAudioCommandType::StopAllSfx:
+                        stopPresentationAudioPlayback(false);
+                        break;
+                    case PresentationAudioCommandType::PauseBgm:
+                        gBgmPlayer.pause();
+                        break;
+                    case PresentationAudioCommandType::ResumeBgm:
+                        gBgmPlayer.resume();
+                        break;
+                }
+            }
+        };
         hooks.onPresentationAbilityAudio = [this](const PresentationContext& context, int cueCount, BattleManager& manager) {
             if (cueCount <= 0) {
                 return;
@@ -1391,6 +1472,9 @@ private:
         hooks.onPresentationEnd = [this](const PresentationContext& context, const std::string& resultText) {
             presentationAudioSequenceId_.clear();
             presentationAudioCueIndex_ = 0;
+            if (context.presentationId == "boss_attack_lyoo_plot_twist") {
+                stopPresentationAudioPlayback(true);
+            }
             if (context.presentationId == "aesthetic_warning") {
                 core_.clearHint();
                 return;
@@ -1465,6 +1549,8 @@ private:
         };
         hooks.onShutdown = []() {
             vn::stopVoicePlayback();
+            gPresentationLoopAudio.stop();
+            gPresentationSfxAudio.shutdown();
             gBgmPlayer.stop();
             gOneShotAudio.shutdown();
         };

@@ -36,18 +36,20 @@ public:
         activePlayback_.clear();
     }
 
-    bool playWavOneShot(const std::string& wavPath, float volume = 1.0f) {
+    bool playWavOneShot(const std::string& wavPath, float volume = 1.0f, bool replaceExisting = true) {
         cleanupFinishedPlayback();
 
-        for (auto it = activePlayback_.begin(); it != activePlayback_.end(); ) {
-            if (it->wavPath == wavPath) {
-                if (it->device != 0) {
-                    SDL_ClearQueuedAudio(it->device);
-                    SDL_CloseAudioDevice(it->device);
+        if (replaceExisting) {
+            for (auto it = activePlayback_.begin(); it != activePlayback_.end(); ) {
+                if (it->wavPath == wavPath) {
+                    if (it->device != 0) {
+                        SDL_ClearQueuedAudio(it->device);
+                        SDL_CloseAudioDevice(it->device);
+                    }
+                    it = activePlayback_.erase(it);
+                } else {
+                    ++it;
                 }
-                it = activePlayback_.erase(it);
-            } else {
-                ++it;
             }
         }
 
@@ -93,6 +95,16 @@ public:
                 ++it;
             }
         }
+    }
+
+    void stopAllPlayback() {
+        for (const ActivePlayback& playback : activePlayback_) {
+            if (playback.device != 0) {
+                SDL_ClearQueuedAudio(playback.device);
+                SDL_CloseAudioDevice(playback.device);
+            }
+        }
+        activePlayback_.clear();
     }
 
     bool isPlaying(const std::string& wavPath) const {

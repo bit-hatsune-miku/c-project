@@ -63,6 +63,11 @@ public:
         // Use for voice lines that should begin slightly after the animation starts.
         std::function<void(const PresentationContext&, int cueCount, BattleManager&)> onPresentationAbilityAudio;
 
+        // Called when a presentation emits explicit timed audio commands.
+        // Use for presentation-specific SFX/BGM control.
+        std::function<void(const PresentationContext&, const std::vector<PresentationAudioCommand>&)>
+            onPresentationAudioCommands;
+
         // Called when a splash art intro is about to start rendering.
         // Use for ready/announcement voice lines tied to the caster.
         std::function<void(const PresentationContext&, const std::string& casterAssets)> onPresentationSplashVoice;

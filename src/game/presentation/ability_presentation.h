@@ -32,6 +32,22 @@ struct InputWindow {
     bool active = false;
 };
 
+enum class PresentationAudioCommandType {
+    PlayOneShot,
+    PlayOneShotAllowOverlap,
+    StartLoop,
+    StopLoop,
+    StopAllSfx,
+    PauseBgm,
+    ResumeBgm
+};
+
+struct PresentationAudioCommand {
+    PresentationAudioCommandType type = PresentationAudioCommandType::PlayOneShot;
+    std::string id;
+    float volume = 1.0f;
+};
+
 struct ProjectileParticle {
     float worldX = 0.0f;
     float worldY = 0.0f;
@@ -71,6 +87,7 @@ public:
     virtual int consumeAbilityAudioCues() { return 0; }
     virtual int consumeHitEvents() { return 0; }
     virtual int getDamageLabelHitCount() const { return 1; }
+    virtual std::vector<PresentationAudioCommand> consumeAudioCommands() { return {}; }
 
     // Focused target (optional)
     virtual int getFocusedPartyIndex() const { return -1; }

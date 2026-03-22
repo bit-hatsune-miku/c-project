@@ -47,6 +47,20 @@ constexpr float kTransitionScreenCenterY = 0.49f;
 constexpr float kRingScreenCenterX = 0.50f;
 constexpr float kRingScreenCenterY = 0.45f;
 constexpr float kApproachDarknessAlpha = 105.0f;
+constexpr float kRiserDurationSeconds = 3.526542f;
+
+constexpr char kStabSfxPath[] = "assets/combat/presentations/lyooPlotTwist/stab.wav";
+constexpr char kRingStarSfxPath[] = "assets/combat/presentations/lyooPlotTwist/mus_sfx_star.wav";
+constexpr char kSkyStarSfxPath[] = "assets/combat/presentations/lyooPlotTwist/mus_sfx_sparkles.wav";
+constexpr char kShakeLoopSfxPath[] = "assets/combat/presentations/lyooPlotTwist/shake.wav";
+constexpr char kRiserSfxPath[] = "assets/combat/presentations/lyooPlotTwist/riser.wav";
+constexpr char kPostSfxPath[] = "assets/combat/presentations/lyooPlotTwist/post.wav";
+constexpr float kStabSfxVolume = 0.42f;
+constexpr float kRingStarSfxVolume = 0.30f;
+constexpr float kSkyStarSfxVolume = 1.0f;
+constexpr float kShakeLoopSfxVolume = 1.0f;
+constexpr float kRiserSfxVolume = 1.0f;
+constexpr float kPostSfxVolume = 1.25f;
 
 float lerpF(float a, float b, float t) {
     return a + (b - a) * t;
@@ -83,10 +97,17 @@ LyooPlotTwistPresentation::~LyooPlotTwistPresentation() {
 
 void LyooPlotTwistPresentation::start() {
     elapsedTime_ = 0.0f;
-    pendingAbilityAudioCues_ = 0;
+    pendingAbilityAudioCues_ = 1;
     pendingHitEvents_ = 0;
-    impactTriggered_ = false;
     hitBurstsEmitted_ = 0;
+    pendingAudioCommands_.clear();
+    stabTriggered_ = false;
+    riserTriggered_ = false;
+    shakeLoopStarted_ = false;
+    blackoutTriggered_ = false;
+    postTriggered_ = false;
+    ringStarSfxIndex_ = 0;
+    skyStarSfxIndex_ = 0;
 
     frontCamera_ = Camera3D{};
     frontCamera_.posX = casterX_;
@@ -115,6 +136,55 @@ void LyooPlotTwistPresentation::start() {
 
 void LyooPlotTwistPresentation::update(float deltaTime) {
     elapsedTime_ += deltaTime;
+
+    if (!stabTriggered_ && currentIntroFrameIndex() >= 4) {
+        queueAudioCommand(PresentationAudioCommandType::PlayOneShot, kStabSfxPath, kStabSfxVolume);
+        stabTriggered_ = true;
+    }
+
+    const float ringPhaseTime = elapsedTime_ - kRingStartSeconds;
+    while (ringStarSfxIndex_ < ringStars_.size() &&
+           ringPhaseTime >= ringStars_[ringStarSfxIndex_].spawnTime) {
+        queueAudioCommand(
+            PresentationAudioCommandType::PlayOneShotAllowOverlap,
+            kRingStarSfxPath,
+            kRingStarSfxVolume
+        );
+        ++ringStarSfxIndex_;
+    }
+
+    const float skyPhaseTime = elapsedTime_ - kSkyStartSeconds;
+    while (skyStarSfxIndex_ < skyStars_.size() &&
+           skyPhaseTime >= skyStars_[skyStarSfxIndex_].spawnTime) {
+        queueAudioCommand(
+            PresentationAudioCommandType::PlayOneShotAllowOverlap,
+            kSkyStarSfxPath,
+            kSkyStarSfxVolume
+        );
+        ++skyStarSfxIndex_;
+    }
+
+    if (!shakeLoopStarted_ && elapsedTime_ >= kApproachStartSeconds) {
+        queueAudioCommand(PresentationAudioCommandType::StartLoop, kShakeLoopSfxPath, kShakeLoopSfxVolume);
+        shakeLoopStarted_ = true;
+    }
+
+    if (!riserTriggered_ && elapsedTime_ >= (kBlackoutStartSeconds - kRiserDurationSeconds)) {
+        queueAudioCommand(PresentationAudioCommandType::PlayOneShot, kRiserSfxPath, kRiserSfxVolume);
+        riserTriggered_ = true;
+    }
+
+    if (!blackoutTriggered_ && elapsedTime_ >= kBlackoutStartSeconds) {
+        queueAudioCommand(PresentationAudioCommandType::StopAllSfx, "");
+        queueAudioCommand(PresentationAudioCommandType::PauseBgm, "");
+        blackoutTriggered_ = true;
+    }
+
+    if (!postTriggered_ && elapsedTime_ >= kFinalShakeStartSeconds) {
+        queueAudioCommand(PresentationAudioCommandType::ResumeBgm, "");
+        queueAudioCommand(PresentationAudioCommandType::PlayOneShot, kPostSfxPath, kPostSfxVolume);
+        postTriggered_ = true;
+    }
 
     if (elapsedTime_ >= kFinalShakeStartSeconds) {
         const float finalShakeProgress = easing::clamp01(
@@ -260,6 +330,12 @@ int LyooPlotTwistPresentation::getDamageLabelHitCount() const {
     return kFinalShakeHitBursts;
 }
 
+std::vector<PresentationAudioCommand> LyooPlotTwistPresentation::consumeAudioCommands() {
+    std::vector<PresentationAudioCommand> commands;
+    commands.swap(pendingAudioCommands_);
+    return commands;
+}
+
 std::string LyooPlotTwistPresentation::resolvePath(const std::string& relativePath) {
     const std::array<std::string, 3> candidates = {
         relativePath,
@@ -274,6 +350,12 @@ std::string LyooPlotTwistPresentation::resolvePath(const std::string& relativePa
     }
 
     return relativePath;
+}
+
+void LyooPlotTwistPresentation::queueAudioCommand(PresentationAudioCommandType type,
+                                                  const std::string& id,
+                                                  float volume) {
+    pendingAudioCommands_.push_back(PresentationAudioCommand{type, id, volume});
 }
 
 void LyooPlotTwistPresentation::ensureAssetsLoaded(SDL_Renderer* renderer) {

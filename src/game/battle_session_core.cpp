@@ -628,6 +628,14 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
     callbacks.casterSpriteTexture = casterSprite;
     callbacks.targetSpriteTexture = targetSprite;
     callbacks.onWindowResized     = hooks_.onWindowResized;
+    callbacks.onAudioCommands     = [&](const std::vector<PresentationAudioCommand>& commands) {
+        if (commands.empty()) {
+            return;
+        }
+        if (hooks_.onPresentationAudioCommands) {
+            hooks_.onPresentationAudioCommands(context, commands);
+        }
+    };
     callbacks.onAbilityAudioCues  = [&](int cueCount) {
         if (cueCount <= 0) {
             return;

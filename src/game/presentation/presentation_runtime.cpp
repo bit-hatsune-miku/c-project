@@ -168,6 +168,11 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
 
         presentation->update(deltaSeconds);
 
+        const std::vector<PresentationAudioCommand> audioCommands = presentation->consumeAudioCommands();
+        if (!audioCommands.empty() && callbacks.onAudioCommands) {
+            callbacks.onAudioCommands(audioCommands);
+        }
+
         const int abilityAudioCues = presentation->consumeAbilityAudioCues();
         if (abilityAudioCues > 0) {
             if (callbacks.onAbilityAudioCues) {

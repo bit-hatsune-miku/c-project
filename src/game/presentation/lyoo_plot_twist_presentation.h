@@ -31,6 +31,7 @@ public:
     int consumeAbilityAudioCues() override;
     int consumeHitEvents() override;
     int getDamageLabelHitCount() const override;
+    std::vector<PresentationAudioCommand> consumeAudioCommands() override;
 
 private:
     enum class Phase {
@@ -63,6 +64,7 @@ private:
     void ensureAssetsLoaded(SDL_Renderer* renderer);
     void releaseAssets();
     void seedStarTimelines();
+    void queueAudioCommand(PresentationAudioCommandType type, const std::string& id, float volume = 1.0f);
 
     Phase currentPhase() const;
     int currentIntroFrameIndex() const;
@@ -113,11 +115,18 @@ private:
     std::vector<StarInstance> ringStars_;
     std::vector<StarInstance> skyStars_;
     std::vector<StarInstance> scatterStars_;
+    std::vector<PresentationAudioCommand> pendingAudioCommands_;
 
     int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;
-    bool impactTriggered_ = false;
     int hitBurstsEmitted_ = 0;
+    bool stabTriggered_ = false;
+    bool riserTriggered_ = false;
+    bool shakeLoopStarted_ = false;
+    bool blackoutTriggered_ = false;
+    bool postTriggered_ = false;
+    size_t ringStarSfxIndex_ = 0;
+    size_t skyStarSfxIndex_ = 0;
 };
 
 } // namespace battle

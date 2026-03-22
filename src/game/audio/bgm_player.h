@@ -47,6 +47,7 @@ public:
             return false;
         }
 
+        paused_ = false;
         SDL_PauseAudioDevice(device_, 0);
         return true;
     }
@@ -61,6 +62,7 @@ public:
         }
         audioData_.clear();
         playPos_ = 0;
+        paused_ = false;
     }
 
     // Change volume [0, 1] while playing. Thread-safe.
@@ -68,7 +70,24 @@ public:
         volume_.store(std::clamp(volume, 0.0f, 1.0f));
     }
 
+    void pause() {
+        if (device_ == 0 || paused_) {
+            return;
+        }
+        SDL_PauseAudioDevice(device_, 1);
+        paused_ = true;
+    }
+
+    void resume() {
+        if (device_ == 0 || !paused_) {
+            return;
+        }
+        SDL_PauseAudioDevice(device_, 0);
+        paused_ = false;
+    }
+
     bool isPlaying() const { return device_ != 0; }
+    bool isPaused() const { return device_ != 0 && paused_; }
 
 private:
     static void audioCallback(void* userdata, Uint8* stream, int len) {
@@ -106,6 +125,7 @@ private:
     std::vector<Uint8> audioData_;
     Uint32 playPos_ = 0;           // written only by the audio callback thread
     std::atomic<float> volume_{1.0f};
+    bool paused_ = false;
 };
 
 } // namespace game::audio
