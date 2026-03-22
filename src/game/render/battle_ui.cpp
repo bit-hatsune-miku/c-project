@@ -1,3 +1,10 @@
+#include <cstddef>
+#include "../core/battle_manager.h"
+
+namespace battle { namespace ui {
+// Global pointer for HUD shield access
+const battle::BattleManager* g_lastBattleHudManager = nullptr;
+}} // namespace battle::ui
 #include "battle_ui.h"
 
 #include "../core/easing.h"
@@ -202,6 +209,11 @@ void BattleHud::syncFromManager(const BattleManager& manager) {
         hudCharacter.ultimateRequired = manager.getCharacterUltimateRequired(static_cast<int>(i));
         nextModel.characters.push_back(std::move(hudCharacter));
     }
+
+
+    // HACK: Save pointer for shield bar rendering
+    extern const battle::BattleManager* g_lastBattleHudManager;
+    g_lastBattleHudManager = &manager;
 
     characterHpTransitions_.resize(nextModel.characters.size());
     characterDamageFlashes_.resize(nextModel.characters.size());
@@ -547,7 +559,18 @@ void BattleHud::drawCharacterStatus(SDL_Renderer* renderer,
 
     const int baseIconY = screenH - iconHeight - marginBottom;
 
+    // Use the public getCharacterShield accessor from BattleManager.
+    static const battle::BattleManager* s_lastManager = nullptr;
+    if (!s_lastManager) {
+        extern const battle::BattleManager* g_lastBattleHudManager;
+        s_lastManager = g_lastBattleHudManager;
+    }
+
     for (int idx = 0; idx < static_cast<int>(model_.characters.size()); ++idx) {
+        int shield = 0;
+        if (s_lastManager) {
+            shield = s_lastManager->getCharacterShield(idx);
+        }
         const HudCharacterModel& character = model_.characters[static_cast<size_t>(idx)];
         const int iconX = marginLeft + (idx * (iconWidth + charSpacing));
         const int iconY = baseIconY;
@@ -576,6 +599,29 @@ void BattleHud::drawCharacterStatus(SDL_Renderer* renderer,
         const int maxHp = std::max(1, character.maxHp);
         HpTransition& transition = characterHpTransitions_[static_cast<size_t>(idx)];
         const int displayHp = getDisplayedHp(transition, currentHp);
+
+        // --- SHIELD BAR (drawn behind HP bar, with a stroke bigger) ---
+        if (shield > 0) {
+            float shieldRatio = std::min(1.0f, static_cast<float>(shield) / static_cast<float>(maxHp));
+            // Make the shield bar 2px wider and 2px taller than the HP bar (1px stroke all around)
+            int shieldBarWidth = static_cast<int>(std::round(shieldRatio * (iconWidth + 2)));
+            int shieldBarHeight = hpBarHeight + 2;
+            int shieldBarX = iconX - 1;
+            int shieldBarY = hpBarY - 1;
+            SDL_Rect shieldBar{shieldBarX, shieldBarY, shieldBarWidth, shieldBarHeight};
+            SDL_SetRenderDrawColor(renderer, 110, 193, 228, 200); // Light blue
+            SDL_RenderFillRect(renderer, &shieldBar);
+            // Draw a border for the shield bar
+            SDL_SetRenderDrawColor(renderer, 80, 160, 220, 255);
+            SDL_RenderDrawRect(renderer, &shieldBar);
+#ifdef BATTLE_ENABLE_TTF
+            // Draw shield value at the top left of the HP bar
+            std::string shieldText = std::to_string(shield);
+            int textX = iconX + 4; // 4px padding from left of HP bar
+            int textY = hpBarY - 18; // above the HP bar
+            drawTextAt(fontCache_.get(), renderer, shieldText, textX, textY, SDL_Color{110, 193, 228, 255}, 16);
+#endif
+        }
 
         SDL_Rect hpBarBg{iconX, hpBarY, iconWidth, hpBarHeight};
         SDL_SetRenderDrawColor(renderer, 20, 20, 25, 200);

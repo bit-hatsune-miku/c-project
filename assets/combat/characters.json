@@ -34,8 +34,9 @@
                 "presentationId": "lyoo_revive_heal"
             }
         },
-        "ultimatePoints": 4,
-        "startingOrbs": 0
+        "ultimatePoints": 3,
+        "startingOrbs": 0,
+        "baseShield": 18
     },
     "miku": {
         "title": "Hatsune Miku",
@@ -225,7 +226,7 @@
             "skill": {
                 "id": "RangWoMenShuoZhongWen",
                 "name": "让我们说中文",
-                "type": "buff",
+                "type": "shield",
                 "targetRule": "all_allies",
                 "multiplier": 0.0,
                 "interactionType": "rhythm",
@@ -248,9 +249,10 @@
         "title": "微信姐 & 支付宝姐",
         "assets": "wechatalipay",
         "class": "Shielder",
-        "spd": 96,
+        "spd": 200,
         "atk": 14,
         "hp": 64,
+        "baseShield": 18,
         "standardAbility": "BasicAttack",
         "skillAbility": "SaoMaZhiFu",
         "ability": "SaoMaZhiFu",
@@ -259,11 +261,12 @@
             "skill": {
                 "id": "SaoMaZhiFu",
                 "name": "扫码支付",
-                "type": "buff",
+                "type": "shield",
                 "targetRule": "all_allies",
-                "multiplier": 0.0,
+                "multiplier": 1.0,
                 "interactionType": "rhythm",
-                "presentationId": "sao_ma_zhi_fu"
+                "presentationId": "sao_ma_zhi_fu",
+                "baseShield": 18
             },
             "ultimate": {
                 "id": "8888",

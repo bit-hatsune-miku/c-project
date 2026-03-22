@@ -142,6 +142,7 @@ bool parseCharacterDefinition(const json& characterJson,
     outCharacter.ultimate = characterJson.value("ultimate", "");
     outCharacter.ultimatePoints = characterJson.value("ultimatePoints", 0);
     outCharacter.startingOrbs = characterJson.value("startingOrbs", 0);
+    outCharacter.baseShield = characterJson.value("baseShield", 0);
     return true;
 }
 
@@ -498,6 +499,8 @@ bool parseAbilityDefinition(const json& abilityJson,
         outAbility.type = AbilityType::Buff;
     } else if (typeStr == "debuff") {
         outAbility.type = AbilityType::Debuff;
+    } else if (typeStr == "shield") {
+        outAbility.type = AbilityType::Shield;
     } else {
         outAbility.type = AbilityType::Attack;
     }
