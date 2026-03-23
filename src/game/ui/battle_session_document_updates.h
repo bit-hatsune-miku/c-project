@@ -349,7 +349,7 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
         detail::updateUnitOrbRow(document, i + 1, manager.getCharacterUltimateCharge(i), manager.getCharacterUltimateRequired(i));
 
         // Shield bar (drawn behind HP bar, animated)
-        const int shield = manager.getCharacterShield ? manager.getCharacterShield(i) : 0;
+        const int shield = manager.getCharacterShield(i);
         if (Rml::Element* shieldFill = document->GetElementById("unit-shield-fill-" + index)) {
             // Shield ratio is shield/maxHp, capped at 1.0 for full bar
             float shieldRatio = 0.0f;
