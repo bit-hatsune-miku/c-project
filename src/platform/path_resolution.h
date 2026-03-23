@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <algorithm>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -8,6 +9,8 @@
 #include <vector>
 
 namespace platform::path {
+
+inline std::string findCjkFontPath();
 
 inline std::string resolvePath(const std::string& relativePath) {
     namespace fs = std::filesystem;
@@ -110,6 +113,43 @@ inline std::string findCjkFontPath() {
     }
 
     return std::string();
+}
+
+inline std::vector<std::string> preferredLatinFontPaths(const std::vector<std::string>& preferredPaths = {}) {
+    auto appendUnique = [](std::vector<std::string>& out, const std::string& path) {
+        if (path.empty()) {
+            return;
+        }
+        if (std::find(out.begin(), out.end(), path) == out.end()) {
+            out.push_back(path);
+        }
+    };
+
+    std::vector<std::string> candidates;
+    candidates.reserve(preferredPaths.size() + 12);
+
+    for (const std::string& preferredPath : preferredPaths) {
+        appendUnique(candidates, resolvePath(preferredPath));
+    }
+
+    appendUnique(candidates, "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
+    appendUnique(candidates, "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
+    appendUnique(candidates, "/usr/share/fonts/TTF/DejaVuSans.ttf");
+    appendUnique(candidates, "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf");
+    appendUnique(candidates, resolvePath("assets/rmlui/DejaVuSans.ttf"));
+    appendUnique(candidates, resolvePath("assets/rmlui/DejaVuSans-Bold.ttf"));
+
+    return candidates;
+}
+
+inline std::vector<std::string> preferredCjkFontPaths(const std::vector<std::string>& preferredPaths = {}) {
+    auto candidates = preferredLatinFontPaths(preferredPaths);
+    const std::string cjkFontPath = findCjkFontPath();
+    if (!cjkFontPath.empty() &&
+        std::find(candidates.begin(), candidates.end(), cjkFontPath) == candidates.end()) {
+        candidates.insert(candidates.begin(), cjkFontPath);
+    }
+    return candidates;
 }
 
 inline std::string findCombatImagePath(const std::string& folder, const std::string& assetName) {

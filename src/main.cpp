@@ -24,6 +24,7 @@
 #include "game/save/save.h"
 #include "game/vn/vn_system.h"
 #include "platform/path_resolution.h"
+#include "platform/text_fallback.h"
 
 constexpr const char* kChapterScriptPath = "assets/vn/json/ch0.json";
 constexpr const char* kMainMenuArtPath = "assets/vn/backgrounds/ch0/mainmenu art.png";
@@ -111,32 +112,96 @@ TTF_Font* openBestAvailableFont(const std::vector<std::string>& preferredPaths, 
     return nullptr;
 }
 
+TTF_Font* openBestAvailableCjkFont(int ptSize) {
+    const std::vector<std::string> candidates = platform::path::preferredCjkFontPaths();
+    for (const auto& path : candidates) {
+        TTF_Font* font = TTF_OpenFont(path.c_str(), ptSize);
+        if (font != nullptr) {
+            return font;
+        }
+    }
+    return nullptr;
+}
+
+TTF_Font* fallbackCjkFontFor(TTF_Font* font) {
+    struct CjkFontCache {
+        std::map<int, TTF_Font*> fonts;
+
+        ~CjkFontCache() {
+            for (auto& [_, cachedFont] : fonts) {
+                if (cachedFont != nullptr) {
+                    TTF_CloseFont(cachedFont);
+                }
+            }
+        }
+
+        TTF_Font* get(int ptSize) {
+            auto it = fonts.find(ptSize);
+            if (it != fonts.end()) {
+                return it->second;
+            }
+
+            TTF_Font* loaded = openBestAvailableCjkFont(ptSize);
+            fonts[ptSize] = loaded;
+            return loaded;
+        }
+    };
+
+    if (font == nullptr) {
+        return nullptr;
+    }
+
+    static CjkFontCache cache;
+    return cache.get(std::max(8, TTF_FontHeight(font)));
+}
+
 void drawTextInRect(SDL_Renderer* renderer, TTF_Font* font, const std::string& text,
                     const SDL_Color& color, const SDL_FRect& rect, bool centerX) {
     if (font == nullptr || text.empty()) {
         return;
     }
 
-    SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text.c_str(), color);
-    if (surface == nullptr) {
+    TTF_Font* cjkFont = fallbackCjkFontFor(font);
+    const std::vector<platform::text::FontRun> runs = platform::text::buildFontRuns(text, font, cjkFont);
+    if (runs.empty()) {
         return;
     }
 
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    if (texture == nullptr) {
+    int totalWidth = 0;
+    int maxHeight = 0;
+    for (const platform::text::FontRun& run : runs) {
+        int runW = 0;
+        int runH = 0;
+        if (TTF_SizeUTF8(run.font, run.text.c_str(), &runW, &runH) == 0) {
+            totalWidth += runW;
+            maxHeight = std::max(maxHeight, runH);
+        }
+    }
+
+    int cursorX = static_cast<int>(std::lround(centerX ? rect.x + (rect.w - static_cast<float>(totalWidth)) * 0.5f : rect.x));
+    const int baselineY = static_cast<int>(std::lround(rect.y + (rect.h - static_cast<float>(maxHeight)) * 0.5f)) +
+                          TTF_FontAscent(font);
+
+    for (const platform::text::FontRun& run : runs) {
+        SDL_Surface* surface = TTF_RenderUTF8_Blended(run.font, run.text.c_str(), color);
+        if (surface == nullptr) {
+            continue;
+        }
+
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (texture != nullptr) {
+            SDL_Rect dst{
+                cursorX,
+                baselineY - TTF_FontAscent(run.font),
+                surface->w,
+                surface->h
+            };
+            SDL_RenderCopy(renderer, texture, nullptr, &dst);
+            SDL_DestroyTexture(texture);
+        }
+        cursorX += surface->w;
         SDL_FreeSurface(surface);
-        return;
     }
-
-    SDL_Rect dst{
-        static_cast<int>(std::lround(centerX ? rect.x + (rect.w - static_cast<float>(surface->w)) * 0.5f : rect.x)),
-        static_cast<int>(std::lround(rect.y + (rect.h - static_cast<float>(surface->h)) * 0.5f)),
-        surface->w,
-        surface->h
-    };
-    SDL_RenderCopy(renderer, texture, nullptr, &dst);
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(surface);
 }
 
 void drawWrappedTextInRect(SDL_Renderer* renderer, TTF_Font* font, const std::string& text,
@@ -145,31 +210,81 @@ void drawWrappedTextInRect(SDL_Renderer* renderer, TTF_Font* font, const std::st
         return;
     }
 
-    SDL_Surface* surface = TTF_RenderUTF8_Blended_Wrapped(
-        font,
-        text.c_str(),
-        color,
-        static_cast<Uint32>(std::max(1.0f, rect.w))
-    );
-    if (surface == nullptr) {
+    TTF_Font* cjkFont = fallbackCjkFontFor(font);
+    const std::vector<platform::text::FontRun> runs = platform::text::buildWrapRuns(text, font, cjkFont);
+    if (runs.empty()) {
         return;
     }
 
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    if (texture == nullptr) {
-        SDL_FreeSurface(surface);
-        return;
+    std::vector<std::vector<platform::text::FontRun>> lines(1);
+    float currentWidth = 0.0f;
+    const float maxWidth = rect.w;
+
+    for (const platform::text::FontRun& run : runs) {
+        if (run.text == "\n") {
+            lines.emplace_back();
+            currentWidth = 0.0f;
+            continue;
+        }
+
+        int runW = 0;
+        int runH = 0;
+        if (TTF_SizeUTF8(run.font, run.text.c_str(), &runW, &runH) != 0) {
+            continue;
+        }
+
+        if (currentWidth > 0.0f && currentWidth + static_cast<float>(runW) > maxWidth) {
+            lines.emplace_back();
+            currentWidth = 0.0f;
+        }
+
+        lines.back().push_back(run);
+        currentWidth += static_cast<float>(runW);
     }
 
-    SDL_Rect dst{
-        static_cast<int>(std::lround(centerX ? rect.x + (rect.w - static_cast<float>(surface->w)) * 0.5f : rect.x)),
-        static_cast<int>(std::lround(rect.y + (rect.h - static_cast<float>(surface->h)) * 0.5f)),
-        surface->w,
-        surface->h
-    };
-    SDL_RenderCopy(renderer, texture, nullptr, &dst);
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(surface);
+    const int lineSkip = TTF_FontLineSkip(font);
+    const float totalHeight = static_cast<float>(std::max(1, static_cast<int>(lines.size())) * lineSkip);
+    float cursorY = rect.y + (rect.h - totalHeight) * 0.5f;
+
+    for (const auto& line : lines) {
+        int lineWidth = 0;
+        int lineHeight = 0;
+        for (const platform::text::FontRun& run : line) {
+            int runW = 0;
+            int runH = 0;
+            if (TTF_SizeUTF8(run.font, run.text.c_str(), &runW, &runH) == 0) {
+                lineWidth += runW;
+                lineHeight = std::max(lineHeight, runH);
+            }
+        }
+
+        int cursorX = static_cast<int>(std::lround(centerX ? rect.x + (rect.w - static_cast<float>(lineWidth)) * 0.5f : rect.x));
+        const int baselineY = static_cast<int>(std::lround(cursorY + (static_cast<float>(lineSkip - lineHeight) * 0.5f))) +
+                              TTF_FontAscent(font);
+
+        for (const platform::text::FontRun& run : line) {
+            SDL_Surface* surface = TTF_RenderUTF8_Blended(run.font, run.text.c_str(), color);
+            if (surface == nullptr) {
+                continue;
+            }
+
+            SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+            if (texture != nullptr) {
+                SDL_Rect dst{
+                    cursorX,
+                    baselineY - TTF_FontAscent(run.font),
+                    surface->w,
+                    surface->h
+                };
+                SDL_RenderCopy(renderer, texture, nullptr, &dst);
+                SDL_DestroyTexture(texture);
+            }
+            cursorX += surface->w;
+            SDL_FreeSurface(surface);
+        }
+
+        cursorY += static_cast<float>(lineSkip);
+    }
 }
 
 void drawShadowedTextInRect(SDL_Renderer* renderer, TTF_Font* font, const std::string& text,

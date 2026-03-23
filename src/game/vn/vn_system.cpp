@@ -13,6 +13,9 @@
 #include <SDL2/SDL_image.h>
 #endif
 
+#include "../../platform/path_resolution.h"
+#include "../../platform/text_fallback.h"
+
 namespace vn {
 namespace {
 
@@ -56,9 +59,12 @@ bool gImageInitialized = false;
 
 #ifdef VN_ENABLE_TTF
 TTF_Font* gFont = nullptr;
+TTF_Font* gCjkFont = nullptr;
 int gFontSize = 28;
 int gBaseFontSize = 28;
 #endif
+
+int utf8CodepointLength(unsigned char c);
 
 SDL_Rect dialogueBoxRect() {
     const float scale = std::min(
@@ -147,16 +153,9 @@ void playVoiceIfAny() {
 
 #ifdef VN_ENABLE_TTF
 TTF_Font* openBestAvailableFont(const std::string& preferredPath, int ptSize) {
-    std::vector<std::string> candidates;
-    if (!preferredPath.empty()) {
-        candidates.push_back(preferredPath);
-    }
-
-    candidates.emplace_back("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
-    candidates.emplace_back("/usr/share/fonts/TTF/DejaVuSans.ttf");
-    candidates.emplace_back("assets/rmlui/DejaVuSans.ttf");
-    candidates.emplace_back("../assets/rmlui/DejaVuSans.ttf");
-    candidates.emplace_back("../../assets/rmlui/DejaVuSans.ttf");
+    const std::vector<std::string> preferredPaths =
+        preferredPath.empty() ? std::vector<std::string>{} : std::vector<std::string>{preferredPath};
+    const std::vector<std::string> candidates = platform::path::preferredLatinFontPaths(preferredPaths);
 
     for (const auto& path : candidates) {
         TTF_Font* font = TTF_OpenFont(path.c_str(), ptSize);
@@ -168,23 +167,37 @@ TTF_Font* openBestAvailableFont(const std::string& preferredPath, int ptSize) {
     return nullptr;
 }
 
-void ensureFontLoaded() {
-    if (gFont != nullptr) {
-        return;
+TTF_Font* openBestAvailableCjkFont(int ptSize) {
+    const std::vector<std::string> candidates = platform::path::preferredCjkFontPaths();
+
+    for (const auto& path : candidates) {
+        TTF_Font* font = TTF_OpenFont(path.c_str(), ptSize);
+        if (font != nullptr) {
+            return font;
+        }
     }
 
-    gFont = openBestAvailableFont(gFontPath, gFontSize);
+    return nullptr;
+}
+
+TTF_Font* activeFontForGlyph(const std::string& glyph) {
+    return platform::text::selectFontForGlyph(glyph, gFont, gCjkFont);
+}
+
+void ensureFontLoaded() {
     if (gFont == nullptr) {
+        gFont = openBestAvailableFont(gFontPath, gFontSize);
+    }
+    if (gCjkFont == nullptr) {
+        gCjkFont = openBestAvailableCjkFont(gFontSize);
+    }
+    if (gFont == nullptr && gCjkFont == nullptr) {
         std::cerr << "[VN] No usable TTF font found. Install SDL2_ttf + DejaVu fonts or set a font path.\n";
     }
 }
 
 int utf8CodepointLength(unsigned char c) {
-    if ((c & 0x80) == 0) return 1;
-    if ((c & 0xE0) == 0xC0) return 2;
-    if ((c & 0xF0) == 0xE0) return 3;
-    if ((c & 0xF8) == 0xF0) return 4;
-    return 1;
+    return platform::text::utf8CodepointLength(c);
 }
 
 std::string toLowerCopy(const std::string& s) {
@@ -252,36 +265,55 @@ size_t countVisibleCharsIgnoringTags(const std::string& text) {
 }
 
 void drawText(const std::string& text, const SDL_Color& color, const SDL_Rect& area, bool centered) {
-    if (text.empty() || gFont == nullptr) {
+    ensureFontLoaded();
+    TTF_Font* referenceFont = gFont != nullptr ? gFont : gCjkFont;
+    if (text.empty() || referenceFont == nullptr) {
         return;
     }
 
-    SDL_Surface* surface = TTF_RenderUTF8_Blended_Wrapped(gFont, text.c_str(), color, static_cast<Uint32>(area.w));
-    if (surface == nullptr) {
+    const std::vector<platform::text::FontRun> runs = platform::text::buildFontRuns(text, gFont, gCjkFont);
+    if (runs.empty()) {
         return;
     }
 
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(gRenderer, surface);
-    if (tex == nullptr) {
+    int totalWidth = 0;
+    for (const platform::text::FontRun& run : runs) {
+        int runW = 0;
+        int runH = 0;
+        if (TTF_SizeUTF8(run.font, run.text.c_str(), &runW, &runH) == 0) {
+            totalWidth += runW;
+        }
+    }
+
+    int cursorX = centered ? area.x + (area.w - totalWidth) / 2 : area.x;
+    const int baselineY = area.y + TTF_FontAscent(referenceFont);
+
+    for (const platform::text::FontRun& run : runs) {
+        SDL_Surface* surface = TTF_RenderUTF8_Blended(run.font, run.text.c_str(), color);
+        if (surface == nullptr) {
+            continue;
+        }
+
+        SDL_Texture* tex = SDL_CreateTextureFromSurface(gRenderer, surface);
+        if (tex != nullptr) {
+            SDL_Rect dst{
+                cursorX,
+                baselineY - TTF_FontAscent(run.font),
+                surface->w,
+                surface->h
+            };
+            SDL_RenderCopy(gRenderer, tex, nullptr, &dst);
+            SDL_DestroyTexture(tex);
+        }
+        cursorX += surface->w;
         SDL_FreeSurface(surface);
-        return;
     }
-
-    SDL_Rect dst = area;
-    dst.w = surface->w;
-    dst.h = surface->h;
-
-    if (centered) {
-        dst.x = area.x + (area.w - dst.w) / 2;
-    }
-
-    SDL_RenderCopy(gRenderer, tex, nullptr, &dst);
-    SDL_DestroyTexture(tex);
-    SDL_FreeSurface(surface);
 }
 
 void drawRichText(const std::string& text, const SDL_Color& defaultColor, const SDL_Rect& area, size_t maxVisibleChars) {
-    if (text.empty() || gFont == nullptr || maxVisibleChars == 0) {
+    ensureFontLoaded();
+    TTF_Font* referenceFont = gFont != nullptr ? gFont : gCjkFont;
+    if (text.empty() || referenceFont == nullptr || maxVisibleChars == 0) {
         return;
     }
 
@@ -294,7 +326,7 @@ void drawRichText(const std::string& text, const SDL_Color& defaultColor, const 
     int y = area.y;
     const int maxX = area.x + area.w;
     const int maxY = area.y + area.h;
-    const int lineSkip = TTF_FontLineSkip(gFont);
+    const int lineSkip = TTF_FontLineSkip(referenceFont);
 
     size_t visibleCount = 0;
     size_t i = 0;
@@ -370,11 +402,16 @@ void drawRichText(const std::string& text, const SDL_Color& defaultColor, const 
         int styleFlags = TTF_STYLE_NORMAL;
         if (boldDepth > 0) styleFlags |= TTF_STYLE_BOLD;
         if (italicDepth > 0) styleFlags |= TTF_STYLE_ITALIC;
-        TTF_SetFontStyle(gFont, styleFlags);
+        TTF_Font* activeFont = activeFontForGlyph(glyph);
+        if (activeFont == nullptr) {
+            ++visibleCount;
+            continue;
+        }
+        TTF_SetFontStyle(activeFont, styleFlags);
 
         int glyphW = 0;
         int glyphH = 0;
-        if (TTF_SizeUTF8(gFont, glyph.c_str(), &glyphW, &glyphH) != 0) {
+        if (TTF_SizeUTF8(activeFont, glyph.c_str(), &glyphW, &glyphH) != 0) {
             ++visibleCount;
             continue;
         }
@@ -386,11 +423,12 @@ void drawRichText(const std::string& text, const SDL_Color& defaultColor, const 
             }
         }
 
-        SDL_Surface* surface = TTF_RenderUTF8_Blended(gFont, glyph.c_str(), colorStack.back());
+        SDL_Surface* surface = TTF_RenderUTF8_Blended(activeFont, glyph.c_str(), colorStack.back());
         if (surface != nullptr) {
             SDL_Texture* tex = SDL_CreateTextureFromSurface(gRenderer, surface);
             if (tex != nullptr) {
-                SDL_Rect dst{x, y, surface->w, surface->h};
+                SDL_Rect dst{x, y + (TTF_FontAscent(referenceFont) - TTF_FontAscent(activeFont)),
+                             surface->w, surface->h};
                 SDL_RenderCopy(gRenderer, tex, nullptr, &dst);
                 SDL_DestroyTexture(tex);
             }
@@ -401,7 +439,12 @@ void drawRichText(const std::string& text, const SDL_Color& defaultColor, const 
         ++visibleCount;
     }
 
-    TTF_SetFontStyle(gFont, TTF_STYLE_NORMAL);
+    if (gFont != nullptr) {
+        TTF_SetFontStyle(gFont, TTF_STYLE_NORMAL);
+    }
+    if (gCjkFont != nullptr) {
+        TTF_SetFontStyle(gCjkFont, TTF_STYLE_NORMAL);
+    }
 }
 
 void reloadScaledFont() {
@@ -422,6 +465,10 @@ void reloadScaledFont() {
     if (gFont != nullptr) {
         TTF_CloseFont(gFont);
         gFont = nullptr;
+    }
+    if (gCjkFont != nullptr) {
+        TTF_CloseFont(gCjkFont);
+        gCjkFont = nullptr;
     }
     ensureFontLoaded();
 }
@@ -488,6 +535,10 @@ void shutdown() {
     if (gFont != nullptr) {
         TTF_CloseFont(gFont);
         gFont = nullptr;
+    }
+    if (gCjkFont != nullptr) {
+        TTF_CloseFont(gCjkFont);
+        gCjkFont = nullptr;
     }
     TTF_Quit();
 #endif
@@ -574,6 +625,10 @@ void setFont(const std::string& fontPath, int ptSize) {
     if (gFont != nullptr) {
         TTF_CloseFont(gFont);
         gFont = nullptr;
+    }
+    if (gCjkFont != nullptr) {
+        TTF_CloseFont(gCjkFont);
+        gCjkFont = nullptr;
     }
 
     reloadScaledFont();
@@ -747,6 +802,10 @@ void reset() {
     if (gFont != nullptr) {
         TTF_CloseFont(gFont);
         gFont = nullptr;
+    }
+    if (gCjkFont != nullptr) {
+        TTF_CloseFont(gCjkFont);
+        gCjkFont = nullptr;
     }
     gFontSize = 28;
     gBaseFontSize = 28;
