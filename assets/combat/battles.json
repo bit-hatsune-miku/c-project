@@ -8,8 +8,15 @@
       "bossKey": "lyooBoss",
       "isLineupFixed": false,
       "partySize": 4,
-      "lineup": ["miku", "cupcakke", "lyoo", "iroha"],
-      "lockedLineup": ["miku"],
+      "lineup": [
+        "miku",
+        "cupcakke",
+        "lyoo",
+        "iroha"
+      ],
+      "lockedLineup": [
+        "miku"
+      ],
       "stageKey": "default_stage"
     },
     "test_ground": {
@@ -17,7 +24,10 @@
       "name": "Test Ground",
       "bossKey": "lyooBoss",
       "isLineupFixed": true,
-      "lineup": ["miku", "cupcakke"],
+      "lineup": [
+        "miku",
+        "cupcakke"
+      ],
       "stageKey": "default_stage",
       "type": "tutorial"
     },
@@ -26,7 +36,11 @@
       "name": "野花香",
       "bossKey": "jiafeiBoss",
       "isLineupFixed": true,
-      "lineup": ["miku", "cupcakke", "jiafei"],
+      "lineup": [
+        "miku",
+        "cupcakke",
+        "jiafei"
+      ],
       "stageKey": "default_stage"
     },
     "lyoo_plot_twist": {
@@ -34,7 +48,12 @@
       "name": "A turn up of events",
       "bossKey": "lyooPlotTwist",
       "isLineupFixed": true,
-      "lineup": ["wechatalipay", "cupcakke", "jiafei", "lyoo"],
+      "lineup": [
+        "wechatalipay",
+        "cupcakke",
+        "jiafei",
+        "lyoo"
+      ],
       "stageKey": "default_stage"
     },
     "scan_to_pay": {
@@ -42,7 +61,12 @@
       "name": "Scan To Pay",
       "bossKey": "wechatalipayBoss",
       "isLineupFixed": true,
-      "lineup": ["wechatalipay", "cupcakke", "jiafei", "lyoo"],
+      "lineup": [
+        "wechatalipay",
+        "cupcakke",
+        "jiafei",
+        "lyoo"
+      ],
       "stageKey": "default_stage"
     },
     "ari_boss_demo": {
@@ -50,7 +74,12 @@
       "name": "Whistle Note",
       "bossKey": "ariBoss",
       "isLineupFixed": true,
-      "lineup": ["ari", "wechatalipay", "miku", "wechatalipay"],
+      "lineup": [
+        "ari",
+        "wechatalipay",
+        "miku",
+        "wechatalipay"
+      ],
       "stageKey": "default_stage"
     },
     "luotianyi_boss_demo": {
@@ -58,7 +87,12 @@
       "name": "音龙",
       "bossKey": "luotianyiBoss",
       "isLineupFixed": true,
-      "lineup": ["miku", "cupcakke", "jiafei", "wechatalipay"],
+      "lineup": [
+        "miku",
+        "cupcakke",
+        "luotianyi",
+        "wechatalipay"
+      ],
       "stageKey": "default_stage"
     }
   }

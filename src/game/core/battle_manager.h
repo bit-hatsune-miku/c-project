@@ -95,6 +95,7 @@ struct AbilityDefinition {
     float multiplier = 1.0f;
     int flatHeal = 0;
     int speedBuff = 0;
+    int atkBuff = 0;   // ATK % buff applied to targets (negative = nerf)
     float actionAdvance = 0.0f;
     bool reviveDeadAllies = false;
     InteractionType interactionType = InteractionType::None;
@@ -144,6 +145,9 @@ public:
     int effectiveSpd() const;
     int spdBuffBonus() const;
     void setSpdBuffBonus(int amount);
+    int effectiveAtk() const;
+    int atkBuffBonus() const;
+    void setAtkBuffBonus(int percentBonus);
 
     // Shield support
     int getShield() const { return shield_; }
@@ -166,8 +170,9 @@ private:
     int partyIndex_ = 0;
     int hp_ = 0;
     int ultimateCharge_ = 0;
-    int shield_ = 0; // New: shield value (overcapped HP)
+    int shield_ = 0;
     int spdBuffBonus_ = 0;
+    int atkBuffBonus_ = 0; // ATK buff/nerf in percent (e.g. 50 = +50%, -20 = -20%)
 };
 
 enum class BattleAction {
@@ -277,6 +282,7 @@ private:
         int sourcePartyIndex = -1;
         int targetPartyIndex = -1;
         int speedBuff = 0;
+        int atkBuff = 0; // ATK % buff/nerf (signed)
     };
 
     struct BossStatusState {

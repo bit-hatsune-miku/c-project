@@ -226,9 +226,10 @@
             "skill": {
                 "id": "RangWoMenShuoZhongWen",
                 "name": "让我们说中文",
-                "type": "shield",
+                "type": "buff",
                 "targetRule": "all_allies",
                 "multiplier": 0.0,
+                "atkBuff": 60,
                 "interactionType": "rhythm",
                 "presentationId": "rang_wo_men_shuo_zhong_wen"
             },
