@@ -218,6 +218,20 @@ void BattleCharacter::setSpdBuffBonus(int amount) {
     spdBuffBonus_ = amount;
 }
 
+int BattleCharacter::effectiveAtk() const {
+    // atkBuffBonus_ is a signed percentage (e.g. 50 = +50%, -20 = -20%)
+    const float scaled = static_cast<float>(definition_.atk) * (1.0f + static_cast<float>(atkBuffBonus_) / 100.0f);
+    return std::max(0, static_cast<int>(scaled));
+}
+
+int BattleCharacter::atkBuffBonus() const {
+    return atkBuffBonus_;
+}
+
+void BattleCharacter::setAtkBuffBonus(int percentBonus) {
+    atkBuffBonus_ = percentBonus;
+}
+
 bool BattleManager::initialize(const std::string& bossKey, const std::vector<std::string>& characterKeys) {
     initialized_ = false;
     state_ = BattleState{};
@@ -633,7 +647,7 @@ bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vecto
 
     const float multiplier = runPresentationInteraction(presContext);
     const int totalDamage = normalizeDamage(static_cast<int>(
-        character.definition().atk * abilityDef->multiplier * multiplier
+        character.effectiveAtk() * abilityDef->multiplier * multiplier
     ));
 
     const int base = totalDamage / hitCount;
@@ -1040,7 +1054,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
 
     if (abilityDef == nullptr) {
         const int fallbackDamage = normalizeDamage(
-            character.definition().atk * ((action == BattleAction::Ultimate) ? 2 : 1)
+            character.effectiveAtk() * ((action == BattleAction::Ultimate) ? 2 : 1)
         );
         bossCurrentHp_ = std::max(0, bossCurrentHp_ - fallbackDamage);
     } else {
@@ -1066,7 +1080,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
             execContext.ability = abilityDef;
             execContext.casterPartyIndex = character.partyIndex();
             execContext.isBossCaster = false;
-            execContext.baseDamage = character.definition().atk;
+            execContext.baseDamage = character.effectiveAtk();
             execContext.baseHeal = abilityDef->flatHeal;
             execContext.presentationMultiplier = presentationMultiplier;
             execContext.bossMaxHp = state_.boss.hp;
@@ -1267,7 +1281,18 @@ void BattleManager::applyPartyBuffFromAbility(int sourcePartyIndex,
     const int scaledSpeedBuff = std::max(0, static_cast<int>(std::lround(
         static_cast<float>(ability.speedBuff) * std::max(0.0f, presentationMultiplier)
     )));
-    if (scaledSpeedBuff <= 0) {
+
+    // presentationMultiplier carries the ATK buff ratio from the presentation:
+    //   > 1.0 → buff  (e.g. 1.6 → +60% if atkBuff == 100 base)
+    //   < 1.0 and >= 0 → partial buff
+    //   < 0 → nerf    (the presentation returns negative multipliers for 0-correct)
+    // The ability JSON stores the max-correct ATK buff percent in atkBuff.
+    // We multiply by presentationMultiplier so partial results scale down.
+    const int scaledAtkBuff = (ability.atkBuff != 0)
+        ? static_cast<int>(std::lround(static_cast<float>(ability.atkBuff) * presentationMultiplier))
+        : 0;
+
+    if (scaledSpeedBuff <= 0 && scaledAtkBuff == 0) {
         return;
     }
 
@@ -1284,6 +1309,7 @@ void BattleManager::applyPartyBuffFromAbility(int sourcePartyIndex,
                 buff.sourcePartyIndex == sourcePartyIndex &&
                 buff.targetPartyIndex == targetPartyIndex) {
                 buff.speedBuff = scaledSpeedBuff;
+                buff.atkBuff   = scaledAtkBuff;
                 return;
             }
         }
@@ -1292,7 +1318,8 @@ void BattleManager::applyPartyBuffFromAbility(int sourcePartyIndex,
             ability.id,
             sourcePartyIndex,
             targetPartyIndex,
-            scaledSpeedBuff
+            scaledSpeedBuff,
+            scaledAtkBuff
         });
     };
 
@@ -1357,15 +1384,18 @@ void BattleManager::removeBuffsFromDefeatedCharacters() {
 
 void BattleManager::refreshCharacterBuffBonuses() {
     std::vector<int> speedTotals(characters_.size(), 0);
+    std::vector<int> atkTotals(characters_.size(), 0);
     for (const ActivePartyBuff& buff : activePartyBuffs_) {
         if (buff.targetPartyIndex < 0 || static_cast<size_t>(buff.targetPartyIndex) >= speedTotals.size()) {
             continue;
         }
         speedTotals[static_cast<size_t>(buff.targetPartyIndex)] += buff.speedBuff;
+        atkTotals[static_cast<size_t>(buff.targetPartyIndex)]   += buff.atkBuff;
     }
 
     for (size_t i = 0; i < characters_.size(); ++i) {
         characters_[i].setSpdBuffBonus(speedTotals[i]);
+        characters_[i].setAtkBuffBonus(atkTotals[i]);
     }
 }
 

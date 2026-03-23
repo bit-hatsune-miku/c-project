@@ -11,6 +11,7 @@
 #include "lyoo_boss_presentation.h"
 #include "lyoo_plot_twist_presentation.h"
 #include "luotianyi_boss_presentation.h"
+#include "luotianyi_skill_presentation.h"
 #include "miku_sing_presentation.h"
 #include "miku_diandong_presentation.h"
 
@@ -144,6 +145,16 @@ void registerAllPresentations() {
         float targetWorldX, float targetWorldY, float targetWorldZ
     ) -> std::unique_ptr<AbilityPresentation> {
         return std::make_unique<LuotianyiBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("rang_wo_men_shuo_zhong_wen", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<LuotianyiSkillPresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
         );

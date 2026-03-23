@@ -490,6 +490,7 @@ bool parseAbilityDefinition(const json& abilityJson,
     outAbility.multiplier = abilityJson.value("multiplier", 1.0f);
     outAbility.flatHeal = abilityJson.value("flatHeal", 0);
     outAbility.speedBuff = abilityJson.value("speedBuff", 0);
+    outAbility.atkBuff = abilityJson.value("atkBuff", 0);
     outAbility.actionAdvance = abilityJson.value("actionAdvance", 0.0f);
     outAbility.reviveDeadAllies = abilityJson.value("reviveDeadAllies", false);
     outAbility.presentationId = abilityJson.value("presentationId", "");

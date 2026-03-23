@@ -20,9 +20,18 @@ FetchContent_MakeAvailable(json)
 
 # Find packages
 find_package(SDL2 REQUIRED)
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(SDL2_TTF QUIET SDL2_ttf)
-pkg_check_modules(SDL2_IMAGE QUIET SDL2_image)
+find_package(SDL2_ttf REQUIRED)
+find_package(SDL2_image REQUIRED)
+
+set(SDL2_TTF_FOUND TRUE)
+set(SDL2_TTF_LIBRARIES SDL2_ttf::SDL2_ttf)
+set(SDL2_IMAGE_FOUND TRUE)
+set(SDL2_IMAGE_LIBRARIES SDL2_image::SDL2_image)
+
+find_package(PkgConfig QUIET)
+
+add_compile_definitions(SDL2_TTF_FOUND=1)
+add_compile_definitions(SDL2_IMAGE_FOUND=1)
 
 # Source files
 set(MAIN_APP_SOURCES
@@ -115,6 +124,8 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/presentation_runtime.h
     src/game/presentation/splash_art_animation.cpp
     src/game/presentation/splash_art_animation.h
+    src/game/presentation/luotianyi_skill_presentation.cpp
+    src/game/presentation/luotianyi_skill_presentation.h
     src/game/presentation/presentation_registry.cpp
 )
 
@@ -240,7 +251,12 @@ add_executable(demo_luotianyi
     src/game/vn/vn_script.h
 )
 
-target_compile_definitions(demo_luotianyi PRIVATE LUOTIANYI_DEMO=1)
+target_compile_definitions(demo_luotianyi PRIVATE 
+    LUOTIANYI_DEMO=1
+    VN_ENABLE_TTF=1
+    VN_ENABLE_IMAGE=1
+)
+
 
 if (ENABLE_RMLUI)
     find_package(OpenGL REQUIRED)
