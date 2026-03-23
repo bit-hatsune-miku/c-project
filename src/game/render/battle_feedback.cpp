@@ -10,6 +10,8 @@
 #include <SDL2/SDL_ttf.h>
 #endif
 
+#include "../../platform/path_resolution.h"
+
 namespace battle::render {
 namespace {
 
@@ -28,14 +30,7 @@ std::mt19937& popupRng() {
 
 #ifdef BATTLE_ENABLE_TTF
 TTF_Font* openBestAvailablePopupFont(int ptSize) {
-    const std::vector<std::string> candidates = {
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        "/usr/share/fonts/TTF/DejaVuSans.ttf",
-        "assets/rmlui/DejaVuSans.ttf",
-        "../assets/rmlui/DejaVuSans.ttf",
-        "../../assets/rmlui/DejaVuSans.ttf"
-    };
-
+    const std::vector<std::string> candidates = platform::path::preferredLatinFontPaths();
     for (const auto& path : candidates) {
         TTF_Font* font = TTF_OpenFont(path.c_str(), ptSize);
         if (font != nullptr) {
