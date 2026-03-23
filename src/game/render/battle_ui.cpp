@@ -21,28 +21,32 @@ const battle::BattleManager* g_lastBattleHudManager = nullptr;
 #include <SDL2/SDL_ttf.h>
 #endif
 
+#include "../../platform/path_resolution.h"
+#include "../../platform/text_fallback.h"
+
 namespace battle::ui {
 #ifdef BATTLE_ENABLE_TTF
 struct BattleHudFontCache {
-    std::map<int, TTF_Font*> fonts;
+    std::map<int, TTF_Font*> latinFonts;
+    std::map<int, TTF_Font*> cjkFonts;
 
     ~BattleHudFontCache() {
-        for (auto& [_, font] : fonts) {
+        for (auto& [_, font] : latinFonts) {
+            if (font != nullptr) {
+                TTF_CloseFont(font);
+            }
+        }
+        for (auto& [_, font] : cjkFonts) {
             if (font != nullptr) {
                 TTF_CloseFont(font);
             }
         }
     }
 
-    TTF_Font* openBestAvailableFont(int ptSize) {
-        const std::vector<std::string> candidates = {
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/TTF/DejaVuSans.ttf",
-            "assets/rmlui/DejaVuSans.ttf",
-            "../assets/rmlui/DejaVuSans.ttf",
-            "../../assets/rmlui/DejaVuSans.ttf"
-        };
-
+    TTF_Font* openBestAvailableFont(int ptSize, bool preferCjk) {
+        const std::vector<std::string> candidates = preferCjk
+            ? platform::path::preferredCjkFontPaths()
+            : platform::path::preferredLatinFontPaths();
         for (const auto& path : candidates) {
             TTF_Font* font = TTF_OpenFont(path.c_str(), ptSize);
             if (font != nullptr) {
@@ -52,14 +56,15 @@ struct BattleHudFontCache {
         return nullptr;
     }
 
-    TTF_Font* get(int ptSize) {
-        auto it = fonts.find(ptSize);
-        if (it != fonts.end()) {
+    TTF_Font* get(int ptSize, bool preferCjk) {
+        auto& fontMap = preferCjk ? cjkFonts : latinFonts;
+        auto it = fontMap.find(ptSize);
+        if (it != fontMap.end()) {
             return it->second;
         }
 
-        TTF_Font* loaded = openBestAvailableFont(ptSize);
-        fonts[ptSize] = loaded;
+        TTF_Font* loaded = openBestAvailableFont(ptSize, preferCjk);
+        fontMap[ptSize] = loaded;
         return loaded;
     }
 };
@@ -124,27 +129,50 @@ void drawTextInternal(BattleHudFontCache* fontCache,
         return;
     }
 
-    TTF_Font* font = fontCache->get(fontSize);
-    if (font == nullptr) {
+    TTF_Font* primaryFont = fontCache->get(fontSize, false);
+    TTF_Font* cjkFont = fontCache->get(fontSize, true);
+    TTF_Font* referenceFont = primaryFont != nullptr ? primaryFont : cjkFont;
+    if (referenceFont == nullptr) {
         return;
     }
 
-    SDL_Surface* surface = TTF_RenderUTF8_Blended(font, text.c_str(), color);
-    if (surface == nullptr) {
+    const std::vector<platform::text::FontRun> runs = platform::text::buildFontRuns(text, primaryFont, cjkFont);
+    if (runs.empty()) {
         return;
     }
 
-    SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
-    if (tex == nullptr) {
+    int totalWidth = 0;
+    for (const platform::text::FontRun& run : runs) {
+        int runW = 0;
+        int runH = 0;
+        if (TTF_SizeUTF8(run.font, run.text.c_str(), &runW, &runH) == 0) {
+            totalWidth += runW;
+        }
+    }
+
+    int cursorX = centered ? x - totalWidth / 2 : x;
+    const int referenceAscent = TTF_FontAscent(referenceFont);
+
+    for (const platform::text::FontRun& run : runs) {
+        SDL_Surface* surface = TTF_RenderUTF8_Blended(run.font, run.text.c_str(), color);
+        if (surface == nullptr) {
+            continue;
+        }
+
+        SDL_Texture* tex = SDL_CreateTextureFromSurface(renderer, surface);
+        if (tex != nullptr) {
+            SDL_Rect dst{
+                cursorX,
+                y + (referenceAscent - TTF_FontAscent(run.font)),
+                surface->w,
+                surface->h
+            };
+            SDL_RenderCopy(renderer, tex, nullptr, &dst);
+            SDL_DestroyTexture(tex);
+        }
+        cursorX += surface->w;
         SDL_FreeSurface(surface);
-        return;
     }
-
-    const int finalX = centered ? x - surface->w / 2 : x;
-    SDL_Rect dst{finalX, y, surface->w, surface->h};
-    SDL_RenderCopy(renderer, tex, nullptr, &dst);
-    SDL_DestroyTexture(tex);
-    SDL_FreeSurface(surface);
 }
 
 void drawTextCentered(BattleHudFontCache* fontCache,
@@ -470,8 +498,8 @@ void BattleHud::drawHint(SDL_Renderer* renderer, int screenW) {
         return static_cast<Uint8>((static_cast<int>(base) * alpha) / 255);
     };
 
-    // Width: ~58% of screen, never narrower than 320 px.
-    const int hintW = std::max(320, screenW * 58 / 100);
+    // Width: give long instruction hints room without pushing all the way to the edges.
+    const int hintW = std::min(screenW - 80, std::max(520, screenW * 76 / 100));
     const int hintX = (screenW - hintW) / 2;
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
