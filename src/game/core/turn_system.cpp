@@ -125,6 +125,7 @@ TurnEvent advanceToNextTurnEvent(TurnState& turnState) {
 void queueExtraTurnForCharacter(TurnState& turnState,
                                 const CharacterDefinition& character,
                                 int partyIndex,
+                                int spd,
                                 BattleAction action,
                                 bool autoExecute,
                                 bool grantsUltimatePointOnAction,
@@ -140,8 +141,8 @@ void queueExtraTurnForCharacter(TurnState& turnState,
     extra.extraTurnAction = action;
     extra.autoExecute = autoExecute;
     extra.grantsUltimatePointOnAction = grantsUltimatePointOnAction;
-    extra.spd = character.spd;
-    extra.baseActionValue = actionValueFromSpeed(character.spd);
+    extra.spd = std::max(1, spd);
+    extra.baseActionValue = actionValueFromSpeed(extra.spd);
     extra.currentActionValue = 0.0f;
 
     turnState.actors.push_back(extra);

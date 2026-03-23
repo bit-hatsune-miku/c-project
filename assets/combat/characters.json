@@ -285,12 +285,12 @@
         "title": "Ariana Grande",
         "assets": "ari",
         "class": "Buffer",
-        "spd": 118,
+        "spd": 170,
         "atk": 18,
         "hp": 52,
         "standardAbility": "BasicAttack",
         "skillAbility": "IWantItIGotIt",
-        "ability": "RocketAttack",
+        "ability": "IWantItIGotIt",
         "ultimate": "HighNote",
         "abilities": {
             "skill": {
@@ -299,21 +299,23 @@
                 "type": "buff",
                 "targetRule": "all_allies",
                 "multiplier": 0.0,
+                "speedBuff": 20,
                 "interactionType": "none",
                 "presentationId": "i_want_it_i_got_it"
             },
             "ultimate": {
                 "id": "HighNote",
-                "name": "High Note",
+                "name": "Arabiana Grande",
                 "type": "buff",
                 "targetRule": "all_allies",
                 "multiplier": 0.0,
+                "actionAdvance": 1.0,
                 "interactionType": "none",
                 "presentationId": "high_note"
             }
         },
         "ultimatePoints": 3,
-        "startingOrbs": 0
+        "startingOrbs": 2
     },
     "teto": {
         "title": "Kasane Teto",

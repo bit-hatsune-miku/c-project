@@ -75,6 +75,10 @@ set(BATTLE_CORE_SOURCES
 set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/ari_boss_presentation.cpp
     src/game/presentation/ari_boss_presentation.h
+    src/game/presentation/ari_skill_presentation.cpp
+    src/game/presentation/ari_skill_presentation.h
+    src/game/presentation/ari_ultimate_presentation.cpp
+    src/game/presentation/ari_ultimate_presentation.h
     src/game/presentation/ability_presentation.cpp
     src/game/presentation/ability_presentation.h
     src/game/presentation/miku_rhythm_game.cpp
@@ -99,6 +103,8 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/lyoo_boss_presentation.h
     src/game/presentation/lyoo_plot_twist_presentation.cpp
     src/game/presentation/lyoo_plot_twist_presentation.h
+    src/game/presentation/luotianyi_boss_presentation.cpp
+    src/game/presentation/luotianyi_boss_presentation.h
     src/game/presentation/qr_code_attack_presentation.cpp
     src/game/presentation/qr_code_attack_presentation.h
     src/game/presentation/qr_code_shield_presentation.cpp
@@ -221,6 +227,21 @@ add_executable(demo_ari
 
 target_compile_definitions(demo_ari PRIVATE ARI_DEMO=1)
 
+add_executable(demo_luotianyi
+    src/demo.cpp
+    src/window.cpp
+    src/window.h
+    ${BATTLE_CORE_SOURCES}
+    ${BATTLE_DEMO_SOURCES}
+    ${BATTLE_PRESENTATION_SOURCES}
+    src/game/vn/vn_system.cpp
+    src/game/vn/vn_system.h
+    src/game/vn/vn_script.cpp
+    src/game/vn/vn_script.h
+)
+
+target_compile_definitions(demo_luotianyi PRIVATE LUOTIANYI_DEMO=1)
+
 if (ENABLE_RMLUI)
     find_package(OpenGL REQUIRED)
     set(RMLUI_SAMPLES OFF CACHE BOOL "" FORCE)
@@ -321,6 +342,7 @@ target_include_directories(demo_jiafei PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(demo_lyoo_plot_twist PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(demo_wechatalipay PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(demo_ari PRIVATE ${SDL2_INCLUDE_DIRS})
+target_include_directories(demo_luotianyi PRIVATE ${SDL2_INCLUDE_DIRS})
 if (ENABLE_RMLUI)
     target_include_directories(OurUndergroundBITIdol PRIVATE ${rmlui_SOURCE_DIR}/Backends)
 endif()
@@ -344,6 +366,8 @@ if (SDL2_TTF_FOUND)
     target_compile_definitions(demo_wechatalipay PRIVATE BATTLE_ENABLE_TTF=1 VN_ENABLE_TTF=1)
     target_include_directories(demo_ari PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
     target_compile_definitions(demo_ari PRIVATE BATTLE_ENABLE_TTF=1 VN_ENABLE_TTF=1)
+    target_include_directories(demo_luotianyi PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
+    target_compile_definitions(demo_luotianyi PRIVATE BATTLE_ENABLE_TTF=1 VN_ENABLE_TTF=1)
     if (TARGET battle_testing_legacy)
         target_include_directories(battle_testing_legacy PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
         target_compile_definitions(battle_testing_legacy PRIVATE BATTLE_ENABLE_TTF=1)
@@ -366,6 +390,8 @@ if (SDL2_IMAGE_FOUND)
     target_compile_definitions(demo_wechatalipay PRIVATE BATTLE_ENABLE_IMAGE=1 VN_ENABLE_IMAGE=1)
     target_include_directories(demo_ari PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
     target_compile_definitions(demo_ari PRIVATE BATTLE_ENABLE_IMAGE=1 VN_ENABLE_IMAGE=1)
+    target_include_directories(demo_luotianyi PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+    target_compile_definitions(demo_luotianyi PRIVATE BATTLE_ENABLE_IMAGE=1 VN_ENABLE_IMAGE=1)
     if (TARGET battle_testing_legacy)
         target_include_directories(battle_testing_legacy PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
         target_compile_definitions(battle_testing_legacy PRIVATE BATTLE_ENABLE_IMAGE=1)
@@ -379,6 +405,7 @@ target_link_libraries(demo_jiafei PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohm
 target_link_libraries(demo_lyoo_plot_twist PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 target_link_libraries(demo_wechatalipay PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 target_link_libraries(demo_ari PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
+target_link_libraries(demo_luotianyi PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 if (ENABLE_RMLUI)
     target_compile_definitions(OurUndergroundBITIdol PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
     target_link_libraries(OurUndergroundBITIdol PRIVATE OpenGL::GL RmlUi::RmlUi)
@@ -398,6 +425,7 @@ if (SDL2_TTF_FOUND)
     target_link_libraries(demo_lyoo_plot_twist PRIVATE ${SDL2_TTF_LIBRARIES})
     target_link_libraries(demo_wechatalipay PRIVATE ${SDL2_TTF_LIBRARIES})
     target_link_libraries(demo_ari PRIVATE ${SDL2_TTF_LIBRARIES})
+    target_link_libraries(demo_luotianyi PRIVATE ${SDL2_TTF_LIBRARIES})
     if (NOT ENABLE_RMLUI)
         target_link_libraries(battle_testing PRIVATE ${SDL2_TTF_LIBRARIES})
     endif()
@@ -412,6 +440,7 @@ if (SDL2_IMAGE_FOUND)
     target_link_libraries(demo_lyoo_plot_twist PRIVATE ${SDL2_IMAGE_LIBRARIES})
     target_link_libraries(demo_wechatalipay PRIVATE ${SDL2_IMAGE_LIBRARIES})
     target_link_libraries(demo_ari PRIVATE ${SDL2_IMAGE_LIBRARIES})
+    target_link_libraries(demo_luotianyi PRIVATE ${SDL2_IMAGE_LIBRARIES})
     if (NOT ENABLE_RMLUI)
         target_link_libraries(battle_testing PRIVATE ${SDL2_IMAGE_LIBRARIES})
     endif()
@@ -456,5 +485,9 @@ set_target_properties(demo_wechatalipay PROPERTIES
 )
 
 set_target_properties(demo_ari PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+set_target_properties(demo_luotianyi PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )

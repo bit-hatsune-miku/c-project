@@ -1,5 +1,7 @@
 #include "ari_boss_presentation.h"
 #include "ability_presentation.h"
+#include "ari_skill_presentation.h"
+#include "ari_ultimate_presentation.h"
 #include "cupcakke_drum_presentation.h"
 #include "cupcakke_ultimate_presentation.h"
 #include "jiafei_boss_presentation.h"
@@ -8,6 +10,7 @@
 #include "lyoo_heal_presentation.h"
 #include "lyoo_boss_presentation.h"
 #include "lyoo_plot_twist_presentation.h"
+#include "luotianyi_boss_presentation.h"
 #include "miku_sing_presentation.h"
 #include "miku_diandong_presentation.h"
 
@@ -136,11 +139,41 @@ void registerAllPresentations() {
         );
     });
 
+    registry.registerPresentation("yin_long", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<LuotianyiBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
     registry.registerPresentation("whistle_note", [](
         float casterWorldX, float casterWorldY, float casterWorldZ,
         float targetWorldX, float targetWorldY, float targetWorldZ
     ) -> std::unique_ptr<AbilityPresentation> {
         return std::make_unique<AriBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("i_want_it_i_got_it", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<AriSkillPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("high_note", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<AriUltimatePresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
         );

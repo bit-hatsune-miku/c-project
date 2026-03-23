@@ -700,11 +700,15 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             hitDamageMultiplier = std::max(0.0f, activePresentation_->consumeHitDamageMultiplier());
         }
 
-        const int totalDamage = std::max(1, static_cast<int>(
-            baseAtk * abilityDef->multiplier * hitDamageMultiplier
-        ));
+        float abilityMult = abilityDef->multiplier;
+        float totalDamageRaw = baseAtk * abilityMult * hitDamageMultiplier;
+        const int totalDamage = std::max(1, static_cast<int>(totalDamageRaw));
         const int perHitDamage = std::max(1, totalDamage / std::max(1, damageLabelHitCount));
         const int presentationTargetPartyIndex = context.isBoss ? context.targetIndex : -1;
+
+        // DEBUG LOGGING
+        printf("[LuotianyiBossPresentation DEBUG] baseAtk=%.2f, abilityMult=%.2f, hitDamageMultiplier=%.2f, totalDamageRaw=%.2f, totalDamage=%d, perHitDamage=%d, hitEvents=%d, damageLabelHitCount=%d\n",
+            (float)baseAtk, abilityMult, hitDamageMultiplier, totalDamageRaw, totalDamage, perHitDamage, hitEvents, damageLabelHitCount);
 
         manager_.applyPresentationHitDamage(
             context.isBoss,
@@ -725,7 +729,13 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         );
     };
     callbacks.onPostUpdate = [&](float deltaSeconds) {
-        updateSceneEntities(deltaSeconds, context.isBoss, context.isBoss ? -1 : context.casterIndex);
+        const bool useCenteredPartyLayout =
+            activePresentation_ != nullptr &&
+            activePresentation_->shouldUseCenteredPartyLayout();
+        const bool bossActingLayout = context.isBoss || useCenteredPartyLayout;
+        const int actingPartyIndex = bossActingLayout ? -1 : context.casterIndex;
+
+        updateSceneEntities(deltaSeconds, bossActingLayout, actingPartyIndex);
         feedback_.syncFromManager(manager_, presentationPlaybackActive_);
         feedback_.update(deltaSeconds);
     };

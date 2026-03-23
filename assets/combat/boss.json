@@ -114,7 +114,7 @@
         "assets": "luotianyi",
         "voiceHit": "assets/combat/voices/luotianyi/hit.wav",
         "spd": 170,
-        "atk": 42,
+        "atk": 1,
         "hp": 520,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "YinLong",
@@ -124,17 +124,18 @@
             "skill": {
                 "id": "YinLong",
                 "name": "音龙",
+                "instructionHint": "Listen to the 4 tones, then press 1 2 3 4 in the same order within 5 seconds.",
                 "type": "attack",
                 "targetRule": "all_enemies",
-                "multiplier": 1.5,
+                "multiplier": 0.1,
                 "interactionType": "none",
                 "presentationId": "yin_long"
             }
         },
         "ultimatePoints": 6,
         "startingOrbs": 1,
-        "bgm": "【洛天依】《權御天下》",
-        "bgmVolume": 0.4
+        "bgm": "sunquantianxia",
+        "bgmVolume": 0.2
     },
     "wechatalipayBoss": {
         "title": "微信姐 & 支付宝姐",
@@ -168,7 +169,7 @@
         "title": "Ariana Grande",
         "assets": "ari",
         "voiceHit": "assets/combat/voices/ari/hit.wav",
-        "spd": 175,
+        "spd": 250,
         "atk": 34,
         "hp": 430,
         "standardAbility": "BossStandardAttack",

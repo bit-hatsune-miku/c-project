@@ -13,6 +13,7 @@ TurnEvent advanceToNextTurnEvent(TurnState& turnState);
 void queueExtraTurnForCharacter(TurnState& turnState,
                                 const CharacterDefinition& character,
                                 int partyIndex,
+                                int spd,
                                 BattleAction action = BattleAction::Ultimate,
                                 bool autoExecute = false,
                                 bool grantsUltimatePointOnAction = false,
