@@ -44,6 +44,7 @@ private:
 
 #ifdef BATTLE_ENABLE_TTF
     TTF_Font* font_ = nullptr;
+    TTF_Font* cjkFont_ = nullptr;
     SDL_Texture* textTexture_ = nullptr;
     int textW_ = 0;
     int textH_ = 0;

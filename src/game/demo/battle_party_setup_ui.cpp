@@ -11,6 +11,7 @@
 #endif
 
 #include "../../platform/path_resolution.h"
+#include "../../platform/text_fallback.h"
 
 namespace battle::demo::ui {
 
@@ -36,24 +37,6 @@ constexpr float kStageCardGapY = 18.0f;
 constexpr float kSelectedCountGap = 14.0f;
 constexpr float kStartButtonWidth = 328.0f;
 constexpr float kStartButtonHeight = 68.0f;
-
-#ifdef BATTLE_ENABLE_TTF
-bool containsNonAscii(const std::string& text) {
-    for (unsigned char c : text) {
-        if (c >= 0x80u) {
-            return true;
-        }
-    }
-    return false;
-}
-
-float computeFontBaselineOffset(TTF_Font* referenceFont, TTF_Font* activeFont) {
-    if (referenceFont == nullptr || activeFont == nullptr || referenceFont == activeFont) {
-        return 0.0f;
-    }
-    return static_cast<float>(TTF_FontAscent(referenceFont) - TTF_FontAscent(activeFont));
-}
-#endif
 
 } // namespace
 
@@ -269,36 +252,60 @@ void drawText(SDL_Renderer* renderer,
               const SDL_FRect& rect,
               bool centerX,
               bool centerY) {
-    TTF_Font* activeFont = containsNonAscii(text) && cjkFont != nullptr ? cjkFont : font;
-    if (renderer == nullptr || activeFont == nullptr || text.empty()) {
+    TTF_Font* referenceFont = font != nullptr ? font : cjkFont;
+    if (renderer == nullptr || referenceFont == nullptr || text.empty()) {
         return;
     }
 
-    SDL_Surface* surface = TTF_RenderUTF8_Blended(activeFont, text.c_str(), color);
-    if (surface == nullptr) {
+    const std::vector<platform::text::FontRun> runs = platform::text::buildFontRuns(text, font, cjkFont);
+    if (runs.empty()) {
         return;
     }
 
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    if (texture == nullptr) {
-        SDL_FreeSurface(surface);
-        return;
+    int totalWidth = 0;
+    int maxHeight = 0;
+    for (const platform::text::FontRun& run : runs) {
+        int runW = 0;
+        int runH = 0;
+        if (TTF_SizeUTF8(run.font, run.text.c_str(), &runW, &runH) == 0) {
+            totalWidth += runW;
+            maxHeight = std::max(maxHeight, runH);
+        }
     }
 
     SDL_FRect dst = rect;
-    dst.w = static_cast<float>(surface->w);
-    dst.h = static_cast<float>(surface->h);
+    dst.w = static_cast<float>(totalWidth);
+    dst.h = static_cast<float>(maxHeight);
     if (centerX) {
         dst.x += (rect.w - dst.w) * 0.5f;
     }
     if (centerY) {
         dst.y += (rect.h - dst.h) * 0.5f;
     }
-    dst.y += computeFontBaselineOffset(font, activeFont);
 
-    SDL_RenderCopyF(renderer, texture, nullptr, &dst);
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(surface);
+    float cursorX = dst.x;
+    const float baselineY = dst.y + static_cast<float>(TTF_FontAscent(referenceFont));
+
+    for (const platform::text::FontRun& run : runs) {
+        SDL_Surface* surface = TTF_RenderUTF8_Blended(run.font, run.text.c_str(), color);
+        if (surface == nullptr) {
+            continue;
+        }
+
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (texture != nullptr) {
+            const SDL_FRect runDst{
+                cursorX,
+                baselineY - static_cast<float>(TTF_FontAscent(run.font)),
+                static_cast<float>(surface->w),
+                static_cast<float>(surface->h)
+            };
+            SDL_RenderCopyF(renderer, texture, nullptr, &runDst);
+            SDL_DestroyTexture(texture);
+        }
+        cursorX += static_cast<float>(surface->w);
+        SDL_FreeSurface(surface);
+    }
 }
 
 void drawWrappedText(SDL_Renderer* renderer,
@@ -307,36 +314,55 @@ void drawWrappedText(SDL_Renderer* renderer,
                      const std::string& text,
                      const SDL_Color& color,
                      const SDL_FRect& rect) {
-    TTF_Font* activeFont = containsNonAscii(text) && cjkFont != nullptr ? cjkFont : font;
-    if (renderer == nullptr || activeFont == nullptr || text.empty()) {
+    TTF_Font* referenceFont = font != nullptr ? font : cjkFont;
+    if (renderer == nullptr || referenceFont == nullptr || text.empty()) {
         return;
     }
 
-    SDL_Surface* surface = TTF_RenderUTF8_Blended_Wrapped(
-        activeFont,
-        text.c_str(),
-        color,
-        static_cast<Uint32>(std::max(1.0f, rect.w))
-    );
-    if (surface == nullptr) {
-        return;
-    }
+    float x = rect.x;
+    float y = rect.y;
+    const float maxX = rect.x + rect.w;
+    const int referenceAscent = TTF_FontAscent(referenceFont);
+    const float lineSkip = static_cast<float>(TTF_FontLineSkip(referenceFont));
+    const std::vector<platform::text::FontRun> runs = platform::text::buildWrapRuns(text, font, cjkFont);
 
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    if (texture == nullptr) {
+    for (const platform::text::FontRun& run : runs) {
+        if (run.text == "\n") {
+            x = rect.x;
+            y += lineSkip;
+            continue;
+        }
+
+        int runW = 0;
+        int runH = 0;
+        if (TTF_SizeUTF8(run.font, run.text.c_str(), &runW, &runH) != 0) {
+            continue;
+        }
+
+        if (x + static_cast<float>(runW) > maxX && x > rect.x) {
+            x = rect.x;
+            y += lineSkip;
+        }
+
+        SDL_Surface* surface = TTF_RenderUTF8_Blended(run.font, run.text.c_str(), color);
+        if (surface == nullptr) {
+            continue;
+        }
+
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+        if (texture != nullptr) {
+            const SDL_FRect dst{
+                x,
+                y + static_cast<float>(referenceAscent - TTF_FontAscent(run.font)),
+                static_cast<float>(surface->w),
+                static_cast<float>(surface->h)
+            };
+            SDL_RenderCopyF(renderer, texture, nullptr, &dst);
+            SDL_DestroyTexture(texture);
+        }
+        x += static_cast<float>(surface->w);
         SDL_FreeSurface(surface);
-        return;
     }
-
-    const SDL_FRect dst{
-        rect.x,
-        rect.y + computeFontBaselineOffset(font, activeFont),
-        static_cast<float>(surface->w),
-        static_cast<float>(surface->h)
-    };
-    SDL_RenderCopyF(renderer, texture, nullptr, &dst);
-    SDL_DestroyTexture(texture);
-    SDL_FreeSurface(surface);
 }
 #else
 TTF_Font* openFont(int) { return nullptr; }

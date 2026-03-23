@@ -2,12 +2,14 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 #ifdef BATTLE_ENABLE_TTF
 #include <SDL2/SDL_ttf.h>
 #endif
 
 #include "../../platform/path_resolution.h"
+#include "../../platform/text_fallback.h"
 #include "../core/easing.h"
 
 namespace battle {
@@ -19,6 +21,7 @@ SplashArtAnimation::~SplashArtAnimation() {
 #ifdef BATTLE_ENABLE_TTF
     if (textTexture_) { SDL_DestroyTexture(textTexture_); textTexture_ = nullptr; }
     if (font_)        { TTF_CloseFont(font_);             font_        = nullptr; }
+    if (cjkFont_)     { TTF_CloseFont(cjkFont_);          cjkFont_     = nullptr; }
 #endif
 }
 
@@ -32,9 +35,29 @@ void SplashArtAnimation::start() {
 
 #ifdef BATTLE_ENABLE_TTF
     if (!config_.abilityName.empty()) {
-        const std::string fontPath = platform::path::findFontPath();
-        if (!fontPath.empty()) {
-            font_ = TTF_OpenFont(fontPath.c_str(), 44);
+        if (textTexture_ != nullptr) {
+            SDL_DestroyTexture(textTexture_);
+            textTexture_ = nullptr;
+        }
+        if (font_ != nullptr) {
+            TTF_CloseFont(font_);
+            font_ = nullptr;
+        }
+        if (cjkFont_ != nullptr) {
+            TTF_CloseFont(cjkFont_);
+            cjkFont_ = nullptr;
+        }
+        for (const std::string& path : platform::path::preferredLatinFontPaths()) {
+            font_ = TTF_OpenFont(path.c_str(), 44);
+            if (font_ != nullptr) {
+                break;
+            }
+        }
+        for (const std::string& path : platform::path::preferredCjkFontPaths()) {
+            cjkFont_ = TTF_OpenFont(path.c_str(), 44);
+            if (cjkFont_ != nullptr) {
+                break;
+            }
         }
     }
 #endif
@@ -136,17 +159,69 @@ float SplashArtAnimation::textAlpha() const {
 
 void SplashArtAnimation::ensureTextTexture(SDL_Renderer* renderer) {
 #ifdef BATTLE_ENABLE_TTF
-    if (textTexture_ != nullptr || font_ == nullptr || config_.abilityName.empty()) return;
+    if (textTexture_ != nullptr || (font_ == nullptr && cjkFont_ == nullptr) || config_.abilityName.empty()) return;
 
     const SDL_Color white{255, 255, 255, 255};
-    SDL_Surface* surf = TTF_RenderUTF8_Blended(font_, config_.abilityName.c_str(), white);
-    if (surf != nullptr) {
-        textTexture_ = SDL_CreateTextureFromSurface(renderer, surf);
-        if (textTexture_) {
-            SDL_QueryTexture(textTexture_, nullptr, nullptr, &textW_, &textH_);
-        }
-        SDL_FreeSurface(surf);
+    TTF_Font* referenceFont = font_ != nullptr ? font_ : cjkFont_;
+    const std::vector<platform::text::FontRun> runs = platform::text::buildFontRuns(config_.abilityName, font_, cjkFont_);
+    if (runs.empty()) {
+        return;
     }
+
+    int totalWidth = 0;
+    int maxHeight = 0;
+    std::vector<SDL_Surface*> surfaces;
+    surfaces.reserve(runs.size());
+    for (const platform::text::FontRun& run : runs) {
+        SDL_Surface* surface = TTF_RenderUTF8_Blended(run.font, run.text.c_str(), white);
+        surfaces.push_back(surface);
+        if (surface != nullptr) {
+            totalWidth += surface->w;
+            maxHeight = std::max(maxHeight, surface->h);
+        }
+    }
+
+    if (totalWidth <= 0 || maxHeight <= 0) {
+        for (SDL_Surface* surface : surfaces) {
+            if (surface != nullptr) {
+                SDL_FreeSurface(surface);
+            }
+        }
+        return;
+    }
+
+    SDL_Surface* combined = SDL_CreateRGBSurfaceWithFormat(0, totalWidth, maxHeight, 32, SDL_PIXELFORMAT_RGBA32);
+    if (combined == nullptr) {
+        for (SDL_Surface* surface : surfaces) {
+            if (surface != nullptr) {
+                SDL_FreeSurface(surface);
+            }
+        }
+        return;
+    }
+
+    SDL_SetSurfaceBlendMode(combined, SDL_BLENDMODE_BLEND);
+    SDL_FillRect(combined, nullptr, SDL_MapRGBA(combined->format, 0, 0, 0, 0));
+
+    int cursorX = 0;
+    const int referenceAscent = TTF_FontAscent(referenceFont);
+    for (size_t i = 0; i < runs.size(); ++i) {
+        SDL_Surface* surface = surfaces[i];
+        if (surface == nullptr) {
+            continue;
+        }
+
+        SDL_Rect dst{cursorX, referenceAscent - TTF_FontAscent(runs[i].font), surface->w, surface->h};
+        SDL_BlitSurface(surface, nullptr, combined, &dst);
+        cursorX += surface->w;
+        SDL_FreeSurface(surface);
+    }
+
+    textTexture_ = SDL_CreateTextureFromSurface(renderer, combined);
+    if (textTexture_ != nullptr) {
+        SDL_QueryTexture(textTexture_, nullptr, nullptr, &textW_, &textH_);
+    }
+    SDL_FreeSurface(combined);
 #else
     (void)renderer;
 #endif
