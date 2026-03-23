@@ -88,6 +88,9 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
             break;
         }
 
+        case AbilityType::Buff:
+            break;
+
         case AbilityType::Debuff:
             if (ability.multiplier > 0.0f) {
                 const int finalDamage = normalizeDamage(static_cast<int>(

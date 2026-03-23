@@ -94,6 +94,8 @@ struct AbilityDefinition {
     TargetRule targetRule = TargetRule::SingleEnemy;
     float multiplier = 1.0f;
     int flatHeal = 0;
+    int speedBuff = 0;
+    float actionAdvance = 0.0f;
     bool reviveDeadAllies = false;
     InteractionType interactionType = InteractionType::None;
     std::string presentationId;
@@ -139,6 +141,9 @@ public:
     bool canUseUltimate() const;
     void consumeUltimatePoint(int amount = 1);
     void consumeUltimate();
+    int effectiveSpd() const;
+    int spdBuffBonus() const;
+    void setSpdBuffBonus(int amount);
 
     // Shield support
     int getShield() const { return shield_; }
@@ -162,6 +167,7 @@ private:
     int hp_ = 0;
     int ultimateCharge_ = 0;
     int shield_ = 0; // New: shield value (overcapped HP)
+    int spdBuffBonus_ = 0;
 };
 
 enum class BattleAction {
@@ -266,6 +272,13 @@ public:
     bool isBattleOver() const;
 
 private:
+    struct ActivePartyBuff {
+        std::string abilityId;
+        int sourcePartyIndex = -1;
+        int targetPartyIndex = -1;
+        int speedBuff = 0;
+    };
+
     struct BossStatusState {
         int magicEggSpinningMachineCharges = 0;
     };
@@ -299,6 +312,15 @@ private:
     void syncCharacterTurnParticipation(int partyIndex);
     void syncAllCharacterTurnParticipation();
     void syncCharacterUltimateTurn(int partyIndex);
+    void applyPartyBuffFromAbility(int sourcePartyIndex,
+                                   const AbilityDefinition& ability,
+                                   float presentationMultiplier);
+    void expireBuffsFromCaster(int sourcePartyIndex);
+    void removeBuffsFromDefeatedCharacters();
+    void refreshCharacterBuffBonuses();
+    void refreshTurnActorSpeed(int partyIndex);
+    void refreshAllTurnActorSpeeds();
+    void applyAllAlliesActionAdvance(float fraction);
 
     BattleState state_;
     TurnState turnState_;
@@ -314,6 +336,7 @@ private:
     bool presentationAbilityAudioPlayed_ = false;
     bool presentationHitAudioPlayed_ = false;
     BossStatusState bossStatus_;
+    std::vector<ActivePartyBuff> activePartyBuffs_;
 };
 
 } // namespace battle

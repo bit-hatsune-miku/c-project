@@ -10,6 +10,8 @@
 int main(int argc, char** argv) {
     #ifdef LYOO_PLOT_TWIST_DEMO
         std::string battleKey = "lyoo_plot_twist";
+    #elif defined(LUOTIANYI_DEMO)
+        std::string battleKey = "luotianyi_boss_demo";
     #elif defined(ARI_DEMO)
         std::string battleKey = "ari_boss_demo";
     #elif defined(WECHATALIPAY_DEMO)

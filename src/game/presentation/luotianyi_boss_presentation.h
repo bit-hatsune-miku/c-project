@@ -1,0 +1,85 @@
+#pragma once
+
+#include "ability_presentation.h"
+
+#include <array>
+#include <random>
+#include <string>
+#include <vector>
+
+namespace battle {
+
+class LuotianyiBossPresentation : public AbilityPresentation {
+public:
+    LuotianyiBossPresentation(
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    );
+
+    void start() override;
+    void update(float deltaTime) override;
+    void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
+    bool isComplete() const override;
+    void onKeyPressed(SDL_Keycode key) override;
+
+    bool shouldHideNonCasterCharacters() const override;
+    bool overridesCamera() const override;
+    void applyCameraState(Camera3D& camera) const override;
+    bool shouldRenderCasterEntity() const override;
+    bool shouldRenderAboveHud() const override;
+
+    float getInputMultiplier() const override;
+    float consumeHitDamageMultiplier() override;
+    int consumeHitEvents() override;
+    int getDamageLabelHitCount() const override;
+    std::string getInputResultText() const override;
+    std::vector<PresentationAudioCommand> consumeAudioCommands() override;
+
+private:
+    enum class Phase {
+        Input,
+        Result,
+        Complete
+    };
+
+    static std::string resolvePath(const std::string& relativePath);
+
+    void queueAudioCommand(PresentationAudioCommandType type, const std::string& id, float volume = 1.0f);
+    void finalizeInput();
+    void drawToneSlot(SDL_Renderer* renderer,
+                      const SDL_FRect& rect,
+                      int tone,
+                      bool hidden,
+                      bool highlighted,
+                      bool showResult,
+                      bool isCorrect) const;
+    void drawToneGlyph(SDL_Renderer* renderer, const SDL_FRect& rect, int tone, Uint8 alpha) const;
+    int mapToneFromKey(SDL_Keycode key) const;
+
+    float casterX_ = 0.0f;
+    float casterY_ = 0.0f;
+    float casterZ_ = 0.0f;
+    float targetX_ = 0.0f;
+    float targetY_ = 0.0f;
+    float targetZ_ = 0.0f;
+
+    std::array<int, 4> toneSequence_{{1, 2, 3, 4}};
+    std::vector<int> userInputs_;
+    std::vector<PresentationAudioCommand> pendingAudioCommands_;
+    std::mt19937 rng_;
+
+    Phase phase_ = Phase::Input;
+    float inputElapsed_ = 0.0f;
+    float responseElapsed_ = 0.0f;
+    float resultElapsed_ = 0.0f;
+    size_t nextTonePlaybackIndex_ = 0;
+    int highlightedToneIndex_ = -1;
+    float highlightedToneElapsed_ = 0.0f;
+    int correctCount_ = 0;
+    float damageMultiplier_ = 1.0f;
+    bool hitQueued_ = false;
+    bool resultHitApplied_ = false;
+    bool acceptingInput_ = true;
+};
+
+} // namespace battle

@@ -93,20 +93,22 @@ bool consumeInvalidPreviewCharacterTurn(const std::vector<BattleCharacter>& char
 
     turnState.actors[consumed.actingActorIndex].currentActionValue =
         turnState.actors[consumed.actingActorIndex].baseActionValue;
+    turnState.actors[consumed.actingActorIndex].priority = 0;
     return true;
 }
 
-TurnActor makePrimaryCharacterTurnActor(const CharacterDefinition& definition, int partyIndex) {
+TurnActor makePrimaryCharacterTurnActor(const BattleCharacter& character) {
+    const CharacterDefinition& definition = character.definition();
     TurnActor actor;
     actor.type = ParticipantType::Character;
     actor.key = definition.key;
     actor.assetId = definition.assets;
     actor.title = definition.title;
-    actor.partyIndex = partyIndex;
+    actor.partyIndex = character.partyIndex();
     actor.priority = 0;
     actor.isExtraTurn = false;
-    actor.spd = definition.spd;
-    actor.baseActionValue = turn::actionValueFromSpeed(definition.spd);
+    actor.spd = character.effectiveSpd();
+    actor.baseActionValue = turn::actionValueFromSpeed(actor.spd);
     actor.currentActionValue = actor.baseActionValue;
     return actor;
 }
@@ -204,6 +206,18 @@ void BattleCharacter::consumeUltimate() {
     ultimateCharge_ = 0;
 }
 
+int BattleCharacter::effectiveSpd() const {
+    return std::max(1, definition_.spd + spdBuffBonus_);
+}
+
+int BattleCharacter::spdBuffBonus() const {
+    return spdBuffBonus_;
+}
+
+void BattleCharacter::setSpdBuffBonus(int amount) {
+    spdBuffBonus_ = amount;
+}
+
 bool BattleManager::initialize(const std::string& bossKey, const std::vector<std::string>& characterKeys) {
     initialized_ = false;
     state_ = BattleState{};
@@ -214,6 +228,7 @@ bool BattleManager::initialize(const std::string& bossKey, const std::vector<std
     recentActionEvents_.clear();
     bossStatus_ = BossStatusState{};
     simulatedActions_ = 0;
+    activePartyBuffs_.clear();
 
     if (bossKey.empty()) {
         std::cerr << "[Battle] Missing boss key.\n";
@@ -409,6 +424,7 @@ void BattleManager::applyPresentationHitDamage(bool isBossCaster,
             target.receiveDamage(totalDamage);
             syncCharacterTurnParticipation(targetPartyIndex);
             syncCharacterUltimateTurn(targetPartyIndex);
+            removeBuffsFromDefeatedCharacters();
             presentationHitDamageApplied_ = true;
             return;
         }
@@ -423,6 +439,7 @@ void BattleManager::applyPresentationHitDamage(bool isBossCaster,
         }
         if (applied) {
             syncAllCharacterTurnParticipation();
+            removeBuffsFromDefeatedCharacters();
             presentationHitDamageApplied_ = true;
         }
         return;
@@ -698,6 +715,7 @@ bool BattleManager::commitCurrentPlayerSplitAttackTurn() {
         return false;
     }
     turnState_.actors[event.actingActorIndex].currentActionValue = turnState_.actors[event.actingActorIndex].baseActionValue;
+    turnState_.actors[event.actingActorIndex].priority = 0;
     syncCharacterUltimateTurn(character.partyIndex());
 
     return true;
@@ -835,6 +853,7 @@ void BattleManager::executeTurn(size_t actorIndex) {
                     turnState_.actors.erase(turnState_.actors.begin() + actorIndex);
                 } else {
                     turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
+                    turnState_.actors[actorIndex].priority = 0;
                 }
             }
             return;
@@ -847,6 +866,7 @@ void BattleManager::executeTurn(size_t actorIndex) {
                     turnState_.actors.erase(turnState_.actors.begin() + actorIndex);
                 } else {
                     turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
+                    turnState_.actors[actorIndex].priority = 0;
                 }
             }
             return;
@@ -887,6 +907,7 @@ void BattleManager::queueExtraTurnForCharacter(int partyIndex,
         turnState_,
         c.definition(),
         partyIndex,
+        c.effectiveSpd(),
         action,
         autoExecute,
         grantsUltimatePointOnAction,
@@ -993,10 +1014,17 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
 
     ++simulatedActions_;
 
+    const bool wasExtraTurn = turnState_.actors[actorIndex].isExtraTurn;
+    const bool grantsUltimatePointOnAction = turnState_.actors[actorIndex].grantsUltimatePointOnAction;
+    if (!wasExtraTurn) {
+        expireBuffsFromCaster(character.partyIndex());
+    }
+
     const std::string abilityId = (action == BattleAction::Ultimate)
         ? character.definition().ultimate
         : getCharacterRegularAbilityId(character.definition());
     const AbilityDefinition* abilityDef = getAbility(abilityId);
+    float presentationMultiplier = 1.0f;
     BattleActionEvent actionEvent;
     actionEvent.actorType = ParticipantType::Character;
     actionEvent.actorKey = character.definition().key;
@@ -1025,7 +1053,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
         presContext.isBoss = false;
         presContext.isUltimate = action == BattleAction::Ultimate;
 
-        const float multiplier = runPresentationInteraction(presContext);
+        presentationMultiplier = runPresentationInteraction(presContext);
         const bool presentationHitApplied = consumePresentationHitDamageApplied();
         const bool presentationHealingApplied = consumePresentationHealingApplied();
 
@@ -1040,7 +1068,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
             execContext.isBossCaster = false;
             execContext.baseDamage = character.definition().atk;
             execContext.baseHeal = abilityDef->flatHeal;
-            execContext.presentationMultiplier = multiplier;
+            execContext.presentationMultiplier = presentationMultiplier;
             execContext.bossMaxHp = state_.boss.hp;
             executeAbilityEffect(execContext);
         }
@@ -1048,9 +1076,6 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
     actionEvent.bossHpAfter = bossCurrentHp_;
     actionEvent.abilityVoicesHandledDuringPresentation = consumePresentationAbilityAudioPlayed();
     actionEvent.hitVoicesHandledDuringPresentation = consumePresentationHitAudioPlayed();
-
-    const bool wasExtraTurn = turnState_.actors[actorIndex].isExtraTurn;
-    const bool grantsUltimatePointOnAction = turnState_.actors[actorIndex].grantsUltimatePointOnAction;
 
     if (abilityDef != nullptr &&
         abilityDef->id == "MeiCiDuXiangZhuang" &&
@@ -1068,7 +1093,16 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
         turnState_.actors.erase(turnState_.actors.begin() + static_cast<long>(actorIndex));
     } else {
         turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
+        turnState_.actors[actorIndex].priority = 0;
     }
+
+    if (abilityDef != nullptr && abilityDef->type == AbilityType::Buff) {
+        applyPartyBuffFromAbility(character.partyIndex(), *abilityDef, presentationMultiplier);
+        if (abilityDef->actionAdvance > 0.0f) {
+            applyAllAlliesActionAdvance(abilityDef->actionAdvance);
+        }
+    }
+
     syncCharacterUltimateTurn(character.partyIndex());
     tryQueueJiafeiFollowUp(actionEvent);
     recentActionEvents_.push_back(std::move(actionEvent));
@@ -1182,10 +1216,13 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
         }
     }
 
+    removeBuffsFromDefeatedCharacters();
+
     actionEvent.abilityVoicesHandledDuringPresentation = consumePresentationAbilityAudioPlayed();
     actionEvent.hitVoicesHandledDuringPresentation = consumePresentationHitAudioPlayed();
 
     turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
+    turnState_.actors[actorIndex].priority = 0;
     recentActionEvents_.push_back(std::move(actionEvent));
     return true;
 }
@@ -1218,6 +1255,205 @@ void BattleManager::executeAbilityEffect(const AbilityExecutionContext& context)
 
 float BattleManager::runPresentationInteraction(const PresentationContext& context) {
     return ability::runPresentationInteraction(context);
+}
+
+void BattleManager::applyPartyBuffFromAbility(int sourcePartyIndex,
+                                              const AbilityDefinition& ability,
+                                              float presentationMultiplier) {
+    if (sourcePartyIndex < 0 || static_cast<size_t>(sourcePartyIndex) >= characters_.size()) {
+        return;
+    }
+
+    const int scaledSpeedBuff = std::max(0, static_cast<int>(std::lround(
+        static_cast<float>(ability.speedBuff) * std::max(0.0f, presentationMultiplier)
+    )));
+    if (scaledSpeedBuff <= 0) {
+        return;
+    }
+
+    auto refreshOrInsertBuff = [&](int targetPartyIndex) {
+        if (targetPartyIndex < 0 || static_cast<size_t>(targetPartyIndex) >= characters_.size()) {
+            return;
+        }
+        if (!characters_[static_cast<size_t>(targetPartyIndex)].isAlive()) {
+            return;
+        }
+
+        for (ActivePartyBuff& buff : activePartyBuffs_) {
+            if (buff.abilityId == ability.id &&
+                buff.sourcePartyIndex == sourcePartyIndex &&
+                buff.targetPartyIndex == targetPartyIndex) {
+                buff.speedBuff = scaledSpeedBuff;
+                return;
+            }
+        }
+
+        activePartyBuffs_.push_back(ActivePartyBuff{
+            ability.id,
+            sourcePartyIndex,
+            targetPartyIndex,
+            scaledSpeedBuff
+        });
+    };
+
+    if (ability.targetRule == TargetRule::Self) {
+        refreshOrInsertBuff(sourcePartyIndex);
+    } else if (ability.targetRule == TargetRule::AllAllies) {
+        for (const BattleCharacter& character : characters_) {
+            refreshOrInsertBuff(character.partyIndex());
+        }
+    }
+
+    removeBuffsFromDefeatedCharacters();
+    refreshCharacterBuffBonuses();
+    refreshAllTurnActorSpeeds();
+}
+
+void BattleManager::expireBuffsFromCaster(int sourcePartyIndex) {
+    if (sourcePartyIndex < 0) {
+        return;
+    }
+
+    const auto newEnd = std::remove_if(
+        activePartyBuffs_.begin(),
+        activePartyBuffs_.end(),
+        [sourcePartyIndex](const ActivePartyBuff& buff) {
+            return buff.sourcePartyIndex == sourcePartyIndex;
+        }
+    );
+    if (newEnd == activePartyBuffs_.end()) {
+        return;
+    }
+
+    activePartyBuffs_.erase(newEnd, activePartyBuffs_.end());
+    refreshCharacterBuffBonuses();
+    refreshAllTurnActorSpeeds();
+}
+
+void BattleManager::removeBuffsFromDefeatedCharacters() {
+    const auto newEnd = std::remove_if(
+        activePartyBuffs_.begin(),
+        activePartyBuffs_.end(),
+        [this](const ActivePartyBuff& buff) {
+            const bool validSource =
+                buff.sourcePartyIndex >= 0 &&
+                static_cast<size_t>(buff.sourcePartyIndex) < characters_.size() &&
+                characters_[static_cast<size_t>(buff.sourcePartyIndex)].isAlive();
+            const bool validTarget =
+                buff.targetPartyIndex >= 0 &&
+                static_cast<size_t>(buff.targetPartyIndex) < characters_.size() &&
+                characters_[static_cast<size_t>(buff.targetPartyIndex)].isAlive();
+            return !validSource || !validTarget;
+        }
+    );
+    if (newEnd == activePartyBuffs_.end()) {
+        return;
+    }
+
+    activePartyBuffs_.erase(newEnd, activePartyBuffs_.end());
+    refreshCharacterBuffBonuses();
+    refreshAllTurnActorSpeeds();
+}
+
+void BattleManager::refreshCharacterBuffBonuses() {
+    std::vector<int> speedTotals(characters_.size(), 0);
+    for (const ActivePartyBuff& buff : activePartyBuffs_) {
+        if (buff.targetPartyIndex < 0 || static_cast<size_t>(buff.targetPartyIndex) >= speedTotals.size()) {
+            continue;
+        }
+        speedTotals[static_cast<size_t>(buff.targetPartyIndex)] += buff.speedBuff;
+    }
+
+    for (size_t i = 0; i < characters_.size(); ++i) {
+        characters_[i].setSpdBuffBonus(speedTotals[i]);
+    }
+}
+
+void BattleManager::refreshTurnActorSpeed(int partyIndex) {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
+        return;
+    }
+
+    const int newSpd = characters_[static_cast<size_t>(partyIndex)].effectiveSpd();
+    for (TurnActor& actor : turnState_.actors) {
+        if (actor.type != ParticipantType::Character || actor.partyIndex != partyIndex) {
+            continue;
+        }
+
+        const int oldSpd = std::max(1, actor.spd);
+        if (oldSpd == newSpd) {
+            continue;
+        }
+
+        actor.currentActionValue *= static_cast<float>(oldSpd) / static_cast<float>(newSpd);
+        if (std::fabs(actor.currentActionValue) <= 0.0001f) {
+            actor.currentActionValue = 0.0f;
+        }
+        actor.spd = newSpd;
+        actor.baseActionValue = turn::actionValueFromSpeed(newSpd);
+    }
+}
+
+void BattleManager::refreshAllTurnActorSpeeds() {
+    for (size_t i = 0; i < characters_.size(); ++i) {
+        refreshTurnActorSpeed(static_cast<int>(i));
+    }
+}
+
+void BattleManager::applyAllAlliesActionAdvance(float fraction) {
+    const float clampedFraction = std::clamp(fraction, 0.0f, 1.0f);
+    if (clampedFraction <= 0.0f) {
+        return;
+    }
+
+    struct ActionAdvanceCandidate {
+        size_t actorIndex = 0;
+        float originalActionValue = 0.0f;
+        int originalPriority = 0;
+        int partyIndex = -1;
+    };
+
+    std::vector<ActionAdvanceCandidate> candidates;
+    for (size_t i = 0; i < turnState_.actors.size(); ++i) {
+        const TurnActor& actor = turnState_.actors[i];
+        if (actor.type != ParticipantType::Character ||
+            actor.isExtraTurn ||
+            actor.partyIndex < 0 ||
+            static_cast<size_t>(actor.partyIndex) >= characters_.size() ||
+            !characters_[static_cast<size_t>(actor.partyIndex)].isAlive()) {
+            continue;
+        }
+
+        candidates.push_back(ActionAdvanceCandidate{
+            i,
+            actor.currentActionValue,
+            actor.priority,
+            actor.partyIndex
+        });
+    }
+
+    std::sort(candidates.begin(), candidates.end(), [](const ActionAdvanceCandidate& lhs,
+                                                       const ActionAdvanceCandidate& rhs) {
+        if (std::fabs(lhs.originalActionValue - rhs.originalActionValue) > 0.0001f) {
+            return lhs.originalActionValue < rhs.originalActionValue;
+        }
+        if (lhs.originalPriority != rhs.originalPriority) {
+            return lhs.originalPriority > rhs.originalPriority;
+        }
+        return lhs.partyIndex < rhs.partyIndex;
+    });
+
+    constexpr int kActionAdvancePriorityBase = 50;
+    for (size_t rank = 0; rank < candidates.size(); ++rank) {
+        TurnActor& actor = turnState_.actors[candidates[rank].actorIndex];
+        actor.currentActionValue = std::max(0.0f, actor.currentActionValue * (1.0f - clampedFraction));
+        if (std::fabs(actor.currentActionValue) <= 0.0001f) {
+            actor.currentActionValue = 0.0f;
+        }
+        actor.priority = (actor.currentActionValue <= 0.0001f)
+            ? (kActionAdvancePriorityBase + static_cast<int>(candidates.size() - rank))
+            : 0;
+    }
 }
 
 void BattleManager::syncCharacterTurnParticipation(int partyIndex) {
@@ -1262,7 +1498,7 @@ void BattleManager::syncCharacterTurnParticipation(int partyIndex) {
     }
 
     turnState_.actors.push_back(
-        makePrimaryCharacterTurnActor(character.definition(), character.partyIndex())
+        makePrimaryCharacterTurnActor(character)
     );
 }
 

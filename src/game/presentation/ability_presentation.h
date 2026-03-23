@@ -124,6 +124,7 @@ public:
     virtual bool shouldRenderBossEntity() const { return true; }
     virtual bool shouldRenderAboveHud() const { return true; }
     virtual bool shouldBlackoutWorld() const { return false; }
+    virtual bool shouldUseCenteredPartyLayout() const { return false; }
 
     // Override to play a splash art intro before the ability animation.
     // sprite: caster's loaded SDL_Texture (may be nullptr if unavailable).
