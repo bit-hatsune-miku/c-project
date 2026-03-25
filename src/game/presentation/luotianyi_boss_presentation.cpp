@@ -97,10 +97,7 @@ void LuotianyiBossPresentation::start() {
     correctCount_ = 0;
     damageMultiplier_ = 1.0f;
     hitQueued_ = false;
-    resultHitApplied_ = false;
-    if (phase_ != Phase::Input) {
-        return;
-    }
+    resultHitQueued_ = false;
     acceptingInput_ = false;
 }
 
@@ -160,14 +157,12 @@ void LuotianyiBossPresentation::update(float deltaTime) {
     }
 
     resultElapsed_ += deltaTime;
-    if (!resultHitApplied_ && resultElapsed_ >= kResultLeadSeconds) {
+    if (!resultHitQueued_ && resultElapsed_ >= kResultLeadSeconds) {
         hitQueued_ = true;
-        resultHitApplied_ = true;
-        printf("[LuotianyiBossPresentation DEBUG] Queued hit event (hitQueued_ set to true, resultHitApplied_ set to true) at resultElapsed_=%.3f\n", resultElapsed_);
+        resultHitQueued_ = true;
     }
     if (resultElapsed_ >= kResultDurationSeconds) {
         phase_ = Phase::Complete;
-        printf("[LuotianyiBossPresentation DEBUG] Phase set to Complete at resultElapsed_=%.3f\n", resultElapsed_);
     }
 }
 
@@ -255,7 +250,7 @@ bool LuotianyiBossPresentation::isComplete() const {
 }
 
 void LuotianyiBossPresentation::onKeyPressed(SDL_Keycode key) {
-    if (phase_ != Phase::Input || !acceptingInput_ || userInputs_.size() >= toneSequence_.size()) {
+    if (phase_ != Phase::Input || userInputs_.size() >= toneSequence_.size()) {
         return;
     }
 
@@ -302,12 +297,9 @@ float LuotianyiBossPresentation::consumeHitDamageMultiplier() {
 
 int LuotianyiBossPresentation::consumeHitEvents() {
     if (!hitQueued_) {
-        printf("[LuotianyiBossPresentation DEBUG] consumeHitEvents called, but hitQueued_ is false\n");
         return 0;
     }
     hitQueued_ = false;
-    resultHitApplied_ = false;
-    printf("[LuotianyiBossPresentation DEBUG] consumeHitEvents returning 1 and resetting hitQueued_ to false\n");
     return 1;
 }
 
@@ -365,7 +357,7 @@ void LuotianyiBossPresentation::finalizeInput() {
     resultElapsed_ = 0.0f;
     highlightedToneIndex_ = -1;
     highlightedToneElapsed_ = 0.0f;
-    resultHitApplied_ = false; // Reset for new result phase
+    resultHitQueued_ = false;
 }
 
 void LuotianyiBossPresentation::drawToneSlot(SDL_Renderer* renderer,

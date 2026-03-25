@@ -35,7 +35,7 @@
             }
         },
         "ultimatePoints": 3,
-        "startingOrbs": 0,
+        "startingOrbs": 2,
         "baseShield": 18
     },
     "miku": {
@@ -71,7 +71,7 @@
             }
         },
         "ultimatePoints": 3,
-        "startingOrbs": 0
+        "startingOrbs": 2
     },
     "iroha": {
         "title": "Iroha",
@@ -175,7 +175,7 @@
             }
         },
         "ultimatePoints": 4,
-        "startingOrbs": 0
+        "startingOrbs": 3
     },
     "jiafei": {
         "title": "Jiafei",
@@ -209,7 +209,7 @@
             }
         },
         "ultimatePoints": 2,
-        "startingOrbs": 0
+        "startingOrbs": 1
     },
     "luotianyi": {
         "title": "洛天依",
@@ -226,6 +226,7 @@
             "skill": {
                 "id": "RangWoMenShuoZhongWen",
                 "name": "让我们说中文",
+                "instructionHint": "Listen to the 4 tones, then press 1 2 3 4 in the same order.",
                 "type": "buff",
                 "targetRule": "all_allies",
                 "multiplier": 0.0,
@@ -244,7 +245,7 @@
             }
         },
         "ultimatePoints": 3,
-        "startingOrbs": 0
+        "startingOrbs": 2
     },
     "wechatalipay": {
         "title": "微信姐 & 支付宝姐",
@@ -280,7 +281,7 @@
             }
         },
         "ultimatePoints": 4,
-        "startingOrbs": 0
+        "startingOrbs": 3
     },
     "ari": {
         "title": "Ariana Grande",

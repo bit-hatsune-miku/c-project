@@ -20,13 +20,18 @@
 #include "GameMenu/menu_shared.h"
 #include "Settings/settings.h"
 #include "window.h"
+#include "game/core/battle_loader.h"
 #include "game/demo_battle_session.h"
 #include "game/save/save.h"
 #include "game/vn/vn_system.h"
 #include "platform/path_resolution.h"
 #include "platform/text_fallback.h"
 
+#ifdef VN_SCRIPT_PATH
+constexpr const char* kChapterScriptPath = VN_SCRIPT_PATH;
+#else
 constexpr const char* kChapterScriptPath = "assets/vn/json/ch0.json";
+#endif
 constexpr const char* kMainMenuArtPath = "assets/vn/backgrounds/ch0/mainmenu art.png";
 constexpr const char* kMainMenuTitlePath = "assets/vn/images/MainMenuTitle.png";
 constexpr int kReferenceWidth = 1280;
@@ -816,13 +821,16 @@ void beginBattleDemo(AppState& state) {
 void beginBattle(AppState& state, int battleId) {
     // Entering battle should not inherit story scene backdrops.
     vn::setBackground("");
-
-    switch (battleId) {
-        case 0:   // Tutorial - vs Lyoo
-        default:
-            beginBattleDemo(state);
-            break;
+    battle::BattleDefinition battleDefinition;
+    if (!battle::loader::loadBattleDefinitionById(battleId, battleDefinition)) {
+        state.noticeText = "Battle not found: " + std::to_string(battleId);
+        state.noticeTimer = 2.6f;
+        state.screen = ScreenState::MainMenu;
+        return;
     }
+
+    state.pendingBattleKey = battleDefinition.key;
+    beginBattleDemo(state);
 }
 
 std::string shellQuote(const std::string& value) {
@@ -956,6 +964,10 @@ int main(int argc, char** argv) {
     SettingsMenuController settingsMenu;
     std::unique_ptr<battle::demo::Session> battleSession;
 
+#ifdef VN_AUTO_START_STORY
+    beginStory(state);
+#endif
+
     Uint64 lastCounter = SDL_GetPerformanceCounter();
 
     while (window.isOpen()) {
@@ -1081,7 +1093,8 @@ int main(int argc, char** argv) {
             destroyMenuResources(menuResources);
             vn::stopVoicePlayback();  // stop story audio; keep TTF alive (demo session uses VN internally)
             battleSession = std::make_unique<battle::demo::Session>();
-            if (!battleSession->initialize(window.getRenderer())) {
+            const std::string battleKey = state.pendingBattleKey.empty() ? "tutorial_vs_lyoo" : state.pendingBattleKey;
+            if (!battleSession->initialize(window.getRenderer(), battleKey)) {
                 battleSession.reset();
                 if (!restoreRendererUi(window, menuResources, state.settings)) {
                     std::cerr << "Failed to restore renderer UI after battle load failure\n";
@@ -1090,6 +1103,7 @@ int main(int argc, char** argv) {
                 state.screen = ScreenState::MainMenu;
                 state.pauseContext = PauseContext::Story;
                 state.mainSelection = MainMenuAction::Battle;
+                state.pendingBattleKey.clear();
                 state.noticeText = "Battle demo failed to load.";
                 state.noticeTimer = 2.8f;
             }
@@ -1141,6 +1155,7 @@ int main(int argc, char** argv) {
                     state.screen = ScreenState::MainMenu;
                     state.pauseContext = PauseContext::Story;
                     state.mainSelection = MainMenuAction::Battle;
+                    state.pendingBattleKey.clear();
                 }
             }
         } else if (state.screen == ScreenState::Playing) {

@@ -84,6 +84,7 @@ public:
     virtual float getInputMultiplier() const { return 1.0f; }
     virtual float consumeHitDamageMultiplier() { return getInputMultiplier(); }
     virtual std::string getInputResultText() const { return {}; }
+    virtual int getCorrectToneCount() const { return 0; }
     virtual int consumeAbilityAudioCues() { return 0; }
     virtual int consumeHitEvents() { return 0; }
     virtual int getDamageLabelHitCount() const { return 1; }
@@ -114,6 +115,9 @@ public:
         (void)x;
         (void)y;
         (void)z;
+    }
+    virtual void setPresentationValue(int value) {
+        (void)value;
     }
     virtual void setExternalTextures(SDL_Texture* caster, SDL_Texture* target) {
         (void)caster;

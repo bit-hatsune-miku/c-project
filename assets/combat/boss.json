@@ -114,7 +114,7 @@
         "assets": "luotianyi",
         "voiceHit": "assets/combat/voices/luotianyi/hit.wav",
         "spd": 170,
-        "atk": 1,
+        "atk": 60,
         "hp": 520,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "YinLong",
@@ -123,11 +123,11 @@
         "abilities": {
             "skill": {
                 "id": "YinLong",
-                "name": "音龙",
+                "name": "听力考试，现在开始",
                 "instructionHint": "Listen to the 4 tones, then press 1 2 3 4 in the same order within 5 seconds.",
                 "type": "attack",
                 "targetRule": "all_enemies",
-                "multiplier": 0.1,
+                "multiplier": 1,
                 "interactionType": "none",
                 "presentationId": "yin_long"
             }

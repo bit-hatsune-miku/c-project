@@ -103,6 +103,7 @@ struct AppState {
     float noticeTimer = 0.0f;
     bool requestStoryManualSave = false;
     bool requestStoryOverwriteSave = false;
+    std::string pendingBattleKey;
     std::string pendingLoadPath;
     std::string pendingOverwriteSavePath;
     std::string pendingDeletePath;

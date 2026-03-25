@@ -114,6 +114,8 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/lyoo_plot_twist_presentation.h
     src/game/presentation/luotianyi_boss_presentation.cpp
     src/game/presentation/luotianyi_boss_presentation.h
+    src/game/presentation/luotianyi_ultimate_presentation.cpp
+    src/game/presentation/luotianyi_ultimate_presentation.h
     src/game/presentation/qr_code_attack_presentation.cpp
     src/game/presentation/qr_code_attack_presentation.h
     src/game/presentation/qr_code_shield_presentation.cpp
@@ -163,6 +165,32 @@ add_executable(OurUndergroundBITIdol
     ${BATTLE_DEMO_SOURCES}
     ${BATTLE_PRESENTATION_SOURCES}
     ${HEADERS}
+)
+
+add_executable(finale
+    ${MAIN_APP_SOURCES}
+    ${BATTLE_CORE_SOURCES}
+    ${BATTLE_DEMO_SOURCES}
+    ${BATTLE_PRESENTATION_SOURCES}
+    ${HEADERS}
+)
+
+target_compile_definitions(finale PRIVATE
+    VN_SCRIPT_PATH="assets/vn/json/finale.json"
+    VN_AUTO_START_STORY=1
+)
+
+add_executable(ch0
+    ${MAIN_APP_SOURCES}
+    ${BATTLE_CORE_SOURCES}
+    ${BATTLE_DEMO_SOURCES}
+    ${BATTLE_PRESENTATION_SOURCES}
+    ${HEADERS}
+)
+
+target_compile_definitions(ch0 PRIVATE
+    VN_SCRIPT_PATH="assets/vn/json/ch0.json"
+    VN_AUTO_START_STORY=1
 )
 
 add_executable(demo
@@ -352,6 +380,8 @@ endif()
 
 # Include directories
 target_include_directories(OurUndergroundBITIdol PRIVATE ${SDL2_INCLUDE_DIRS})
+target_include_directories(finale PRIVATE ${SDL2_INCLUDE_DIRS})
+target_include_directories(ch0 PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(battle_testing PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(demo PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(demo_jiafei PRIVATE ${SDL2_INCLUDE_DIRS})
@@ -361,6 +391,8 @@ target_include_directories(demo_ari PRIVATE ${SDL2_INCLUDE_DIRS})
 target_include_directories(demo_luotianyi PRIVATE ${SDL2_INCLUDE_DIRS})
 if (ENABLE_RMLUI)
     target_include_directories(OurUndergroundBITIdol PRIVATE ${rmlui_SOURCE_DIR}/Backends)
+    target_include_directories(finale PRIVATE ${rmlui_SOURCE_DIR}/Backends)
+    target_include_directories(ch0 PRIVATE ${rmlui_SOURCE_DIR}/Backends)
 endif()
 if (TARGET battle_testing_legacy)
     target_include_directories(battle_testing_legacy PRIVATE ${SDL2_INCLUDE_DIRS})
@@ -368,6 +400,10 @@ endif()
 if (SDL2_TTF_FOUND)
     target_include_directories(OurUndergroundBITIdol PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
     target_compile_definitions(OurUndergroundBITIdol PRIVATE BATTLE_ENABLE_TTF=1 VN_ENABLE_TTF=1)
+    target_include_directories(finale PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
+    target_compile_definitions(finale PRIVATE BATTLE_ENABLE_TTF=1 VN_ENABLE_TTF=1)
+    target_include_directories(ch0 PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
+    target_compile_definitions(ch0 PRIVATE BATTLE_ENABLE_TTF=1 VN_ENABLE_TTF=1)
     target_include_directories(battle_testing PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
     target_compile_definitions(battle_testing PRIVATE BATTLE_ENABLE_TTF=1)
     target_include_directories(battle_testing_jiafei PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
@@ -392,6 +428,10 @@ endif()
 if (SDL2_IMAGE_FOUND)
     target_include_directories(OurUndergroundBITIdol PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
     target_compile_definitions(OurUndergroundBITIdol PRIVATE BATTLE_ENABLE_IMAGE=1 VN_ENABLE_IMAGE=1)
+    target_include_directories(finale PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+    target_compile_definitions(finale PRIVATE BATTLE_ENABLE_IMAGE=1 VN_ENABLE_IMAGE=1)
+    target_include_directories(ch0 PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+    target_compile_definitions(ch0 PRIVATE BATTLE_ENABLE_IMAGE=1 VN_ENABLE_IMAGE=1)
     target_include_directories(battle_testing PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
     target_compile_definitions(battle_testing PRIVATE BATTLE_ENABLE_IMAGE=1)
     target_include_directories(battle_testing_jiafei PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
@@ -416,6 +456,8 @@ endif()
 
 # Link libraries
 target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
+target_link_libraries(finale PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
+target_link_libraries(ch0 PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 target_link_libraries(demo PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 target_link_libraries(demo_jiafei PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 target_link_libraries(demo_lyoo_plot_twist PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
@@ -425,6 +467,10 @@ target_link_libraries(demo_luotianyi PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nl
 if (ENABLE_RMLUI)
     target_compile_definitions(OurUndergroundBITIdol PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
     target_link_libraries(OurUndergroundBITIdol PRIVATE OpenGL::GL RmlUi::RmlUi)
+    target_compile_definitions(finale PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_link_libraries(finale PRIVATE OpenGL::GL RmlUi::RmlUi)
+    target_compile_definitions(ch0 PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_link_libraries(ch0 PRIVATE OpenGL::GL RmlUi::RmlUi)
 endif()
 if (NOT ENABLE_RMLUI)
     target_link_libraries(battle_testing PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
@@ -436,6 +482,8 @@ if (TARGET battle_testing_legacy)
 endif()
 if (SDL2_TTF_FOUND)
     target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_TTF_LIBRARIES})
+    target_link_libraries(finale PRIVATE ${SDL2_TTF_LIBRARIES})
+    target_link_libraries(ch0 PRIVATE ${SDL2_TTF_LIBRARIES})
     target_link_libraries(demo PRIVATE ${SDL2_TTF_LIBRARIES})
     target_link_libraries(demo_jiafei PRIVATE ${SDL2_TTF_LIBRARIES})
     target_link_libraries(demo_lyoo_plot_twist PRIVATE ${SDL2_TTF_LIBRARIES})
@@ -452,6 +500,8 @@ if (SDL2_TTF_FOUND)
 endif()
 if (SDL2_IMAGE_FOUND)
     target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_IMAGE_LIBRARIES})
+    target_link_libraries(finale PRIVATE ${SDL2_IMAGE_LIBRARIES})
+    target_link_libraries(ch0 PRIVATE ${SDL2_IMAGE_LIBRARIES})
     target_link_libraries(demo PRIVATE ${SDL2_IMAGE_LIBRARIES})
     target_link_libraries(demo_jiafei PRIVATE ${SDL2_IMAGE_LIBRARIES})
     target_link_libraries(demo_lyoo_plot_twist PRIVATE ${SDL2_IMAGE_LIBRARIES})
@@ -469,6 +519,14 @@ endif()
 
 # Output directory
 set_target_properties(OurUndergroundBITIdol PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+set_target_properties(finale PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+)
+
+set_target_properties(ch0 PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
 )
 
