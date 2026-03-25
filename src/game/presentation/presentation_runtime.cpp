@@ -83,7 +83,9 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
 
     const bool allowSplash = context.isBoss || !context.isUltimate;
     if (allowSplash && splashCfg && callbacks.setRenderOverlay && callbacks.clearRenderOverlay) {
-        if (!context.abilityId.empty()) {
+        if (!context.abilityName.empty()) {
+            splashCfg->abilityName = context.abilityName;
+        } else if (!context.abilityId.empty()) {
             splashCfg->abilityName = context.abilityId;
         } else {
             splashCfg->abilityName = context.presentationId;
@@ -136,6 +138,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     presentation->setExternalTextures(callbacks.casterSpriteTexture, callbacks.targetSpriteTexture);
     presentation->setTargetPartyIndex(context.targetIndex);
     presentation->setTargetWorldPosition(targetX, targetY, targetZ);
+    presentation->setPresentationValue(context.presentationValue);
 
     presentation->start();
     Uint64 lastCounter = SDL_GetPerformanceCounter();
@@ -309,6 +312,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     PlaybackResult result;
     result.multiplier = presentation->getInputMultiplier();
     result.resultText = presentation->getInputResultText();
+    result.correctToneCount = presentation->getCorrectToneCount();
     return result;
 }
 

@@ -1560,18 +1560,13 @@ private:
                 core_.clearHint();
                 return;
             }
-            if (!resultText.empty() && (context.isBoss
-                    || context.presentationId == "drum_attack"
-                    || context.presentationId == "musical_notes"
-                    || context.presentationId == "heal_hearts")) {
+            if (!resultText.empty() &&
+                    (context.isBoss || context.interactionType != InteractionType::None)) {
                 core_.setHint(resultText, 2200);
                 return;
             }
 
-            if (context.isBoss
-                    || context.presentationId == "drum_attack"
-                    || context.presentationId == "musical_notes"
-                    || context.presentationId == "heal_hearts") {
+            if (context.isBoss || context.interactionType != InteractionType::None) {
                 core_.clearHint();
             }
         };

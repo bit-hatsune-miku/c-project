@@ -1121,7 +1121,13 @@ private:
 
         const bool allowSplash = context.isBoss || !context.isUltimate;
         if (allowSplash && splashCfg.has_value()) {
-            splashCfg->abilityName = !context.abilityId.empty() ? context.abilityId : context.presentationId;
+            if (!context.abilityName.empty()) {
+                splashCfg->abilityName = context.abilityName;
+            } else if (!context.abilityId.empty()) {
+                splashCfg->abilityName = context.abilityId;
+            } else {
+                splashCfg->abilityName = context.presentationId;
+            }
 
             battle::SplashArtAnimation splash(*splashCfg);
             splash.start();

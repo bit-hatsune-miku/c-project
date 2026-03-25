@@ -10,9 +10,7 @@
       "partySize": 4,
       "lineup": [
         "miku",
-        "cupcakke",
-        "lyoo",
-        "iroha"
+        "cupcakke"
       ],
       "lockedLineup": [
         "miku"
@@ -25,11 +23,11 @@
       "bossKey": "lyooBoss",
       "isLineupFixed": true,
       "lineup": [
-        "miku",
-        "cupcakke"
+        "luotianyi",
+        "jiafei",
+        "wechatalipay"
       ],
-      "stageKey": "default_stage",
-      "type": "tutorial"
+      "stageKey": "default_stage"
     },
     "wild_scent_flowers": {
       "id": 2,
@@ -39,7 +37,7 @@
       "lineup": [
         "miku",
         "cupcakke",
-        "jiafei"
+        "lyoo"
       ],
       "stageKey": "default_stage"
     },
@@ -49,10 +47,10 @@
       "bossKey": "lyooPlotTwist",
       "isLineupFixed": true,
       "lineup": [
-        "wechatalipay",
+        "miku",
         "cupcakke",
         "jiafei",
-        "lyoo"
+        "ari"
       ],
       "stageKey": "default_stage"
     },
@@ -62,7 +60,7 @@
       "bossKey": "wechatalipayBoss",
       "isLineupFixed": true,
       "lineup": [
-        "wechatalipay",
+        "miku",
         "cupcakke",
         "jiafei",
         "lyoo"
@@ -75,10 +73,10 @@
       "bossKey": "ariBoss",
       "isLineupFixed": true,
       "lineup": [
-        "ari",
+        "cupcakke",
         "wechatalipay",
         "miku",
-        "wechatalipay"
+        "jiafei"
       ],
       "stageKey": "default_stage"
     },
@@ -89,8 +87,8 @@
       "isLineupFixed": true,
       "lineup": [
         "miku",
+        "ari",
         "cupcakke",
-        "luotianyi",
         "wechatalipay"
       ],
       "stageKey": "default_stage"

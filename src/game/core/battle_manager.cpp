@@ -243,6 +243,7 @@ bool BattleManager::initialize(const std::string& bossKey, const std::vector<std
     bossStatus_ = BossStatusState{};
     simulatedActions_ = 0;
     activePartyBuffs_.clear();
+    luotianyiCorrectTones_ = 0;
 
     if (bossKey.empty()) {
         std::cerr << "[Battle] Missing boss key.\n";
@@ -417,6 +418,17 @@ int BattleManager::getCharacterUltimateRequired(int partyIndex) const {
         return 1;
     }
     return std::max(1, characters_[static_cast<size_t>(partyIndex)].definition().ultimatePoints);
+}
+
+void BattleManager::addLuotianyiCorrectTones(int amount) {
+    if (amount <= 0) {
+        return;
+    }
+    luotianyiCorrectTones_ += amount;
+}
+
+int BattleManager::getLuotianyiCorrectTones() const {
+    return std::max(0, luotianyiCorrectTones_);
 }
 
 void BattleManager::applyPresentationHitDamage(bool isBossCaster,
@@ -639,6 +651,7 @@ bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vecto
 
     PresentationContext presContext;
     presContext.abilityId = abilityDef->id;
+    presContext.abilityName = abilityDef->name;
     presContext.presentationId = abilityDef->presentationId;
     presContext.interactionType = abilityDef->interactionType;
     presContext.casterIndex = character.partyIndex();
@@ -1060,10 +1073,14 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
     } else {
         PresentationContext presContext;
         presContext.abilityId = abilityDef->id;
+        presContext.abilityName = abilityDef->name;
         presContext.presentationId = abilityDef->presentationId;
         presContext.interactionType = abilityDef->interactionType;
         presContext.casterIndex = character.partyIndex();
         presContext.targetIndex = -1;
+        if (abilityDef->id == "QuanYuTianXia") {
+            presContext.presentationValue = getLuotianyiCorrectTones();
+        }
         presContext.isBoss = false;
         presContext.isUltimate = action == BattleAction::Ultimate;
 
@@ -1152,6 +1169,7 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
     if (abilityDef != nullptr) {
         PresentationContext presContext;
         presContext.abilityId = abilityDef->id;
+        presContext.abilityName = abilityDef->name;
         presContext.presentationId = abilityDef->presentationId;
         presContext.interactionType = abilityDef->interactionType;
         presContext.casterIndex = -1;

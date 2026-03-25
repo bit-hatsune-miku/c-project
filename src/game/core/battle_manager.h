@@ -104,10 +104,12 @@ struct AbilityDefinition {
 
 struct PresentationContext {
     std::string abilityId;
+    std::string abilityName;
     std::string presentationId;
     InteractionType interactionType = InteractionType::None;
     int casterIndex = -1;
     int targetIndex = -1;
+    int presentationValue = 0;
     bool isBoss = false;
     bool isUltimate = false;
 };
@@ -250,6 +252,8 @@ public:
     bool reviveCharacter(int partyIndex, int amount);
     int getCharacterUltimateCharge(int partyIndex) const;
     int getCharacterUltimateRequired(int partyIndex) const;
+    void addLuotianyiCorrectTones(int amount);
+    int getLuotianyiCorrectTones() const;
     void applyPresentationHitDamage(bool isBossCaster,
                                     int perHitDamage,
                                     int hitEvents,
@@ -342,6 +346,7 @@ private:
     bool presentationAbilityAudioPlayed_ = false;
     bool presentationHitAudioPlayed_ = false;
     BossStatusState bossStatus_;
+    int luotianyiCorrectTones_ = 0;
     std::vector<ActivePartyBuff> activePartyBuffs_;
 };
 

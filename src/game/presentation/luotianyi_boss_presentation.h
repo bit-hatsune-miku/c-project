@@ -78,8 +78,8 @@ private:
     int correctCount_ = 0;
     float damageMultiplier_ = 1.0f;
     bool hitQueued_ = false;
-    bool resultHitApplied_ = false;
-    bool acceptingInput_ = true;
+    bool resultHitQueued_ = false;
+    bool acceptingInput_ = false;
 };
 
 } // namespace battle

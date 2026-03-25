@@ -312,6 +312,10 @@ std::string LuotianyiSkillPresentation::getInputResultText() const {
            ". ATK +" + std::to_string(buffPct) + "% applied!";
 }
 
+int LuotianyiSkillPresentation::getCorrectToneCount() const {
+    return correctCount_;
+}
+
 std::vector<PresentationAudioCommand> LuotianyiSkillPresentation::consumeAudioCommands() {
     std::vector<PresentationAudioCommand> commands;
     commands.swap(pendingAudioCommands_);

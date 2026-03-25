@@ -790,6 +790,12 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         callbacks
     );
 
+    if (!context.isBoss &&
+        context.presentationId == "rang_wo_men_shuo_zhong_wen" &&
+        result.correctToneCount > 0) {
+        manager_.addLuotianyiCorrectTones(result.correctToneCount);
+    }
+
     if (hooks_.onPresentationEnd) {
         hooks_.onPresentationEnd(context, result.resultText);
     }

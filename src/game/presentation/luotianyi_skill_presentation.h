@@ -37,6 +37,7 @@ public:
 
     float getInputMultiplier() const override;
     std::string getInputResultText() const override;
+    int getCorrectToneCount() const override;
     std::vector<PresentationAudioCommand> consumeAudioCommands() override;
 
 private:

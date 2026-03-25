@@ -39,6 +39,10 @@ float gIconAnimTime = 0.0f;
 int gIconCurrentFrame = 0;
 
 SDL_Texture* gBackgroundTexture = nullptr;
+SDL_Texture* gPreviousBackgroundTexture = nullptr;
+float gBackgroundFadeElapsed = 0.0f;
+bool gBackgroundFadeActive = false;
+constexpr float kBackgroundFadeDuration = 0.30f;
 
 float gCharsPerSecond = 45.0f;
 float gVoiceVolume = 0.85f;
@@ -317,30 +321,95 @@ void drawRichText(const std::string& text, const SDL_Color& defaultColor, const 
         return;
     }
 
+    struct StyledToken {
+        std::string text;
+        TTF_Font* font = nullptr;
+        int styleFlags = TTF_STYLE_NORMAL;
+        SDL_Color color{255, 255, 255, 255};
+        bool isWhitespace = false;
+        bool isNewline = false;
+        size_t visibleChars = 0;
+    };
+
+    auto sameColor = [](const SDL_Color& lhs, const SDL_Color& rhs) {
+        return lhs.r == rhs.r && lhs.g == rhs.g && lhs.b == rhs.b && lhs.a == rhs.a;
+    };
+
+    auto countGlyphs = [](const std::string& tokenText) -> size_t {
+        size_t count = 0;
+        for (size_t idx = 0; idx < tokenText.size();) {
+            const int len = std::max(1, utf8CodepointLength(static_cast<unsigned char>(tokenText[idx])));
+            idx += static_cast<size_t>(len);
+            ++count;
+        }
+        return count;
+    };
+
+    auto prefixGlyphs = [](const std::string& tokenText, size_t glyphCount) -> std::string {
+        std::string out;
+        size_t count = 0;
+        for (size_t idx = 0; idx < tokenText.size() && count < glyphCount;) {
+            const int len = std::max(1, utf8CodepointLength(static_cast<unsigned char>(tokenText[idx])));
+            out.append(tokenText, idx, static_cast<size_t>(len));
+            idx += static_cast<size_t>(len);
+            ++count;
+        }
+        return out;
+    };
+
+    auto measureText = [](TTF_Font* font, int styleFlags, const std::string& tokenText, int& outW, int& outH) {
+        outW = 0;
+        outH = 0;
+        if (font == nullptr || tokenText.empty()) {
+            return;
+        }
+        TTF_SetFontStyle(font, styleFlags);
+        (void)TTF_SizeUTF8(font, tokenText.c_str(), &outW, &outH);
+    };
+
     int boldDepth = 0;
     int italicDepth = 0;
     std::vector<SDL_Color> colorStack;
     colorStack.push_back(defaultColor);
-
-    int x = area.x;
-    int y = area.y;
-    const int maxX = area.x + area.w;
-    const int maxY = area.y + area.h;
-    const int lineSkip = TTF_FontLineSkip(referenceFont);
-
-    size_t visibleCount = 0;
+    std::vector<StyledToken> tokens;
     size_t i = 0;
 
-    auto newline = [&]() {
-        x = area.x;
-        y += lineSkip;
+    auto pushToken = [&](const std::string& tokenText,
+                         TTF_Font* font,
+                         int styleFlags,
+                         const SDL_Color& color,
+                         bool isWhitespace,
+                         bool isNewline) {
+        if (isNewline) {
+            tokens.push_back(StyledToken{"", nullptr, TTF_STYLE_NORMAL, color, false, true, 1});
+            return;
+        }
+        if (tokenText.empty() || font == nullptr) {
+            return;
+        }
+        if (!tokens.empty() &&
+            !tokens.back().isNewline &&
+            !tokens.back().isWhitespace &&
+            !isWhitespace &&
+            tokens.back().font == font &&
+            tokens.back().styleFlags == styleFlags &&
+            sameColor(tokens.back().color, color)) {
+            tokens.back().text += tokenText;
+            tokens.back().visibleChars += countGlyphs(tokenText);
+            return;
+        }
+        tokens.push_back(StyledToken{
+            tokenText,
+            font,
+            styleFlags,
+            color,
+            isWhitespace,
+            false,
+            countGlyphs(tokenText)
+        });
     };
 
-    auto isOutOfArea = [&]() {
-        return y + lineSkip > maxY;
-    };
-
-    while (i < text.size() && visibleCount < maxVisibleChars && !isOutOfArea()) {
+    while (i < text.size()) {
         if (text[i] == '<') {
             const size_t close = text.find('>', i + 1);
             if (close != std::string::npos) {
@@ -367,8 +436,7 @@ void drawRichText(const std::string& text, const SDL_Color& defaultColor, const 
                     continue;
                 }
                 if (tagLower == "br" || tagLower == "br/") {
-                    newline();
-                    ++visibleCount;
+                    pushToken("", nullptr, TTF_STYLE_NORMAL, colorStack.back(), false, true);
                     i = close + 1;
                     continue;
                 }
@@ -394,8 +462,7 @@ void drawRichText(const std::string& text, const SDL_Color& defaultColor, const 
         i += static_cast<size_t>(codeLen);
 
         if (glyph == "\n") {
-            newline();
-            ++visibleCount;
+            pushToken("", nullptr, TTF_STYLE_NORMAL, colorStack.back(), false, true);
             continue;
         }
 
@@ -404,39 +471,155 @@ void drawRichText(const std::string& text, const SDL_Color& defaultColor, const 
         if (italicDepth > 0) styleFlags |= TTF_STYLE_ITALIC;
         TTF_Font* activeFont = activeFontForGlyph(glyph);
         if (activeFont == nullptr) {
-            ++visibleCount;
-            continue;
-        }
-        TTF_SetFontStyle(activeFont, styleFlags);
-
-        int glyphW = 0;
-        int glyphH = 0;
-        if (TTF_SizeUTF8(activeFont, glyph.c_str(), &glyphW, &glyphH) != 0) {
-            ++visibleCount;
             continue;
         }
 
-        if (x + glyphW > maxX && x > area.x) {
+        if (platform::text::isWhitespaceGlyph(glyph)) {
+            std::string whitespace = glyph;
+            while (i < text.size()) {
+                if (text[i] == '<') {
+                    break;
+                }
+                const int nextLen = std::max(1, utf8CodepointLength(static_cast<unsigned char>(text[i])));
+                const std::string nextGlyph = text.substr(i, static_cast<size_t>(nextLen));
+                if (nextGlyph == "\n" || !platform::text::isWhitespaceGlyph(nextGlyph)) {
+                    break;
+                }
+                whitespace += nextGlyph;
+                i += static_cast<size_t>(nextLen);
+            }
+            pushToken(whitespace, activeFont, styleFlags, colorStack.back(), true, false);
+            continue;
+        }
+
+        if (platform::text::shouldUseCjkFont(glyph)) {
+            pushToken(glyph, activeFont, styleFlags, colorStack.back(), false, false);
+            continue;
+        }
+
+        std::string word = glyph;
+        while (i < text.size()) {
+            if (text[i] == '<') {
+                break;
+            }
+            const int nextLen = std::max(1, utf8CodepointLength(static_cast<unsigned char>(text[i])));
+            const std::string nextGlyph = text.substr(i, static_cast<size_t>(nextLen));
+            if (nextGlyph == "\n" ||
+                platform::text::isWhitespaceGlyph(nextGlyph) ||
+                platform::text::shouldUseCjkFont(nextGlyph)) {
+                break;
+            }
+            word += nextGlyph;
+            i += static_cast<size_t>(nextLen);
+        }
+        pushToken(word, activeFont, styleFlags, colorStack.back(), false, false);
+    }
+
+    int x = area.x;
+    int y = area.y;
+    const int maxX = area.x + area.w;
+    const int maxY = area.y + area.h;
+    const int lineSkip = TTF_FontLineSkip(referenceFont);
+    size_t visibleCount = 0;
+
+    auto newline = [&]() {
+        x = area.x;
+        y += lineSkip;
+    };
+
+    auto isOutOfArea = [&]() {
+        return y + lineSkip > maxY;
+    };
+
+    auto renderTokenText = [&](TTF_Font* font, int styleFlags, const SDL_Color& color, const std::string& tokenText) {
+        if (font == nullptr || tokenText.empty()) {
+            return;
+        }
+        TTF_SetFontStyle(font, styleFlags);
+        SDL_Surface* surface = TTF_RenderUTF8_Blended(font, tokenText.c_str(), color);
+        if (surface == nullptr) {
+            return;
+        }
+        SDL_Texture* tex = SDL_CreateTextureFromSurface(gRenderer, surface);
+        if (tex != nullptr) {
+            SDL_Rect dst{
+                x,
+                y + (TTF_FontAscent(referenceFont) - TTF_FontAscent(font)),
+                surface->w,
+                surface->h
+            };
+            SDL_RenderCopy(gRenderer, tex, nullptr, &dst);
+            SDL_DestroyTexture(tex);
+        }
+        x += surface->w;
+        SDL_FreeSurface(surface);
+    };
+
+    auto renderGlyphWrapped = [&](const StyledToken& token, const std::string& tokenText) {
+        for (size_t idx = 0; idx < tokenText.size() && !isOutOfArea();) {
+            const int len = std::max(1, utf8CodepointLength(static_cast<unsigned char>(tokenText[idx])));
+            const std::string glyph = tokenText.substr(idx, static_cast<size_t>(len));
+            idx += static_cast<size_t>(len);
+
+            int glyphW = 0;
+            int glyphH = 0;
+            measureText(token.font, token.styleFlags, glyph, glyphW, glyphH);
+            if (x + glyphW > maxX && x > area.x) {
+                newline();
+                if (isOutOfArea()) {
+                    break;
+                }
+            }
+            renderTokenText(token.font, token.styleFlags, token.color, glyph);
+        }
+    };
+
+    for (const StyledToken& token : tokens) {
+        if (visibleCount >= maxVisibleChars || isOutOfArea()) {
+            break;
+        }
+
+        if (token.isNewline) {
+            ++visibleCount;
+            newline();
+            continue;
+        }
+
+        const size_t drawVisibleChars = std::min(token.visibleChars, maxVisibleChars - visibleCount);
+        const std::string tokenText =
+            drawVisibleChars >= token.visibleChars ? token.text : prefixGlyphs(token.text, drawVisibleChars);
+
+        int tokenW = 0;
+        int tokenH = 0;
+        measureText(token.font, token.styleFlags, tokenText, tokenW, tokenH);
+
+        if (token.isWhitespace) {
+            visibleCount += drawVisibleChars;
+            if (x == area.x) {
+                continue;
+            }
+            if (x + tokenW > maxX) {
+                newline();
+                continue;
+            }
+            renderTokenText(token.font, token.styleFlags, token.color, tokenText);
+            continue;
+        }
+
+        if (x + tokenW > maxX && x > area.x) {
             newline();
             if (isOutOfArea()) {
                 break;
             }
         }
 
-        SDL_Surface* surface = TTF_RenderUTF8_Blended(activeFont, glyph.c_str(), colorStack.back());
-        if (surface != nullptr) {
-            SDL_Texture* tex = SDL_CreateTextureFromSurface(gRenderer, surface);
-            if (tex != nullptr) {
-                SDL_Rect dst{x, y + (TTF_FontAscent(referenceFont) - TTF_FontAscent(activeFont)),
-                             surface->w, surface->h};
-                SDL_RenderCopy(gRenderer, tex, nullptr, &dst);
-                SDL_DestroyTexture(tex);
-            }
-            SDL_FreeSurface(surface);
+        if (tokenW > area.w) {
+            renderGlyphWrapped(token, tokenText);
+        } else {
+            renderTokenText(token.font, token.styleFlags, token.color, tokenText);
         }
 
-        x += glyphW;
-        ++visibleCount;
+        visibleCount += drawVisibleChars;
     }
 
     if (gFont != nullptr) {
@@ -528,6 +711,10 @@ void shutdown() {
         SDL_DestroyTexture(gBackgroundTexture);
         gBackgroundTexture = nullptr;
     }
+    if (gPreviousBackgroundTexture != nullptr) {
+        SDL_DestroyTexture(gPreviousBackgroundTexture);
+        gPreviousBackgroundTexture = nullptr;
+    }
 
     stopAndFreeVoiceBuffer();
 
@@ -589,12 +776,15 @@ void setIcon(const std::string& imagePath, int frameCount, float fps) {
 }
 
 void setBackground(const std::string& imagePath) {
-    if (gBackgroundTexture != nullptr) {
-        SDL_DestroyTexture(gBackgroundTexture);
-        gBackgroundTexture = nullptr;
-    }
-
     if (imagePath.empty()) {
+        if (gPreviousBackgroundTexture != nullptr) {
+            SDL_DestroyTexture(gPreviousBackgroundTexture);
+            gPreviousBackgroundTexture = nullptr;
+        }
+        gPreviousBackgroundTexture = gBackgroundTexture;
+        gBackgroundTexture = nullptr;
+        gBackgroundFadeElapsed = 0.0f;
+        gBackgroundFadeActive = gPreviousBackgroundTexture != nullptr;
         return;
     }
 
@@ -609,8 +799,23 @@ void setBackground(const std::string& imagePath) {
         return;
     }
 
-    gBackgroundTexture = SDL_CreateTextureFromSurface(gRenderer, surface);
+    SDL_Texture* newTexture = SDL_CreateTextureFromSurface(gRenderer, surface);
     SDL_FreeSurface(surface);
+    if (newTexture == nullptr) {
+        return;
+    }
+
+    SDL_SetTextureBlendMode(newTexture, SDL_BLENDMODE_BLEND);
+
+    if (gPreviousBackgroundTexture != nullptr) {
+        SDL_DestroyTexture(gPreviousBackgroundTexture);
+        gPreviousBackgroundTexture = nullptr;
+    }
+
+    gPreviousBackgroundTexture = gBackgroundTexture;
+    gBackgroundTexture = newTexture;
+    gBackgroundFadeElapsed = 0.0f;
+    gBackgroundFadeActive = true;
 }
 
 void setVoice(const std::string& wavPath) {
@@ -717,6 +922,17 @@ void update(float deltaSeconds) {
         return;
     }
 
+    if (gBackgroundFadeActive) {
+        gBackgroundFadeElapsed = std::min(kBackgroundFadeDuration, gBackgroundFadeElapsed + deltaSeconds);
+        if (gBackgroundFadeElapsed >= kBackgroundFadeDuration) {
+            gBackgroundFadeActive = false;
+            if (gPreviousBackgroundTexture != nullptr) {
+                SDL_DestroyTexture(gPreviousBackgroundTexture);
+                gPreviousBackgroundTexture = nullptr;
+            }
+        }
+    }
+
     if (gVisibleChars < gTotalVisibleChars) {
         gTypeAccumulator += deltaSeconds * gCharsPerSecond;
         const size_t add = static_cast<size_t>(gTypeAccumulator);
@@ -776,6 +992,10 @@ void reset() {
         SDL_DestroyTexture(gBackgroundTexture);
         gBackgroundTexture = nullptr;
     }
+    if (gPreviousBackgroundTexture != nullptr) {
+        SDL_DestroyTexture(gPreviousBackgroundTexture);
+        gPreviousBackgroundTexture = nullptr;
+    }
 
     gSpeakerName.clear();
     gText.clear();
@@ -793,6 +1013,8 @@ void reset() {
     gTypeAccumulator = 0.0f;
     gVisibleChars = 0;
     gTotalVisibleChars = 0;
+    gBackgroundFadeElapsed = 0.0f;
+    gBackgroundFadeActive = false;
     gAutoAdvanceOnVoiceEnd = false;
     gAdvanceRequested = false;
     gPaused = false;
@@ -822,8 +1044,40 @@ void render() {
         static_cast<float>(gWindowH) / static_cast<float>(kBaseWindowH)
     );
 
-    if (gBackgroundTexture != nullptr) {
-        SDL_Rect bgRect{0, 0, gWindowW, gWindowH};
+    SDL_Rect bgRect{0, 0, gWindowW, gWindowH};
+    if (gBackgroundFadeActive) {
+        const float t = std::clamp(gBackgroundFadeElapsed / kBackgroundFadeDuration, 0.0f, 1.0f);
+        if (gPreviousBackgroundTexture != nullptr && gBackgroundTexture != nullptr) {
+            // Draw the outgoing background fully, then fade the incoming one over it.
+            // This avoids the crossfade dimming toward black mid-transition.
+            SDL_SetTextureBlendMode(gPreviousBackgroundTexture, SDL_BLENDMODE_NONE);
+            SDL_RenderCopy(gRenderer, gPreviousBackgroundTexture, nullptr, &bgRect);
+
+            SDL_SetTextureBlendMode(gBackgroundTexture, SDL_BLENDMODE_BLEND);
+            SDL_SetTextureAlphaMod(
+                gBackgroundTexture,
+                static_cast<Uint8>(std::lround(t * 255.0f))
+            );
+            SDL_RenderCopy(gRenderer, gBackgroundTexture, nullptr, &bgRect);
+            SDL_SetTextureAlphaMod(gBackgroundTexture, 255);
+        } else if (gPreviousBackgroundTexture != nullptr) {
+            SDL_SetTextureBlendMode(gPreviousBackgroundTexture, SDL_BLENDMODE_BLEND);
+            SDL_SetTextureAlphaMod(
+                gPreviousBackgroundTexture,
+                static_cast<Uint8>(std::lround((1.0f - t) * 255.0f))
+            );
+            SDL_RenderCopy(gRenderer, gPreviousBackgroundTexture, nullptr, &bgRect);
+            SDL_SetTextureAlphaMod(gPreviousBackgroundTexture, 255);
+        } else if (gBackgroundTexture != nullptr) {
+            SDL_SetTextureBlendMode(gBackgroundTexture, SDL_BLENDMODE_BLEND);
+            SDL_SetTextureAlphaMod(
+                gBackgroundTexture,
+                static_cast<Uint8>(std::lround(t * 255.0f))
+            );
+            SDL_RenderCopy(gRenderer, gBackgroundTexture, nullptr, &bgRect);
+            SDL_SetTextureAlphaMod(gBackgroundTexture, 255);
+        }
+    } else if (gBackgroundTexture != nullptr) {
         SDL_RenderCopy(gRenderer, gBackgroundTexture, nullptr, &bgRect);
     }
 
