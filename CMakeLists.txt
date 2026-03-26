@@ -335,6 +335,18 @@ if (ENABLE_RMLUI)
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
     )
+    target_sources(finale PRIVATE
+        ${FRONT_UI_SOURCES}
+        ${RMLUI_APP_BATTLE_SOURCES}
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
+    )
+    target_sources(ch0 PRIVATE
+        ${FRONT_UI_SOURCES}
+        ${RMLUI_APP_BATTLE_SOURCES}
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
+    )
     target_include_directories(battle_testing PRIVATE
         ${SDL2_INCLUDE_DIRS}
         ${rmlui_SOURCE_DIR}/Backends
@@ -486,9 +498,9 @@ target_link_libraries(demo_luotianyi PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nl
 if (ENABLE_RMLUI)
     target_compile_definitions(OurUndergroundBITIdol PRIVATE RMLUI_SDL_VERSION_MAJOR=2 APP_ENABLE_RMLUI=1)
     target_link_libraries(OurUndergroundBITIdol PRIVATE OpenGL::GL RmlUi::RmlUi)
-    target_compile_definitions(finale PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_compile_definitions(finale PRIVATE RMLUI_SDL_VERSION_MAJOR=2 APP_ENABLE_RMLUI=1)
     target_link_libraries(finale PRIVATE OpenGL::GL RmlUi::RmlUi)
-    target_compile_definitions(ch0 PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_compile_definitions(ch0 PRIVATE RMLUI_SDL_VERSION_MAJOR=2 APP_ENABLE_RMLUI=1)
     target_link_libraries(ch0 PRIVATE OpenGL::GL RmlUi::RmlUi)
 endif()
 if (NOT ENABLE_RMLUI)
