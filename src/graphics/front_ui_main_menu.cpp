@@ -145,9 +145,6 @@ void MainMenuDocumentController::applyButtonCopy() const {
         if (Rml::Element* element = document_->GetElementById(button.labelId)) {
             element->SetInnerRML(button.displayLabel);
         }
-        if (Rml::Element* element = document_->GetElementById(button.detailId)) {
-            element->SetInnerRML(button.displayDetail);
-        }
     }
 }
 

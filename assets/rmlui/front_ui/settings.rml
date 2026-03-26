@@ -10,7 +10,6 @@
         <div id="settings-title-shell">
             <div id="settings-kicker">SYSTEM CONFIG / FRONTEND NODE</div>
             <div id="settings-title">SETTINGS</div>
-            <div id="settings-subtitle">Display mode, voice level, and text pacing stay in one consistent shell whether you opened settings from the main menu or from pause.</div>
         </div>
 
         <div id="settings-focus-card" class="front-shell-panel">

@@ -2,10 +2,14 @@
 
 #include <SDL2/SDL_ttf.h>
 
+#include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
+
+#include "path_resolution.h"
 
 namespace platform::text {
 
@@ -156,6 +160,99 @@ inline std::vector<FontRun> buildWrapRuns(const std::string& text, TTF_Font* lat
     }
 
     return runs;
+}
+
+inline TTF_Font* openBestAvailableCjkFont(int ptSize, const std::vector<std::string>& preferredPaths = {}) {
+    if (TTF_WasInit() == 0) {
+        return nullptr;
+    }
+
+    const std::vector<std::string> candidates = platform::path::preferredCjkFontPaths(preferredPaths);
+    for (const auto& path : candidates) {
+        TTF_Font* font = TTF_OpenFont(path.c_str(), ptSize);
+        if (font != nullptr) {
+            return font;
+        }
+    }
+
+    return nullptr;
+}
+
+class CjkFontCache {
+public:
+    ~CjkFontCache() {
+        clear();
+    }
+
+    TTF_Font* get(int ptSize) {
+        auto it = fonts_.find(ptSize);
+        if (it != fonts_.end()) {
+            touch(ptSize);
+            return it->second;
+        }
+
+        TTF_Font* loaded = openBestAvailableCjkFont(ptSize);
+        fonts_[ptSize] = loaded;
+        touch(ptSize);
+        trim();
+        return loaded;
+    }
+
+    void clear() {
+        const bool ttfReady = TTF_WasInit() != 0;
+        for (auto& [_, font] : fonts_) {
+            if (ttfReady && font != nullptr) {
+                TTF_CloseFont(font);
+            }
+        }
+        fonts_.clear();
+        usageOrder_.clear();
+    }
+
+private:
+    static constexpr std::size_t kMaxCachedFonts = 6;
+
+    void touch(int ptSize) {
+        usageOrder_.erase(std::remove(usageOrder_.begin(), usageOrder_.end(), ptSize), usageOrder_.end());
+        usageOrder_.push_back(ptSize);
+    }
+
+    void trim() {
+        while (usageOrder_.size() > kMaxCachedFonts) {
+            const int ptSize = usageOrder_.front();
+            usageOrder_.erase(usageOrder_.begin());
+
+            auto it = fonts_.find(ptSize);
+            if (it == fonts_.end()) {
+                continue;
+            }
+
+            if (it->second != nullptr && TTF_WasInit() != 0) {
+                TTF_CloseFont(it->second);
+            }
+            fonts_.erase(it);
+        }
+    }
+
+    std::map<int, TTF_Font*> fonts_;
+    std::vector<int> usageOrder_;
+};
+
+inline CjkFontCache& fallbackCjkFontCache() {
+    static CjkFontCache cache;
+    return cache;
+}
+
+inline TTF_Font* fallbackCjkFontFor(TTF_Font* font) {
+    if (font == nullptr || TTF_WasInit() == 0) {
+        return nullptr;
+    }
+
+    return fallbackCjkFontCache().get(std::max(8, TTF_FontHeight(font)));
+}
+
+inline void releaseFallbackCjkFonts() {
+    fallbackCjkFontCache().clear();
 }
 
 } // namespace platform::text

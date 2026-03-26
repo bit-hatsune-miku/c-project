@@ -258,19 +258,10 @@ button {
 .menu-button-label {
     position: absolute;
     left: 74dp;
-    top: 6dp;
+    top: 7dp;
     font-size: 18dp;
     font-weight: bold;
     letter-spacing: 1.8dp;
-}
-
-.menu-button-detail {
-    position: absolute;
-    right: 14dp;
-    top: 10dp;
-    font-size: 10dp;
-    letter-spacing: 1.8dp;
-    color: rgba(189, 255, 248, 140);
 }
 
 .menu-button.is-selected {
@@ -288,16 +279,12 @@ button {
     color: #b8fff9;
 }
 
-.menu-button.is-selected .menu-button-detail {
-    color: rgba(236, 255, 252, 188);
-}
-
 #system-caption {
     position: absolute;
     right: 72dp;
     bottom: 62dp;
     width: 314dp;
-    height: 118dp;
+    height: 138dp;
     background-color: rgba(4, 12, 14, 170);
     border: 1dp rgba(93, 255, 241, 54);
 }
@@ -315,8 +302,8 @@ button {
     position: absolute;
     left: 22dp;
     top: 28dp;
-    font-size: 11dp;
-    letter-spacing: 3dp;
+    font-size: 10dp;
+    letter-spacing: 2.4dp;
     color: rgba(154, 255, 247, 220);
 }
 
@@ -325,19 +312,21 @@ button {
     left: 22dp;
     top: 48dp;
     width: 268dp;
-    font-size: 15dp;
+    font-size: 12dp;
     font-weight: bold;
-    letter-spacing: 1.2dp;
+    line-height: 16dp;
+    letter-spacing: 0.8dp;
     color: #f3fffd;
 }
 
 #system-caption-copy {
     position: absolute;
     left: 22dp;
-    top: 82dp;
+    top: 96dp;
     width: 268dp;
-    font-size: 10dp;
-    letter-spacing: 0.4dp;
+    font-size: 8dp;
+    line-height: 11dp;
+    letter-spacing: 0.2dp;
     color: rgba(216, 255, 251, 162);
 }
 

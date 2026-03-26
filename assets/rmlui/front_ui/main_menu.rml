@@ -36,35 +36,30 @@
                 <button id="menu-button-start" class="menu-button is-selected">
                     <div id="menu-button-code-start" class="menu-button-code"></div>
                     <div id="menu-button-label-start" class="menu-button-label"></div>
-                    <div id="menu-button-detail-start" class="menu-button-detail"></div>
                     <div class="menu-button-beam"></div>
                 </button>
 
                 <button id="menu-button-load" class="menu-button">
                     <div id="menu-button-code-load" class="menu-button-code"></div>
                     <div id="menu-button-label-load" class="menu-button-label"></div>
-                    <div id="menu-button-detail-load" class="menu-button-detail"></div>
                     <div class="menu-button-beam"></div>
                 </button>
 
                 <button id="menu-button-battle" class="menu-button">
                     <div id="menu-button-code-battle" class="menu-button-code"></div>
                     <div id="menu-button-label-battle" class="menu-button-label"></div>
-                    <div id="menu-button-detail-battle" class="menu-button-detail"></div>
                     <div class="menu-button-beam"></div>
                 </button>
 
                 <button id="menu-button-settings" class="menu-button">
                     <div id="menu-button-code-settings" class="menu-button-code"></div>
                     <div id="menu-button-label-settings" class="menu-button-label"></div>
-                    <div id="menu-button-detail-settings" class="menu-button-detail"></div>
                     <div class="menu-button-beam"></div>
                 </button>
 
                 <button id="menu-button-exit" class="menu-button">
                     <div id="menu-button-code-exit" class="menu-button-code"></div>
                     <div id="menu-button-label-exit" class="menu-button-label"></div>
-                    <div id="menu-button-detail-exit" class="menu-button-detail"></div>
                     <div class="menu-button-beam"></div>
                 </button>
             </div>
