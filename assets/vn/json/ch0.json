@@ -985,7 +985,9 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "battleId": 0
+      "battleKey": "tutorial_vs_lyoo",
+      "battleWinScript": "",
+      "battleLoseScript": ""
     }
   ]
 }

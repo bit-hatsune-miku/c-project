@@ -663,6 +663,24 @@ std::string effectiveStoryBackground(const StorySession& story, std::size_t entr
     return std::string();
 }
 
+std::string storyScriptPathFromReference(const std::string& scriptRef) {
+    if (scriptRef.empty()) {
+        return resolvePath(kChapterScriptPath);
+    }
+
+    const bool hasDirectorySeparators =
+        scriptRef.find('/') != std::string::npos || scriptRef.find('\\') != std::string::npos;
+    if (hasDirectorySeparators) {
+        return resolvePath(scriptRef);
+    }
+
+    const bool hasJsonExtension =
+        scriptRef.size() >= 5 &&
+        scriptRef.substr(scriptRef.size() - 5) == ".json";
+    const std::string normalized = hasJsonExtension ? scriptRef : (scriptRef + ".json");
+    return resolvePath("assets/vn/json/" + normalized);
+}
+
 void applyCurrentEntry(const StorySession& story, const GameSettings& settings) {
     if (story.script.entries.empty() || story.entryIndex >= story.script.entries.size()) {
         return;
@@ -693,17 +711,24 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
     );
 }
 
+bool loadStoryScript(StorySession& story, const std::string& scriptRef) {
+    vn::Script script;
+    if (!vn::loadScript(storyScriptPathFromReference(scriptRef), script)) {
+        return false;
+    }
+
+    story.script = std::move(script);
+    story.loaded = true;
+    story.entryIndex = 0;
+    return true;
+}
+
 bool ensureStoryLoaded(StorySession& story) {
     if (story.loaded) {
         return true;
     }
 
-    if (!vn::loadScript(resolvePath(kChapterScriptPath), story.script)) {
-        return false;
-    }
-
-    story.loaded = true;
-    return true;
+    return loadStoryScript(story, kChapterScriptPath);
 }
 
 save::SaveGame buildStorySaveGame(const AppState& state) {
@@ -805,6 +830,13 @@ void beginStory(AppState& state) {
     state.confirmSelection = ConfirmAction::Cancel;
     state.pauseIntroTime = 0.0f;
     state.screen = ScreenState::Playing;
+    state.pendingBattleKey.clear();
+    state.pendingBattleLaunchedFromStory = false;
+    state.pendingBattleWinScript.clear();
+    state.pendingBattleLoseScript.clear();
+    vn::reset();
+    vn::setVoiceVolume(state.settings.voiceVolume);
+    vn::setTypewriterSpeed(state.settings.textSpeed);
     applyCurrentEntry(state.story, state.settings);
     (void)save::autosave(buildStorySaveGame(state));
 }
@@ -817,13 +849,26 @@ void beginBattleDemo(AppState& state) {
     state.screen = ScreenState::BattleDemo;
 }
 
-// Dispatches to the correct battle session based on the ID defined in assets/combat/battles.json.
-void beginBattle(AppState& state, int battleId) {
-    // Entering battle should not inherit story scene backdrops.
+void beginBattle(AppState& state, const std::string& battleKey) {
+    if (battleKey.empty()) {
+        state.pendingBattleKey.clear();
+        state.pendingBattleLaunchedFromStory = false;
+        state.pendingBattleWinScript.clear();
+        state.pendingBattleLoseScript.clear();
+        state.noticeText = "Battle key missing.";
+        state.noticeTimer = 2.6f;
+        state.screen = ScreenState::MainMenu;
+        return;
+    }
+
     vn::setBackground("");
     battle::BattleDefinition battleDefinition;
-    if (!battle::loader::loadBattleDefinitionById(battleId, battleDefinition)) {
-        state.noticeText = "Battle not found: " + std::to_string(battleId);
+    if (!battle::loader::loadBattleDefinition(battleKey, battleDefinition)) {
+        state.pendingBattleKey.clear();
+        state.pendingBattleLaunchedFromStory = false;
+        state.pendingBattleWinScript.clear();
+        state.pendingBattleLoseScript.clear();
+        state.noticeText = "Battle not found: " + battleKey;
         state.noticeTimer = 2.6f;
         state.screen = ScreenState::MainMenu;
         return;
@@ -831,6 +876,23 @@ void beginBattle(AppState& state, int battleId) {
 
     state.pendingBattleKey = battleDefinition.key;
     beginBattleDemo(state);
+}
+
+// Dispatches to the correct battle session based on the ID defined in assets/combat/battles.json.
+void beginBattle(AppState& state, int battleId) {
+    battle::BattleDefinition battleDefinition;
+    if (!battle::loader::loadBattleDefinitionById(battleId, battleDefinition)) {
+        state.pendingBattleKey.clear();
+        state.pendingBattleLaunchedFromStory = false;
+        state.pendingBattleWinScript.clear();
+        state.pendingBattleLoseScript.clear();
+        state.noticeText = "Battle not found: " + std::to_string(battleId);
+        state.noticeTimer = 2.6f;
+        state.screen = ScreenState::MainMenu;
+        return;
+    }
+
+    beginBattle(state, battleDefinition.key);
 }
 
 std::string shellQuote(const std::string& value) {
@@ -1104,6 +1166,9 @@ int main(int argc, char** argv) {
                 state.pauseContext = PauseContext::Story;
                 state.mainSelection = MainMenuAction::Battle;
                 state.pendingBattleKey.clear();
+                state.pendingBattleLaunchedFromStory = false;
+                state.pendingBattleWinScript.clear();
+                state.pendingBattleLoseScript.clear();
                 state.noticeText = "Battle demo failed to load.";
                 state.noticeTimer = 2.8f;
             }
@@ -1117,6 +1182,10 @@ int main(int argc, char** argv) {
                 return 1;
             }
             state.pauseContext = PauseContext::Story;
+            state.pendingBattleKey.clear();
+            state.pendingBattleLaunchedFromStory = false;
+            state.pendingBattleWinScript.clear();
+            state.pendingBattleLoseScript.clear();
         }
 
         const Uint64 now = SDL_GetPerformanceCounter();
@@ -1146,16 +1215,60 @@ int main(int argc, char** argv) {
             if (battleSession != nullptr) {
                 battleSession->update(deltaSeconds);
                 if (battleSession->isFinished()) {
+                    const battle::demo::BattleOutcome outcome = battleSession->outcome();
                     battleSession->shutdown();
                     battleSession.reset();
                     if (!restoreRendererUi(window, menuResources, state.settings)) {
                         std::cerr << "Failed to restore renderer UI\n";
                         return 1;
                     }
-                    state.screen = ScreenState::MainMenu;
-                    state.pauseContext = PauseContext::Story;
-                    state.mainSelection = MainMenuAction::Battle;
+
+                    const bool launchedFromStory = state.pendingBattleLaunchedFromStory;
+                    const std::string battleWinScript = state.pendingBattleWinScript;
                     state.pendingBattleKey.clear();
+                    state.pendingBattleLaunchedFromStory = false;
+                    state.pendingBattleWinScript.clear();
+                    state.pendingBattleLoseScript.clear();
+
+                    if (launchedFromStory && outcome == battle::demo::BattleOutcome::Victory) {
+                        if (!battleWinScript.empty()) {
+                            if (!loadStoryScript(state.story, battleWinScript)) {
+                                state.screen = ScreenState::MainMenu;
+                                state.pauseContext = PauseContext::Story;
+                                state.mainSelection = MainMenuAction::Start;
+                                state.noticeText = "Post-battle story failed to load.";
+                                state.noticeTimer = 2.8f;
+                            } else {
+                                vn::reset();
+                                vn::setVoiceVolume(state.settings.voiceVolume);
+                                vn::setTypewriterSpeed(state.settings.textSpeed);
+                                state.pauseSelection = PauseAction::Continue;
+                                state.pauseContext = PauseContext::Story;
+                                state.confirmSelection = ConfirmAction::Cancel;
+                                state.pauseIntroTime = 0.0f;
+                                state.screen = ScreenState::Playing;
+                                applyCurrentEntry(state.story, state.settings);
+                            }
+                        } else if (state.story.loaded &&
+                                   state.story.entryIndex < state.story.script.entries.size()) {
+                            state.pauseSelection = PauseAction::Continue;
+                            state.pauseContext = PauseContext::Story;
+                            state.confirmSelection = ConfirmAction::Cancel;
+                            state.pauseIntroTime = 0.0f;
+                            state.screen = ScreenState::Playing;
+                            applyCurrentEntry(state.story, state.settings);
+                        } else {
+                            state.screen = ScreenState::MainMenu;
+                            state.pauseContext = PauseContext::Story;
+                            state.mainSelection = MainMenuAction::Start;
+                            state.noticeText = "End of story.";
+                            state.noticeTimer = 2.2f;
+                        }
+                    } else {
+                        state.screen = ScreenState::MainMenu;
+                        state.pauseContext = PauseContext::Story;
+                        state.mainSelection = MainMenuAction::Battle;
+                    }
                 }
             }
         } else if (state.screen == ScreenState::Playing) {
@@ -1163,12 +1276,22 @@ int main(int argc, char** argv) {
 
             if (vn::consumeAdvanceRequest()) {
                 const std::string previousBackground = effectiveStoryBackground(state.story, state.story.entryIndex);
-                const int pendingBattleId =
+                const vn::ScriptEntry currentEntry =
                     state.story.entryIndex < state.story.script.entries.size()
-                    ? state.story.script.entries[state.story.entryIndex].battleId
-                    : -1;
+                    ? state.story.script.entries[state.story.entryIndex]
+                    : vn::ScriptEntry{};
+                const std::string pendingBattleKey = currentEntry.battleKey;
+                const int pendingBattleId = currentEntry.battleId;
                 state.story.entryIndex++;
-                if (pendingBattleId >= 0) {
+                if (!pendingBattleKey.empty()) {
+                    state.pendingBattleLaunchedFromStory = true;
+                    state.pendingBattleWinScript = currentEntry.battleWinScript;
+                    state.pendingBattleLoseScript = currentEntry.battleLoseScript;
+                    beginBattle(state, pendingBattleKey);
+                } else if (pendingBattleId >= 0) {
+                    state.pendingBattleLaunchedFromStory = true;
+                    state.pendingBattleWinScript = currentEntry.battleWinScript;
+                    state.pendingBattleLoseScript = currentEntry.battleLoseScript;
                     beginBattle(state, pendingBattleId);
                 } else if (state.story.entryIndex >= state.story.script.entries.size()) {
                     state.screen = ScreenState::MainMenu;

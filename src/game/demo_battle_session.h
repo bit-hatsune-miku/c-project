@@ -10,6 +10,12 @@ namespace battle::demo {
 
 class SessionImpl;
 
+enum class BattleOutcome {
+    None,
+    Victory,
+    Defeat
+};
+
 class Session {
 public:
     Session();
@@ -24,6 +30,7 @@ public:
     void update(float deltaSeconds);
     void render(SDL_Renderer* renderer, int screenWidth, int screenHeight);
     bool isFinished() const;
+    BattleOutcome outcome() const;
 
 private:
     std::unique_ptr<SessionImpl> impl_;

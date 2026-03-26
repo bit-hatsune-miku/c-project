@@ -23,14 +23,20 @@ struct ScriptEntry {
     int iconFrameCount;
     float iconFps;
     bool autoAdvanceOnVoiceEnd;
-    int battleId;  // -1 = no battle; >= 0 triggers the battle with that ID (see assets/combat/battles.json)
+    std::string battleKey;       // Preferred way to trigger combat from VN.
+    int battleId;                // Legacy fallback; kept for compatibility.
+    std::string battleWinScript; // Optional JSON script to load after winning the battle.
+    std::string battleLoseScript;// Optional JSON script to load after losing the battle.
 
     ScriptEntry()
         : type(EntryType::Dialogue)
         , iconFrameCount(1)
         , iconFps(8.0f)
         , autoAdvanceOnVoiceEnd(false)
+        , battleKey()
         , battleId(-1)
+        , battleWinScript()
+        , battleLoseScript()
     {}
 };
 
