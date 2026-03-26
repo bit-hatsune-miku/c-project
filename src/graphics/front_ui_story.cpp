@@ -6,8 +6,10 @@
 #include <utility>
 
 #include <RmlUi/Core/Context.h>
+#include <RmlUi/Core/Core.h>
 #include <RmlUi/Core/Element.h>
 #include <RmlUi/Core/Event.h>
+#include <RmlUi/Core/SystemInterface.h>
 
 #include "../platform/path_resolution.h"
 #include "../game/vn/vn_system.h"
@@ -72,6 +74,19 @@ std::string toDocumentRelativeAssetPath(const std::string& path) {
     return relativePath.generic_string();
 }
 
+void releaseDocumentTexture(Rml::ElementDocument& document, const std::string& source) {
+    if (source.empty()) {
+        return;
+    }
+
+    Rml::String resolvedSource = source;
+    if (Rml::SystemInterface* systemInterface = Rml::GetSystemInterface()) {
+        systemInterface->JoinPath(resolvedSource, document.GetSourceURL(), source);
+    }
+
+    (void)Rml::ReleaseTexture(resolvedSource);
+}
+
 }  // namespace
 
 bool StoryDocumentController::bind(Rml::ElementDocument& document, const AppState& state) {
@@ -91,8 +106,14 @@ bool StoryDocumentController::bind(Rml::ElementDocument& document, const AppStat
 }
 
 void StoryDocumentController::unbind() {
+    if (document_ != nullptr) {
+        releaseDocumentTexture(*document_, toDocumentRelativeAssetPath(lastBackground_));
+        releaseDocumentTexture(*document_, toDocumentRelativeAssetPath(lastPortrait_));
+    }
     detachEventListeners(listeners_);
     document_ = nullptr;
+    lastBackground_.clear();
+    lastPortrait_.clear();
 }
 
 void StoryDocumentController::sync(const AppState& state) {
@@ -155,6 +176,7 @@ void StoryDocumentController::syncPresentation() {
     const vn::PresentationState presentation = vn::getPresentationState();
 
     if (presentation.backgroundPath != lastBackground_) {
+        const std::string previousBackgroundSource = toDocumentRelativeAssetPath(lastBackground_);
         if (Rml::Element* element = document_->GetElementById("story-bg-art")) {
             if (presentation.backgroundPath.empty()) {
                 element->SetClass("is-hidden", true);
@@ -164,10 +186,12 @@ void StoryDocumentController::syncPresentation() {
                 element->SetAttribute("src", toDocumentRelativeAssetPath(presentation.backgroundPath));
             }
         }
+        releaseDocumentTexture(*document_, previousBackgroundSource);
         lastBackground_ = presentation.backgroundPath;
     }
 
     if (presentation.iconPath != lastPortrait_) {
+        const std::string previousPortraitSource = toDocumentRelativeAssetPath(lastPortrait_);
         if (Rml::Element* element = document_->GetElementById("story-portrait-img")) {
             const bool hasPortrait = !presentation.iconPath.empty();
             element->SetClass("is-hidden", !hasPortrait);
@@ -176,6 +200,7 @@ void StoryDocumentController::syncPresentation() {
         if (Rml::Element* element = document_->GetElementById("story-dialogue-box")) {
             element->SetClass("story-no-portrait", presentation.iconPath.empty());
         }
+        releaseDocumentTexture(*document_, previousPortraitSource);
         lastPortrait_ = presentation.iconPath;
     }
 

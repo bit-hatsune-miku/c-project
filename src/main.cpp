@@ -37,7 +37,7 @@ constexpr const char* kChapterScriptPath = "assets/vn/json/ch0.json";
 #endif
 constexpr int kReferenceWidth = 1280;
 constexpr int kReferenceHeight = 720;
-constexpr float kMenuCanvasScale = 4.0f;
+constexpr float kMenuCanvasScale = 2.0f;
 
 std::string resolvePath(const std::string& relativePath) {
     const std::array<std::string, 3> candidates = {
@@ -120,56 +120,13 @@ TTF_Font* openBestAvailableFont(const std::vector<std::string>& preferredPaths, 
     return nullptr;
 }
 
-TTF_Font* openBestAvailableCjkFont(int ptSize) {
-    const std::vector<std::string> candidates = platform::path::preferredCjkFontPaths();
-    for (const auto& path : candidates) {
-        TTF_Font* font = TTF_OpenFont(path.c_str(), ptSize);
-        if (font != nullptr) {
-            return font;
-        }
-    }
-    return nullptr;
-}
-
-TTF_Font* fallbackCjkFontFor(TTF_Font* font) {
-    struct CjkFontCache {
-        std::map<int, TTF_Font*> fonts;
-
-        ~CjkFontCache() {
-            for (auto& [_, cachedFont] : fonts) {
-                if (cachedFont != nullptr) {
-                    TTF_CloseFont(cachedFont);
-                }
-            }
-        }
-
-        TTF_Font* get(int ptSize) {
-            auto it = fonts.find(ptSize);
-            if (it != fonts.end()) {
-                return it->second;
-            }
-
-            TTF_Font* loaded = openBestAvailableCjkFont(ptSize);
-            fonts[ptSize] = loaded;
-            return loaded;
-        }
-    };
-
-    if (font == nullptr) {
-        return nullptr;
-    }
-
-    static CjkFontCache cache;
-    return cache.get(std::max(8, TTF_FontHeight(font)));
-}
-
 void drawTextInRect(SDL_Renderer* renderer, TTF_Font* font, const std::string& text,
                     const SDL_Color& color, const SDL_FRect& rect, bool centerX) {
     if (font == nullptr || text.empty()) {
         return;
     }
 
-    TTF_Font* cjkFont = fallbackCjkFontFor(font);
+    TTF_Font* cjkFont = platform::text::fallbackCjkFontFor(font);
     const std::vector<platform::text::FontRun> runs = platform::text::buildFontRuns(text, font, cjkFont);
     if (runs.empty()) {
         return;
@@ -218,7 +175,7 @@ void drawWrappedTextInRect(SDL_Renderer* renderer, TTF_Font* font, const std::st
         return;
     }
 
-    TTF_Font* cjkFont = fallbackCjkFontFor(font);
+    TTF_Font* cjkFont = platform::text::fallbackCjkFontFor(font);
     const std::vector<platform::text::FontRun> runs = platform::text::buildWrapRuns(text, font, cjkFont);
     if (runs.empty()) {
         return;
@@ -966,6 +923,8 @@ void destroyMenuResources(MenuResources& resources) {
         TTF_CloseFont(resources.tinyFont);
         resources.tinyFont = nullptr;
     }
+
+    platform::text::releaseFallbackCjkFonts();
 #endif
 }
 
@@ -1031,13 +990,13 @@ bool restoreFrontMenuUi(Window& window,
                         MenuResources& menuResources,
                         bool& rendererUiReady,
                         const AppState& state) {
-    if (frontUi.isInitialized()) {
-        return frontUi.showForState(state);
-    }
-
     if (rendererUiReady) {
         destroyMenuResources(menuResources);
         rendererUiReady = false;
+    }
+
+    if (frontUi.isInitialized()) {
+        return frontUi.showForState(state);
     }
 
     if (!window.enableOpenGL()) {

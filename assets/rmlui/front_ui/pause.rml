@@ -9,7 +9,6 @@
         <div id="pause-title-shell">
             <div id="pause-kicker">STORY CONTROL / SESSION HOLD</div>
             <div id="pause-title">PAUSE</div>
-            <div id="pause-subtitle">Continue, save, load, or step into settings without leaving the current OpenGL window.</div>
         </div>
 
         <div id="pause-buttons">
