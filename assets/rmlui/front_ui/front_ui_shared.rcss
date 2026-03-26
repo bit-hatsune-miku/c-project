@@ -1,0 +1,1001 @@
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: transparent;
+    color: #ebffff;
+    font-family: "Space Mono";
+}
+
+button {
+    cursor: pointer;
+    background-color: transparent;
+    border: 0;
+    padding: 0;
+}
+
+.is-hidden {
+    display: none;
+}
+
+@keyframes signal-breathe {
+    from {
+        opacity: 0.42;
+    }
+    to {
+        opacity: 0.88;
+    }
+}
+
+#bg-art {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#bg-dim {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(2, 10, 11, 170);
+}
+
+#bg-top-glow {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 240dp;
+    background-color: rgba(57, 197, 187, 24);
+}
+
+#bg-grid-vertical {
+    position: absolute;
+    left: 56dp;
+    top: 36dp;
+    width: 1dp;
+    height: 648dp;
+    background-color: rgba(86, 255, 241, 62);
+}
+
+#bg-grid-horizontal {
+    position: absolute;
+    left: 56dp;
+    top: 634dp;
+    width: 1168dp;
+    height: 1dp;
+    background-color: rgba(86, 255, 241, 36);
+}
+
+#hero-frame {
+    position: absolute;
+    left: 332dp;
+    top: 72dp;
+    width: 892dp;
+    height: 532dp;
+    border: 1dp rgba(87, 255, 241, 32);
+}
+
+#hero-reticle {
+    position: absolute;
+    right: 124dp;
+    top: 116dp;
+    width: 108dp;
+    height: 108dp;
+    border: 1dp rgba(95, 255, 245, 64);
+}
+
+#menu-column {
+    position: absolute;
+    left: 72dp;
+    top: 56dp;
+    width: 470dp;
+    height: 608dp;
+}
+
+#title-shell {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 470dp;
+    height: 170dp;
+    background-color: rgba(4, 12, 14, 188);
+    border: 1dp rgba(93, 255, 241, 104);
+}
+
+#title-kicker {
+    position: absolute;
+    left: 22dp;
+    top: 18dp;
+    font-size: 12dp;
+    letter-spacing: 2.8dp;
+    color: rgba(153, 255, 246, 220);
+}
+
+#title-logo {
+    position: absolute;
+    left: 18dp;
+    top: 38dp;
+    width: 430dp;
+    height: 130dp;
+}
+
+#menu-shell {
+    position: absolute;
+    left: 0;
+    top: 192dp;
+    width: 470dp;
+    height: 416dp;
+    background-color: rgba(4, 12, 14, 204);
+    border: 1dp rgba(93, 255, 241, 96);
+}
+
+#menu-header-row {
+    position: absolute;
+    left: 22dp;
+    top: 20dp;
+    width: 426dp;
+    height: 22dp;
+}
+
+#menu-section-tag {
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-size: 15dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: #8ffff6;
+}
+
+#menu-system-chip {
+    position: absolute;
+    right: 0;
+    top: 0;
+    font-size: 11dp;
+    letter-spacing: 2.2dp;
+    color: rgba(210, 255, 251, 172);
+}
+
+.front-shell-panel {
+    background-color: rgba(8, 20, 22, 210);
+    border: 1dp rgba(87, 255, 241, 60);
+}
+
+#menu-status-card {
+    position: absolute;
+    left: 22dp;
+    top: 58dp;
+    width: 426dp;
+    height: 72dp;
+}
+
+#menu-focus-code {
+    position: absolute;
+    left: 16dp;
+    top: 19dp;
+    width: 50dp;
+    height: 20dp;
+    font-size: 18dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    color: #93fff7;
+}
+
+#menu-status-copy-group {
+    position: absolute;
+    left: 78dp;
+    top: 13dp;
+    width: 328dp;
+    height: 48dp;
+}
+
+#menu-status-title {
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-size: 15dp;
+    font-weight: bold;
+    letter-spacing: 1.8dp;
+    color: #f0fffd;
+}
+
+#menu-status-copy {
+    position: absolute;
+    left: 0;
+    top: 24dp;
+    width: 328dp;
+    font-size: 11dp;
+    letter-spacing: 0.5dp;
+    color: rgba(213, 255, 250, 176);
+}
+
+#menu-buttons {
+    position: absolute;
+    left: 22dp;
+    top: 150dp;
+    width: 426dp;
+    height: 210dp;
+}
+
+.menu-button {
+    position: relative;
+    display: block;
+    width: 426dp;
+    height: 38dp;
+    margin-bottom: 10dp;
+    background-color: rgba(8, 22, 24, 124);
+    border: 1dp rgba(93, 255, 241, 38);
+    color: #efffff;
+}
+
+.menu-button-beam {
+    position: absolute;
+    left: -1dp;
+    top: -1dp;
+    width: 4dp;
+    height: 38dp;
+    background-color: rgba(98, 255, 243, 78);
+}
+
+.menu-button-code {
+    position: absolute;
+    left: 14dp;
+    top: 10dp;
+    width: 32dp;
+    height: 16dp;
+    font-size: 13dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    color: rgba(184, 255, 248, 184);
+}
+
+.menu-button-label {
+    position: absolute;
+    left: 74dp;
+    top: 7dp;
+    font-size: 18dp;
+    font-weight: bold;
+    letter-spacing: 1.8dp;
+}
+
+.menu-button.is-selected {
+    background-color: rgba(57, 197, 187, 48);
+    border: 1dp rgba(125, 255, 245, 180);
+    color: #f8ffff;
+}
+
+.menu-button.is-selected .menu-button-beam {
+    background-color: rgba(125, 255, 245, 220);
+    animation: 1.5s infinite alternate signal-breathe;
+}
+
+.menu-button.is-selected .menu-button-code {
+    color: #b8fff9;
+}
+
+#system-caption {
+    position: absolute;
+    right: 72dp;
+    bottom: 62dp;
+    width: 314dp;
+    height: 138dp;
+    background-color: rgba(4, 12, 14, 170);
+    border: 1dp rgba(93, 255, 241, 54);
+}
+
+#system-caption-line {
+    position: absolute;
+    left: 22dp;
+    top: 18dp;
+    width: 82dp;
+    height: 2dp;
+    background-color: rgba(114, 255, 245, 196);
+}
+
+#system-caption-label {
+    position: absolute;
+    left: 22dp;
+    top: 28dp;
+    font-size: 10dp;
+    letter-spacing: 2.4dp;
+    color: rgba(154, 255, 247, 220);
+}
+
+#system-caption-title {
+    position: absolute;
+    left: 22dp;
+    top: 48dp;
+    width: 268dp;
+    font-size: 12dp;
+    font-weight: bold;
+    line-height: 16dp;
+    letter-spacing: 0.8dp;
+    color: #f3fffd;
+}
+
+#system-caption-copy {
+    position: absolute;
+    left: 22dp;
+    top: 96dp;
+    width: 268dp;
+    font-size: 8dp;
+    line-height: 11dp;
+    letter-spacing: 0.2dp;
+    color: rgba(216, 255, 251, 162);
+}
+
+#settings-overlay,
+#pause-overlay,
+#load-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(5, 12, 16, 186);
+}
+
+#settings-shell,
+#pause-shell {
+    position: absolute;
+    left: 20.5%;
+    right: 20.5%;
+    top: 8%;
+    bottom: 8%;
+    background-color: rgba(4, 12, 14, 206);
+    border: 1dp rgba(93, 255, 241, 96);
+}
+
+#settings-title-shell,
+#pause-title-shell {
+    position: absolute;
+    left: 50%;
+    top: 24dp;
+    width: 560dp;
+    height: 104dp;
+    margin-left: -280dp;
+    background-color: rgba(6, 18, 21, 196);
+    border: 1dp rgba(93, 255, 241, 90);
+}
+
+#settings-kicker,
+#pause-kicker {
+    position: absolute;
+    left: 0;
+    top: 16dp;
+    width: 100%;
+    font-size: 12dp;
+    letter-spacing: 2.8dp;
+    color: rgba(161, 255, 247, 220);
+    text-align: center;
+}
+
+#settings-title,
+#pause-title {
+    position: absolute;
+    left: 0;
+    top: 38dp;
+    width: 100%;
+    font-size: 38dp;
+    font-weight: bold;
+    letter-spacing: 4dp;
+    color: #f3fffd;
+    text-align: center;
+}
+
+#settings-subtitle {
+    position: absolute;
+    left: 24dp;
+    top: 84dp;
+    width: 560dp;
+    font-size: 11dp;
+    letter-spacing: 0.5dp;
+    color: rgba(212, 255, 250, 164);
+}
+
+#settings-focus-card {
+    position: absolute;
+    left: 50%;
+    top: 148dp;
+    width: 560dp;
+    height: 86dp;
+    margin-left: -280dp;
+}
+
+#settings-focus-code {
+    position: absolute;
+    left: 16dp;
+    top: 24dp;
+    width: 48dp;
+    font-size: 18dp;
+    font-weight: bold;
+    color: #92fff6;
+}
+
+#settings-focus-copy-group {
+    position: absolute;
+    left: 86dp;
+    top: 16dp;
+    width: 430dp;
+    height: 54dp;
+}
+
+#settings-focus-title {
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-size: 15dp;
+    font-weight: bold;
+    letter-spacing: 1.8dp;
+    color: #f0fffd;
+}
+
+#settings-focus-copy {
+    position: absolute;
+    left: 0;
+    top: 26dp;
+    width: 426dp;
+    font-size: 11dp;
+    letter-spacing: 0.4dp;
+    color: rgba(212, 255, 250, 170);
+}
+
+#settings-section-tag {
+    position: absolute;
+    left: 50%;
+    top: 250dp;
+    margin-left: -280dp;
+    font-size: 15dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: #8ffff6;
+}
+
+#settings-system-chip {
+    position: absolute;
+    left: 50%;
+    top: 252dp;
+    width: 180dp;
+    margin-left: 100dp;
+    font-size: 11dp;
+    letter-spacing: 2.2dp;
+    color: rgba(206, 255, 251, 166);
+    text-align: right;
+}
+
+#settings-rows {
+    position: absolute;
+    left: 50%;
+    top: 288dp;
+    width: 560dp;
+    height: 258dp;
+    margin-left: -280dp;
+}
+
+.settings-row {
+    position: relative;
+    display: block;
+    width: 560dp;
+    height: 52dp;
+    margin-bottom: 14dp;
+    background-color: rgba(8, 22, 24, 128);
+    border: 1dp rgba(93, 255, 241, 44);
+    color: #efffff;
+}
+
+.settings-row-slider {
+    height: 72dp;
+}
+
+.settings-row-beam {
+    position: absolute;
+    left: -1dp;
+    top: -1dp;
+    width: 4dp;
+    height: 100%;
+    background-color: rgba(98, 255, 243, 62);
+}
+
+.settings-row-code {
+    position: absolute;
+    left: 16dp;
+    top: 15dp;
+    width: 36dp;
+    font-size: 14dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    color: rgba(184, 255, 248, 190);
+}
+
+.settings-row-label {
+    position: absolute;
+    left: 78dp;
+    top: 12dp;
+    font-size: 18dp;
+    font-weight: bold;
+    letter-spacing: 1.8dp;
+    color: #efffff;
+}
+
+.settings-row-value {
+    position: absolute;
+    right: 18dp;
+    top: 14dp;
+    font-size: 12dp;
+    font-weight: bold;
+    letter-spacing: 2.2dp;
+    color: rgba(216, 255, 251, 174);
+}
+
+.settings-row.selected {
+    background-color: rgba(57, 197, 187, 48);
+    border: 1dp rgba(125, 255, 245, 172);
+    color: #f8ffff;
+}
+
+.settings-row.selected .settings-row-beam {
+    background-color: rgba(125, 255, 245, 214);
+    animation: 1.5s infinite alternate signal-breathe;
+}
+
+.settings-row.selected .settings-row-code,
+.settings-row.selected .settings-row-value {
+    color: #f4fffd;
+}
+
+.settings-slider {
+    position: absolute;
+    left: 78dp;
+    right: 126dp;
+    bottom: 12dp;
+    height: 16dp;
+}
+
+input.settings-slider {
+    width: auto;
+    background: transparent;
+}
+
+input.settings-slider slidertrack {
+    margin-top: 5dp;
+    height: 4dp;
+    background-color: rgba(24, 46, 51, 238);
+    border: 0;
+}
+
+input.settings-slider sliderprogress {
+    margin-top: 5dp;
+    height: 4dp;
+    background-color: #39c5bb;
+}
+
+.settings-row.selected input.settings-slider slidertrack {
+    background-color: rgba(235, 255, 252, 48);
+}
+
+.settings-row.selected input.settings-slider sliderprogress {
+    background-color: #b8fff9;
+}
+
+input.settings-slider sliderbar {
+    width: 8dp;
+    height: 14dp;
+    margin-left: -4dp;
+    margin-right: -4dp;
+    margin-top: 0;
+    background-color: #39c5bb;
+    border: 0;
+    border-radius: 0;
+}
+
+.settings-row.selected input.settings-slider sliderbar {
+    background-color: #f4fffd;
+}
+
+input.settings-slider sliderarrowdec,
+input.settings-slider sliderarrowinc {
+    display: none;
+}
+
+.settings-row-back-value {
+    top: 15dp;
+}
+
+#story-advance-target {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#story-bg-art {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#story-dialogue-box {
+    position: absolute;
+    left: 40dp;
+    bottom: 40dp;
+    width: 1200dp;
+    height: 200dp;
+    background-color: rgba(0, 0, 0, 168);
+    border: 1dp rgba(232, 236, 244, 180);
+}
+
+#story-speaker-name {
+    position: absolute;
+    left: 24dp;
+    top: 14dp;
+    width: 1152dp;
+    font-size: 18dp;
+    letter-spacing: 1dp;
+    color: #ffffff;
+    text-align: center;
+}
+
+#story-portrait-frame {
+    position: absolute;
+    left: 16dp;
+    top: 52dp;
+    width: 112dp;
+    height: 112dp;
+    background-color: rgba(255, 255, 255, 14);
+    border: 1dp rgba(222, 232, 246, 96);
+}
+
+#story-portrait-img {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 112dp;
+    height: 112dp;
+}
+
+#story-dialogue-copy {
+    position: absolute;
+    left: 154dp;
+    top: 60dp;
+    width: 1018dp;
+    height: 108dp;
+    overflow: auto;
+}
+
+#story-dialogue-copy scrollbarvertical {
+    width: 6dp;
+}
+
+#story-dialogue-copy scrollbarvertical slidertrack {
+    background-color: rgba(255, 255, 255, 18);
+}
+
+#story-dialogue-copy scrollbarvertical sliderbar {
+    width: 6dp;
+    background-color: rgba(232, 236, 244, 120);
+    border: 0;
+    border-radius: 0;
+}
+
+#story-dialogue-copy scrollbarvertical sliderbar:hover {
+    background-color: rgba(232, 236, 244, 200);
+}
+
+#story-dialogue-copy scrollbarvertical sliderarrowdec,
+#story-dialogue-copy scrollbarvertical sliderarrowinc {
+    display: none;
+}
+
+#story-dialogue-text {
+    font-size: 24dp;
+    line-height: 1.35em;
+    color: #f4f6fb;
+}
+
+#story-dialogue-box.story-no-portrait #story-portrait-frame {
+    display: none;
+}
+
+#story-dialogue-box.story-no-portrait #story-dialogue-copy {
+    left: 28dp;
+    width: 1144dp;
+}
+
+#story-dialogue-box.story-no-speaker #story-dialogue-copy {
+    top: 34dp;
+    height: 134dp;
+}
+
+#load-shell {
+    position: absolute;
+    left: 14.85%;
+    right: 14.85%;
+    top: 8.35%;
+    bottom: 8.35%;
+    background-color: rgba(4, 12, 14, 226);
+    border: 1dp rgba(93, 255, 241, 104);
+}
+
+#load-title-shell {
+    position: absolute;
+    left: 26dp;
+    top: 24dp;
+    width: 848dp;
+    height: 110dp;
+    background-color: rgba(6, 18, 21, 198);
+    border: 1dp rgba(93, 255, 241, 90);
+}
+
+#load-kicker {
+    position: absolute;
+    left: 22dp;
+    top: 16dp;
+    font-size: 12dp;
+    letter-spacing: 2.8dp;
+    color: rgba(161, 255, 247, 220);
+}
+
+#load-title {
+    position: absolute;
+    left: 22dp;
+    top: 40dp;
+    font-size: 36dp;
+    font-weight: bold;
+    letter-spacing: 4dp;
+    color: #f3fffd;
+}
+
+#pause-subtitle,
+#load-subtitle {
+    position: absolute;
+    left: 22dp;
+    top: 82dp;
+    width: 780dp;
+    font-size: 11dp;
+    letter-spacing: 0.4dp;
+    color: rgba(212, 255, 250, 164);
+}
+
+#pause-buttons {
+    position: absolute;
+    left: 50%;
+    top: 184dp;
+    width: 560dp;
+    height: 318dp;
+    margin-left: -280dp;
+}
+
+.pause-button,
+.load-footer-button,
+.pause-confirm-button {
+    display: block;
+    width: 100%;
+    height: 54dp;
+    margin-bottom: 14dp;
+    background-color: rgba(8, 22, 24, 128);
+    border: 1dp rgba(93, 255, 241, 44);
+    color: #efffff;
+    font-size: 18dp;
+    font-weight: bold;
+    letter-spacing: 1.8dp;
+    text-align: center;
+    line-height: 54dp;
+}
+
+.pause-button.is-selected,
+.load-footer-button.is-selected,
+.pause-confirm-button.is-selected {
+    background-color: rgba(57, 197, 187, 48);
+    border: 1dp rgba(125, 255, 245, 172);
+    color: #f8ffff;
+}
+
+#pause-notice {
+    position: absolute;
+    left: 50%;
+    bottom: 52dp;
+    width: 560dp;
+    height: 24dp;
+    margin-left: -280dp;
+    font-size: 12dp;
+    letter-spacing: 0.4dp;
+    color: #ffd58a;
+    text-align: center;
+}
+
+#pause-confirm,
+#load-confirm {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(4, 8, 14, 198);
+    display: none;
+}
+
+#pause-confirm.is-visible,
+#load-confirm.is-visible {
+    display: block;
+}
+
+#pause-confirm-card,
+#load-confirm-card {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 560dp;
+    height: 312dp;
+    margin-left: -280dp;
+    margin-top: -156dp;
+    background-color: rgba(10, 20, 42, 242);
+    border: 1dp rgba(80, 228, 255, 212);
+}
+
+#pause-confirm-title,
+#load-confirm-title {
+    position: absolute;
+    left: 32dp;
+    top: 28dp;
+    width: 496dp;
+    font-size: 28dp;
+    font-weight: bold;
+    letter-spacing: 1.8dp;
+    color: #f4fffd;
+}
+
+#pause-confirm-body,
+#load-confirm-body {
+    position: absolute;
+    left: 32dp;
+    top: 86dp;
+    width: 496dp;
+    font-size: 16dp;
+    line-height: 1.45em;
+    color: rgba(232, 244, 252, 218);
+}
+
+#pause-confirm-actions,
+#load-confirm-actions {
+    position: absolute;
+    left: 32dp;
+    bottom: 28dp;
+    width: 496dp;
+    height: 54dp;
+}
+
+#pause-confirm-cancel,
+#load-confirm-cancel {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 228dp;
+}
+
+#pause-confirm-confirm,
+#load-confirm-delete {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 228dp;
+}
+
+#load-slot-list {
+    position: absolute;
+    left: 54dp;
+    top: 174dp;
+    width: 792dp;
+    height: 340dp;
+}
+
+.load-slot-button {
+    position: relative;
+    display: block;
+    width: 792dp;
+    height: 58dp;
+    margin-bottom: 12dp;
+    background-color: rgba(8, 22, 24, 128);
+    border: 1dp rgba(93, 255, 241, 44);
+}
+
+.load-slot-button.is-selected {
+    background-color: rgba(57, 197, 187, 48);
+    border: 1dp rgba(125, 255, 245, 172);
+}
+
+.load-slot-kind {
+    position: absolute;
+    left: 16dp;
+    top: 15dp;
+    width: 120dp;
+    font-size: 12dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    color: rgba(255, 230, 154, 232);
+}
+
+.load-slot-label {
+    position: absolute;
+    left: 160dp;
+    top: 11dp;
+    width: 460dp;
+    font-size: 18dp;
+    font-weight: bold;
+    letter-spacing: 1.2dp;
+    color: #efffff;
+}
+
+.load-slot-time {
+    position: absolute;
+    left: 160dp;
+    top: 34dp;
+    width: 520dp;
+    font-size: 11dp;
+    letter-spacing: 0.4dp;
+    color: rgba(216, 255, 251, 170);
+}
+
+#load-empty-state {
+    position: absolute;
+    left: 54dp;
+    top: 314dp;
+    width: 792dp;
+    font-size: 18dp;
+    letter-spacing: 1dp;
+    color: rgba(236, 246, 252, 220);
+    text-align: center;
+    display: none;
+}
+
+#load-empty-state.is-visible {
+    display: block;
+}
+
+#load-footer {
+    position: absolute;
+    left: 214dp;
+    bottom: 50dp;
+    width: 472dp;
+    height: 54dp;
+}
+
+#load-notice {
+    position: absolute;
+    left: 150dp;
+    bottom: 18dp;
+    width: 600dp;
+    height: 20dp;
+    font-size: 12dp;
+    letter-spacing: 0.4dp;
+    color: #ffd58a;
+    text-align: center;
+}
+
+#load-footer-delete {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 220dp;
+}
+
+#load-footer-back {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 220dp;
+}
+
+#load-footer-delete.is-disabled {
+    background-color: rgba(18, 24, 30, 128);
+    border: 1dp rgba(98, 112, 124, 48);
+    color: rgba(168, 180, 192, 148);
+}
