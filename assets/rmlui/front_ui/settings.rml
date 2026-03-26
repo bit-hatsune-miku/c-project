@@ -54,13 +54,6 @@
                 <div class="settings-row-beam"></div>
             </button>
         </div>
-
-        <div id="settings-side-panel" class="front-shell-panel">
-            <div id="settings-side-line"></div>
-            <div id="settings-side-label">CONTROL NOTES</div>
-            <div id="settings-side-title">One settings document, two entry routes.</div>
-            <div id="settings-side-copy">The same Space Mono settings shell sits above either the main menu or the paused story stack. Left and right adjust values. Enter toggles display mode. Escape returns.</div>
-        </div>
     </div>
 </body>
 </rml>

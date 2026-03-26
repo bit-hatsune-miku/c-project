@@ -35,7 +35,7 @@ std::vector<ScreenId> stackForAppState(const AppState& state) {
             }
             if (state.settingsReturnScreen == ScreenState::PauseMenu &&
                 state.pauseContext == PauseContext::Story) {
-                return {ScreenId::Story, ScreenId::Pause, ScreenId::Settings};
+                return {ScreenId::Story, ScreenId::Settings};
             }
             return {};
 
