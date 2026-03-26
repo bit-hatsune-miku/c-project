@@ -1,0 +1,64 @@
+<rml>
+<head>
+    <title>Load</title>
+    <link type="text/rcss" href="front_ui_shared.rcss"/>
+</head>
+<body>
+    <div id="load-overlay"></div>
+    <div id="load-shell">
+        <div id="load-title-shell">
+            <div id="load-kicker">SAVE DATA / THREAD REENTRY</div>
+            <div id="load-title">LOAD GAME</div>
+            <div id="load-subtitle">Resume a route from autosave or manual save slots without leaving the front UI pipeline.</div>
+        </div>
+
+        <div id="load-slot-list">
+            <button id="load-slot-button-0" class="load-slot-button">
+                <div id="load-slot-kind-0" class="load-slot-kind"></div>
+                <div id="load-slot-label-0" class="load-slot-label"></div>
+                <div id="load-slot-time-0" class="load-slot-time"></div>
+            </button>
+            <button id="load-slot-button-1" class="load-slot-button">
+                <div id="load-slot-kind-1" class="load-slot-kind"></div>
+                <div id="load-slot-label-1" class="load-slot-label"></div>
+                <div id="load-slot-time-1" class="load-slot-time"></div>
+            </button>
+            <button id="load-slot-button-2" class="load-slot-button">
+                <div id="load-slot-kind-2" class="load-slot-kind"></div>
+                <div id="load-slot-label-2" class="load-slot-label"></div>
+                <div id="load-slot-time-2" class="load-slot-time"></div>
+            </button>
+            <button id="load-slot-button-3" class="load-slot-button">
+                <div id="load-slot-kind-3" class="load-slot-kind"></div>
+                <div id="load-slot-label-3" class="load-slot-label"></div>
+                <div id="load-slot-time-3" class="load-slot-time"></div>
+            </button>
+            <button id="load-slot-button-4" class="load-slot-button">
+                <div id="load-slot-kind-4" class="load-slot-kind"></div>
+                <div id="load-slot-label-4" class="load-slot-label"></div>
+                <div id="load-slot-time-4" class="load-slot-time"></div>
+            </button>
+        </div>
+
+        <div id="load-empty-state">No save files found yet.</div>
+
+        <div id="load-footer">
+            <button id="load-footer-delete" class="load-footer-button">DELETE</button>
+            <button id="load-footer-back" class="load-footer-button">BACK</button>
+        </div>
+
+        <div id="load-notice"></div>
+    </div>
+
+    <div id="load-confirm">
+        <div id="load-confirm-card">
+            <div id="load-confirm-title">Delete Save?</div>
+            <div id="load-confirm-body">This cannot be undone.</div>
+            <div id="load-confirm-actions">
+                <button id="load-confirm-cancel" class="pause-confirm-button is-selected">Cancel</button>
+                <button id="load-confirm-delete" class="pause-confirm-button">Delete Save</button>
+            </div>
+        </div>
+    </div>
+</body>
+</rml>

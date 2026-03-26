@@ -6,6 +6,17 @@
 
 namespace vn {
 
+struct PresentationState {
+    std::string speakerName;
+    std::string visibleTextRml;
+    std::string fullTextRml;
+    std::string iconPath;
+    std::string backgroundPath;
+    std::size_t visibleCharacters = 0;
+    std::size_t totalVisibleCharacters = 0;
+    bool lineFinished = false;
+};
+
 bool initialize(SDL_Renderer* renderer, int windowWidth, int windowHeight);
 void shutdown();
 void setViewportSize(int windowWidth, int windowHeight);
@@ -47,6 +58,7 @@ void onSpacePressed();
 bool isLineFinished();
 bool isWaitingForAdvance();
 bool consumeAdvanceRequest();
+PresentationState getPresentationState();
 
 } // namespace vn
 

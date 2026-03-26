@@ -24,6 +24,9 @@
 #include "game/demo_battle_session.h"
 #include "game/save/save.h"
 #include "game/vn/vn_system.h"
+#ifdef APP_ENABLE_RMLUI
+#include "graphics/front_ui_session.h"
+#endif
 #include "platform/path_resolution.h"
 #include "platform/text_fallback.h"
 
@@ -32,11 +35,9 @@ constexpr const char* kChapterScriptPath = VN_SCRIPT_PATH;
 #else
 constexpr const char* kChapterScriptPath = "assets/vn/json/ch0.json";
 #endif
-constexpr const char* kMainMenuArtPath = "assets/vn/backgrounds/ch0/mainmenu art.png";
-constexpr const char* kMainMenuTitlePath = "assets/vn/images/MainMenuTitle.png";
 constexpr int kReferenceWidth = 1280;
 constexpr int kReferenceHeight = 720;
-constexpr float kMenuCanvasScale = 4.0f;
+constexpr float kMenuCanvasScale = 2.0f;
 
 std::string resolvePath(const std::string& relativePath) {
     const std::array<std::string, 3> candidates = {
@@ -96,6 +97,8 @@ SDL_Texture* createRenderTarget(SDL_Renderer* renderer, int width, int height, f
 #ifdef VN_ENABLE_TTF
 TTF_Font* openBestAvailableFont(const std::vector<std::string>& preferredPaths, int ptSize) {
     std::vector<std::string> candidates = preferredPaths;
+    candidates.emplace_back(resolvePath("assets/fonts/SpaceMono-Bold.ttf"));
+    candidates.emplace_back(resolvePath("assets/fonts/SpaceMono-Regular.ttf"));
     candidates.emplace_back("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
     candidates.emplace_back("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
     candidates.emplace_back("/usr/share/fonts/TTF/DejaVuSans-Bold.ttf");
@@ -117,56 +120,13 @@ TTF_Font* openBestAvailableFont(const std::vector<std::string>& preferredPaths, 
     return nullptr;
 }
 
-TTF_Font* openBestAvailableCjkFont(int ptSize) {
-    const std::vector<std::string> candidates = platform::path::preferredCjkFontPaths();
-    for (const auto& path : candidates) {
-        TTF_Font* font = TTF_OpenFont(path.c_str(), ptSize);
-        if (font != nullptr) {
-            return font;
-        }
-    }
-    return nullptr;
-}
-
-TTF_Font* fallbackCjkFontFor(TTF_Font* font) {
-    struct CjkFontCache {
-        std::map<int, TTF_Font*> fonts;
-
-        ~CjkFontCache() {
-            for (auto& [_, cachedFont] : fonts) {
-                if (cachedFont != nullptr) {
-                    TTF_CloseFont(cachedFont);
-                }
-            }
-        }
-
-        TTF_Font* get(int ptSize) {
-            auto it = fonts.find(ptSize);
-            if (it != fonts.end()) {
-                return it->second;
-            }
-
-            TTF_Font* loaded = openBestAvailableCjkFont(ptSize);
-            fonts[ptSize] = loaded;
-            return loaded;
-        }
-    };
-
-    if (font == nullptr) {
-        return nullptr;
-    }
-
-    static CjkFontCache cache;
-    return cache.get(std::max(8, TTF_FontHeight(font)));
-}
-
 void drawTextInRect(SDL_Renderer* renderer, TTF_Font* font, const std::string& text,
                     const SDL_Color& color, const SDL_FRect& rect, bool centerX) {
     if (font == nullptr || text.empty()) {
         return;
     }
 
-    TTF_Font* cjkFont = fallbackCjkFontFor(font);
+    TTF_Font* cjkFont = platform::text::fallbackCjkFontFor(font);
     const std::vector<platform::text::FontRun> runs = platform::text::buildFontRuns(text, font, cjkFont);
     if (runs.empty()) {
         return;
@@ -215,7 +175,7 @@ void drawWrappedTextInRect(SDL_Renderer* renderer, TTF_Font* font, const std::st
         return;
     }
 
-    TTF_Font* cjkFont = fallbackCjkFontFor(font);
+    TTF_Font* cjkFont = platform::text::fallbackCjkFontFor(font);
     const std::vector<platform::text::FontRun> runs = platform::text::buildWrapRuns(text, font, cjkFont);
     if (runs.empty()) {
         return;
@@ -963,13 +923,15 @@ void destroyMenuResources(MenuResources& resources) {
         TTF_CloseFont(resources.tinyFont);
         resources.tinyFont = nullptr;
     }
+
+    platform::text::releaseFallbackCjkFonts();
 #endif
 }
 
 void loadMenuResources(MenuResources& resources, SDL_Renderer* renderer) {
-    resources.background = loadTexture(renderer, resolvePath(kMainMenuArtPath));
+    resources.background = loadTexture(renderer, resolvePath(kMainMenuBackgroundArtPath));
     resources.menuCanvas = createRenderTarget(renderer, kReferenceWidth, kReferenceHeight, kMenuCanvasScale);
-    resources.titleLogo = loadTexture(renderer, resolvePath(kMainMenuTitlePath));
+    resources.titleLogo = loadTexture(renderer, resolvePath(kMainMenuTitleLogoPath));
 #ifdef VN_ENABLE_TTF
     resources.titleFont = openBestAvailableFont({}, 52);
     resources.subtitleFont = openBestAvailableFont({}, 28);
@@ -986,6 +948,7 @@ bool restoreRendererUi(Window& window, MenuResources& menuResources, const GameS
     if (!window.enableRenderer()) {
         return false;
     }
+    SDL_SetWindowResizable(window.getNativeWindow(), SDL_FALSE);
     if (!vn::initialize(window.getRenderer(), window.getWidth(), window.getHeight())) {
         return false;
     }
@@ -994,6 +957,107 @@ bool restoreRendererUi(Window& window, MenuResources& menuResources, const GameS
     loadMenuResources(menuResources, window.getRenderer());
     return true;
 }
+
+#ifdef APP_ENABLE_RMLUI
+bool shouldUseFrontUiScreen(const AppState& state) {
+    if (state.screen == ScreenState::MainMenu || state.screen == ScreenState::Playing) {
+        return true;
+    }
+
+    if ((state.screen == ScreenState::PauseMenu ||
+         state.screen == ScreenState::PauseConfirmExit ||
+         state.screen == ScreenState::PauseConfirmOverwriteSave) &&
+        state.pauseContext == PauseContext::Story) {
+        return true;
+    }
+
+    if ((state.screen == ScreenState::LoadMenu ||
+         state.screen == ScreenState::LoadConfirmDelete) &&
+        (state.loadReturnScreen == ScreenState::MainMenu ||
+         (state.loadReturnScreen == ScreenState::PauseMenu &&
+          state.pauseContext == PauseContext::Story))) {
+        return true;
+    }
+
+    return state.screen == ScreenState::Settings &&
+           (state.settingsReturnScreen == ScreenState::MainMenu ||
+            (state.settingsReturnScreen == ScreenState::PauseMenu &&
+             state.pauseContext == PauseContext::Story));
+}
+
+bool restoreFrontMenuUi(Window& window,
+                        graphics::frontui::Session& frontUi,
+                        MenuResources& menuResources,
+                        bool& rendererUiReady,
+                        const AppState& state) {
+    if (rendererUiReady) {
+        destroyMenuResources(menuResources);
+        rendererUiReady = false;
+    }
+
+    if (frontUi.isInitialized()) {
+        return frontUi.showForState(state);
+    }
+
+    if (!window.enableOpenGL()) {
+        return false;
+    }
+    SDL_SetWindowResizable(window.getNativeWindow(), SDL_FALSE);
+    if (!vn::initialize(nullptr, window.getWidth(), window.getHeight())) {
+        return false;
+    }
+    return frontUi.initialize(window, state);
+}
+
+bool restoreNonMainMenuUi(Window& window,
+                          graphics::frontui::Session& frontUi,
+                          MenuResources& menuResources,
+                          bool& rendererUiReady,
+                          const GameSettings& settings) {
+    if (frontUi.isInitialized()) {
+        frontUi.shutdown();
+    }
+
+    if (rendererUiReady) {
+        return true;
+    }
+
+    if (!restoreRendererUi(window, menuResources, settings)) {
+        return false;
+    }
+
+    rendererUiReady = true;
+    return true;
+}
+
+bool applyFrontMenuAction(AppState& state,
+                          Window& window,
+                          graphics::frontui::Session& frontUi,
+                          MenuResources& menuResources,
+                          bool& rendererUiReady,
+                          MainMenuAction action) {
+    state.mainSelection = action;
+
+    if (action == MainMenuAction::Exit) {
+        applyMainMenuAction(state, window, action);
+        return true;
+    }
+
+    if (action == MainMenuAction::Settings) {
+        applyMainMenuAction(state, window, action);
+        return restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state);
+    }
+
+    if (action == MainMenuAction::Battle) {
+        if (!restoreNonMainMenuUi(window, frontUi, menuResources, rendererUiReady, state.settings)) {
+            return false;
+        }
+    }
+
+    applyMainMenuAction(state, window, action);
+    return true;
+}
+#endif
 
 int main(int argc, char** argv) {
     if (argc >= 3 && std::string(argv[1]) == "battle" && std::string(argv[2]) == "mode") {
@@ -1009,22 +1073,30 @@ int main(int argc, char** argv) {
 
     window.setEscapeToQuitEnabled(false);
 
-    if (!vn::initialize(window.getRenderer(), window.getWidth(), window.getHeight())) {
-        std::cerr << "Failed to initialize VN system\n";
-        return 1;
-    }
-
     save::init();
 
     AppState state;
     state.settings.fullscreen = window.isFullscreen();
-    vn::setVoiceVolume(state.settings.voiceVolume);
-    vn::setTypewriterSpeed(state.settings.textSpeed);
 
     MenuResources menuResources;
-    loadMenuResources(menuResources, window.getRenderer());
     SettingsMenuController settingsMenu;
     std::unique_ptr<battle::demo::Session> battleSession;
+    bool rendererUiReady = false;
+#ifdef APP_ENABLE_RMLUI
+    graphics::frontui::Session frontUi;
+    if (!restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state)) {
+        std::cerr << "Failed to initialize RmlUi main menu\n";
+        return 1;
+    }
+#else
+    if (!restoreRendererUi(window, menuResources, state.settings)) {
+        std::cerr << "Failed to initialize VN system\n";
+        return 1;
+    }
+    rendererUiReady = true;
+    vn::setVoiceVolume(state.settings.voiceVolume);
+    vn::setTypewriterSpeed(state.settings.textSpeed);
+#endif
 
 #ifdef VN_AUTO_START_STORY
     beginStory(state);
@@ -1049,16 +1121,40 @@ int main(int argc, char** argv) {
 
             switch (state.screen) {
                 case ScreenState::MainMenu:
+#ifdef APP_ENABLE_RMLUI
+                    frontUi.handleEvent(event, state);
+#else
                     handleMainMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+#endif
                     break;
 
                 case ScreenState::Settings:
+#ifdef APP_ENABLE_RMLUI
+                    if (shouldUseFrontUiScreen(state)) {
+                        frontUi.handleEvent(event, state);
+                    } else {
+                        settingsMenu.handleEvent(state, window, event, window.getWidth(), window.getHeight());
+                    }
+#else
                     settingsMenu.handleEvent(state, window, event, window.getWidth(), window.getHeight());
+#endif
                     break;
 
                 case ScreenState::LoadMenu:
                 case ScreenState::LoadConfirmDelete:
+#ifdef APP_ENABLE_RMLUI
+                    if (shouldUseFrontUiScreen(state)) {
+                        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11) {
+                            SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+                        } else {
+                            frontUi.handleEvent(event, state);
+                        }
+                    } else {
+                        handleLoadMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+                    }
+#else
                     handleLoadMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+#endif
                     break;
 
                 case ScreenState::BattleDemo:
@@ -1068,6 +1164,23 @@ int main(int argc, char** argv) {
                     break;
 
                 case ScreenState::Playing:
+#ifdef APP_ENABLE_RMLUI
+                    if (shouldUseFrontUiScreen(state)) {
+                        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11) {
+                            SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+                        } else {
+                            frontUi.handleEvent(event, state);
+                        }
+                    } else if (event.type == SDL_KEYDOWN) {
+                        if (event.key.keysym.sym == SDLK_ESCAPE) {
+                            openPauseMenu(state);
+                        } else if (event.key.keysym.sym == SDLK_F11) {
+                            SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+                        } else if (event.key.keysym.sym == SDLK_SPACE) {
+                            vn::onSpacePressed();
+                        }
+                    }
+#else
                     if (event.type == SDL_KEYDOWN) {
                         if (event.key.keysym.sym == SDLK_ESCAPE) {
                             openPauseMenu(state);
@@ -1077,18 +1190,75 @@ int main(int argc, char** argv) {
                             vn::onSpacePressed();
                         }
                     }
+#endif
                     break;
 
                 case ScreenState::PauseMenu:
+#ifdef APP_ENABLE_RMLUI
+                    if (shouldUseFrontUiScreen(state)) {
+                        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11) {
+                            SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+                        } else {
+                            frontUi.handleEvent(event, state);
+                        }
+                    } else {
+                        handlePauseMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+                    }
+#else
                     handlePauseMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+#endif
                     break;
 
                 case ScreenState::PauseConfirmExit:
                 case ScreenState::PauseConfirmOverwriteSave:
+#ifdef APP_ENABLE_RMLUI
+                    if (shouldUseFrontUiScreen(state)) {
+                        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11) {
+                            SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+                        } else {
+                            frontUi.handleEvent(event, state);
+                        }
+                    } else {
+                        handlePauseConfirmEvent(state, window, event, window.getWidth(), window.getHeight());
+                    }
+#else
                     handlePauseConfirmEvent(state, window, event, window.getWidth(), window.getHeight());
+#endif
                     break;
             }
         }
+
+#ifdef APP_ENABLE_RMLUI
+        if (const std::optional<graphics::frontui::Command> command = frontUi.consumeCommand(); command.has_value()) {
+            switch (command->type) {
+                case graphics::frontui::CommandType::ActivateMainMenuAction:
+                    if (!applyFrontMenuAction(state, window, frontUi, menuResources, rendererUiReady,
+                                              command->mainMenuAction)) {
+                        std::cerr << "Failed to apply main menu action\n";
+                        return 1;
+                    }
+                    break;
+
+                case graphics::frontui::CommandType::ApplyDisplayMode:
+                    SettingsMenuController::applyDisplayMode(window, state.settings, command->displayModeFullscreen);
+                    break;
+
+                case graphics::frontui::CommandType::ReturnFromSettings:
+                    state.screen = state.settingsReturnScreen;
+                    break;
+            }
+        }
+
+        if (shouldUseFrontUiScreen(state)) {
+            if (!restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state)) {
+                std::cerr << "Failed to restore RmlUi front-ui screen\n";
+                return 1;
+            }
+        } else if (!restoreNonMainMenuUi(window, frontUi, menuResources, rendererUiReady, state.settings)) {
+            std::cerr << "Failed to restore renderer UI\n";
+            return 1;
+        }
+#endif
 
         if (state.requestStoryManualSave) {
             state.requestStoryManualSave = false;
@@ -1158,10 +1328,6 @@ int main(int argc, char** argv) {
             const std::string battleKey = state.pendingBattleKey.empty() ? "tutorial_vs_lyoo" : state.pendingBattleKey;
             if (!battleSession->initialize(window.getRenderer(), battleKey)) {
                 battleSession.reset();
-                if (!restoreRendererUi(window, menuResources, state.settings)) {
-                    std::cerr << "Failed to restore renderer UI after battle load failure\n";
-                    return 1;
-                }
                 state.screen = ScreenState::MainMenu;
                 state.pauseContext = PauseContext::Story;
                 state.mainSelection = MainMenuAction::Battle;
@@ -1177,10 +1343,6 @@ int main(int argc, char** argv) {
         if (state.screen == ScreenState::MainMenu && battleSession != nullptr) {
             battleSession->shutdown();
             battleSession.reset();
-            if (!restoreRendererUi(window, menuResources, state.settings)) {
-                std::cerr << "Failed to restore renderer UI\n";
-                return 1;
-            }
             state.pauseContext = PauseContext::Story;
             state.pendingBattleKey.clear();
             state.pendingBattleLaunchedFromStory = false;
@@ -1203,6 +1365,11 @@ int main(int argc, char** argv) {
         if (state.screen == ScreenState::MainMenu && state.menuIntroTime < kMenuIntroMaxTime) {
             state.menuIntroTime = std::min(kMenuIntroMaxTime, state.menuIntroTime + deltaSeconds);
         }
+#ifdef APP_ENABLE_RMLUI
+        if (shouldUseFrontUiScreen(state)) {
+            frontUi.update(state, deltaSeconds);
+        }
+#endif
 
         if ((state.screen == ScreenState::PauseMenu ||
              state.screen == ScreenState::PauseConfirmExit ||
@@ -1308,19 +1475,21 @@ int main(int argc, char** argv) {
             }
         }
 
+#ifdef APP_ENABLE_RMLUI
+        if (shouldUseFrontUiScreen(state)) {
+            if (!restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state)) {
+                std::cerr << "Failed to restore RmlUi front-ui screen\n";
+                return 1;
+            }
+        } else if (!restoreNonMainMenuUi(window, frontUi, menuResources, rendererUiReady, state.settings)) {
+            std::cerr << "Failed to restore renderer UI\n";
+            return 1;
+        }
+#endif
+
         if (window.getRenderer() != nullptr) {
             window.clear(14, 18, 30, 255);
         }
-
-        const bool renderStoryBackdrop =
-            state.screen == ScreenState::Playing ||
-            ((state.screen == ScreenState::PauseMenu ||
-              state.screen == ScreenState::PauseConfirmExit ||
-              state.screen == ScreenState::PauseConfirmOverwriteSave) &&
-             state.pauseContext == PauseContext::Story) ||
-            (state.screen == ScreenState::Settings &&
-             state.settingsReturnScreen == ScreenState::PauseMenu &&
-             state.pauseContext == PauseContext::Story);
 
         const bool renderBattleBackdrop =
             battleSession != nullptr &&
@@ -1332,16 +1501,12 @@ int main(int argc, char** argv) {
               state.settingsReturnScreen == ScreenState::PauseMenu &&
               state.pauseContext == PauseContext::Battle));
 
-        if (renderStoryBackdrop) {
-            vn::render();
-            if (state.screen == ScreenState::PauseMenu ||
-                state.screen == ScreenState::PauseConfirmExit ||
-                state.screen == ScreenState::PauseConfirmOverwriteSave) {
-                renderPauseScreen(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
-            } else if (state.screen == ScreenState::Settings && state.settingsReturnScreen == ScreenState::PauseMenu) {
-                settingsMenu.render(window.getRenderer(), menuResources, state,
-                                    window.getWidth(), window.getHeight(), true);
-            }
+        if (shouldUseFrontUiScreen(state)) {
+#ifdef APP_ENABLE_RMLUI
+            frontUi.render();
+#else
+            renderMainMenu(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
+#endif
         } else if (renderBattleBackdrop) {
             battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
             if (state.screen == ScreenState::PauseMenu ||
@@ -1353,15 +1518,28 @@ int main(int argc, char** argv) {
                                     window.getWidth(), window.getHeight(), true);
             }
         } else if (state.screen == ScreenState::Settings) {
-            settingsMenu.render(window.getRenderer(), menuResources, state,
-                                window.getWidth(), window.getHeight(), false);
+            if (state.settingsReturnScreen == ScreenState::MainMenu) {
+#ifdef APP_ENABLE_RMLUI
+                frontUi.render();
+#else
+                settingsMenu.render(window.getRenderer(), menuResources, state,
+                                    window.getWidth(), window.getHeight(), false);
+#endif
+            } else {
+                settingsMenu.render(window.getRenderer(), menuResources, state,
+                                    window.getWidth(), window.getHeight(), false);
+            }
         } else if (state.screen == ScreenState::LoadMenu ||
                    state.screen == ScreenState::LoadConfirmDelete) {
             renderLoadScreen(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
         } else if (state.screen == ScreenState::BattleDemo && battleSession != nullptr) {
             battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
         } else {
+#ifdef APP_ENABLE_RMLUI
+            frontUi.render();
+#else
             renderMainMenu(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
+#endif
         }
 
         window.present();
@@ -1371,6 +1549,9 @@ int main(int argc, char** argv) {
         battleSession->shutdown();
         battleSession.reset();
     }
+#ifdef APP_ENABLE_RMLUI
+    frontUi.shutdown();
+#endif
     destroyMenuResources(menuResources);
     vn::shutdown();
     return 0;

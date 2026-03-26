@@ -68,74 +68,94 @@ cmake --build build
 
 ## Features
 
-- Visual novel style main menu, pause menu, settings screen, and exit confirmation flow
-- Scripted story playback with typewriter text and voice-volume/text-speed settings
-- Mouse and keyboard driven menu navigation
-- Manual save slots plus autosave support for story progress, chapter position, and player settings
-- In-game load menu for resuming saves and deleting manual save files from the UI
-- Hardware-accelerated rendering
-- Separate executable targets for the main VN app, the default RmlUi battle test, the legacy SDL battle test, and the scripted demo
-- Modular folder layout for shared menu code, settings UI, and gameplay systems
+- Front-end shell for main menu, story, pause, load, and settings flows
+- Scripted story playback with typewriter text plus voice-volume and text-speed settings
+- Mouse and keyboard driven navigation across both the modern front-end UI and legacy SDL flows
+- Manual save slots plus autosave support for story progress and player settings
+- Mixed rendering stack: RmlUi on SDL2/OpenGL GL3 for the front-end shell, with some gameplay and legacy screens still using SDL2 renderer graphics
+- Separate executable targets for the main app, the default RmlUi battle test, the legacy SDL battle test, and the scripted demo wrapper
+- Modular folder layout that keeps platform glue, UI shell code, runtime systems, and content data separate
 
 ## Project Structure / Architecture
 
-The codebase is split by responsibility so UI shell code, gameplay systems, and data assets can evolve separately:
+The codebase is split by responsibility so platform glue, UI shell code, runtime systems, and content can evolve separately without exposing all game-specific details in one place.
 
-- `src/` contains the runtime code, with top-level entry points and feature folders for menus, settings, saves, VN flow, battle logic, rendering, and battle presentations
-- `assets/` stores JSON-driven content plus art, sprites, UI files, backgrounds, voice clips, and battle audio
-- `docs/` holds design notes and architecture references for larger systems such as battle flow and state management
+High-level layout:
+
+- `src/` contains the application entry points, rendering integration, front-end UI controllers, gameplay runtime, and persistence code
+- `assets/` stores data-driven content, UI markup/styles, art, audio, and other runtime resources
+- `docs/` holds internal design notes and architecture references
 - `build/` is the generated output directory created by CMake
 
-Inside `src/`, the main layers are:
+### Rendering model
 
-- `GameMenu/` for shell navigation such as the main menu, pause flow, load menu, and confirmation overlays
-- `Settings/` for the standalone settings screen and related state
-- `game/vn/` for visual novel script parsing and runtime presentation
-- `game/save/` for save-file serialization, autosave/manual save handling, and save slot discovery
-- `game/core/` for combat rules, turn order, battle loading, and shared gameplay state
-- `game/render/` for battle scene rendering, HUD drawing, camera staging, and combat feedback
-- `game/presentation/` for interactive ability sequences and special battle presentation logic
-- `game/demo/` plus `demo_battle_session.*` for scripted tutorial/demo battle flow
-- `game/app_battle_session.*` and the top-level `*_main.cpp` files for wiring the reusable systems into executable entry points
+The project currently uses a mixed UI/rendering stack:
 
-```
-├── CMakeLists.txt         - Cross-platform build configuration and executable target setup
+- The modern front-end shell uses **RmlUi** rendered through **SDL2 + OpenGL GL3**
+- That integration lives in `src/graphics/`, where the front-end session manages document stacks and `rmlui_sdl_gl_renderer.*` bridges RmlUi to the SDL/OpenGL window
+- Some gameplay paths and older screens still render through the **SDL2 renderer** directly
+- In practice, the app switches between the RmlUi/OpenGL front-end path and SDL-rendered gameplay/legacy paths depending on screen state
+
+### Source layout
+
+- `src/main.cpp` wires together the main app flow, including front-end UI, story progression, save/load transitions, and battle handoff
+- `src/window.*` wraps SDL window creation plus renderer/OpenGL mode switching
+- `src/graphics/` contains the RmlUi front-end layer:
+  - document/controller interfaces
+  - front-end screen controllers for menu, story, pause, load, and settings
+  - the front-end session stack manager
+  - the SDL2/OpenGL GL3 render bridge used by RmlUi
+- `src/GameMenu/` holds SDL-rendered menu and overlay flows still used by legacy or non-Rml paths
+- `src/Settings/` keeps the older standalone settings controller used by SDL-rendered flows
+- `src/platform/` contains platform-facing helpers such as asset-path resolution and mixed-font text fallback rules
+- `src/game/` contains the runtime systems:
+  - `vn/` for script parsing and visual novel presentation state
+  - `save/` for save-file serialization and slot discovery
+  - `core/` for battle rules, flow, loading, and shared combat state
+  - `render/` for battle scene rendering, HUD, camera, feedback, and asset-loading helpers
+  - `presentation/` for specialized battle presentation sequences and supporting runtime logic
+  - `demo/` plus shared session files for scripted demo/tutorial flows
+  - `audio/` for lightweight playback helpers
+  - `ui/` for battle-session UI state and document binding helpers
+- Top-level battle/demo entry files such as `battle_main.cpp`, `rmlui_battle_main.cpp`, `rmlui_battle_smoke.cpp`, and `demo.cpp` package the shared systems into different executables
+
+### Public-facing file map
+
+This is an intentionally broad map of the repository, meant to show ownership and integration points without documenting every game-specific implementation detail.
+
+```text
+├── CMakeLists.txt                - Cross-platform build configuration and executable target setup
 ├── src/
-│   ├── main.cpp                   - Main application loop for menu, story, save/load, and battle transitions
-│   ├── demo.cpp                   - Standalone wrapper around the shared scripted battle demo
-│   ├── battle_main.cpp            - Legacy SDL battle test entry point
-│   ├── rmlui_battle_main.cpp      - Default RmlUi battle entry point
-│   ├── rmlui_battle_smoke.cpp     - Lightweight RmlUi smoke-test entry point
-│   ├── window.cpp                 - SDL window/renderer wrapper implementation
-│   ├── window.h                   - SDL window/renderer wrapper interface
-│   ├── GameMenu/
-│   │   ├── main_menu.cpp          - Main menu rendering and input handling
-│   │   ├── load_menu.cpp          - Save-slot browser, load flow, and delete confirmation UI
-│   │   ├── pause_menu.cpp         - Shared pause menu rendering and input for story and battle
-│   │   ├── exit_to_main_menu.cpp  - Exit/overwrite confirmation overlays and shared prompt logic
-│   │   └── menu_shared.h          - Shared app state, screen enums, and UI helper declarations
-│   ├── Settings/
-│   │   ├── settings.cpp           - Settings screen controller, rendering, and input
-│   │   └── settings.h             - Settings screen controller interface
-│   ├── platform/
-│   │   └── path_resolution.h      - Cross-platform asset path resolution helpers
+│   ├── main.cpp                  - Main application loop and screen-to-screen coordination
+│   ├── demo.cpp                  - Standalone wrapper for the shared demo flow
+│   ├── battle_main.cpp           - Legacy SDL battle test entry point
+│   ├── rmlui_battle_main.cpp     - Default RmlUi battle entry point
+│   ├── rmlui_battle_smoke.cpp    - Lightweight RmlUi smoke-test entry point
+│   ├── window.cpp
+│   ├── window.h                  - SDL window plus renderer/OpenGL mode management
+│   ├── GameMenu/                 - SDL-rendered menu, pause, load, and confirmation flows
+│   ├── Settings/                 - Legacy settings controller and related UI plumbing
+│   ├── graphics/                 - RmlUi front-end controllers, session stack, and SDL2_GL3 integration
+│   ├── platform/                 - Asset path and text/font fallback helpers
 │   └── game/
-│       ├── app_battle_session.*   - Battle session used by the main app / RmlUi path
-│       ├── battle_session_core.*  - Shared battle runtime shell used by sessions
-│       ├── demo_battle_session.*  - Shared demo battle session used by the app and demo target
-│       ├── core/                  - Battle manager, loader, turn flow, abilities, and easing helpers
-│       ├── demo/                  - Scripted narrative/tutorial flow wrapped around combat
-│       ├── presentation/          - Ability presentations, minigames, splash art, and presentation registry
-│       ├── render/                - Battle renderer, HUD, camera, feedback, and asset loading
-│       ├── save/                  - Save data models, JSON serialization, slot listing, and file management
-│       ├── audio/                 - One-shot SFX and BGM playback helpers
-│       └── vn/                    - VN runtime state and script parsing/loading
+│       ├── app_battle_session.*  - App-facing battle session for the RmlUi/main-app path
+│       ├── battle_session_core.* - Shared battle runtime shell
+│       ├── demo_battle_session.* - Shared demo battle session used by multiple entry points
+│       ├── audio/                - Lightweight audio playback helpers
+│       ├── core/                 - Combat rules, flow control, loading, and shared state
+│       ├── demo/                 - Scripted demo/tutorial wrappers around combat
+│       ├── presentation/         - Battle presentation sequences and supporting runtime pieces
+│       ├── render/               - Battle rendering, HUD, camera, feedback, and asset helpers
+│       ├── save/                 - Save data models, serialization, and slot/file management
+│       ├── ui/                   - Battle-session UI state and document-binding helpers
+│       └── vn/                   - Story script loading and VN presentation runtime
 ├── assets/
-│   ├── combat/                    - Character stats, abilities, battle definitions, sprites, icons, and battle audio
-│   ├── rmlui/                     - RmlUi HUD markup, styles, fonts, and icons
-│   └── vn/                        - Chapter JSON, backgrounds, portraits/icons, UI images, and voice lines
-├── docs/                          - Design notes, migration docs, and deeper architecture writeups
-└── build/                         - Build output directory (generated)
+│   ├── combat/                   - Combat-facing data, sprites, icons, and audio resources
+│   ├── rmlui/                    - RmlUi markup, stylesheets, fonts, and shared UI assets
+│   │   └── front_ui/             - Front-end menu/story/pause/load/settings documents and shared styles
+│   └── vn/                       - Story JSON, backgrounds, portraits, UI art, and voice assets
+├── docs/                         - Internal design notes and architecture writeups
+└── build/                        - Build output directory (generated)
 ```
 
 ## What This Project Demonstrates

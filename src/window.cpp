@@ -114,6 +114,7 @@ bool Window::recreateWindow(bool enableOpenGLFlag) {
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+        SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     }
 
     Uint32 windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
@@ -233,13 +234,21 @@ bool Window::setFullscreen(bool enabled) {
 }
 
 void Window::refreshSize() {
-    if (renderer != nullptr) {
-        if (SDL_GetRendererOutputSize(renderer, &width, &height) == 0) {
-            return;
-        }
-    }
-
     if (window != nullptr) {
-        SDL_GetWindowSize(window, &width, &height);
+        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+        drawableWidth = windowWidth;
+        drawableHeight = windowHeight;
+
+        if (renderer != nullptr) {
+            if (SDL_GetRendererOutputSize(renderer, &drawableWidth, &drawableHeight) != 0) {
+                drawableWidth = windowWidth;
+                drawableHeight = windowHeight;
+            }
+        } else if (glContext != nullptr) {
+            SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
+        }
+
+        width = renderer != nullptr ? drawableWidth : windowWidth;
+        height = renderer != nullptr ? drawableHeight : windowHeight;
     }
 }
