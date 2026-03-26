@@ -5,6 +5,10 @@
 
 #include "front_ui_document.h"
 
+namespace vn {
+struct PresentationState;
+}
+
 namespace graphics::frontui {
 
 class StoryDocumentController final : public DocumentController {
@@ -22,6 +26,7 @@ public:
 private:
     void attachListeners();
     void syncPresentation();
+    void syncDialogueScroll(const vn::PresentationState& presentation);
     void requestAdvance();
 
     Rml::ElementDocument* document_ = nullptr;
@@ -30,6 +35,8 @@ private:
     std::string lastPortrait_;
     std::string lastSpeaker_;
     std::string lastText_;
+    std::size_t lastVisibleCharacters_ = 0;
+    std::size_t lastTotalVisibleCharacters_ = 0;
     bool pendingOpenPause_ = false;
 };
 

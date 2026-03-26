@@ -1,9 +1,11 @@
 #include "front_ui_story.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <functional>
 #include <utility>
 
+#include <RmlUi/Core/Context.h>
 #include <RmlUi/Core/Element.h>
 #include <RmlUi/Core/Event.h>
 
@@ -81,6 +83,8 @@ bool StoryDocumentController::bind(Rml::ElementDocument& document, const AppStat
     lastPortrait_.clear();
     lastSpeaker_.clear();
     lastText_.clear();
+    lastVisibleCharacters_ = 0;
+    lastTotalVisibleCharacters_ = 0;
     attachListeners();
     syncPresentation();
     return true;
@@ -192,10 +196,56 @@ void StoryDocumentController::syncPresentation() {
         }
         lastText_ = presentation.visibleTextRml;
     }
+
+    syncDialogueScroll(presentation);
 }
 
 void StoryDocumentController::requestAdvance() {
     vn::onSpacePressed();
+}
+
+void StoryDocumentController::syncDialogueScroll(const vn::PresentationState& presentation) {
+    if (document_ == nullptr) {
+        return;
+    }
+
+    Rml::Element* container = document_->GetElementById("story-dialogue-copy");
+    if (container == nullptr) {
+        return;
+    }
+
+    const bool startedNewLine =
+        presentation.visibleCharacters < lastVisibleCharacters_ ||
+        (presentation.visibleCharacters == 0 && lastVisibleCharacters_ != 0) ||
+        (presentation.totalVisibleCharacters != lastTotalVisibleCharacters_ && presentation.visibleCharacters <= 1);
+
+    if (startedNewLine) {
+        container->SetScrollTop(0.0f);
+    }
+
+    if (presentation.visibleCharacters != lastVisibleCharacters_) {
+        const float clientHeight = container->GetClientHeight();
+        const float scrollHeight = container->GetScrollHeight();
+        const float maxScrollTop = std::max(0.0f, scrollHeight - clientHeight);
+
+        if (maxScrollTop > 0.0f) {
+            const float currentScrollTop = container->GetScrollTop();
+            const float distanceFromBottom = maxScrollTop - currentScrollTop;
+            const float dpRatio =
+                (container->GetContext() != nullptr) ? container->GetContext()->GetDensityIndependentPixelRatio() : 1.0f;
+            constexpr float kSnapThresholdDp = 30.0f;
+            const float snapThreshold = kSnapThresholdDp * dpRatio;
+
+            // Only follow the typewriter when the reader is already near the bottom.
+            // If they scrolled up to reread, leave the viewport where they put it.
+            if (distanceFromBottom <= snapThreshold) {
+                container->SetScrollTop(maxScrollTop);
+            }
+        }
+    }
+
+    lastVisibleCharacters_ = presentation.visibleCharacters;
+    lastTotalVisibleCharacters_ = presentation.totalVisibleCharacters;
 }
 
 }  // namespace graphics::frontui
