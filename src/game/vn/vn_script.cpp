@@ -72,7 +72,10 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
             entry.iconFrameCount = entryJson.value("iconFrameCount", 1);
             entry.iconFps = entryJson.value("iconFps", 8.0f);
             entry.autoAdvanceOnVoiceEnd = entryJson.value("autoAdvanceOnVoiceEnd", false);
+            entry.battleKey = entryJson.value("battleKey", "");
             entry.battleId = entryJson.value("battleId", -1);
+            entry.battleWinScript = entryJson.value("battleWinScript", "");
+            entry.battleLoseScript = entryJson.value("battleLoseScript", "");
 
             // Chapter 0 data defaults requested by design:
             // - Miku/Cupcakke use combat icons

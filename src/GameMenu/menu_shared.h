@@ -104,6 +104,9 @@ struct AppState {
     bool requestStoryManualSave = false;
     bool requestStoryOverwriteSave = false;
     std::string pendingBattleKey;
+    bool pendingBattleLaunchedFromStory = false;
+    std::string pendingBattleWinScript;
+    std::string pendingBattleLoseScript;
     std::string pendingLoadPath;
     std::string pendingOverwriteSavePath;
     std::string pendingDeletePath;
@@ -156,6 +159,7 @@ bool mapWindowPointToReference(float windowX, float windowY, int windowWidth, in
 void beginStory(AppState& state);
 void beginBattleDemo(AppState& state);
 void beginBattle(AppState& state, int battleId);  // dispatches to the right battle by ID
+void beginBattle(AppState& state, const std::string& battleKey);
 
 void renderMainMenu(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
                     int windowWidth, int windowHeight);

@@ -373,7 +373,9 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "battleId": 99
+      "battleKey": "lyoo_plot_twist",
+      "battleWinScript": "",
+      "battleLoseScript": ""
     }
   ]
 }

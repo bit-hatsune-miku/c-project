@@ -1355,6 +1355,28 @@ public:
         return !initialized_ || core_.isFinished();
     }
 
+    BattleOutcome outcome() const {
+        if (!initialized_) {
+            return BattleOutcome::None;
+        }
+
+        const BattleManager& manager = core_.getBattleManager();
+        if (manager.getBossCurrentHp() <= 0) {
+            return BattleOutcome::Victory;
+        }
+
+        const BattleState& state = manager.getBattleState();
+        bool anyPartyMemberAlive = false;
+        for (size_t i = 0; i < state.party.size(); ++i) {
+            if (manager.isCharacterAlive(static_cast<int>(i))) {
+                anyPartyMemberAlive = true;
+                break;
+            }
+        }
+
+        return anyPartyMemberAlive ? BattleOutcome::None : BattleOutcome::Defeat;
+    }
+
 private:
     void syncHpSnapshots(BattleManager& manager) {
         lastBossHp_ = manager.getBossCurrentHp();
@@ -1735,6 +1757,10 @@ void Session::render(SDL_Renderer* renderer, int screenWidth, int screenHeight) 
 
 bool Session::isFinished() const {
     return impl_->isFinished();
+}
+
+BattleOutcome Session::outcome() const {
+    return impl_->outcome();
 }
 
 } // namespace battle::demo
