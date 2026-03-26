@@ -149,6 +149,18 @@ set(RMLUI_APP_BATTLE_SOURCES
     src/game/app_battle_session.h
 )
 
+set(FRONT_UI_SOURCES
+    src/graphics/rmlui_sdl_gl_renderer.cpp
+    src/graphics/rmlui_sdl_gl_renderer.h
+    src/graphics/front_ui_document.h
+    src/graphics/front_ui_main_menu.cpp
+    src/graphics/front_ui_main_menu.h
+    src/graphics/front_ui_settings.cpp
+    src/graphics/front_ui_settings.h
+    src/graphics/front_ui_session.cpp
+    src/graphics/front_ui_session.h
+)
+
 set(HEADERS
     src/GameMenu/menu_shared.h
     src/Settings/settings.h
@@ -312,6 +324,7 @@ if (ENABLE_RMLUI)
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
     )
     target_sources(OurUndergroundBITIdol PRIVATE
+        ${FRONT_UI_SOURCES}
         ${RMLUI_APP_BATTLE_SOURCES}
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
@@ -465,7 +478,7 @@ target_link_libraries(demo_wechatalipay PRIVATE ${SDL2_LIBRARIES} nlohmann_json:
 target_link_libraries(demo_ari PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 target_link_libraries(demo_luotianyi PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
 if (ENABLE_RMLUI)
-    target_compile_definitions(OurUndergroundBITIdol PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_compile_definitions(OurUndergroundBITIdol PRIVATE RMLUI_SDL_VERSION_MAJOR=2 APP_ENABLE_RMLUI=1)
     target_link_libraries(OurUndergroundBITIdol PRIVATE OpenGL::GL RmlUi::RmlUi)
     target_compile_definitions(finale PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
     target_link_libraries(finale PRIVATE OpenGL::GL RmlUi::RmlUi)

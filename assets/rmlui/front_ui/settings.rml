@@ -1,0 +1,73 @@
+<rml>
+<head>
+    <title>Settings</title>
+    <link type="text/rcss" href="front_ui_shared.rcss"/>
+</head>
+<body>
+    <img id="bg-art" src="../../vn/backgrounds/General_Art/mainmenu art.png"/>
+    <div id="bg-dim"></div>
+    <div id="bg-top-glow"></div>
+    <div id="bg-grid-vertical"></div>
+    <div id="bg-grid-horizontal"></div>
+    <div id="hero-frame"></div>
+    <div id="hero-reticle"></div>
+
+    <div id="settings-shell">
+        <div id="settings-title-shell">
+            <div id="settings-kicker">SYSTEM CONFIG / FRONTEND NODE</div>
+            <div id="settings-title">SETTINGS</div>
+            <div id="settings-subtitle">Tune the VN shell before launch. Display mode, voice level, and text pacing stay readable from one clean deck.</div>
+        </div>
+
+        <div id="settings-focus-card" class="front-shell-panel">
+            <div id="settings-focus-code"></div>
+            <div id="settings-focus-copy-group">
+                <div id="settings-focus-title"></div>
+                <div id="settings-focus-copy"></div>
+            </div>
+        </div>
+
+        <div id="settings-section-tag">CORE CONTROLS</div>
+        <div id="settings-system-chip">SYS: LINKED</div>
+
+        <div id="settings-rows">
+            <button id="settings-row-display" class="settings-row selected">
+                <div id="settings-code-display" class="settings-row-code"></div>
+                <div id="settings-label-display" class="settings-row-label"></div>
+                <div id="settings-display-value" class="settings-row-value"></div>
+                <div class="settings-row-beam"></div>
+            </button>
+
+            <div id="settings-row-voice" class="settings-row settings-row-slider">
+                <div id="settings-code-voice" class="settings-row-code"></div>
+                <div id="settings-label-voice" class="settings-row-label"></div>
+                <div id="settings-voice-value" class="settings-row-value"></div>
+                <input class="settings-slider" id="settings-voice-slider" type="range" min="0" max="100" step="5" value="82" />
+                <div class="settings-row-beam"></div>
+            </div>
+
+            <div id="settings-row-text" class="settings-row settings-row-slider">
+                <div id="settings-code-text" class="settings-row-code"></div>
+                <div id="settings-label-text" class="settings-row-label"></div>
+                <div id="settings-text-value" class="settings-row-value"></div>
+                <input class="settings-slider" id="settings-text-slider" type="range" min="18" max="90" step="6" value="42" />
+                <div class="settings-row-beam"></div>
+            </div>
+
+            <button id="settings-row-back" class="settings-row settings-row-back">
+                <div id="settings-code-back" class="settings-row-code"></div>
+                <div id="settings-label-back" class="settings-row-label"></div>
+                <div class="settings-row-value settings-row-back-value">RETURN</div>
+                <div class="settings-row-beam"></div>
+            </button>
+        </div>
+
+        <div id="settings-side-panel" class="front-shell-panel">
+            <div id="settings-side-line"></div>
+            <div id="settings-side-label">CONTROL NOTES</div>
+            <div id="settings-side-title">Lean panel. Fast reads. No wasted chrome.</div>
+            <div id="settings-side-copy">Use left and right to adjust values, enter to toggle the display mode, and escape to return. The shell follows the main menu language so the route feels continuous instead of switching UI systems.</div>
+        </div>
+    </div>
+</body>
+</rml>

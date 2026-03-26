@@ -1,0 +1,22 @@
+flowchart TD
+    A["demo_ari<br/>battleKey = ari_boss_demo"] --> B["load BattleDefinition"]
+    B --> C["boss = ariBoss<br/>isLineupFixed = true<br/>lineup = ari, wechatalipay, miku, wechatalipay"]
+    C --> D["BattlePartySetupScreen.initialize()"]
+    D --> E["Fixed lineup -> skip setup -> auto-start"]
+    E --> F["startBattleWithParty(ari, wechatalipay, miku, wechatalipay)"]
+
+    F --> G["narrativeEnabled_ = false"]
+    G --> H["Shared core hooks installed"]
+    H --> H1["continuous automatic turn processing"]
+    H --> H2["presentation audio + hit/heal callbacks"]
+    H --> H3["post-render narrative overlay disabled"]
+
+    H3 --> I["BattleSessionCore.initialize(...)"]
+    I --> J["Combat begin animation"]
+    J --> K["Main combat runtime"]
+    K --> L["Ari boss and party presentations trigger via PresentationRegistry"]
+    L --> M["Resulting BattleActionEvent records drive voices and HUD feedback"]
+    M --> N["World renderer + HUD + feedback systems update every frame"]
+    N --> O{"Battle over?"}
+    O -->|No| K
+    O -->|Yes| P["Session finished"]
