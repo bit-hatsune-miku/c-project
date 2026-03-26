@@ -341,43 +341,52 @@ button {
     background-color: rgba(5, 12, 16, 186);
 }
 
-#settings-shell {
+#settings-shell,
+#pause-shell {
     position: absolute;
-    left: 5.5%;
-    right: 5.5%;
-    top: 7.5%;
-    bottom: 7.5%;
+    left: 20.5%;
+    right: 20.5%;
+    top: 8%;
+    bottom: 8%;
     background-color: rgba(4, 12, 14, 206);
     border: 1dp rgba(93, 255, 241, 96);
 }
 
-#settings-title-shell {
+#settings-title-shell,
+#pause-title-shell {
     position: absolute;
-    left: 26dp;
+    left: 50%;
     top: 24dp;
-    width: 618dp;
-    height: 114dp;
+    width: 560dp;
+    height: 104dp;
+    margin-left: -280dp;
     background-color: rgba(6, 18, 21, 196);
     border: 1dp rgba(93, 255, 241, 90);
 }
 
-#settings-kicker {
+#settings-kicker,
+#pause-kicker {
     position: absolute;
-    left: 22dp;
+    left: 0;
     top: 16dp;
+    width: 100%;
     font-size: 12dp;
     letter-spacing: 2.8dp;
     color: rgba(161, 255, 247, 220);
+    text-align: center;
 }
 
-#settings-title {
+#settings-title,
+#pause-title {
     position: absolute;
-    left: 22dp;
-    top: 40dp;
+    left: 0;
+    top: 38dp;
+    width: 100%;
     font-size: 38dp;
     font-weight: bold;
     letter-spacing: 4dp;
     color: #f3fffd;
+    text-align: center;
 }
 
 #settings-subtitle {
@@ -392,10 +401,11 @@ button {
 
 #settings-focus-card {
     position: absolute;
-    left: 26dp;
-    top: 160dp;
-    width: 618dp;
+    left: 50%;
+    top: 148dp;
+    width: 560dp;
     height: 86dp;
+    margin-left: -280dp;
 }
 
 #settings-focus-code {
@@ -412,7 +422,7 @@ button {
     position: absolute;
     left: 86dp;
     top: 16dp;
-    width: 504dp;
+    width: 430dp;
     height: 54dp;
 }
 
@@ -430,7 +440,7 @@ button {
     position: absolute;
     left: 0;
     top: 26dp;
-    width: 500dp;
+    width: 426dp;
     font-size: 11dp;
     letter-spacing: 0.4dp;
     color: rgba(212, 255, 250, 170);
@@ -438,8 +448,9 @@ button {
 
 #settings-section-tag {
     position: absolute;
-    left: 26dp;
-    top: 268dp;
+    left: 50%;
+    top: 250dp;
+    margin-left: -280dp;
     font-size: 15dp;
     font-weight: bold;
     letter-spacing: 3dp;
@@ -448,25 +459,29 @@ button {
 
 #settings-system-chip {
     position: absolute;
-    left: 534dp;
-    top: 270dp;
+    left: 50%;
+    top: 252dp;
+    width: 180dp;
+    margin-left: 100dp;
     font-size: 11dp;
     letter-spacing: 2.2dp;
     color: rgba(206, 255, 251, 166);
+    text-align: right;
 }
 
 #settings-rows {
     position: absolute;
-    left: 26dp;
-    top: 304dp;
-    width: 618dp;
+    left: 50%;
+    top: 288dp;
+    width: 560dp;
     height: 258dp;
+    margin-left: -280dp;
 }
 
 .settings-row {
     position: relative;
     display: block;
-    width: 618dp;
+    width: 560dp;
     height: 52dp;
     margin-bottom: 14dp;
     background-color: rgba(8, 22, 24, 128);
@@ -592,53 +607,6 @@ input.settings-slider sliderarrowinc {
     top: 15dp;
 }
 
-#settings-side-panel {
-    position: absolute;
-    right: 26dp;
-    top: 160dp;
-    width: 412dp;
-    height: 402dp;
-}
-
-#settings-side-line {
-    position: absolute;
-    left: 22dp;
-    top: 22dp;
-    width: 86dp;
-    height: 2dp;
-    background-color: rgba(114, 255, 245, 196);
-}
-
-#settings-side-label {
-    position: absolute;
-    left: 22dp;
-    top: 38dp;
-    font-size: 11dp;
-    letter-spacing: 3dp;
-    color: rgba(154, 255, 247, 220);
-}
-
-#settings-side-title {
-    position: absolute;
-    left: 22dp;
-    top: 68dp;
-    width: 332dp;
-    font-size: 24dp;
-    font-weight: bold;
-    letter-spacing: 1.6dp;
-    color: #f3fffd;
-}
-
-#settings-side-copy {
-    position: absolute;
-    left: 22dp;
-    top: 146dp;
-    width: 350dp;
-    font-size: 12dp;
-    letter-spacing: 0.5dp;
-    color: rgba(216, 255, 251, 164);
-}
-
 #story-advance-target {
     position: absolute;
     left: 0;
@@ -747,7 +715,6 @@ input.settings-slider sliderarrowinc {
     height: 134dp;
 }
 
-#pause-shell,
 #load-shell {
     position: absolute;
     left: 14.85%;
@@ -758,7 +725,6 @@ input.settings-slider sliderarrowinc {
     border: 1dp rgba(93, 255, 241, 104);
 }
 
-#pause-title-shell,
 #load-title-shell {
     position: absolute;
     left: 26dp;
@@ -769,7 +735,6 @@ input.settings-slider sliderarrowinc {
     border: 1dp rgba(93, 255, 241, 90);
 }
 
-#pause-kicker,
 #load-kicker {
     position: absolute;
     left: 22dp;
@@ -779,7 +744,6 @@ input.settings-slider sliderarrowinc {
     color: rgba(161, 255, 247, 220);
 }
 
-#pause-title,
 #load-title {
     position: absolute;
     left: 22dp;
@@ -803,10 +767,11 @@ input.settings-slider sliderarrowinc {
 
 #pause-buttons {
     position: absolute;
-    left: 150dp;
+    left: 50%;
     top: 184dp;
-    width: 600dp;
+    width: 560dp;
     height: 318dp;
+    margin-left: -280dp;
 }
 
 .pause-button,
@@ -836,10 +801,11 @@ input.settings-slider sliderarrowinc {
 
 #pause-notice {
     position: absolute;
-    left: 150dp;
-    bottom: 58dp;
-    width: 600dp;
+    left: 50%;
+    bottom: 52dp;
+    width: 560dp;
     height: 24dp;
+    margin-left: -280dp;
     font-size: 12dp;
     letter-spacing: 0.4dp;
     color: #ffd58a;
