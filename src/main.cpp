@@ -641,13 +641,14 @@ std::string storyScriptPathFromReference(const std::string& scriptRef) {
     return resolvePath("assets/vn/json/" + normalized);
 }
 
+void applyLiveSettings(const GameSettings& settings);
+
 void applyCurrentEntry(const StorySession& story, const GameSettings& settings) {
     if (story.script.entries.empty() || story.entryIndex >= story.script.entries.size()) {
         return;
     }
 
-    vn::setVoiceVolume(settings.voiceVolume);
-    vn::setTypewriterSpeed(settings.textSpeed);
+    applyLiveSettings(settings);
 
     const auto& entry = story.script.entries[story.entryIndex];
     const std::string iconPath = entry.icon.empty() ? std::string{} : platform::path::resolvePath(entry.icon);
@@ -669,6 +670,26 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
         entry.iconFps,
         backgroundPath
     );
+}
+
+bool liveSettingsChanged(const GameSettings& lhs, const GameSettings& rhs) {
+    return std::fabs(lhs.voiceVolume - rhs.voiceVolume) >= 0.0001f ||
+           std::fabs(lhs.textSpeed - rhs.textSpeed) >= 0.0001f;
+}
+
+void applyLiveSettings(const GameSettings& settings) {
+    vn::setVoiceVolume(settings.voiceVolume);
+    vn::setTypewriterSpeed(settings.textSpeed);
+}
+
+void syncLiveSettingsIfNeeded(const GameSettings& settings, GameSettings& appliedSettings) {
+    if (!liveSettingsChanged(settings, appliedSettings)) {
+        return;
+    }
+
+    applyLiveSettings(settings);
+    appliedSettings.voiceVolume = settings.voiceVolume;
+    appliedSettings.textSpeed = settings.textSpeed;
 }
 
 bool loadStoryScript(StorySession& story, const std::string& scriptRef) {
@@ -756,8 +777,7 @@ bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
     state.story.entryIndex = static_cast<std::size_t>(std::clamp(saveGame.entryIndex, 0, static_cast<int>(state.story.script.entries.size() - 1)));
 
     vn::reset();
-    vn::setVoiceVolume(state.settings.voiceVolume);
-    vn::setTypewriterSpeed(state.settings.textSpeed);
+    applyLiveSettings(state.settings);
 
     state.pauseSelection = PauseAction::Continue;
     state.pauseContext = PauseContext::Story;
@@ -795,8 +815,7 @@ void beginStory(AppState& state) {
     state.pendingBattleWinScript.clear();
     state.pendingBattleLoseScript.clear();
     vn::reset();
-    vn::setVoiceVolume(state.settings.voiceVolume);
-    vn::setTypewriterSpeed(state.settings.textSpeed);
+    applyLiveSettings(state.settings);
     applyCurrentEntry(state.story, state.settings);
     (void)save::autosave(buildStorySaveGame(state));
 }
@@ -952,8 +971,7 @@ bool restoreRendererUi(Window& window, MenuResources& menuResources, const GameS
     if (!vn::initialize(window.getRenderer(), window.getWidth(), window.getHeight())) {
         return false;
     }
-    vn::setVoiceVolume(settings.voiceVolume);
-    vn::setTypewriterSpeed(settings.textSpeed);
+    applyLiveSettings(settings);
     loadMenuResources(menuResources, window.getRenderer());
     return true;
 }
@@ -1094,14 +1112,14 @@ int main(int argc, char** argv) {
         return 1;
     }
     rendererUiReady = true;
-    vn::setVoiceVolume(state.settings.voiceVolume);
-    vn::setTypewriterSpeed(state.settings.textSpeed);
+    applyLiveSettings(state.settings);
 #endif
 
 #ifdef VN_AUTO_START_STORY
     beginStory(state);
 #endif
 
+    GameSettings appliedLiveSettings = state.settings;
     Uint64 lastCounter = SDL_GetPerformanceCounter();
 
     while (window.isOpen()) {
@@ -1407,8 +1425,7 @@ int main(int argc, char** argv) {
                                 state.noticeTimer = 2.8f;
                             } else {
                                 vn::reset();
-                                vn::setVoiceVolume(state.settings.voiceVolume);
-                                vn::setTypewriterSpeed(state.settings.textSpeed);
+                                applyLiveSettings(state.settings);
                                 state.pauseSelection = PauseAction::Continue;
                                 state.pauseContext = PauseContext::Story;
                                 state.confirmSelection = ConfirmAction::Cancel;
@@ -1474,6 +1491,8 @@ int main(int argc, char** argv) {
                 }
             }
         }
+
+        syncLiveSettingsIfNeeded(state.settings, appliedLiveSettings);
 
 #ifdef APP_ENABLE_RMLUI
         if (shouldUseFrontUiScreen(state)) {
