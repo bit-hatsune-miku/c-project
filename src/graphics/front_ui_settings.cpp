@@ -230,6 +230,7 @@ void SettingsDocumentController::cancel() {
 
 void SettingsDocumentController::applyState(AppState& state) {
     state.settingsSelection = selection_;
+    state.settings.fullscreen = workingSettings_.fullscreen;
     state.settings.voiceVolume = workingSettings_.voiceVolume;
     state.settings.textSpeed = workingSettings_.textSpeed;
 }

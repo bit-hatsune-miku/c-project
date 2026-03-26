@@ -16,6 +16,7 @@ namespace graphics::frontui {
 
 enum class ScreenId {
     MainMenu,
+    Story,
     Settings,
     Pause,
     Load

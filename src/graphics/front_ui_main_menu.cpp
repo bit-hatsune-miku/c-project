@@ -6,7 +6,10 @@
 #include <RmlUi/Core/Element.h>
 #include <RmlUi/Core/Event.h>
 
+#include "front_ui_load.h"
+#include "front_ui_pause.h"
 #include "front_ui_settings.h"
+#include "front_ui_story.h"
 
 namespace graphics::frontui {
 namespace {
@@ -191,11 +194,14 @@ std::unique_ptr<DocumentController> createControllerForScreen(ScreenId screen) {
     switch (screen) {
         case ScreenId::MainMenu:
             return std::make_unique<MainMenuDocumentController>();
+        case ScreenId::Story:
+            return std::make_unique<StoryDocumentController>();
         case ScreenId::Settings:
             return std::make_unique<SettingsDocumentController>();
         case ScreenId::Pause:
+            return std::make_unique<PauseDocumentController>();
         case ScreenId::Load:
-            return nullptr;
+            return std::make_unique<LoadDocumentController>();
     }
 
     return nullptr;
@@ -205,18 +211,30 @@ std::string resolveDocumentPath(ScreenId screen) {
     switch (screen) {
         case ScreenId::MainMenu:
             return "assets/rmlui/front_ui/main_menu.rml";
+        case ScreenId::Story:
+            return "assets/rmlui/front_ui/story.rml";
         case ScreenId::Settings:
             return "assets/rmlui/front_ui/settings.rml";
         case ScreenId::Pause:
+            return "assets/rmlui/front_ui/pause.rml";
         case ScreenId::Load:
-            return std::string();
+            return "assets/rmlui/front_ui/load.rml";
     }
 
     return std::string();
 }
 
 bool isScreenImplemented(ScreenId screen) {
-    return screen == ScreenId::MainMenu || screen == ScreenId::Settings;
+    switch (screen) {
+        case ScreenId::MainMenu:
+        case ScreenId::Story:
+        case ScreenId::Settings:
+        case ScreenId::Pause:
+        case ScreenId::Load:
+            return true;
+    }
+
+    return false;
 }
 
 }  // namespace graphics::frontui

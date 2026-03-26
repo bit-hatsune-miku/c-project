@@ -1001,9 +1001,29 @@ bool restoreRendererUi(Window& window, MenuResources& menuResources, const GameS
 
 #ifdef APP_ENABLE_RMLUI
 bool shouldUseFrontUiScreen(const AppState& state) {
-    return state.screen == ScreenState::MainMenu ||
-           (state.screen == ScreenState::Settings &&
-            state.settingsReturnScreen == ScreenState::MainMenu);
+    if (state.screen == ScreenState::MainMenu || state.screen == ScreenState::Playing) {
+        return true;
+    }
+
+    if ((state.screen == ScreenState::PauseMenu ||
+         state.screen == ScreenState::PauseConfirmExit ||
+         state.screen == ScreenState::PauseConfirmOverwriteSave) &&
+        state.pauseContext == PauseContext::Story) {
+        return true;
+    }
+
+    if ((state.screen == ScreenState::LoadMenu ||
+         state.screen == ScreenState::LoadConfirmDelete) &&
+        (state.loadReturnScreen == ScreenState::MainMenu ||
+         (state.loadReturnScreen == ScreenState::PauseMenu &&
+          state.pauseContext == PauseContext::Story))) {
+        return true;
+    }
+
+    return state.screen == ScreenState::Settings &&
+           (state.settingsReturnScreen == ScreenState::MainMenu ||
+            (state.settingsReturnScreen == ScreenState::PauseMenu &&
+             state.pauseContext == PauseContext::Story));
 }
 
 bool restoreFrontMenuUi(Window& window,
@@ -1017,7 +1037,6 @@ bool restoreFrontMenuUi(Window& window,
 
     if (rendererUiReady) {
         destroyMenuResources(menuResources);
-        vn::shutdown();
         rendererUiReady = false;
     }
 
@@ -1025,6 +1044,9 @@ bool restoreFrontMenuUi(Window& window,
         return false;
     }
     SDL_SetWindowResizable(window.getNativeWindow(), SDL_FALSE);
+    if (!vn::initialize(nullptr, window.getWidth(), window.getHeight())) {
+        return false;
+    }
     return frontUi.initialize(window, state);
 }
 
@@ -1067,8 +1089,10 @@ bool applyFrontMenuAction(AppState& state,
         return restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state);
     }
 
-    if (!restoreNonMainMenuUi(window, frontUi, menuResources, rendererUiReady, state.settings)) {
-        return false;
+    if (action == MainMenuAction::Battle) {
+        if (!restoreNonMainMenuUi(window, frontUi, menuResources, rendererUiReady, state.settings)) {
+            return false;
+        }
     }
 
     applyMainMenuAction(state, window, action);
@@ -1159,7 +1183,19 @@ int main(int argc, char** argv) {
 
                 case ScreenState::LoadMenu:
                 case ScreenState::LoadConfirmDelete:
+#ifdef APP_ENABLE_RMLUI
+                    if (shouldUseFrontUiScreen(state)) {
+                        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11) {
+                            SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+                        } else {
+                            frontUi.handleEvent(event, state);
+                        }
+                    } else {
+                        handleLoadMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+                    }
+#else
                     handleLoadMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+#endif
                     break;
 
                 case ScreenState::BattleDemo:
@@ -1169,6 +1205,23 @@ int main(int argc, char** argv) {
                     break;
 
                 case ScreenState::Playing:
+#ifdef APP_ENABLE_RMLUI
+                    if (shouldUseFrontUiScreen(state)) {
+                        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11) {
+                            SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+                        } else {
+                            frontUi.handleEvent(event, state);
+                        }
+                    } else if (event.type == SDL_KEYDOWN) {
+                        if (event.key.keysym.sym == SDLK_ESCAPE) {
+                            openPauseMenu(state);
+                        } else if (event.key.keysym.sym == SDLK_F11) {
+                            SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+                        } else if (event.key.keysym.sym == SDLK_SPACE) {
+                            vn::onSpacePressed();
+                        }
+                    }
+#else
                     if (event.type == SDL_KEYDOWN) {
                         if (event.key.keysym.sym == SDLK_ESCAPE) {
                             openPauseMenu(state);
@@ -1178,15 +1231,40 @@ int main(int argc, char** argv) {
                             vn::onSpacePressed();
                         }
                     }
+#endif
                     break;
 
                 case ScreenState::PauseMenu:
+#ifdef APP_ENABLE_RMLUI
+                    if (shouldUseFrontUiScreen(state)) {
+                        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11) {
+                            SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+                        } else {
+                            frontUi.handleEvent(event, state);
+                        }
+                    } else {
+                        handlePauseMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+                    }
+#else
                     handlePauseMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+#endif
                     break;
 
                 case ScreenState::PauseConfirmExit:
                 case ScreenState::PauseConfirmOverwriteSave:
+#ifdef APP_ENABLE_RMLUI
+                    if (shouldUseFrontUiScreen(state)) {
+                        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11) {
+                            SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+                        } else {
+                            frontUi.handleEvent(event, state);
+                        }
+                    } else {
+                        handlePauseConfirmEvent(state, window, event, window.getWidth(), window.getHeight());
+                    }
+#else
                     handlePauseConfirmEvent(state, window, event, window.getWidth(), window.getHeight());
+#endif
                     break;
             }
         }
@@ -1454,16 +1532,6 @@ int main(int argc, char** argv) {
             window.clear(14, 18, 30, 255);
         }
 
-        const bool renderStoryBackdrop =
-            state.screen == ScreenState::Playing ||
-            ((state.screen == ScreenState::PauseMenu ||
-              state.screen == ScreenState::PauseConfirmExit ||
-              state.screen == ScreenState::PauseConfirmOverwriteSave) &&
-             state.pauseContext == PauseContext::Story) ||
-            (state.screen == ScreenState::Settings &&
-             state.settingsReturnScreen == ScreenState::PauseMenu &&
-             state.pauseContext == PauseContext::Story);
-
         const bool renderBattleBackdrop =
             battleSession != nullptr &&
             (((state.screen == ScreenState::PauseMenu ||
@@ -1474,16 +1542,12 @@ int main(int argc, char** argv) {
               state.settingsReturnScreen == ScreenState::PauseMenu &&
               state.pauseContext == PauseContext::Battle));
 
-        if (renderStoryBackdrop) {
-            vn::render();
-            if (state.screen == ScreenState::PauseMenu ||
-                state.screen == ScreenState::PauseConfirmExit ||
-                state.screen == ScreenState::PauseConfirmOverwriteSave) {
-                renderPauseScreen(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
-            } else if (state.screen == ScreenState::Settings && state.settingsReturnScreen == ScreenState::PauseMenu) {
-                settingsMenu.render(window.getRenderer(), menuResources, state,
-                                    window.getWidth(), window.getHeight(), true);
-            }
+        if (shouldUseFrontUiScreen(state)) {
+#ifdef APP_ENABLE_RMLUI
+            frontUi.render();
+#else
+            renderMainMenu(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
+#endif
         } else if (renderBattleBackdrop) {
             battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
             if (state.screen == ScreenState::PauseMenu ||
@@ -1530,8 +1594,6 @@ int main(int argc, char** argv) {
     frontUi.shutdown();
 #endif
     destroyMenuResources(menuResources);
-    if (rendererUiReady) {
-        vn::shutdown();
-    }
+    vn::shutdown();
     return 0;
 }
