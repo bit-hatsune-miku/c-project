@@ -21,6 +21,9 @@
 namespace graphics::frontui {
 namespace {
 
+constexpr int kReferenceWidth = 1280;
+constexpr int kReferenceHeight = 720;
+
 std::vector<ScreenId> stackForAppState(const AppState& state) {
     switch (state.screen) {
         case ScreenState::MainMenu:
@@ -118,13 +121,14 @@ bool Session::initialize(Window& window, const AppState& state) {
     }
 
     updateViewportFromWindow();
-    renderInterface_->SetViewport(windowWidth_, windowHeight_);
+    renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
     context_ = Rml::CreateContext("front-ui", Rml::Vector2i(windowWidth_, windowHeight_));
     if (context_ == nullptr) {
         std::cerr << "[FrontUi] Failed to create RmlUi context.\n";
         shutdown();
         return false;
     }
+    applyContextScale();
 
     if (!syncStackForState(state)) {
         std::cerr << "[FrontUi] Failed to show front-ui document.\n";
@@ -174,8 +178,9 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
         (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
          event.window.event == SDL_WINDOWEVENT_RESIZED)) {
         updateViewportFromWindow();
-        renderInterface_->SetViewport(windowWidth_, windowHeight_);
+        renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
         context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
+        applyContextScale();
     }
 
     SDL_Event mutableEvent = event;
@@ -255,7 +260,7 @@ void Session::render() {
     }
 
     SDL_GL_MakeCurrent(window_, glContext_);
-    glViewport(0, 0, windowWidth_, windowHeight_);
+    glViewport(0, 0, drawableWidth_, drawableHeight_);
     glClearColor(0.015f, 0.025f, 0.055f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
@@ -361,9 +366,22 @@ void Session::updateViewportFromWindow() {
         return;
     }
 
-    windowWidth_ = std::max(1, windowHost_->getWidth());
-    windowHeight_ = std::max(1, windowHost_->getHeight());
-    glViewport(0, 0, windowWidth_, windowHeight_);
+    windowWidth_ = std::max(1, windowHost_->getWindowWidth());
+    windowHeight_ = std::max(1, windowHost_->getWindowHeight());
+    drawableWidth_ = std::max(1, windowHost_->getDrawableWidth());
+    drawableHeight_ = std::max(1, windowHost_->getDrawableHeight());
+    glViewport(0, 0, drawableWidth_, drawableHeight_);
+}
+
+void Session::applyContextScale() {
+    if (context_ == nullptr) {
+        return;
+    }
+
+    const float widthScale = static_cast<float>(windowWidth_) / static_cast<float>(kReferenceWidth);
+    const float heightScale = static_cast<float>(windowHeight_) / static_cast<float>(kReferenceHeight);
+    const float scale = std::min(widthScale, heightScale);
+    context_->SetDensityIndependentPixelRatio(std::max(scale, 0.01f));
 }
 
 bool Session::loadFonts() const {

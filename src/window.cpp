@@ -234,13 +234,21 @@ bool Window::setFullscreen(bool enabled) {
 }
 
 void Window::refreshSize() {
-    if (renderer != nullptr) {
-        if (SDL_GetRendererOutputSize(renderer, &width, &height) == 0) {
-            return;
-        }
-    }
-
     if (window != nullptr) {
-        SDL_GetWindowSize(window, &width, &height);
+        SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+        drawableWidth = windowWidth;
+        drawableHeight = windowHeight;
+
+        if (renderer != nullptr) {
+            if (SDL_GetRendererOutputSize(renderer, &drawableWidth, &drawableHeight) != 0) {
+                drawableWidth = windowWidth;
+                drawableHeight = windowHeight;
+            }
+        } else if (glContext != nullptr) {
+            SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
+        }
+
+        width = renderer != nullptr ? drawableWidth : windowWidth;
+        height = renderer != nullptr ? drawableHeight : windowHeight;
     }
 }

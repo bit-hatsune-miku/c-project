@@ -49,6 +49,7 @@ private:
     DocumentController* topController() const;
     void syncState(AppState& state);
     void updateViewportFromWindow();
+    void applyContextScale();
     bool loadFonts() const;
 
     Window* windowHost_ = nullptr;
@@ -59,6 +60,8 @@ private:
     bool rmlGlInitialized_ = false;
     int windowWidth_ = 1280;
     int windowHeight_ = 720;
+    int drawableWidth_ = 1280;
+    int drawableHeight_ = 720;
     SystemInterface_SDL systemInterface_;
     std::unique_ptr<RmlUiSdlGlRenderInterface> renderInterface_;
     Rml::Context* context_ = nullptr;
