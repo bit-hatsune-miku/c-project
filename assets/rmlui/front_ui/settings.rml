@@ -4,19 +4,13 @@
     <link type="text/rcss" href="front_ui_shared.rcss"/>
 </head>
 <body>
-    <img id="bg-art" src="../../vn/backgrounds/General_Art/mainmenu art.png"/>
-    <div id="bg-dim"></div>
-    <div id="bg-top-glow"></div>
-    <div id="bg-grid-vertical"></div>
-    <div id="bg-grid-horizontal"></div>
-    <div id="hero-frame"></div>
-    <div id="hero-reticle"></div>
+    <div id="settings-overlay"></div>
 
     <div id="settings-shell">
         <div id="settings-title-shell">
             <div id="settings-kicker">SYSTEM CONFIG / FRONTEND NODE</div>
             <div id="settings-title">SETTINGS</div>
-            <div id="settings-subtitle">Tune the VN shell before launch. Display mode, voice level, and text pacing stay readable from one clean deck.</div>
+            <div id="settings-subtitle">Display mode, voice level, and text pacing stay in one consistent shell whether you opened settings from the main menu or from pause.</div>
         </div>
 
         <div id="settings-focus-card" class="front-shell-panel">
@@ -42,7 +36,7 @@
                 <div id="settings-code-voice" class="settings-row-code"></div>
                 <div id="settings-label-voice" class="settings-row-label"></div>
                 <div id="settings-voice-value" class="settings-row-value"></div>
-                <input class="settings-slider" id="settings-voice-slider" type="range" min="0" max="100" step="5" value="82" />
+                <input class="settings-slider" id="settings-voice-slider" type="range" min="0" max="100" step="5" value="0" />
                 <div class="settings-row-beam"></div>
             </div>
 
@@ -50,7 +44,7 @@
                 <div id="settings-code-text" class="settings-row-code"></div>
                 <div id="settings-label-text" class="settings-row-label"></div>
                 <div id="settings-text-value" class="settings-row-value"></div>
-                <input class="settings-slider" id="settings-text-slider" type="range" min="18" max="90" step="6" value="42" />
+                <input class="settings-slider" id="settings-text-slider" type="range" min="18" max="90" step="6" value="18" />
                 <div class="settings-row-beam"></div>
             </div>
 
@@ -65,8 +59,8 @@
         <div id="settings-side-panel" class="front-shell-panel">
             <div id="settings-side-line"></div>
             <div id="settings-side-label">CONTROL NOTES</div>
-            <div id="settings-side-title">Lean panel. Fast reads. No wasted chrome.</div>
-            <div id="settings-side-copy">Use left and right to adjust values, enter to toggle the display mode, and escape to return. The shell follows the main menu language so the route feels continuous instead of switching UI systems.</div>
+            <div id="settings-side-title">One settings document, two entry routes.</div>
+            <div id="settings-side-copy">The same Space Mono settings shell sits above either the main menu or the paused story stack. Left and right adjust values. Enter toggles display mode. Escape returns.</div>
         </div>
     </div>
 </body>

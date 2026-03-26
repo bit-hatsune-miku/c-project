@@ -24,11 +24,14 @@ int gWindowW = 1280;
 int gWindowH = 720;
 constexpr int kBaseWindowW = 1280;
 constexpr int kBaseWindowH = 720;
+bool gInitialized = false;
 
 std::string gSpeakerName;
 std::string gText;
 std::string gVoicePath;
 std::string gFontPath;
+std::string gIconPath;
+std::string gBackgroundPath;
 
 SDL_Texture* gIconTexture = nullptr;
 int gIconFrameCount = 1;
@@ -60,6 +63,7 @@ Uint8* gLoadedWavBuffer = nullptr;
 Uint32 gLoadedWavLength = 0;
 bool gVoicePlaying = false;
 bool gImageInitialized = false;
+bool gTtfInitialized = false;
 
 #ifdef VN_ENABLE_TTF
 TTF_Font* gFont = nullptr;
@@ -70,6 +74,14 @@ int gBaseFontSize = 28;
 
 int utf8CodepointLength(unsigned char c);
 
+std::string toLowerAsciiCopy(const std::string& s) {
+    std::string out = s;
+    for (char& ch : out) {
+        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+    }
+    return out;
+}
+
 SDL_Rect dialogueBoxRect() {
     const float scale = std::min(
         static_cast<float>(gWindowW) / static_cast<float>(kBaseWindowW),
@@ -79,6 +91,47 @@ SDL_Rect dialogueBoxRect() {
     const int boxH = static_cast<int>(std::lround(200.0f * scale));
     const int bottomMargin = static_cast<int>(std::lround(40.0f * scale));
     return SDL_Rect{marginX, gWindowH - bottomMargin - boxH, gWindowW - marginX * 2, boxH};
+}
+
+void destroyIconTexture() {
+    if (gIconTexture != nullptr) {
+        SDL_DestroyTexture(gIconTexture);
+        gIconTexture = nullptr;
+    }
+}
+
+void destroyBackgroundTexture() {
+    if (gBackgroundTexture != nullptr) {
+        SDL_DestroyTexture(gBackgroundTexture);
+        gBackgroundTexture = nullptr;
+    }
+}
+
+std::string escapeRmlText(const std::string& text) {
+    std::string escaped;
+    escaped.reserve(text.size());
+
+    for (char ch : text) {
+        switch (ch) {
+            case '&':
+                escaped += "&amp;";
+                break;
+            case '<':
+                escaped += "&lt;";
+                break;
+            case '>':
+                escaped += "&gt;";
+                break;
+            case '"':
+                escaped += "&quot;";
+                break;
+            default:
+                escaped.push_back(ch);
+                break;
+        }
+    }
+
+    return escaped;
 }
 
 void freeLoadedVoiceBuffer() {
@@ -204,14 +257,6 @@ int utf8CodepointLength(unsigned char c) {
     return platform::text::utf8CodepointLength(c);
 }
 
-std::string toLowerCopy(const std::string& s) {
-    std::string out = s;
-    for (char& ch : out) {
-        ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
-    }
-    return out;
-}
-
 bool parseHexColorTag(const std::string& tagLower, SDL_Color& outColor) {
     const std::string prefix = "color=#";
     if (tagLower.rfind(prefix, 0) != 0) {
@@ -246,7 +291,7 @@ size_t countVisibleCharsIgnoringTags(const std::string& text) {
         if (text[i] == '<') {
             const size_t close = text.find('>', i + 1);
             if (close != std::string::npos) {
-                const std::string tagLower = toLowerCopy(text.substr(i + 1, close - i - 1));
+                const std::string tagLower = toLowerAsciiCopy(text.substr(i + 1, close - i - 1));
                 if (tagLower == "b" || tagLower == "/b" ||
                     tagLower == "i" || tagLower == "/i" ||
                     tagLower == "/color" || tagLower == "br" || tagLower == "br/" ||
@@ -266,6 +311,98 @@ size_t countVisibleCharsIgnoringTags(const std::string& text) {
     }
 
     return count;
+}
+
+std::string buildVisibleRichTextRml(const std::string& text, size_t maxVisibleChars) {
+    std::string out;
+    std::vector<std::string> closingTags;
+    size_t visibleCount = 0;
+    size_t i = 0;
+
+    while (i < text.size() && visibleCount < maxVisibleChars) {
+        if (text[i] == '<') {
+            const size_t close = text.find('>', i + 1);
+            if (close != std::string::npos) {
+                const std::string rawTag = text.substr(i + 1, close - i - 1);
+                const std::string tagLower = toLowerAsciiCopy(rawTag);
+
+                if (tagLower == "b") {
+                    out += "<b>";
+                    closingTags.push_back("b");
+                    i = close + 1;
+                    continue;
+                }
+                if (tagLower == "/b") {
+                    out += "</b>";
+                    if (!closingTags.empty() && closingTags.back() == "b") {
+                        closingTags.pop_back();
+                    }
+                    i = close + 1;
+                    continue;
+                }
+                if (tagLower == "i") {
+                    out += "<i>";
+                    closingTags.push_back("i");
+                    i = close + 1;
+                    continue;
+                }
+                if (tagLower == "/i") {
+                    out += "</i>";
+                    if (!closingTags.empty() && closingTags.back() == "i") {
+                        closingTags.pop_back();
+                    }
+                    i = close + 1;
+                    continue;
+                }
+                if (tagLower == "br" || tagLower == "br/") {
+                    out += "<br/>";
+                    ++visibleCount;
+                    i = close + 1;
+                    continue;
+                }
+                if (tagLower.rfind("color=#", 0) == 0) {
+                    out += "<span style=\"color:";
+                    out += escapeRmlText(rawTag.substr(6));
+                    out += ";\">";
+                    closingTags.push_back("span");
+                    i = close + 1;
+                    continue;
+                }
+                if (tagLower == "/color") {
+                    out += "</span>";
+                    if (!closingTags.empty() && closingTags.back() == "span") {
+                        closingTags.pop_back();
+                    }
+                    i = close + 1;
+                    continue;
+                }
+            }
+        }
+
+        const int codeLen = std::max(1, utf8CodepointLength(static_cast<unsigned char>(text[i])));
+        const std::string glyph = text.substr(i, static_cast<size_t>(codeLen));
+        i += static_cast<size_t>(codeLen);
+
+        if (glyph == "\n") {
+            out += "<br/>";
+        } else {
+            out += escapeRmlText(glyph);
+        }
+        ++visibleCount;
+    }
+
+    for (auto it = closingTags.rbegin(); it != closingTags.rend(); ++it) {
+        out += "</";
+        out += *it;
+        out += ">";
+    }
+
+    return out;
+}
+
+std::string buildFullRichTextRml(const std::string& text) {
+    const size_t visibleCount = countVisibleCharsIgnoringTags(text);
+    return buildVisibleRichTextRml(text, visibleCount);
 }
 
 void drawText(const std::string& text, const SDL_Color& color, const SDL_Rect& area, bool centered) {
@@ -413,7 +550,7 @@ void drawRichText(const std::string& text, const SDL_Color& defaultColor, const 
         if (text[i] == '<') {
             const size_t close = text.find('>', i + 1);
             if (close != std::string::npos) {
-                const std::string tagLower = toLowerCopy(text.substr(i + 1, close - i - 1));
+                const std::string tagLower = toLowerAsciiCopy(text.substr(i + 1, close - i - 1));
 
                 if (tagLower == "b") {
                     ++boldDepth;
@@ -631,10 +768,6 @@ void drawRichText(const std::string& text, const SDL_Color& defaultColor, const 
 }
 
 void reloadScaledFont() {
-    if (gRenderer == nullptr) {
-        return;
-    }
-
     const float scale = std::min(
         static_cast<float>(gWindowW) / static_cast<float>(kBaseWindowW),
         static_cast<float>(gWindowH) / static_cast<float>(kBaseWindowH)
@@ -657,40 +790,101 @@ void reloadScaledFont() {
 }
 #endif
 
+void reloadIconTexture() {
+    destroyIconTexture();
+
+    if (gRenderer == nullptr || gIconPath.empty()) {
+        return;
+    }
+
+    SDL_Surface* surface = nullptr;
+#ifdef VN_ENABLE_IMAGE
+    surface = IMG_Load(gIconPath.c_str());
+#else
+    surface = SDL_LoadBMP(gIconPath.c_str());
+#endif
+    if (surface == nullptr) {
+        std::cerr << "[VN] Could not load icon image: " << gIconPath << "\n";
+        return;
+    }
+
+    gIconFrameWidth = std::max(1, surface->w / std::max(1, gIconFrameCount));
+    gIconFrameHeight = surface->h;
+    gIconTexture = SDL_CreateTextureFromSurface(gRenderer, surface);
+    SDL_FreeSurface(surface);
+}
+
+void reloadBackgroundTexture() {
+    destroyBackgroundTexture();
+
+    if (gRenderer == nullptr || gBackgroundPath.empty()) {
+        return;
+    }
+
+    SDL_Surface* surface = nullptr;
+#ifdef VN_ENABLE_IMAGE
+    surface = IMG_Load(gBackgroundPath.c_str());
+#else
+    surface = SDL_LoadBMP(gBackgroundPath.c_str());
+#endif
+    if (surface == nullptr) {
+        std::cerr << "[VN] Could not load background image: " << gBackgroundPath << "\n";
+        return;
+    }
+
+    gBackgroundTexture = SDL_CreateTextureFromSurface(gRenderer, surface);
+    SDL_FreeSurface(surface);
+}
+
 } // namespace
 
 bool initialize(SDL_Renderer* renderer, int windowWidth, int windowHeight) {
+    const bool rendererChanged = gRenderer != renderer;
     gRenderer = renderer;
     gWindowW = windowWidth;
     gWindowH = windowHeight;
 
-    if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
-        std::cerr << "[VN] Audio subsystem init failed: " << SDL_GetError() << "\n";
-    }
+    if (!gInitialized) {
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
+            std::cerr << "[VN] Audio subsystem init failed: " << SDL_GetError() << "\n";
+        }
 
 #ifdef VN_ENABLE_TTF
-    if (TTF_Init() == -1) {
-        std::cerr << "[VN] TTF init failed: " << TTF_GetError() << "\n";
-    }
-    reloadScaledFont();
-    ensureFontLoaded();
+        if (TTF_Init() == -1) {
+            std::cerr << "[VN] TTF init failed: " << TTF_GetError() << "\n";
+        } else {
+            gTtfInitialized = true;
+        }
+        ensureFontLoaded();
 #else
-    std::cout << "[VN] Built without SDL2_ttf. Text rendering is disabled until SDL2_ttf is installed.\n";
+        std::cout << "[VN] Built without SDL2_ttf. Text rendering is disabled until SDL2_ttf is installed.\n";
 #endif
 
 #ifdef VN_ENABLE_IMAGE
-    const int imgFlags = IMG_INIT_PNG | IMG_INIT_JPG;
-    const int inited = IMG_Init(imgFlags);
-    if ((inited & imgFlags) != imgFlags) {
-        std::cerr << "[VN] SDL2_image init incomplete: " << IMG_GetError() << "\n";
-    } else {
-        gImageInitialized = true;
-    }
+        const int imgFlags = IMG_INIT_PNG | IMG_INIT_JPG;
+        const int inited = IMG_Init(imgFlags);
+        if ((inited & imgFlags) != imgFlags) {
+            std::cerr << "[VN] SDL2_image init incomplete: " << IMG_GetError() << "\n";
+        } else {
+            gImageInitialized = true;
+        }
 #else
-    std::cout << "[VN] Built without SDL2_image. Icons support BMP only.\n";
+        std::cout << "[VN] Built without SDL2_image. Icons support BMP only.\n";
+#endif
+        gInitialized = true;
+    }
+
+#ifdef VN_ENABLE_TTF
+    reloadScaledFont();
+    ensureFontLoaded();
 #endif
 
-    return gRenderer != nullptr;
+    if (rendererChanged) {
+        reloadBackgroundTexture();
+        reloadIconTexture();
+    }
+
+    return gInitialized;
 }
 
 void setViewportSize(int windowWidth, int windowHeight) {
@@ -702,15 +896,12 @@ void setViewportSize(int windowWidth, int windowHeight) {
 }
 
 void shutdown() {
-    if (gIconTexture != nullptr) {
-        SDL_DestroyTexture(gIconTexture);
-        gIconTexture = nullptr;
+    if (!gInitialized) {
+        return;
     }
 
-    if (gBackgroundTexture != nullptr) {
-        SDL_DestroyTexture(gBackgroundTexture);
-        gBackgroundTexture = nullptr;
-    }
+    destroyIconTexture();
+    destroyBackgroundTexture();
     if (gPreviousBackgroundTexture != nullptr) {
         SDL_DestroyTexture(gPreviousBackgroundTexture);
         gPreviousBackgroundTexture = nullptr;
@@ -727,7 +918,10 @@ void shutdown() {
         TTF_CloseFont(gCjkFont);
         gCjkFont = nullptr;
     }
-    TTF_Quit();
+    if (gTtfInitialized) {
+        TTF_Quit();
+        gTtfInitialized = false;
+    }
 #endif
 
 #ifdef VN_ENABLE_IMAGE
@@ -736,6 +930,9 @@ void shutdown() {
         gImageInitialized = false;
     }
 #endif
+
+    gRenderer = nullptr;
+    gInitialized = false;
 }
 
 void setSpeakerName(const std::string& name) {
@@ -743,39 +940,17 @@ void setSpeakerName(const std::string& name) {
 }
 
 void setIcon(const std::string& imagePath, int frameCount, float fps) {
-    if (gIconTexture != nullptr) {
-        SDL_DestroyTexture(gIconTexture);
-        gIconTexture = nullptr;
-    }
-
+    gIconPath = imagePath;
     gIconFrameCount = std::max(1, frameCount);
     gIconFps = std::max(0.1f, fps);
     gIconAnimTime = 0.0f;
     gIconCurrentFrame = 0;
-
-    if (imagePath.empty()) {
-        return;
-    }
-
-    SDL_Surface* surface = nullptr;
-#ifdef VN_ENABLE_IMAGE
-    surface = IMG_Load(imagePath.c_str());
-#else
-    surface = SDL_LoadBMP(imagePath.c_str());
-#endif
-    if (surface == nullptr) {
-        std::cerr << "[VN] Could not load icon image: " << imagePath << "\n";
-        return;
-    }
-
-    gIconFrameWidth = surface->w / gIconFrameCount;
-    gIconFrameHeight = surface->h;
-
-    gIconTexture = SDL_CreateTextureFromSurface(gRenderer, surface);
-    SDL_FreeSurface(surface);
+    reloadIconTexture();
 }
 
 void setBackground(const std::string& imagePath) {
+    gBackgroundPath = imagePath;
+
     if (imagePath.empty()) {
         if (gPreviousBackgroundTexture != nullptr) {
             SDL_DestroyTexture(gPreviousBackgroundTexture);
@@ -785,6 +960,10 @@ void setBackground(const std::string& imagePath) {
         gBackgroundTexture = nullptr;
         gBackgroundFadeElapsed = 0.0f;
         gBackgroundFadeActive = gPreviousBackgroundTexture != nullptr;
+        return;
+    }
+
+    if (gRenderer == nullptr) {
         return;
     }
 
@@ -984,14 +1163,8 @@ bool isVoicePlaying() {
 void reset() {
     stopAndFreeVoiceBuffer();
 
-    if (gIconTexture != nullptr) {
-        SDL_DestroyTexture(gIconTexture);
-        gIconTexture = nullptr;
-    }
-    if (gBackgroundTexture != nullptr) {
-        SDL_DestroyTexture(gBackgroundTexture);
-        gBackgroundTexture = nullptr;
-    }
+    destroyIconTexture();
+    destroyBackgroundTexture();
     if (gPreviousBackgroundTexture != nullptr) {
         SDL_DestroyTexture(gPreviousBackgroundTexture);
         gPreviousBackgroundTexture = nullptr;
@@ -1001,6 +1174,8 @@ void reset() {
     gText.clear();
     gVoicePath.clear();
     gFontPath.clear();
+    gIconPath.clear();
+    gBackgroundPath.clear();
 
     gIconFrameCount = 1;
     gIconFrameWidth = 96;
@@ -1151,6 +1326,24 @@ bool consumeAdvanceRequest() {
     const bool requested = gAdvanceRequested;
     gAdvanceRequested = false;
     return requested;
+}
+
+PresentationState getPresentationState() {
+    PresentationState state;
+    state.speakerName = gSpeakerName;
+    state.iconPath = gIconPath;
+    state.backgroundPath = gBackgroundPath;
+    state.visibleCharacters = gVisibleChars;
+    state.totalVisibleCharacters = gTotalVisibleChars;
+    state.lineFinished = isLineFinished();
+#ifdef VN_ENABLE_TTF
+    state.visibleTextRml = buildVisibleRichTextRml(gText, gVisibleChars);
+    state.fullTextRml = buildFullRichTextRml(gText);
+#else
+    state.visibleTextRml = escapeRmlText(gText.substr(0, std::min(gText.size(), gVisibleChars)));
+    state.fullTextRml = escapeRmlText(gText);
+#endif
+    return state;
 }
 
 } // namespace vn

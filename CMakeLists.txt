@@ -153,6 +153,12 @@ set(FRONT_UI_SOURCES
     src/graphics/rmlui_sdl_gl_renderer.cpp
     src/graphics/rmlui_sdl_gl_renderer.h
     src/graphics/front_ui_document.h
+    src/graphics/front_ui_story.cpp
+    src/graphics/front_ui_story.h
+    src/graphics/front_ui_pause.cpp
+    src/graphics/front_ui_pause.h
+    src/graphics/front_ui_load.cpp
+    src/graphics/front_ui_load.h
     src/graphics/front_ui_main_menu.cpp
     src/graphics/front_ui_main_menu.h
     src/graphics/front_ui_settings.cpp

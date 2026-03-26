@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <optional>
+#include <vector>
 
 #include <SDL2/SDL.h>
 
@@ -36,7 +37,16 @@ public:
     bool isInitialized() const { return initialized_; }
 
 private:
-    bool showScreen(ScreenId screen, const AppState& state);
+    struct ActiveDocument {
+        ScreenId screen = ScreenId::MainMenu;
+        Rml::ElementDocument* document = nullptr;
+        std::unique_ptr<DocumentController> controller;
+    };
+
+    bool syncStackForState(const AppState& state);
+    bool pushScreen(ScreenId screen, const AppState& state);
+    void popScreen();
+    DocumentController* topController() const;
     void syncState(AppState& state);
     void updateViewportFromWindow();
     bool loadFonts() const;
@@ -49,12 +59,10 @@ private:
     bool rmlGlInitialized_ = false;
     int windowWidth_ = 1280;
     int windowHeight_ = 720;
-    ScreenId activeScreen_ = ScreenId::MainMenu;
     SystemInterface_SDL systemInterface_;
     std::unique_ptr<RmlUiSdlGlRenderInterface> renderInterface_;
     Rml::Context* context_ = nullptr;
-    Rml::ElementDocument* document_ = nullptr;
-    std::unique_ptr<DocumentController> controller_;
+    std::vector<ActiveDocument> documents_;
 };
 
 }  // namespace frontui

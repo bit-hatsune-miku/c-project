@@ -21,28 +21,48 @@
 namespace graphics::frontui {
 namespace {
 
-std::optional<ScreenId> screenForAppState(const AppState& state) {
+std::vector<ScreenId> stackForAppState(const AppState& state) {
     switch (state.screen) {
         case ScreenState::MainMenu:
-            return ScreenId::MainMenu;
+            return {ScreenId::MainMenu};
 
         case ScreenState::Settings:
             if (state.settingsReturnScreen == ScreenState::MainMenu) {
-                return ScreenId::Settings;
+                return {ScreenId::MainMenu, ScreenId::Settings};
             }
-            return std::nullopt;
+            if (state.settingsReturnScreen == ScreenState::PauseMenu &&
+                state.pauseContext == PauseContext::Story) {
+                return {ScreenId::Story, ScreenId::Pause, ScreenId::Settings};
+            }
+            return {};
 
-        case ScreenState::LoadMenu:
-        case ScreenState::LoadConfirmDelete:
-        case ScreenState::BattleDemo:
         case ScreenState::Playing:
+            return {ScreenId::Story};
+
         case ScreenState::PauseMenu:
         case ScreenState::PauseConfirmExit:
         case ScreenState::PauseConfirmOverwriteSave:
-            return std::nullopt;
+            if (state.pauseContext == PauseContext::Story) {
+                return {ScreenId::Story, ScreenId::Pause};
+            }
+            return {};
+
+        case ScreenState::LoadMenu:
+        case ScreenState::LoadConfirmDelete:
+            if (state.loadReturnScreen == ScreenState::MainMenu) {
+                return {ScreenId::MainMenu, ScreenId::Load};
+            }
+            if (state.loadReturnScreen == ScreenState::PauseMenu &&
+                state.pauseContext == PauseContext::Story) {
+                return {ScreenId::Story, ScreenId::Pause, ScreenId::Load};
+            }
+            return {};
+
+        case ScreenState::BattleDemo:
+            return {};
     }
 
-    return std::nullopt;
+    return {};
 }
 
 }  // namespace
@@ -106,7 +126,7 @@ bool Session::initialize(Window& window, const AppState& state) {
         return false;
     }
 
-    if (!showForState(state)) {
+    if (!syncStackForState(state)) {
         std::cerr << "[FrontUi] Failed to show front-ui document.\n";
         shutdown();
         return false;
@@ -120,14 +140,9 @@ void Session::shutdown() {
     initialized_ = false;
     SDL_StopTextInput();
 
-    if (controller_ != nullptr) {
-        controller_->unbind();
+    while (!documents_.empty()) {
+        popScreen();
     }
-    if (document_ != nullptr) {
-        document_->Close();
-        document_ = nullptr;
-    }
-    controller_.reset();
 
     if (rmlInitialized_) {
         Rml::Shutdown();
@@ -147,14 +162,7 @@ void Session::shutdown() {
 }
 
 bool Session::showForState(const AppState& state) {
-    const std::optional<ScreenId> requestedScreen = screenForAppState(state);
-    if (!requestedScreen.has_value()) {
-        return false;
-    }
-    if (document_ != nullptr && activeScreen_ == *requestedScreen) {
-        return true;
-    }
-    return showScreen(*requestedScreen, state);
+    return syncStackForState(state);
 }
 
 void Session::handleEvent(const SDL_Event& event, AppState& state) {
@@ -177,44 +185,44 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
         switch (event.key.keysym.sym) {
             case SDLK_UP:
             case SDLK_w:
-                if (controller_ != nullptr) {
-                    controller_->moveSelection(-1);
+                if (DocumentController* controller = topController()) {
+                    controller->moveSelection(-1);
                 }
                 break;
 
             case SDLK_DOWN:
             case SDLK_s:
-                if (controller_ != nullptr) {
-                    controller_->moveSelection(1);
+                if (DocumentController* controller = topController()) {
+                    controller->moveSelection(1);
                 }
                 break;
 
             case SDLK_RETURN:
             case SDLK_KP_ENTER:
             case SDLK_SPACE:
-                if (controller_ != nullptr) {
-                    controller_->activateSelection();
+                if (DocumentController* controller = topController()) {
+                    controller->activateSelection();
                 }
                 break;
 
             case SDLK_LEFT:
             case SDLK_a:
-                if (controller_ != nullptr) {
-                    controller_->adjustSelection(-1);
+                if (DocumentController* controller = topController()) {
+                    controller->adjustSelection(-1);
                 }
                 break;
 
             case SDLK_RIGHT:
             case SDLK_d:
-                if (controller_ != nullptr) {
-                    controller_->adjustSelection(1);
+                if (DocumentController* controller = topController()) {
+                    controller->adjustSelection(1);
                 }
                 break;
 
             case SDLK_ESCAPE:
             case SDLK_BACKSPACE:
-                if (controller_ != nullptr) {
-                    controller_->cancel();
+                if (DocumentController* controller = topController()) {
+                    controller->cancel();
                 }
                 break;
 
@@ -227,14 +235,18 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
 }
 
 void Session::update(const AppState& state, float deltaSeconds) {
-    if (!initialized_ || controller_ == nullptr) {
+    if (!initialized_) {
         return;
     }
 
     (void)showForState(state);
 
-    controller_->sync(state);
-    controller_->update(state, deltaSeconds);
+    for (ActiveDocument& entry : documents_) {
+        if (entry.controller != nullptr) {
+            entry.controller->sync(state);
+            entry.controller->update(state, deltaSeconds);
+        }
+    }
 }
 
 void Session::render() {
@@ -247,58 +259,101 @@ void Session::render() {
     glClearColor(0.015f, 0.025f, 0.055f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-    renderInterface_->BeginFrame();
     context_->Update();
+    renderInterface_->BeginFrame();
     context_->Render();
     renderInterface_->EndFrame();
 }
 
 std::optional<Command> Session::consumeCommand() {
-    if (controller_ == nullptr) {
-        return std::nullopt;
+    if (DocumentController* controller = topController()) {
+        return controller->consumeCommand();
     }
-    return controller_->consumeCommand();
+    return std::nullopt;
 }
 
-bool Session::showScreen(ScreenId screen, const AppState& state) {
+bool Session::syncStackForState(const AppState& state) {
+    if (context_ == nullptr) {
+        return false;
+    }
+
+    const std::vector<ScreenId> targetStack = stackForAppState(state);
+    if (targetStack.empty()) {
+        return false;
+    }
+
+    std::size_t commonPrefix = 0;
+    while (commonPrefix < documents_.size() &&
+           commonPrefix < targetStack.size() &&
+           documents_[commonPrefix].screen == targetStack[commonPrefix]) {
+        ++commonPrefix;
+    }
+
+    while (documents_.size() > commonPrefix) {
+        popScreen();
+    }
+
+    while (commonPrefix < targetStack.size()) {
+        if (!pushScreen(targetStack[commonPrefix], state)) {
+            return false;
+        }
+        ++commonPrefix;
+    }
+
+    return true;
+}
+
+bool Session::pushScreen(ScreenId screen, const AppState& state) {
     if (context_ == nullptr || !isScreenImplemented(screen)) {
         return false;
     }
 
-    if (controller_ != nullptr) {
-        controller_->unbind();
-    }
-    if (document_ != nullptr) {
-        document_->Close();
-        document_ = nullptr;
-    }
-    controller_.reset();
-
     const std::string documentPath = platform::path::resolvePath(resolveDocumentPath(screen));
-    document_ = context_->LoadDocument(documentPath);
-    if (document_ == nullptr) {
+    Rml::ElementDocument* document = context_->LoadDocument(documentPath);
+    if (document == nullptr) {
         std::cerr << "[FrontUi] Failed to load document: " << documentPath << "\n";
         return false;
     }
 
-    controller_ = createControllerForScreen(screen);
-    if (controller_ == nullptr || !controller_->bind(*document_, state)) {
-        document_->Close();
-        document_ = nullptr;
-        controller_.reset();
+    std::unique_ptr<DocumentController> controller = createControllerForScreen(screen);
+    if (controller == nullptr || !controller->bind(*document, state)) {
+        document->Close();
         return false;
     }
 
-    document_->Show();
-    activeScreen_ = screen;
+    document->Show();
+    documents_.push_back(ActiveDocument{screen, document, std::move(controller)});
     return true;
 }
 
-void Session::syncState(AppState& state) {
-    if (controller_ == nullptr) {
+void Session::popScreen() {
+    if (documents_.empty()) {
         return;
     }
-    controller_->applyState(state);
+
+    ActiveDocument& entry = documents_.back();
+    if (entry.controller != nullptr) {
+        entry.controller->unbind();
+    }
+    if (entry.document != nullptr) {
+        entry.document->Close();
+    }
+    documents_.pop_back();
+}
+
+DocumentController* Session::topController() const {
+    if (documents_.empty() || documents_.back().controller == nullptr) {
+        return nullptr;
+    }
+    return documents_.back().controller.get();
+}
+
+void Session::syncState(AppState& state) {
+    for (ActiveDocument& entry : documents_) {
+        if (entry.controller != nullptr) {
+            entry.controller->applyState(state);
+        }
+    }
 }
 
 void Session::updateViewportFromWindow() {
@@ -312,17 +367,21 @@ void Session::updateViewportFromWindow() {
 }
 
 bool Session::loadFonts() const {
-    const std::vector<std::string> candidates = platform::path::preferredCjkFontPaths();
-    bool loadedAnyFont = false;
-
-    for (const std::string& path : candidates) {
+    bool loadedLatin = false;
+    for (const std::string& path : platform::path::preferredLatinFontPaths()) {
         if (!std::filesystem::exists(path)) {
             continue;
         }
-        loadedAnyFont = Rml::LoadFontFace(path) || loadedAnyFont;
+        loadedLatin = Rml::LoadFontFace(path) || loadedLatin;
     }
 
-    return loadedAnyFont;
+    const std::string cjkPath = platform::path::findCjkFontPath();
+    bool loadedFallback = false;
+    if (!cjkPath.empty() && std::filesystem::exists(cjkPath)) {
+        loadedFallback = Rml::LoadFontFace(cjkPath, true);
+    }
+
+    return loadedLatin || loadedFallback;
 }
 
 }  // namespace graphics::frontui

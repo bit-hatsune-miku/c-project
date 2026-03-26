@@ -1,0 +1,37 @@
+<rml>
+<head>
+    <title>Pause</title>
+    <link type="text/rcss" href="front_ui_shared.rcss"/>
+</head>
+<body>
+    <div id="pause-overlay"></div>
+    <div id="pause-shell">
+        <div id="pause-title-shell">
+            <div id="pause-kicker">STORY CONTROL / SESSION HOLD</div>
+            <div id="pause-title">PAUSE</div>
+            <div id="pause-subtitle">Continue, save, load, or step into settings without leaving the current OpenGL window.</div>
+        </div>
+
+        <div id="pause-buttons">
+            <button id="pause-button-continue" class="pause-button is-selected">CONTINUE</button>
+            <button id="pause-button-save" class="pause-button">SAVE</button>
+            <button id="pause-button-load" class="pause-button">LOAD</button>
+            <button id="pause-button-settings" class="pause-button">SETTINGS</button>
+            <button id="pause-button-exit" class="pause-button">EXIT TO MENU</button>
+        </div>
+
+        <div id="pause-notice"></div>
+    </div>
+
+    <div id="pause-confirm">
+        <div id="pause-confirm-card">
+            <div id="pause-confirm-title"></div>
+            <div id="pause-confirm-body"></div>
+            <div id="pause-confirm-actions">
+                <button id="pause-confirm-cancel" class="pause-confirm-button is-selected">Stay</button>
+                <button id="pause-confirm-confirm" class="pause-confirm-button">Exit To Menu</button>
+            </div>
+        </div>
+    </div>
+</body>
+</rml>
