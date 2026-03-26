@@ -1,0 +1,178 @@
+flowchart TD
+    subgraph EntryPoints["Executable Entry Points"]
+        direction LR
+        main_story["OurUndergroundBITIdol<br/>src/main.cpp"]
+        demo_entry["demo / demo_* family<br/>src/demo.cpp"]
+        rml_entry["battle_testing<br/>src/rmlui_battle_main.cpp"]
+        legacy_entry["battle_testing_legacy<br/>src/battle_main.cpp"]
+        smoke_entry["rmlui_battle_smoke<br/>src/rmlui_battle_smoke.cpp"]
+    end
+
+    subgraph AppShell["Application Shell / Window / Menus / Main Story State Machine"]
+        direction TB
+        window_mod["Window / SDL backend switching<br/>src/window.h/.cpp"]
+        menu_mod["Menu stack + AppState + shared UI helpers<br/>src/GameMenu/menu_shared.h<br/>main_menu.cpp, load_menu.cpp,<br/>pause_menu.cpp, exit_to_main_menu.cpp"]
+        settings_mod["Settings controller<br/>src/Settings/settings.h/.cpp"]
+        story_helpers["Story helpers in src/main.cpp<br/>ensureStoryLoaded, applyCurrentEntry,<br/>beginStory, restoreStorySave,<br/>beginBattleDemo, beginBattle"]
+
+        subgraph MainState["Main story executable screen flow (src/main.cpp)"]
+            direction TB
+            state_main_menu["ScreenState::MainMenu"]
+            state_settings["ScreenState::Settings"]
+            state_load["ScreenState::LoadMenu"]
+            state_load_confirm_delete["ScreenState::LoadConfirmDelete"]
+            state_playing["ScreenState::Playing"]
+            state_pause["ScreenState::PauseMenu"]
+            state_pause_confirm_exit["ScreenState::PauseConfirmExit"]
+            state_pause_confirm_overwrite["ScreenState::PauseConfirmOverwriteSave"]
+            state_battle_demo["ScreenState::BattleDemo"]
+            app_exit["Application Exit"]
+
+            state_main_menu -->|Start| story_boot["beginStory()<br/>load ch0, entryIndex = 0,<br/>applyCurrentEntry(), autosave"]
+            story_boot --> state_playing
+            state_main_menu -->|Load| state_load
+            state_main_menu -->|Settings| state_settings
+            state_main_menu -->|Battle| state_battle_demo
+            state_main_menu -->|Exit| app_exit
+
+            state_playing -->|SPACE| playing_tick["vn::onSpacePressed()<br/>vn::update()<br/>consumeAdvanceRequest()"]
+            state_playing -->|ESC| state_pause
+            state_playing -->|F11| display_toggle["SettingsMenuController::applyDisplayMode()"]
+            playing_tick --> story_battle_gate{"Current ScriptEntry<br/>has battleId?"}
+            story_battle_gate -->|No, more lines| story_next["advance entryIndex<br/>applyCurrentEntry()<br/>autosave on background change"]
+            story_next --> state_playing
+            story_battle_gate -->|Yes| state_battle_demo
+            story_battle_gate -->|End of chapter| state_main_menu
+
+            state_pause -->|Continue| state_playing
+            state_pause -->|Save| pause_save["canSaveCurrentStoryState()<br/>manualSave / duplicate lookup"]
+            pause_save -->|Duplicate label| state_pause_confirm_overwrite
+            pause_save -->|Saved / failed| state_pause
+            state_pause -->|Load| state_load
+            state_pause -->|Settings| state_settings
+            state_pause -->|Exit to menu| state_pause_confirm_exit
+
+            state_pause_confirm_exit -->|Stay| state_pause
+            state_pause_confirm_exit -->|Exit| state_main_menu
+            state_pause_confirm_overwrite -->|Cancel| state_pause
+            state_pause_confirm_overwrite -->|Overwrite save| state_pause
+
+            state_load -->|Delete request| state_load_confirm_delete
+            state_load_confirm_delete -->|Cancel| state_load
+            state_load_confirm_delete -->|Delete slot| state_load
+            state_load -->|Load success| load_restore["save::load()<br/>restoreStorySave()<br/>vn::reset() + applyCurrentEntry()"]
+            load_restore --> state_playing
+            state_load -->|Back to menu| state_main_menu
+            state_load -->|Back to pause| state_pause
+
+            state_settings -->|Back to menu| state_main_menu
+            state_settings -->|Back to pause| state_pause
+
+            state_battle_demo -->|Create / run / shutdown<br/>battle::demo::Session| battle_restore["destroy menu resources<br/>vn::stopVoicePlayback()<br/>battle session initialize/update/render<br/>restoreRendererUi() on exit"]
+            battle_restore --> state_main_menu
+        end
+    end
+
+    subgraph MainRuntime["Main Runtime - huge box covering VN aspect and battle aspect"]
+        direction LR
+
+        subgraph VNAspect["VN Aspect"]
+            direction TB
+            vn_script["VN script parser + data model<br/>src/game/vn/vn_script.h/.cpp<br/>Script, ScriptEntry, EntryType,<br/>battleId story trigger"]
+            vn_runtime["VN runtime / renderer / audio<br/>src/game/vn/vn_system.h/.cpp<br/>background, icon, font, speaker,<br/>voice, typewriter, pause, render,<br/>advance requests"]
+            save_mod["Save system<br/>src/game/save/save.h/.cpp<br/>autosave, manual save, overwrite,<br/>slot listing, delete, load,<br/>chapter path mapping, labels"]
+            platform_mod["Platform helpers used across UI/VN/battle<br/>src/platform/path_resolution.h<br/>src/platform/text_fallback.h"]
+            vn_assets["VN assets and scripts<br/>assets/vn/json/*.json<br/>ch0.json + demo tutorial scripts<br/>backgrounds, images, voices, fonts"]
+        end
+
+        subgraph BattleAspect["Battle Aspect"]
+            direction TB
+            battle_dispatch["Battle launch routing<br/>src/main.cpp beginBattle()/beginBattleDemo()<br/>src/demo.cpp battleKey selection"]
+            demo_wrapper["SDL/VN battle wrapper<br/>src/game/demo_battle_session.h/.cpp<br/>optional party setup + tutorial narrative<br/>around BattleSessionCore"]
+            demo_narrative["Tutorial VN layer for battle demos<br/>src/game/demo/demo_narrative_flow.h/.cpp<br/>intro, first-skill, first-ultimate,<br/>post-boss sequences"]
+            party_setup["Party setup screen<br/>src/game/demo/battle_party_setup.h/.cpp<br/>src/game/demo/battle_party_setup_ui.h/.cpp"]
+            core_runtime["Shared battle runtime shell<br/>src/game/battle_session_core.h/.cpp<br/>Hooks, event gating, combat begin anim,<br/>camera staging, HUD hints, feedback,<br/>presentation playback, scene entity sync"]
+            battle_core["Core battle rules<br/>src/game/core/battle_manager.h/.cpp<br/>ability_system.*, turn_system.*,<br/>battle_flow_controller.*, battle_turn_flow.*,<br/>battle_loader.*"]
+            combat_data["Combat data<br/>assets/combat/*.json<br/>bosses, characters, battles, abilities"]
+            presentation_runtime["Presentation registry + runtime<br/>src/game/presentation/ability_presentation.*<br/>presentation_runtime.*<br/>presentation_registry.cpp<br/>splash_art_animation.*"]
+            presentation_impls["Ability presentation implementations<br/>ari_*, cupcakke_*, jiafei_*, lyoo_*,<br/>luotianyi_*, miku_*, qr_code_*,<br/>wechatalipay_*"]
+            render_stack["Battle render stack<br/>src/game/render/battle_scene_renderer.h<br/>battle_world_renderer.*, battle_ui.*,<br/>battle_feedback.*, battle_camera_staging.*,<br/>battle_party_staging.*,<br/>battle_combat_begin_animation.*,<br/>battle_asset_loading.*, camera_3d.*,<br/>free_view_camera_debug_log.h,<br/>gl_screen_blitter.h"]
+            audio_stack["Battle audio helpers<br/>src/game/audio/wav_one_shot.h<br/>src/game/audio/bgm_player.h"]
+            app_battle_wrapper["OpenGL + RmlUi battle wrapper<br/>src/game/app_battle_session.h/.cpp"]
+            rml_ui["RmlUi battle HUD layer<br/>src/game/ui/battle_session_ui_state.h<br/>battle_session_document_updates.h<br/>battle_session_overlay_bindings.h<br/>assets/rmlui/battle_hud.rml"]
+            legacy_harness["Legacy direct SDL battle harness<br/>src/battle_main.cpp"]
+            smoke_harness["RmlUi HUD smoke harness<br/>src/rmlui_battle_smoke.cpp"]
+        end
+    end
+
+    main_story --> window_mod
+    main_story --> menu_mod
+    main_story --> settings_mod
+    main_story --> story_helpers
+    main_story -->|argv: battle mode| rml_entry
+
+    demo_entry -->|battleKey from macro / CLI| demo_wrapper
+    rml_entry --> app_battle_wrapper
+    legacy_entry --> legacy_harness
+    smoke_entry --> smoke_harness
+
+    story_helpers --> vn_script
+    story_helpers --> vn_runtime
+    story_helpers --> save_mod
+    story_helpers --> platform_mod
+    menu_mod --> save_mod
+    settings_mod --> window_mod
+
+    vn_script --> vn_assets
+    vn_runtime --> vn_assets
+    save_mod --> vn_script
+    platform_mod --> vn_runtime
+
+    state_playing --> vn_runtime
+    playing_tick --> vn_runtime
+    load_restore --> vn_runtime
+    state_load --> save_mod
+    pause_save --> save_mod
+    display_toggle --> window_mod
+
+    state_battle_demo --> battle_dispatch
+    story_battle_gate -->|battleId| battle_dispatch
+    battle_dispatch --> demo_wrapper
+
+    demo_wrapper --> party_setup
+    demo_wrapper --> demo_narrative
+    demo_wrapper --> core_runtime
+    demo_narrative --> vn_runtime
+    party_setup --> battle_core
+    party_setup --> combat_data
+
+    core_runtime --> battle_core
+    core_runtime --> presentation_runtime
+    core_runtime --> render_stack
+    core_runtime --> audio_stack
+
+    battle_core --> combat_data
+    battle_core --> presentation_runtime
+    presentation_runtime --> presentation_impls
+    presentation_runtime --> render_stack
+
+    app_battle_wrapper --> battle_core
+    app_battle_wrapper --> presentation_runtime
+    app_battle_wrapper --> render_stack
+    app_battle_wrapper --> audio_stack
+    app_battle_wrapper --> rml_ui
+    app_battle_wrapper --> window_mod
+    app_battle_wrapper --> platform_mod
+
+    legacy_harness --> battle_core
+    legacy_harness --> render_stack
+    legacy_harness --> audio_stack
+
+    smoke_harness --> rml_ui
+    smoke_harness --> window_mod
+
+    style EntryPoints fill:#eef4ff,stroke:#4d6fb3,stroke-width:2px
+    style AppShell fill:#f9fbff,stroke:#607080,stroke-width:2px
+    style MainRuntime fill:#fff8e8,stroke:#b88400,stroke-width:3px
+    style VNAspect fill:#eefbea,stroke:#3e8a48,stroke-width:2px
+    style BattleAspect fill:#fff1df,stroke:#c26a00,stroke-width:2px

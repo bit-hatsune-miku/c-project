@@ -1,0 +1,29 @@
+flowchart TD
+    A["Standalone battle-related executables"] --> B["demo executable family<br/>src/demo.cpp"]
+    A --> C["battle_testing<br/>src/rmlui_battle_main.cpp"]
+    A --> D["battle_testing_legacy<br/>src/battle_main.cpp"]
+
+    B --> B1["demo<br/>default battleKey = test_ground<br/>CLI can override"]
+    B --> B2["demo_jiafei<br/>battleKey = wild_scent_flowers"]
+    B --> B3["demo_lyoo_plot_twist<br/>battleKey = lyoo_plot_twist"]
+    B --> B4["demo_wechatalipay<br/>battleKey = scan_to_pay"]
+    B --> B5["demo_ari<br/>battleKey = ari_boss_demo"]
+    B --> B6["demo_luotianyi<br/>battleKey = luotianyi_boss_demo"]
+
+    B1 --> E["battle::demo::Session<br/>loads BattleDefinition<br/>optional party setup<br/>shared BattleSessionCore"]
+    B2 --> E
+    B3 --> E
+    B4 --> E
+    B5 --> E
+    B6 --> E
+
+    E --> E1["tutorial_vs_lyoo<br/>custom lineup + tutorial narrative"]
+    E --> E2["test_ground<br/>fixed lineup + tutorial narrative"]
+    E --> E3["wild_scent_flowers<br/>fixed lineup, no tutorial narrative"]
+    E --> E4["lyoo_plot_twist<br/>fixed lineup, no tutorial narrative"]
+    E --> E5["scan_to_pay<br/>fixed lineup, no tutorial narrative"]
+    E --> E6["ari_boss_demo<br/>fixed lineup, no tutorial narrative"]
+    E --> E7["luotianyi_boss_demo<br/>fixed lineup, no tutorial narrative"]
+
+    C --> C1["battle::app::Session<br/>OpenGL + RmlUi HUD<br/>shared BattleSessionCore"]
+    D --> D1["Legacy direct battle harness<br/>older self-contained SDL flow"]

@@ -78,6 +78,8 @@ inline std::string resolvePath(const std::string& relativePath) {
 
 inline std::string findFontPath() {
     const std::vector<std::string> candidates = {
+        resolvePath("assets/fonts/SpaceMono-Regular.ttf"),
+        resolvePath("assets/fonts/SpaceMono-Bold.ttf"),
         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
         "/usr/share/fonts/TTF/DejaVuSans.ttf",
@@ -132,6 +134,8 @@ inline std::vector<std::string> preferredLatinFontPaths(const std::vector<std::s
         appendUnique(candidates, resolvePath(preferredPath));
     }
 
+    appendUnique(candidates, resolvePath("assets/fonts/SpaceMono-Regular.ttf"));
+    appendUnique(candidates, resolvePath("assets/fonts/SpaceMono-Bold.ttf"));
     appendUnique(candidates, "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf");
     appendUnique(candidates, "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf");
     appendUnique(candidates, "/usr/share/fonts/TTF/DejaVuSans.ttf");
