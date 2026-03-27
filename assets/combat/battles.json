@@ -49,6 +49,7 @@
       "bossKey": "lyooPlotTwist",
       "storyScript": "finale",
       "isLineupFixed": false,
+      "victoryStoryScript": "finale02",
       "lineup": [
         "miku",
         "cupcakke",

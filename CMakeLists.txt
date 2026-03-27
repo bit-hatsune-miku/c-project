@@ -356,6 +356,7 @@ if (ENABLE_RMLUI)
     target_sources(OurUndergroundBITIdol PRIVATE
         ${FRONT_UI_SOURCES}
         ${RMLUI_APP_BATTLE_SOURCES}
+        ${RMLUI_SELECTOR_SOURCES}
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
     )

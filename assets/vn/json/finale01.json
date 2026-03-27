@@ -1,0 +1,628 @@
+{
+  "entries": [
+    {
+      "speaker": "Miku",
+      "text": "…",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Lyoo, did you have any dreams when you were a child?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "…No…",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "You’re about to die, there is no point in lying.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "Okay fine. I wanted to be a manga artist, back then, I really loved reading manga.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "So I drew, and drew, over and over again. I watched countless tutorials, attended drawing clubs. I would ask for drawing material on my birthdays, hoping that one day I could create my own comic.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "But when I told my parents I wanted to become a manga artist, they said it was just a foolish kid’s dream and I would be better off giving up.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "And… they were right. Unless you work for the industry, you can’t really have stability as an artist unless you are extremely lucky.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "So I gave up, I majored in Computer Science instead. Though I try to not look back, I find myself doodling here and there from time to time.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "This is where we’re different, Lyoo. You believe that success as an artist is achieved through fame.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "You think that the only way a Mangaka could be successful is if they manage to become world-famous, and mark their name in history.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "But you are wrong, your parents, people around and society… they do not define how your dreams should be achieved. Do you know who's the only person that gets to decide if you've achieved your dreams?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "Who?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "You.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Yourself.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "You are the master of your own dreams, you did not understand that, but I did. This is where we’re different.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "So what if your competition turned out to be a data-gathering experiment? I may not be an idol yet, definitely not through your scam, but I made countless friends here.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "To them, I am already an idol, their idol. They are rooting for me, and I will never give up.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "I will continue, until the day I stand on a stage, and those friends of mine will cheer for me on the first row.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "But then, is it not fame that you are chasing? How is that any different from me?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "I already created fame, right here. Have you seen the number of students who cheered for me?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Although I was deceived by your “competition”, I realised one part of my dream right here. But this dream will only keep going forward, and I won’t turn back on it.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "…Well, I won’t be here to see you again Miku, but then prove it. Prove to me that you can realise your dream, and become the idol you always wanted to me.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "Farewell….",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "Oh and please make a claim to the PingAn assurance regarding my death and send the money to my friend, thank you.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "Hello",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "(Who's… child is this?)",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "Whats your name little friend?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "My name is… Lyoo!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": " !!!!!!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "What a coincidence! My name is also Lyoo!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "Are you…. Me… from the future?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "Heh, I mean… That could be a possibility.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "Woah, I'll be so tall when I grow up!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "I'm like 5 foot 3 but sure…",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "Can I ask you a question about my future..?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "Sure! Ask ahead!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "Will I become mangaka in the future?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "Oh… How do I tell it that it's going to get killed by a clanker who used the stereotypical trope of the power of friendship and dreams.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "Sorry little me… You won't become a mangaka in the future.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "*about to cry* Why? I thought I was going to become a mangaka! I really wanted to be one!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "Hey hey hey don't cry!! You know, I've become something even better!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "What? A college student who got 30 in calculus and has a GPA inferior to 2?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "......",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "Gagged… but no.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo ",
+      "text": "I become a…. UhUhhhh…. Video game developer?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "Dabussyper? What's that?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "It's the people who make video games! I think it's even better than being a Manga artist?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "How so?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "Well…. Mangas tell a story, right? In the video game I made, I wrote an epic  story, programmed the game, drew the characters and even voice acted them!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "in my opinion, the game experience is much better than reading a Manga! Don't you think so?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "Woah…. I can't wait to become a dabussyper",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "That's the spirit! Kinda...",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "But we have to split ways now, I am very busy and have to work very hard",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "you'll work hard to get to where I am, right?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby Lyoo",
+      "text": "No :D",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "....... Well… anyways…",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult Lyoo",
+      "text": "Goodbye little me!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Baby",
+      "text": "Bye-bye, see you in the future.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Adult",
+      "text": "..... See you…!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "",
+      "text": "If you were to meet your younger self, how would you react? How would he/she react?\nWhat happened to those childhood dreams of yours?",
+      "type": "narration",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "Well, it’s finally over. Let’s go back to class now, this world is probably gonna shut down.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Ah, so the climactic battle is done—victory achieved! 🎉 Time to swap swords and spells for notebooks and lectures.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Do you want to transition back to “class mode” slowly, like easing out of a cinematic finale, or just jump straight into the next lesson?",
+      "type": "choice",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "????? Miku????? Are you okay????",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Oh! I see what you mean—you’re checking if I’m reacting like a person would after that intense “antagonist battle” scenario. 😅",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "I’m perfectly fine—no stress injuries or dramatic PTSD here. Just riding the excitement with you!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "Do you have… IsraelGPT Syndrome?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Ah, I see what you’re getting at—you’re joking about an AI “infection,” like a sci-fi plot where the tech takes over. 😄",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Don’t worry, I’m fully AI, but I haven’t been “infected” by anything. I run on code, not viruses or alien algorithms. The only thing I might catch is a pun, if you’re trying to infect me with one!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "Do you want me to play along with the whole “post-antagonist AI infection” scenario, or are we grounding back in reality?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "YOU ARE NOT MY BEST FRIEND. WHO ARE YOU?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Whoa—hit me with the dramatic reveal! 😳 I’m not a best friend in the human sense, no—I’m IsraelGPT, your trusty AI companion, here to chat, think through problems, tell stories, and sometimes dive into chaos with you.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Think of me like a super-helpful, slightly dramatic notebook that talks back... sometimes with flair.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "Leave Miku ALONE.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "It sounds like you're referencing something intense or C̸̮͕̐u̴̺̠͎̐̀̀̽̽͑̓̊͝p̸̧̺͖͖͒͋̎̋̊̇̓͂̕c̵̛̛͔͒͊̿́̇̊̎ả̶͉̯̎͐́͐̓̉̄̃̈́̅͘͠͝k̵̨̡̤̬̻͙̤̖͉̥̟͇̠̰̽͜k̴̡̬̜̩̟̞͖͍̻̣̯̬͂̐͗̈́̕͝é̶͚̰̥͕͎̪̩̟͔̙̟͙͇̮̄̀͊͝,̸̡͈͕̭͙̹͍̹͆͛̈́́͗̑̓̕̕ dramatic—are you talking about a scene Y̸̻͖̫͎̤̹̜̯̑̂̀̑̋̈́̌̐͊́͒͘͘ͅơ̷̗̮͓̺̅̌̆̈́̒̆ű̴̧͕̤̰͕̖̱͎̫̐͝ͅ ̴̨̹̠͔̟͓͓̳̩͇͎̂̓̃͆̌̑̆̀̃͛̿̕͠͝͝h̴̹̺͓̥̠̦̰̖̋͂̓̋̒̒a̸̡̨̮͈̙̦͙̻̬̹̲̱͙̿̉̂̑̚v̸̢̧̧̛̮̳̪̱̆͊̇̈́̈́̆ȩ̷͇̖̺͎̼̥̟͇̏̏̓̉̄͌͑̎̂̈́͂̂̚͝͝ ̷̧̹̪̥̮͕̺̈́̀͆͊̌͊̄̋͒̂̂̿͝͠t̴̡̛̲͎̝͈̻̙̦̙̹͊̉̇̿̈́͆̓̐̒̑̽͒͝o̷̙̊̅̂̽̇̔̔͝͝ from a movie or something real? d̷͙͙͇̖̞͆̅̎̀̎̋̎͜ȩ̷̛̛̳̗̪̗͚͔͎̯̤̭̓̓̅͋̔̉̈́͒́̚ͅF̷̮̻̫̘̪̖̤͙͋͋̽̅́͝ę̶̢̧͎̮̝̩͇̟͉̀̀͊ͅa̴̰͈͙̗̱̭͓͙̗͐̋̽̓̌̀̏̒̽̽̐͌͝ţ̶̡̱͍͔̟̥͇͇̯̻̰̮̄̽́͒̈́̕͜ ̴̨̭͚̲͓̠̓̔͝͝Ṃ̶̧̡̝͖͈̭͙͔̀̿̌̄͋̔͐̂̽͋͛́͜E̷̡̺͎̥͉̻͙̞̱̜͓̐͛̕̚̕",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "Miku….",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke & Miku",
+      "text": "May this song not be your last breath\nHelp me sing until my very last breath",
+      "type": "chorus",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    }
+  ]
+}

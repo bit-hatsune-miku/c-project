@@ -302,6 +302,30 @@ const MainMenuController& mainMenuController() {
 
 }  // namespace
 
+void applyMainMenuAction(AppState& state, Window& window, MainMenuAction action) {
+    state.mainSelection = action;
+
+    switch (action) {
+        case MainMenuAction::Start:
+            beginStory(state);
+            break;
+        case MainMenuAction::Load:
+            openLoadMenu(state, ScreenState::MainMenu);
+            break;
+        case MainMenuAction::Battle:
+            beginBossSelector(state);
+            break;
+        case MainMenuAction::Settings:
+            state.settingsSelection = SettingsItem::DisplayMode;
+            state.settingsReturnScreen = ScreenState::MainMenu;
+            state.screen = ScreenState::Settings;
+            break;
+        case MainMenuAction::Exit:
+            window.close();
+            break;
+    }
+}
+
 void renderMainMenu(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
                     int windowWidth, int windowHeight) {
     mainMenuController().render(renderer, resources, state, windowWidth, windowHeight);
