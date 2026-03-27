@@ -1,0 +1,59 @@
+<rml>
+<head>
+    <title>Boss Selector</title>
+    <link type="text/rcss" href="boss_selector.rcss" />
+</head>
+<body>
+    <div id="selector-root">
+        <div id="selector-background-glow"></div>
+        <div id="selector-background-grid"></div>
+
+        <div id="idol-rank-panel">
+            <div class="rank-kicker">IDOL RANK</div>
+            <div class="rank-value" id="idol-rank-value">0</div>
+            <div class="rank-caption" id="idol-rank-caption">Bosses defeated</div>
+        </div>
+
+        <div id="detail-panel">
+            <div class="detail-border"></div>
+            <div class="detail-kicker">BOSS FILE</div>
+            <div class="detail-portrait" id="detail-portrait"></div>
+            <div class="detail-boss-name" id="detail-boss-name">Boss</div>
+            <div class="detail-battle-name" id="detail-battle-name">Battle</div>
+            <div class="detail-description" id="detail-description"></div>
+            <div class="detail-meta">
+                <div class="detail-meta-row">
+                    <div class="detail-meta-label">Status</div>
+                    <div class="detail-meta-value" id="detail-status">Not defeated</div>
+                </div>
+                <div class="detail-meta-row">
+                    <div class="detail-meta-label">Launch</div>
+                    <div class="detail-meta-value" id="detail-launch-mode">Direct battle</div>
+                </div>
+                <div class="detail-meta-row">
+                    <div class="detail-meta-label">Progress</div>
+                    <div class="detail-meta-value" id="detail-progress">0 / 0 cleared</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="selector-stage">
+            <div id="selector-heading">
+                <div class="selector-title">Select A Rival</div>
+                <div class="selector-subtitle">LEFT / RIGHT to choose, ENTER to open.</div>
+            </div>
+            <div id="boss-track"></div>
+            <div id="selector-footer">
+                <div id="selector-footer-copy">Replay any cleared story or jump straight into a boss battle.</div>
+            </div>
+            <div id="finale-button">
+                <div class="finale-kicker">SPECIAL STORY</div>
+                <div class="finale-title">Become an Idol</div>
+                <div class="finale-subtitle" id="finale-subtitle">Defeat every boss to unlock the finale.</div>
+            </div>
+        </div>
+
+        <div id="selector-toast"></div>
+    </div>
+</body>
+</rml>

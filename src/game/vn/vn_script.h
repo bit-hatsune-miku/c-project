@@ -43,6 +43,8 @@ struct ScriptEntry {
 struct Script {
     int chapter;
     std::string title;
+    std::string scriptId;
+    std::string endReturnScreen;
     std::vector<ScriptEntry> entries;
 };
 

@@ -42,6 +42,8 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
     try {
         outScript.chapter = j.value("chapter", 0);
         outScript.title = j.value("title", "");
+        outScript.scriptId = j.value("scriptId", "");
+        outScript.endReturnScreen = j.value("endReturnScreen", "");
         outScript.entries.clear();
 
         if (!j.contains("entries") || !j["entries"].is_array()) {

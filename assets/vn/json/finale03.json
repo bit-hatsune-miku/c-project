@@ -1,0 +1,18 @@
+{
+  "chapter": 101,
+  "title": "The real end",
+  "entries": [
+    {
+      "speaker": "Miku",
+      "text": "I did it, I reached the maximum idol rank!!! I’m going to become a world famous idol!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/finale/0.wav",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    }
+  ]
+}

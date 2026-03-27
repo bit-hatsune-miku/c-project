@@ -1,0 +1,13 @@
+{
+  "chapter": 5,
+  "title": "Luotianyi Victory",
+  "scriptId": "ch0501",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "type": "narration",
+      "speaker": "",
+      "text": "Luotianyi is defeated. Placeholder post-battle dialogue: press SPACE to return to the selector."
+    }
+  ]
+}

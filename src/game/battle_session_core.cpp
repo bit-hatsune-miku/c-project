@@ -270,9 +270,27 @@ void BattleSessionCore::update(float deltaSeconds) {
     if (hooks_.onPreUpdate) hooks_.onPreUpdate(manager_, deltaSeconds);
 
     const bool dialogueActive = hooks_.isDialogueInProgress && hooks_.isDialogueInProgress();
-    const bool spaceEnabled   = !hooks_.isSpaceEnabledForBattle || hooks_.isSpaceEnabledForBattle();
+    const bool bossDefeated = manager_.getBossCurrentHp() <= 0;
+    bool bossDeathFadeComplete = true;
+    if (bossDefeated) {
+        bossDeathFadeComplete = false;
+        for (const WorldEntity& entity : entities_) {
+            if (!entity.isBoss) {
+                continue;
+            }
+            bossDeathFadeComplete = !entity.visible || entity.spriteAlpha <= 0.001f;
+            break;
+        }
+    }
+    const bool finishBlockedByHost =
+        hooks_.isBattleFinishBlocked && hooks_.isBattleFinishBlocked(manager_);
 
-    if (!dialogueActive && !spaceEnabled && manager_.isBattleOver()) {
+    if (manager_.isBattleOver() &&
+        !dialogueActive &&
+        !presentationPlaybackActive_ &&
+        !activeUltimateTurnSplash_ &&
+        bossDeathFadeComplete &&
+        !finishBlockedByHost) {
         finished_ = true;
     }
 

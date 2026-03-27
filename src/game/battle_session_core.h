@@ -51,6 +51,10 @@ public:
         // Use for narrative state updates, vn::update, etc.
         std::function<void(BattleManager&, float)> onPreUpdate;
 
+        // Return true to keep the battle session alive after the manager reports
+        // battle over, for host-managed timing such as death voice playback.
+        std::function<bool(const BattleManager&)> isBattleFinishBlocked;
+
         // Called immediately when a presentation reports hit events.
         // Use for hit voice playback that should land exactly on hit timing.
         std::function<void(const PresentationContext&, int hitEvents, BattleManager&)> onPresentationHitAudio;

@@ -53,6 +53,10 @@ struct BattleDefinition {
     std::string type;
     std::string bossKey;
     std::string stageKey;
+    std::string storyScript;
+    std::string victoryStoryScript;
+    std::string defeatStoryScript;
+    bool selectorVisible = false;
     bool isLineupFixed = true;
     int partySize = 4;
     std::vector<std::string> lineup;

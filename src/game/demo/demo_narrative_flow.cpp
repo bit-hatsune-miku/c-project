@@ -114,11 +114,21 @@ void DemoNarrativeFlow::handleAutomaticProgression(BattleManager& manager) {
     }
 
     if (pendingPostLyooAttackAfterMikuUltimateTutorial_ && !hasShownPostLyooAttackAfterMikuUltimateTutorial_) {
-        if (flow::isNextActorBoss(manager) && manager.processAutomaticTurns()) {
-            hasShownPostLyooAttackAfterMikuUltimateTutorial_ = true;
-            pendingPostLyooAttackAfterMikuUltimateTutorial_ = false;
-            startDialogueSequence(postLyooAttackAfterMikuUltimateDialogueLines_);
+        const std::size_t eventCountBefore = manager.getRecentActionEvents().size();
+        if (manager.processAutomaticTurns()) {
+            const auto& actionEvents = manager.getRecentActionEvents();
+            for (std::size_t i = eventCountBefore; i < actionEvents.size(); ++i) {
+                if (actionEvents[i].actorType != ParticipantType::Boss) {
+                    continue;
+                }
+
+                hasShownPostLyooAttackAfterMikuUltimateTutorial_ = true;
+                pendingPostLyooAttackAfterMikuUltimateTutorial_ = false;
+                startDialogueSequence(postLyooAttackAfterMikuUltimateDialogueLines_);
+                break;
+            }
         }
+
         return;
     }
 

@@ -1,0 +1,13 @@
+{
+  "chapter": 3,
+  "title": "WeChat Alipay Victory",
+  "scriptId": "ch0301",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "type": "narration",
+      "speaker": "",
+      "text": "WeChat Alipay is defeated. Placeholder post-battle dialogue: press SPACE to return to the selector."
+    }
+  ]
+}

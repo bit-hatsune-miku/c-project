@@ -1232,19 +1232,30 @@ void consumeBattleActionEvents(BattleManager& manager, float voiceVolume) {
 
 class SessionImpl {
 public:
-    bool initialize(SDL_Renderer* renderer, const std::string& battleKey) {
+    bool initialize(SDL_Renderer* renderer,
+                    const std::string& battleKey,
+                    const PlayerProgression& progression) {
         shutdown();
         renderer_ = renderer;
 
         registerAllPresentations();
         narrativeInitialized_ = false;
+        activePartyLineup_.clear();
 
         const std::string resolvedBattleKey = battleKey.empty() ? "tutorial_vs_lyoo" : battleKey;
         if (!loader::loadBattleDefinition(resolvedBattleKey, battleDefinition_)) {
             return false;
         }
 
-        if (!partySetup_.initialize(renderer, battleDefinition_)) {
+        PlayerProgression effectiveProgression = progression;
+        battle::normalizePlayerProgression(
+            effectiveProgression,
+            progression.unlockedCharacterKeys.empty() && progression.currentPartyLineup.empty()
+                ? battle::ProgressionFallbackPolicy::FullRoster
+                : battle::ProgressionFallbackPolicy::StarterRoster
+        );
+
+        if (!partySetup_.initialize(renderer, battleDefinition_, effectiveProgression)) {
             return false;
         }
 
@@ -1277,6 +1288,7 @@ public:
         presentationAudioCueIndex_ = 0;
         lastPartyHp_.clear();
         lastBossHp_ = 0;
+        activePartyLineup_.clear();
         renderer_ = nullptr;
     }
 
@@ -1377,6 +1389,10 @@ public:
         return anyPartyMemberAlive ? BattleOutcome::None : BattleOutcome::Defeat;
     }
 
+    const std::vector<std::string>& currentPartyLineup() const {
+        return activePartyLineup_;
+    }
+
 private:
     void syncHpSnapshots(BattleManager& manager) {
         lastBossHp_ = manager.getBossCurrentHp();
@@ -1461,6 +1477,15 @@ private:
             narrative_.handleAutomaticProgression(manager);
             consumeBattleActionEvents(manager, 1.0f);
             syncHpSnapshots(manager);
+        };
+        hooks.isBattleFinishBlocked = [](const BattleManager& manager) {
+            if (manager.getBossCurrentHp() > 0) {
+                return false;
+            }
+
+            const BattleState& battleState = manager.getBattleState();
+            const auto bossDeadVoicePath = resolveBossDeadVoicePath(battleState);
+            return bossDeadVoicePath.has_value() && gOneShotAudio.isPlaying(*bossDeadVoicePath);
         };
         hooks.onPresentationSplashVoice = nullptr;
         hooks.onPresentationAudioCommands = [](const PresentationContext& context,
@@ -1686,6 +1711,8 @@ private:
             return false;
         }
 
+        activePartyLineup_ = lineup;
+
         core_.shutdown();
         narrative_.shutdown();
         presentationAudioSequenceId_.clear();
@@ -1727,6 +1754,7 @@ private:
     int presentationAudioCueIndex_ = 0;
     BattleDefinition battleDefinition_;
     BattlePartySetupScreen partySetup_;
+    std::vector<std::string> activePartyLineup_;
     std::vector<int> lastPartyHp_;
     int lastBossHp_ = 0;
 };
@@ -1735,8 +1763,10 @@ Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
 
 Session::~Session() = default;
 
-bool Session::initialize(SDL_Renderer* renderer, const std::string& battleKey) {
-    return impl_->initialize(renderer, battleKey);
+bool Session::initialize(SDL_Renderer* renderer,
+                         const std::string& battleKey,
+                         const PlayerProgression& progression) {
+    return impl_->initialize(renderer, battleKey, progression);
 }
 
 void Session::shutdown() {
@@ -1761,6 +1791,10 @@ bool Session::isFinished() const {
 
 BattleOutcome Session::outcome() const {
     return impl_->outcome();
+}
+
+const std::vector<std::string>& Session::currentPartyLineup() const {
+    return impl_->currentPartyLineup();
 }
 
 } // namespace battle::demo
