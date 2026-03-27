@@ -43,7 +43,7 @@
         "assets": "miku",
         "class": "DPS",
         "spd": 134,
-        "atk": 200,
+        "atk": 15,
         "hp": 40,
         "standardAbility": "BasicAttack",
         "skillAbility": "LetsSing",
