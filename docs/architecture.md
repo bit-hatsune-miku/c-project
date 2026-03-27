@@ -1,594 +1,667 @@
 # Architecture
 
-This document is a practical map of the current codebase.
+This document describes how the current codebase actually works.
 
 It focuses on:
 
-- which files own which parts of the game
-- how rendering currently works
-- what is missing or awkward in the current rendering architecture
-- what the intended target architecture should be
+- which executables exist
+- which runtime path the main game uses
+- where story, menus, battle logic, and rendering live
+- how SDL2, OpenGL, and RmlUi are combined today
+- where the architecture is still split or transitional
 
-It is not a design pitch. It is a description of the code as it exists now, with a clearer target direction.
+It is intentionally descriptive first. The improvement notes at the end are based on the current implementation, not an older plan.
 
 ## 1. Big Picture
 
-The project currently has two rendering worlds:
+The project currently has one main game shell and two different battle front ends.
 
-1. The main game and story flow use `SDL_Renderer`.
-2. Battle has two paths:
-   - an SDL battle path used by the main game and demo executables
-   - a newer OpenGL + RmlUi battle path used by `battle_testing`
+### Main game
 
-So the project does not have one unified renderer yet.
+The main executable (`OurUndergroundBITIdol`, plus `ch0` and `finale`) is driven by [`src/main.cpp`](/c-project/src/main.cpp).
 
-Current split:
+When `ENABLE_RMLUI=ON`, the main game works like this:
 
-```text
-Main game
-  src/main.cpp
-  -> SDL window + SDL_Renderer
-  -> VN rendering
-  -> menu rendering
-  -> demo battle session rendering
+- main menu, story UI, story pause, story load, and story settings are rendered through the RmlUi front-end session in [`src/graphics/front_ui_session.cpp`](/c-project/src/graphics/front_ui_session.cpp)
+- the visual novel runtime itself still lives in [`src/game/vn/vn_system.cpp`](/c-project/src/game/vn/vn_system.cpp)
+- in-story battles still run through the SDL battle runtime in [`src/game/battle_session_core.cpp`](/c-project/src/game/battle_session_core.cpp) wrapped by [`src/game/demo_battle_session.cpp`](/c-project/src/game/demo_battle_session.cpp)
 
-Battle demo / in-story battle
-  src/game/battle_session_core.*
-  -> SDL_Renderer world rendering
-  -> SDL HUD rendering
-  -> SDL presentation overlays
+So the main game is not "all RmlUi" and not "all SDL". It switches window backends depending on the active screen.
 
-Rml battle app
-  src/game/app_battle_session.*
-  -> software SDL scene render to offscreen surface
-  -> upload to OpenGL texture
-  -> draw full-screen quad
-  -> render RmlUi HUD on top
-```
+### Standalone battle app
 
-That split is the main architectural fact to understand before changing graphics code.
+`battle_testing` uses [`src/rmlui_battle_main.cpp`](/c-project/src/rmlui_battle_main.cpp) plus [`src/game/app_battle_session.cpp`](/c-project/src/game/app_battle_session.cpp).
 
-## 2. File Structure
+That runtime is separate from the main game battle wrapper:
 
-### Main app shell
+- battle logic still uses `BattleManager`
+- the world is rendered into an offscreen SDL software surface
+- that surface is uploaded to OpenGL each frame
+- RmlUi renders the HUD and overlays on top
+
+This is a separate battle app, not the path the main story currently uses.
+
+### Legacy / demo executables
+
+There are also standalone SDL-only programs:
+
+- `demo*` executables use [`src/demo.cpp`](/c-project/src/demo.cpp) plus [`src/game/demo_battle_session.cpp`](/c-project/src/game/demo_battle_session.cpp)
+- `battle_testing_legacy` and the non-Rml fallback use [`src/battle_main.cpp`](/c-project/src/battle_main.cpp)
+
+These are useful for testing, but they are not the main story runtime.
+
+## 2. Build and Executable Layout
+
+The build graph in [`CMakeLists.txt`](/c-project/CMakeLists.txt) is one of the easiest ways to understand the architecture split.
+
+### Main story executables
+
+- `OurUndergroundBITIdol`
+- `ch0`
+- `finale`
+
+These all include:
 
 - `src/main.cpp`
-  Top-level app loop. Owns screen switching, event routing, story progression, and final per-frame render dispatch.
-- `src/window.h`
-- `src/window.cpp`
-  Window wrapper. Can run in SDL renderer mode or OpenGL mode. `present()` chooses `SDL_RenderPresent` or `SDL_GL_SwapWindow`.
+- VN runtime
+- save/load system
+- battle core
+- demo battle wrapper
+- battle presentations
 
-### Story / VN
+When `ENABLE_RMLUI=ON`, they also include:
 
-- `src/game/vn/vn_system.h`
-- `src/game/vn/vn_system.cpp`
-  Story renderer and dialogue runtime. Draws background, portrait/icon, dialogue box, typewriter text, and voice playback.
-- `src/game/vn/vn_script.h`
-- `src/game/vn/vn_script.cpp`
-  JSON loading for VN scripts.
+- `src/graphics/front_ui_*`
+- `src/game/app_battle_session.*`
+- RmlUi GL3 backend files
 
-### Main-game menus and settings
+Important detail: the main executable links both the front-ui Rml stack and the SDL battle stack, but `src/main.cpp` still chooses which one is active by screen.
 
-- `src/GameMenu/main_menu.cpp`
-  Main menu rendering and input.
-- `src/GameMenu/load_menu.cpp`
-  Load screen rendering and input.
-- `src/GameMenu/pause_menu.cpp`
-  Pause menu rendering and input.
-- `src/Settings/settings.cpp`
-  Settings screen rendering and input.
-- `src/GameMenu/menu_shared.h`
-  Shared menu/app state, helper declarations, and screen enums.
+### Battle-focused executables
 
-These files are important because the menu system is not a separate UI framework. It is a set of SDL immediate-mode draw functions plus shared app state.
+- `battle_testing`: OpenGL window, RmlUi HUD, software-rendered world
+- `battle_testing_legacy`: older SDL battle program
+- `battle_testing_jiafei`: variant of the battle testing program
 
-### Shared battle runtime
+### Demo executables
 
-- `src/game/battle_session_core.h`
-- `src/game/battle_session_core.cpp`
-  Shared SDL battle runtime used by the in-story battle and demo executables. Owns battle manager, world entities, battle camera, feedback, HUD, and presentation playback hooks.
-- `src/game/demo_battle_session.h`
-- `src/game/demo_battle_session.cpp`
-  Wrapper around the shared battle core for demo/tutorial/in-story use.
+- `demo`
+- `demo_jiafei`
+- `demo_lyoo_plot_twist`
+- `demo_wechatalipay`
+- `demo_ari`
+- `demo_luotianyi`
 
-### Battle gameplay logic
+These all go through the SDL demo battle wrapper and mostly differ by compile-time default battle key.
 
-- `src/game/core/battle_manager.*`
-  Core battle state and action resolution.
-- `src/game/core/battle_flow_controller.*`
-- `src/game/core/battle_turn_flow.*`
-- `src/game/core/turn_system.*`
-  Turn preview, turn order, action execution flow, and automatic turns.
-- `src/game/core/ability_system.*`
-  Ability execution and presentation hook integration.
-- `src/game/core/battle_loader.*`
-  Loads battle definitions from JSON.
+## 3. Core App Shell
 
-### Battle rendering, SDL path
+### Window and backend switching
 
-- `src/game/render/camera_3d.*`
-  Perspective math, world-to-screen conversion, depth, and scale.
-- `src/game/render/battle_world_renderer.*`
-  Draws the floor and battle sprites with SDL.
-- `src/game/render/battle_party_staging.*`
-  Computes party positions in the duel layout / lineup layout.
-- `src/game/render/battle_camera_staging.*`
-  Moves the battle camera toward the current turn framing.
-- `src/game/render/battle_ui.*`
-  SDL HUD for turn order, boss HP, party cards, and hint text.
-- `src/game/render/battle_feedback.*`
-  Damage numbers, shakes, and combat feedback overlays.
-- `src/game/render/battle_combat_begin_animation.*`
-  Intro animation before battle control begins.
-- `src/game/render/battle_asset_loading.*`
-  Loads combat sprite/icon textures.
-- `src/game/render/battle_scene_types.h`
-  Shared entity structs for battle scene rendering.
-
-### Battle rendering, RmlUi/OpenGL path
-
-- `src/game/app_battle_session.h`
-- `src/game/app_battle_session.cpp`
-  Newer battle app wrapper. Owns OpenGL setup, RmlUi context, software world renderer state, HUD document updates, and battle loop for `battle_testing`.
-- `src/game/render/battle_scene_renderer.h`
-  Header-only software scene renderer used by the RmlUi/OpenGL path.
-- `src/game/render/gl_screen_blitter.h`
-  Uploads the software-rendered scene to GL and draws it full screen.
-- `src/game/ui/battle_session_document_updates.h`
-  Pushes battle state into the RmlUi document.
-- `src/game/ui/battle_session_overlay_bindings.h`
-  Wires RmlUi controls to battle callbacks.
-- `src/game/ui/battle_session_ui_state.h`
-  State structs for toast, tutorial, rhythm challenge, and pause/settings overlays.
-
-### Battle presentations
-
-- `src/game/presentation/*.cpp`
-- `src/game/presentation/*.h`
-  Ability-specific animations, minigames, splash art, and special overlays.
-
-These presentation files are still mostly SDL-rendered overlays even when the base battle path is different.
-
-## 3. How Rendering Currently Works
-
-## 3.1 Window / backend ownership
-
-The `Window` class can run in two modes:
+[`src/window.cpp`](/c-project/src/window.cpp) owns the actual SDL window and can run in two modes:
 
 - SDL renderer mode
 - OpenGL mode
 
-`Window::present()` does this:
+Key behavior:
 
-- if GL context exists: `SDL_GL_SwapWindow`
-- else if SDL renderer exists: `SDL_RenderPresent`
+- `enableRenderer()` recreates the window without GL and creates `SDL_Renderer`
+- `enableOpenGL()` recreates the window with GL and creates the GL context
+- `present()` chooses `SDL_RenderPresent` or `SDL_GL_SwapWindow`
 
-That means the backend choice is still a top-level app choice, not a per-subsystem abstraction.
+That means backend choice is a top-level runtime concern, not a hidden renderer abstraction.
 
-## 3.2 Main game rendering
+### Main loop ownership
 
-The main game render loop lives in `src/main.cpp`.
+[`src/main.cpp`](/c-project/src/main.cpp) owns:
 
-Per frame, it does this:
+- `AppState`
+- screen transitions
+- switching between front-ui and renderer mode
+- save/load requests
+- battle session creation and teardown
+- story advancement into battles and back out again
 
-1. Clear the SDL renderer with `window.clear(...)`.
-2. Decide which screen is active from `AppState.screen`.
-3. Render one of:
-   - VN scene
-   - pause overlay on top of VN
-   - settings screen
-   - load screen
-   - battle demo session
-   - main menu
-4. Call `window.present()`.
+The main loop is still the central orchestrator.
 
-Important detail:
+## 4. App State and Screen Model
 
-- `main.cpp` is the final render router.
-- Menus are not pushed through a scene graph.
-- Each screen mostly draws itself directly into the same SDL renderer.
+The primary state model is in [`src/GameMenu/menu_shared.h`](/c-project/src/GameMenu/menu_shared.h).
 
-### Main game draw order
+`AppState` owns:
 
-For story mode:
+- the active `ScreenState`
+- menu selections
+- pause/load/settings return paths
+- live `GameSettings`
+- current `StorySession`
+- transient notice/save/load flags
+- pending battle key and post-battle script references
 
-1. `vn::render()`
-2. optional pause/settings overlay on top
-3. `window.present()`
+Important screen states:
 
-For battle mode inside the main app:
+- `MainMenu`
+- `Playing`
+- `PauseMenu`
+- `Settings`
+- `LoadMenu`
+- `BattleDemo`
 
-1. `battleSession->render(...)`
-2. optional pause/settings overlay on top
-3. `window.present()`
+Despite the name, `BattleDemo` is also the in-story battle state for the main app. It is not just a menu sandbox.
 
-For menu-only screens:
+## 5. Main Game Runtime Flow
 
-1. menu screen render
-2. `window.present()`
+The current main-game flow in [`src/main.cpp`](/c-project/src/main.cpp) looks like this:
 
-## 3.3 How VN rendering works
+```text
+main loop
+  poll SDL events
+  route events by ScreenState
+  process front-ui commands
+  process save/load side effects
+  create or destroy battle session as needed
+  update active system
+  switch backend if screen type changed
+  render active screen
+  present window
+```
 
-`src/game/vn/vn_system.cpp` owns story rendering.
+### Backend policy in the main app
 
-It keeps global/static state such as:
+When `shouldUseFrontUiScreen(state)` is true, the app uses:
 
-- current background texture
-- current icon texture
+- OpenGL window mode
+- `graphics::frontui::Session`
+- RmlUi documents for menu/story overlays
+
+When it is false, the app restores:
+
+- SDL renderer mode
+- VN renderer bindings
+- SDL battle or SDL settings/load rendering
+
+So the main app actively swaps the window backend at runtime.
+
+### Story-to-battle transition
+
+Story entries can trigger battle via fields in VN script entries loaded by [`src/game/vn/vn_script.cpp`](/c-project/src/game/vn/vn_script.cpp).
+
+In [`src/main.cpp`](/c-project/src/main.cpp):
+
+- `vn::consumeAdvanceRequest()` advances dialogue
+- if the current script entry has `battleKey` or `battleId`, `beginBattle(...)` is called
+- `beginBattle(...)` validates the battle through [`src/game/core/battle_loader.cpp`](/c-project/src/game/core/battle_loader.cpp)
+- `state.screen` becomes `BattleDemo`
+- `battle::demo::Session` is created
+
+After battle:
+
+- victory can load a follow-up story script
+- otherwise the app usually returns to the main menu
+
+## 6. Front UI Architecture
+
+The RmlUi front-end stack used by the main game lives under `src/graphics/`.
+
+### Session layer
+
+[`src/graphics/front_ui_session.cpp`](/c-project/src/graphics/front_ui_session.cpp) owns:
+
+- RmlUi initialization and shutdown
+- GL render interface setup
+- the active document stack
+- viewport scaling
+- event forwarding into RmlUi
+- synchronizing document controllers back into `AppState`
+
+It computes a document stack from `AppState`. For example:
+
+- `MainMenu` -> main menu document
+- `Playing` -> story document
+- story pause -> story document + pause document
+- story pause load -> story + pause + load
+
+This stack behavior is one of the more structured parts of the current UI architecture.
+
+### Document controller layer
+
+[`src/graphics/front_ui_document.h`](/c-project/src/graphics/front_ui_document.h) defines a small retained-controller model:
+
+- one controller per screen document
+- controller owns selection, event listeners, and state sync
+- controller can emit commands back to `main.cpp`
+
+Implemented controllers:
+
+- [`src/graphics/front_ui_main_menu.cpp`](/c-project/src/graphics/front_ui_main_menu.cpp)
+- [`src/graphics/front_ui_story.cpp`](/c-project/src/graphics/front_ui_story.cpp)
+- [`src/graphics/front_ui_pause.cpp`](/c-project/src/graphics/front_ui_pause.cpp)
+- [`src/graphics/front_ui_load.cpp`](/c-project/src/graphics/front_ui_load.cpp)
+- [`src/graphics/front_ui_settings.cpp`](/c-project/src/graphics/front_ui_settings.cpp)
+
+### Important architectural detail
+
+The story screen is not a separate VN implementation. [`src/graphics/front_ui_story.cpp`](/c-project/src/graphics/front_ui_story.cpp) reads `vn::PresentationState` from `vn_system` and mirrors that state into RmlUi elements.
+
+So the front UI layer is a presentation shell around the same VN runtime, not a replacement for it.
+
+## 7. VN System
+
+The VN runtime lives in:
+
+- [`src/game/vn/vn_system.h`](/c-project/src/game/vn/vn_system.h)
+- [`src/game/vn/vn_system.cpp`](/c-project/src/game/vn/vn_system.cpp)
+
+### What it owns
+
+`vn_system.cpp` keeps mostly global static state:
+
+- current speaker
 - current text
-- current speaker name
-- current font(s)
-- voice playback state
+- voice path and playback state
+- current icon and background
 - typewriter progress
+- fonts
+- current renderer pointer
 
-Current VN rendering is direct SDL drawing:
+### Two presentation outputs
 
-1. Draw current background texture.
-2. Draw icon/portrait if present.
-3. Draw dialogue box panels.
-4. Draw speaker name.
-5. Draw visible portion of the line using the typewriter state.
-6. Draw any supporting UI accents.
+The VN system supports two different consumers:
 
-Text rendering uses `src/platform/text_fallback.h` correctly:
+1. SDL drawing through `vn::render()`
+2. data export through `vn::getPresentationState()`
 
-- Latin stays on the normal font.
-- CJK runs switch to the CJK fallback font.
-- mixed strings are split into runs instead of switching the whole string.
-- baseline alignment is preserved between Latin and CJK runs.
+The first is used in SDL story/battle overlays.
 
-That part is one of the better-structured text systems in the project.
+The second is used by the Rml story screen to render:
 
-## 3.4 How menu rendering works
+- background art
+- portrait
+- speaker name
+- visible typewriter text
 
-Main menu, pause, load, and settings screens are all custom SDL-drawn UIs.
+### Text handling
 
-They render with helper functions such as:
+Mixed Latin/CJK font fallback is handled through [`src/platform/text_fallback.h`](/c-project/src/platform/text_fallback.h).
 
-- `drawCyberPanel(...)`
-- `drawJaggedButtonPanel(...)`
-- `drawSlantedPanel(...)`
-- `drawNeonLine(...)`
+This part is relatively clean:
 
-The main menu has an extra offscreen step:
+- strings are split into runs
+- Latin stays on the Latin font
+- CJK uses fallback font only where needed
+- baseline alignment is preserved across runs
 
-- `beginMenuCanvas(...)` sets an SDL render target texture
-- menu UI is drawn into a 1280x720 reference layout
-- `endMenuCanvas(...)` draws that texture back to the window
+## 8. Save / Load and Story State
 
-Other screens usually use `beginReferenceLayout(...)` instead:
+The save system is in:
 
-- set a viewport matching the letterboxed reference area
-- set SDL scale
-- draw directly into the window renderer
+- [`src/game/save/save.h`](/c-project/src/game/save/save.h)
+- [`src/game/save/save.cpp`](/c-project/src/game/save/save.cpp)
 
-So even inside the main game, UI rendering is not fully uniform:
+`src/main.cpp` is still the place that turns save/load requests into side effects:
 
-- main menu often uses an offscreen canvas
-- other screens mostly render straight to the window renderer
+- build save game from current story state
+- detect duplicate manual saves
+- load scripts back from chapter ids
+- restore settings
+- re-enter `Playing`
 
-## 3.5 Battle rendering, SDL path
+That logic is not fully encapsulated behind a screen/session class yet.
 
-The main app and demo executables currently use the SDL battle path through `BattleSessionCore`.
+## 9. Battle Data and Core Logic
 
-### Who owns what
+The battle domain model lives in `src/game/core/`.
 
-`BattleSessionCore` owns:
+### Data loading
 
-- `BattleManager`
-- scene entities
-- sprite and icon textures
-- battle floor texture
-- battle HUD
-- battle camera
-- camera staging
-- feedback system
-- ability presentation playback state
+[`src/game/core/battle_loader.cpp`](/c-project/src/game/core/battle_loader.cpp) loads and validates authored JSON from:
 
-### Current SDL battle frame order
+- `assets/combat/boss.json`
+- `assets/combat/characters.json`
+- `assets/combat/battles.json`
+- `assets/combat/abilities.json`
 
-`BattleSessionCore::render(...)` currently does this:
+It resolves:
 
-1. If combat-begin intro is active, render only that intro and return.
-2. Set camera screen center from current window size.
-3. Choose the focused entity based on turn preview or current presentation.
-4. Clear the renderer.
-5. Draw the floor with `renderBattleFloor(...)`.
-6. If a presentation wants to draw below the world, draw it.
-7. Draw battle entities with `renderBattleEntities(...)`.
-8. If a presentation should render below the HUD, draw it now.
-9. Sync and draw the SDL HUD with `battle_ui`.
-10. If a presentation should render above the HUD, draw it now.
-11. Draw combat feedback overlays.
-12. Draw ultimate splash overlay if active.
-13. Run `hooks_.onPostRender()` for wrapper-specific overlays like VN dialogue.
+- boss definitions
+- character definitions
+- battle definitions
+- ability definitions
 
-That is the actual current battle draw stack.
+So authored JSON is the real content layer for battle setup.
 
-### How the world is drawn
+### Battle manager
 
-`src/game/render/battle_world_renderer.cpp` handles the SDL world.
+[`src/game/core/battle_manager.h`](/c-project/src/game/core/battle_manager.h) and [`src/game/core/battle_manager.cpp`](/c-project/src/game/core/battle_manager.cpp) own the gameplay state:
 
-It currently renders:
+- boss stats and HP
+- party members and per-character runtime state
+- shields, buffs, and orb charge
+- turn state
+- recent action events for UI/audio/feedback
+- action execution
+- battle-over checks
 
-- a tiled floor plane using `SDL_RenderGeometry`
-- billboard-like character sprites
-- fallback rectangles when textures are missing
-- a focus ring around the active/focused entity
+This is the core gameplay authority used by both battle front ends.
 
-Important details:
+### Turn system and flow helpers
 
-- There is no depth buffer.
-- Entities are sorted manually by projected depth.
-- The floor is clipped manually against a near plane.
-- Characters are still fundamentally flat sprites in a projected 3D layout.
+- [`src/game/core/turn_system.h`](/c-project/src/game/core/turn_system.h)
+- [`src/game/core/turn_system.cpp`](/c-project/src/game/core/turn_system.cpp)
+- [`src/game/core/battle_turn_flow.h`](/c-project/src/game/core/battle_turn_flow.h)
+- [`src/game/core/battle_turn_flow.cpp`](/c-project/src/game/core/battle_turn_flow.cpp)
+- [`src/game/core/battle_flow_controller.h`](/c-project/src/game/core/battle_flow_controller.h)
+- [`src/game/core/battle_flow_controller.cpp`](/c-project/src/game/core/battle_flow_controller.cpp)
 
-So this is a faux-3D sprite battle renderer, not a full 3D renderer.
+These cover:
 
-### How battle UI is drawn on the SDL path
+- action-value turn ordering
+- previewing the next actor
+- extra turns
+- player turn execution helpers
+- automatic boss/follow-up processing
 
-`src/game/render/battle_ui.cpp` draws:
+### Ability and presentation integration
 
-- turn order
-- boss HP
-- party status cards
-- hint text
+- [`src/game/core/ability_system.h`](/c-project/src/game/core/ability_system.h)
+- [`src/game/core/ability_system.cpp`](/c-project/src/game/core/ability_system.cpp)
 
-It is also direct SDL immediate-mode drawing.
+The important architectural pattern here is:
 
-One architectural smell here:
+- battle logic computes an `AbilityExecutionContext`
+- ability logic can trigger a `PresentationContext`
+- the active session front end injects a presentation interaction runner
 
-- `battle_ui.cpp` currently keeps a global `g_lastBattleHudManager` pointer for shield rendering access.
+That is how the same gameplay layer can drive different battle wrappers.
 
-That should eventually be removed and replaced with explicit HUD model data.
+## 10. Main-App Battle Runtime
 
-## 3.6 Battle rendering, RmlUi/OpenGL path
+The battle path the main story currently uses is:
 
-The newer `battle_testing` executable uses `src/game/app_battle_session.cpp`.
+```text
+src/main.cpp
+  -> battle::demo::Session
+     -> optional party setup
+     -> BattleSessionCore
+     -> optional demo/tutorial narrative overlay
+```
 
-This path is different from the SDL battle path.
+### Demo/session wrapper
 
-### Current frame order
+[`src/game/demo_battle_session.cpp`](/c-project/src/game/demo_battle_session.cpp) is the wrapper used by the main app and demo executables.
 
-`SessionImpl::render()` in `app_battle_session.cpp` currently does this:
+It is responsible for:
 
-1. Render the battle world into `sceneRenderer_` with `renderBattleScene(...)`.
-2. Upload the resulting software surface to GL with `screenBlitter_.uploadSurface(...)`.
-3. Clear the GL backbuffer.
-4. Draw the uploaded battle scene as a full-screen textured quad.
-5. Run `RmlUi`:
-   - `context_->Update()`
-   - `context_->Render()`
-6. Let the outer loop call `window.present()`, which swaps the GL window.
+- loading the selected `BattleDefinition`
+- showing the party setup screen when the lineup is not fixed
+- creating `BattleSessionCore`
+- wiring narrative hooks for tutorial battles
+- routing outcome back to the caller
 
-So the newer battle renderer is not a native GL world renderer yet.
+### Party setup
 
-It is:
+- [`src/game/demo/battle_party_setup.cpp`](/c-project/src/game/demo/battle_party_setup.cpp)
+- [`src/game/demo/battle_party_setup_ui.cpp`](/c-project/src/game/demo/battle_party_setup_ui.cpp)
 
-- software-render battle scene
-- copy to GL texture
-- draw that texture
-- render RmlUi on top
+This is an SDL screen that:
 
-### What `battle_scene_renderer.h` actually is
+- loads all available character definitions
+- applies locked/fixed lineup rules from the battle definition
+- lets the player choose a party
+- returns a `PartySetupResult`
 
-Despite the name, `src/game/render/battle_scene_renderer.h` is currently a header-only software battle renderer utility.
+### Demo narrative flow
+
+- [`src/game/demo/demo_narrative_flow.cpp`](/c-project/src/game/demo/demo_narrative_flow.cpp)
+
+This is tutorial-specific glue:
+
+- loads tutorial dialogue scripts from `assets/vn/json/`
+- gates battle input until tutorial dialogue finishes
+- starts post-action tutorials after specific player turns
+- shows boss-defeated dialogue
+
+This is content-specific logic, not generic battle flow.
+
+## 11. BattleSessionCore
+
+[`src/game/battle_session_core.cpp`](/c-project/src/game/battle_session_core.cpp) is the shared SDL battle runtime.
+
+### Responsibilities
 
 It owns:
 
-- offscreen SDL surface/renderer
+- `BattleManager`
+- scene entities
+- sprite/icon textures
 - floor texture
-- world sprite textures
+- battle HUD
+- camera and camera staging
+- combat-begin intro animation
+- combat feedback overlays
+- active ability presentation playback
 
-It is mainly there so the RmlUi/OpenGL battle app can keep using SDL-style scene drawing and then blit the result to the OpenGL output.
+### Hook model
 
-### How the Rml battle HUD works
+`BattleSessionCore::Hooks` lets wrapper code inject behavior for:
 
-RmlUi owns the on-screen HUD and overlays in this path.
+- dialogue gating
+- space-key consumption before battle input
+- per-frame narrative updates
+- presentation audio
+- post-render VN overlay
+- shutdown cleanup
 
-Files involved:
+This is the main extension point that allows tutorial/demo logic to wrap the same core runtime.
 
-- `battle_session_document_updates.h`
-- `battle_session_overlay_bindings.h`
-- `battle_session_ui_state.h`
+### SDL battle frame order
 
-The game logic updates Rml element text/classes/properties every frame.
+The render order is currently:
 
-That means this path has a cleaner HUD layer than the SDL HUD path, but the world renderer underneath is still transitional.
+1. combat-begin intro if active
+2. choose focused entity from turn preview or presentation state
+3. clear renderer
+4. draw battle floor
+5. draw presentation content below world if needed
+6. draw battle entities
+7. draw presentation content below HUD if needed
+8. sync and draw SDL HUD
+9. draw presentation content above HUD if needed
+10. draw feedback overlays
+11. draw ultimate splash if active
+12. call `hooks_.onPostRender()` for wrapper overlays such as VN dialogue
 
-## 3.7 Ability presentation rendering
+So VN overlay-in-battle is currently an outer hook layered on top of the SDL battle renderer.
 
-Ability presentations are still very important to understanding the graphics architecture.
+## 12. SDL Battle Rendering
 
-Presentations in `src/game/presentation/` can:
+The SDL battle renderer is split across `src/game/render/`.
 
-- render below the world
-- render over the world but under the HUD
-- render over the HUD
-- override the camera
-- override caster/target positions
-- run custom minigame input
+Important files:
 
-On the SDL battle path, presentations are integrated by `BattleSessionCore`.
+- [`src/game/render/battle_world_renderer.cpp`](/c-project/src/game/render/battle_world_renderer.cpp)
+- [`src/game/render/battle_party_staging.cpp`](/c-project/src/game/render/battle_party_staging.cpp)
+- [`src/game/render/battle_camera_staging.cpp`](/c-project/src/game/render/battle_camera_staging.cpp)
+- [`src/game/render/battle_ui.cpp`](/c-project/src/game/render/battle_ui.cpp)
+- [`src/game/render/battle_feedback.cpp`](/c-project/src/game/render/battle_feedback.cpp)
+- [`src/game/render/battle_combat_begin_animation.cpp`](/c-project/src/game/render/battle_combat_begin_animation.cpp)
 
-On the Rml/OpenGL path, presentations are run inside `app_battle_session.cpp`, but many of them still render with `SDL_Renderer` style code during their playback loop.
+### World rendering model
 
-This is one reason the graphics architecture still feels split.
+The world renderer is a faux-3D sprite scene:
 
-## 4. Current Rendering Weaknesses
+- characters are still flat billboards
+- floor is projected with SDL geometry
+- entity ordering is manually depth-sorted
+- there is no depth buffer
 
-These are the main problems in the current architecture.
+So this is staged 3D-looking sprite combat, not a full 3D scene renderer.
 
-### 4.1 Two battle rendering stacks
+## 13. Standalone Rml/OpenGL Battle Runtime
 
-There is not one battle renderer.
+The separate battle app is:
 
-There is:
+- [`src/rmlui_battle_main.cpp`](/c-project/src/rmlui_battle_main.cpp)
+- [`src/game/app_battle_session.cpp`](/c-project/src/game/app_battle_session.cpp)
 
-- the shared SDL battle runtime used by the main game
-- the newer RmlUi/OpenGL battle app
+### What it does
 
-They do not share the same full rendering path.
+This runtime owns:
 
-### 4.2 Main game rendering is centralized but not modular
+- OpenGL context usage
+- RmlUi context and HUD document
+- a `BattleManager`
+- HUD overlay state such as pause/settings/tutorial/rhythm
+- a software scene renderer
+- a GL blitter that uploads the software-rendered frame
 
-`src/main.cpp` still owns too much top-level rendering flow.
+### Current render pipeline
 
-It decides:
+Per frame it does:
 
-- active screen
-- backdrop source
-- whether pause/settings overlay sits on VN or battle
-- when battles begin/end
+1. render the battle scene into `SoftwareSceneRenderer`
+2. upload the SDL surface to a GL texture with `GlScreenBlitter`
+3. clear the GL backbuffer
+4. draw the uploaded scene full-screen
+5. update and render the RmlUi HUD
 
-That makes it harder to evolve rendering without growing `main.cpp`.
+So this is not a native GL world renderer yet. It is an SDL software scene rendered into a GL presentation layer.
 
-### 4.3 Menu rendering is immediate-mode and manually duplicated
+### Important limitation
 
-Menus are visually coherent, but architecturally they are still hand-drawn screen modules.
+This battle app does not mirror the full SDL session architecture.
 
-There is no shared retained UI system for the main app.
+At initialization it currently builds only:
 
-### 4.4 The Rml battle path is still transitional
-
-The OpenGL battle app is not yet a real GL-native scene renderer.
-
-It still depends on:
-
-- software scene rendering through SDL surfaces/renderers
-- upload to a GL texture every frame
-
-That is good enough for iteration, but not the final architecture.
-
-### 4.5 Battle presentation playback is still blocking
-
-Presentations run their own loops during playback.
-
-That works, but it means the battle runtime is not yet a fully unified single-frame update/render pipeline.
-
-### 4.6 The Rml battle world is still simplified
-
-`app_battle_session.cpp` currently creates only:
-
-- one front party entity
+- one front character entity
 - one boss entity
 
-even though the battle manager can hold a larger party.
+even though `BattleManager` may hold a larger party.
 
-So the newer battle app does not yet mirror the full party staging that the shared SDL battle runtime supports.
+That makes `battle_testing` useful for HUD and input experiments, but not a full replacement for the main SDL battle session yet.
 
-### 4.7 Some rendering state still leaks across layers
+## 14. Rml Battle HUD Layer
+
+The Rml battle HUD logic is split into small headers under `src/game/ui/`.
+
+Important files:
+
+- [`src/game/ui/battle_session_document_updates.h`](/c-project/src/game/ui/battle_session_document_updates.h)
+- [`src/game/ui/battle_session_overlay_bindings.h`](/c-project/src/game/ui/battle_session_overlay_bindings.h)
+- [`src/game/ui/battle_session_ui_state.h`](/c-project/src/game/ui/battle_session_ui_state.h)
+
+This layer is responsible for:
+
+- pushing battle state into the Rml document
+- binding pause/settings/rhythm click handlers
+- managing tutorial overlay state
+- managing pause/settings selection state
+- showing HUD feedback like toasts and orb blinking
+
+This part is structurally cleaner than the older SDL HUD path because the document update code is already separated from raw event handling.
+
+## 15. Ability Presentations
+
+Ability-specific visuals live under `src/game/presentation/`.
 
 Examples:
 
-- global/static VN renderer state
-- HUD needing manager access through a global pointer hack
-- presentation code reaching directly into render assumptions
+- splash art
+- minigames
+- boss attack sequences
+- ability-specific animations
 
-These are workable, but they are not the clean target structure.
+Architecturally, presentations are a shared layer used by both battle front ends.
 
-## 5. Intended / Target Architecture
+They can:
 
-The target should be simpler than the current split.
+- render below the world
+- render above the world
+- render above the HUD
+- emit hit/heal/audio cues
+- request interaction results back from the host runtime
 
-## 5.1 Target goals
+This is one of the core reasons battle rendering is still session-driven rather than a pure update/render ECS style pipeline.
 
-The graphics layer should eventually have:
+## 16. Current Architectural Strengths
 
-1. One battle scene renderer.
-2. One clear separation between:
-   - game state
-   - scene staging
-   - world rendering
-   - HUD rendering
-   - presentation overlays
-3. A smaller `main.cpp`.
-4. File responsibilities that are obvious from the folder structure.
+The codebase already has some good boundaries:
 
-## 5.2 Recommended target split
+- authored combat data is externalized in JSON
+- `BattleManager` is shared across both battle front ends
+- `BattleSessionCore` cleanly separates reusable SDL battle runtime from demo/tutorial wrapper logic
+- front-ui documents use controller objects instead of putting all Rml state in `main.cpp`
+- VN text fallback for mixed Latin/CJK is handled deliberately instead of by broad non-ASCII switching
 
-```text
-App shell
-  screen switching
-  window/backend setup
-  top-level frame loop
+## 17. Current Architectural Gaps
 
-Story renderer
-  VN scene
-  story overlays
+These are the main places where the architecture is still split or awkward.
 
-Battle runtime
-  battle state
-  turn flow
-  presentation triggers
+### 17.1 Two battle front ends
 
-Battle scene staging
-  choose visible entities
-  choose camera target
-  compute world positions
-  build HUD model
+There is one gameplay core, but there are still two real battle presentation stacks:
 
-Battle world renderer
-  draw floor
-  draw sprites/models
-  draw environment
+- main app / demos: SDL battle session
+- `battle_testing`: software scene + GL blit + Rml HUD
 
-Battle HUD renderer
-  SDL HUD or RmlUi HUD, but behind one interface
+They do not currently represent the same battle scene in the same way.
 
-Presentation layer
-  splash art
-  special attacks
-  minigame overlays
-```
+### 17.2 Runtime backend switching in the main app
 
-The key idea is that staging should be separate from drawing.
+`src/main.cpp` has to actively switch the `Window` between:
 
-## 5.3 Practical target for this codebase
+- OpenGL mode for front-ui screens
+- SDL renderer mode for battle and some non-front-ui paths
 
-The best realistic direction for this project is:
+That works, but it keeps rendering policy in the app shell.
 
-- keep the battle logic in `src/game/core/`
-- keep ability-specific visuals in `src/game/presentation/`
-- move toward one shared battle scene staging model
-- move toward one world renderer implementation
-- keep RmlUi only as the HUD/overlay layer if that is the preferred future UI stack
+### 17.3 `main.cpp` still owns too much orchestration
 
-That would reduce duplication and make the battle experience consistent between:
+It still directly handles:
 
-- story battles
-- demos
-- `battle_testing`
+- screen routing
+- save/load side effects
+- story progression
+- battle creation and cleanup
+- backend restoration
 
-## 5.4 Main-app target
+The code works, but the app shell remains large and stateful.
 
-For the main game, a better structure would be:
+### 17.4 VN runtime is globally stateful
 
-- `main.cpp` only runs the app loop and screen transitions
-- each screen owns its own update/render pair cleanly
-- the VN renderer stays self-contained
-- pause/settings/load become composable overlay screens instead of branching logic inside `main.cpp`
+`vn_system.cpp` still relies on static globals for nearly all state.
 
-That does not require rewriting the art style. It just means better ownership boundaries.
+That makes integration straightforward, but it is not a session object and it is easy for multiple systems to depend on it implicitly.
 
-## 6. Short Summary
+### 17.5 Some battle wrappers are content-specific
 
-Current reality:
+`DemoNarrativeFlow` is tutorial-specific, and `app_battle_session.cpp` still has hardcoded battle setup and tutorial assumptions.
 
-- Main game rendering is SDL renderer based.
-- Story rendering is owned by `vn_system.cpp`.
-- Menus are hand-drawn SDL UI screens.
-- In-story battles use the SDL battle runtime in `BattleSessionCore`.
-- `battle_testing` uses a different path: software-render world, upload to GL, then draw RmlUi on top.
+That is acceptable for current iteration, but it means some battle wrappers are not generic application layers yet.
 
-Most important architectural gap:
+### 17.6 Standalone Rml battle is still transitional
 
-- the project still has two battle rendering architectures instead of one.
+`app_battle_session.cpp` has a better HUD architecture than the SDL HUD path, but:
 
-Most useful target:
+- it still renders the world through SDL software
+- it still uploads that result every frame
+- it still simplifies party staging compared with the main SDL session
 
-- one shared battle scene pipeline
-- one staged battle scene model
-- one world renderer
-- one HUD layer abstraction
-- less render routing logic in `main.cpp`
+So it is not yet the unified future battle runtime.
+
+## 18. Practical Direction From Here
+
+Based on the current branch, the most realistic direction is:
+
+1. Keep `BattleManager`, loader, turn logic, and presentations as the shared gameplay layer.
+2. Keep the Rml front-ui stack for menu/story/pause/load/settings.
+3. Decide whether battles should standardize on:
+   - the SDL battle session with a future Rml HUD layer, or
+   - the Rml/OpenGL battle app after it reaches feature parity.
+4. Reduce what `src/main.cpp` directly owns by moving story/battle app flow into higher-level session objects.
+
+The most important architectural fact right now is simple:
+
+- the main shipped game path already uses RmlUi for front-end/story UI
+- the main shipped battle path is still the SDL battle session
+- the standalone Rml battle app is newer, cleaner in some UI areas, but not yet the same runtime

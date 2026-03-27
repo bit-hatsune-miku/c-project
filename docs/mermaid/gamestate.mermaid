@@ -1,0 +1,92 @@
+stateDiagram-v2
+direction LR
+
+%% Main app state flow based on AppState.screen in src/main.cpp / src/GameMenu/menu_shared.h
+%% This focuses on the shipped main-game path, not every standalone demo executable.
+
+[*] --> Boot
+Boot --> MainMenu: normal startup
+Boot --> Playing: VN_AUTO_START_STORY
+
+state "Main App Game State" as MainApp {
+    direction LR
+
+    state "MainMenu" as MainMenu
+    state "Playing\n(VN story progression)" as Playing
+    state "Settings\n(from main menu)" as SettingsMain
+    state "LoadMenu\n(from main menu)" as LoadMain
+    state "PauseMenu\n(story pause)" as PauseStory
+    state "Settings\n(from pause)" as SettingsPause
+    state "LoadMenu\n(from pause)" as LoadPause
+    state "PauseConfirmExit" as PauseConfirmExit
+    state "PauseConfirmOverwriteSave" as PauseConfirmOverwrite
+    state "BattleDemo\n(main-app battle state)" as BattleDemo
+    state "Quit" as Quit
+
+    MainMenu --> Playing: Start / beginStory()
+    MainMenu --> LoadMain: Load
+    MainMenu --> SettingsMain: Settings
+    MainMenu --> BattleDemo: Battle
+    MainMenu --> Quit: Exit
+
+    SettingsMain --> MainMenu: Return
+    LoadMain --> MainMenu: Back
+    LoadMain --> Playing: Load success
+
+    Playing --> PauseStory: Esc
+    Playing --> BattleDemo: current VN entry has battleKey / battleId
+    Playing --> MainMenu: end of chapter / script finished
+
+    PauseStory --> Playing: Continue
+    PauseStory --> SettingsPause: Settings
+    PauseStory --> LoadPause: Load
+    PauseStory --> PauseConfirmExit: Exit To Main Menu
+    PauseStory --> PauseConfirmOverwrite: duplicate manual save detected
+
+    SettingsPause --> PauseStory: Return
+    LoadPause --> PauseStory: Back
+    LoadPause --> Playing: Load success
+
+    PauseConfirmExit --> PauseStory: Cancel
+    PauseConfirmExit --> MainMenu: Confirm
+
+    PauseConfirmOverwrite --> PauseStory: Cancel
+    PauseConfirmOverwrite --> PauseStory: Save finished
+
+    BattleDemo --> Playing: story-launched battle victory\nand story resumes / win script loads
+    BattleDemo --> MainMenu: menu-launched battle ends\nor story battle fails / no continuation
+}
+
+Quit --> [*]
+
+note right of MainMenu
+  Main menu, story UI, story pause/load/settings
+  use the front-ui RmlUi stack when ENABLE_RMLUI=ON.
+  See:
+  - src/graphics/front_ui_session.cpp
+  - src/graphics/front_ui_*.cpp
+end note
+
+note right of Playing
+  Playing is still driven by vn_system.
+  The Rml story screen mirrors vn::PresentationState;
+  it does not replace the VN runtime.
+end note
+
+note right of BattleDemo
+  Despite the name, BattleDemo is also the in-story battle state.
+  Main app battle path:
+  battle::demo::Session
+  -> BattlePartySetupScreen (if needed)
+  -> BattleSessionCore
+  -> optional DemoNarrativeFlow tutorial overlay
+
+  This is the SDL battle path, not the standalone battle_testing path.
+end note
+
+note right of MainApp
+  One AppState drives both front-ui screens and battle,
+  but the renderer backend changes by screen:
+  - front-ui screens: OpenGL + RmlUi
+  - main-app battle: SDL renderer
+end note
