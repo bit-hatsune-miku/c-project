@@ -1,0 +1,140 @@
+{
+  "entries": [
+    {
+      "speaker": "Cupcakke",
+      "text": "Is this how things have to end? Miku…",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "You were the best thing that could’ve happened to me in this life, I am so glad to have you as my best friend….",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "My last wish.. is for you to become a world famous singer… Even if all you can sing is \"vagina augh\"...",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "MIKU…",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Please, carry on my dream, never let it fade away.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "No…..",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Farewell, Cupcakke, Sayonara…",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Oh, and make a claim to the PingAn insurance, you can take all the money, it’s like a gazillion RMB.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "MKU… NOOOOOOOO…",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "type": "scene",
+      "text": "a bit later"
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "So you see, in order to honour my deceased best friend, she is now the logo of https://bitshare.com.cn/.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "type": "fourth_wall",
+      "text": "Fourth wall break"
+    },
+    {
+      "speaker": "Timothy",
+      "text": "Are you serious? Is this how you want to end the story?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Anmol",
+      "text": "That’s such a shitty ending bro",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+       "speaker": "Revell",
+      "text": "Yeah like, what kind of best friend does that??",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false       
+    },
+    {
+       "speaker": "Russel",
+      "text": "It's not that serious",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false       
+    },  
+    {
+      "speaker": "Lyes",
+      "text": "Listen, the deadline is tomorrow, we don’t have time anymore",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyes",
+      "text": "Let’s just get this over with",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false
+    }
+  ]
+}
