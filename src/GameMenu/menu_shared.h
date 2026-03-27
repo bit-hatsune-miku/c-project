@@ -1,6 +1,7 @@
 #ifndef MENU_SHARED_H
 #define MENU_SHARED_H
 
+#include <array>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -35,6 +36,79 @@ enum class MainMenuAction {
     Settings,
     Exit
 };
+
+inline constexpr const char* kMainMenuBackgroundArtPath = "assets/vn/backgrounds/General_Art/mainmenu art.png";
+inline constexpr const char* kMainMenuTitleLogoPath = "assets/vn/backgrounds/General_Art/MainMenuTitle.png";
+
+struct MainMenuPresentation {
+    MainMenuAction action;
+    const char* buttonId;
+    const char* codeId;
+    const char* labelId;
+    const char* detailId;
+    const char* focusCode;
+    const char* displayLabel;
+    const char* displayDetail;
+    const char* statusTitle;
+    const char* statusBody;
+};
+
+inline constexpr std::array<MainMenuPresentation, 5> kMainMenuPresentation{{
+    {MainMenuAction::Start,
+     "menu-button-start",
+     "menu-button-code-start",
+     "menu-button-label-start",
+     "menu-button-detail-start",
+     "01",
+     "PLAY",
+     "CHAPTER 0 / STORY",
+     "ENTER THE OPENING SIGNAL",
+     "Start chapter 0 from the first scene of the visual novel."},
+    {MainMenuAction::Load,
+     "menu-button-load",
+     "menu-button-code-load",
+     "menu-button-label-load",
+     "menu-button-detail-load",
+     "02",
+     "LOAD",
+     "SAVE DATA / AUTOSAVE",
+     "RESUME A SAVED THREAD",
+     "Open manual saves and autosaves, then jump back into the route."},
+    {MainMenuAction::Battle,
+     "menu-button-battle",
+     "menu-button-code-battle",
+     "menu-button-label-battle",
+     "menu-button-detail-battle",
+     "03",
+     "BATTLE",
+     "BATTLE DEMO / QUICK LOAD",
+     "BOOT THE BATTLE DEMO",
+     "Load the standalone battle demo directly from the main menu."},
+    {MainMenuAction::Settings,
+     "menu-button-settings",
+     "menu-button-code-settings",
+     "menu-button-label-settings",
+     "menu-button-detail-settings",
+     "04",
+     "SETTINGS",
+     "DISPLAY / VOICE / TEXT",
+     "TUNE THE VN SYSTEM",
+     "Adjust fullscreen mode, voice volume, and text speed."},
+    {MainMenuAction::Exit,
+     "menu-button-exit",
+     "menu-button-code-exit",
+     "menu-button-label-exit",
+     "menu-button-detail-exit",
+     "05",
+     "QUIT",
+     "CLOSE CLIENT / DESKTOP",
+     "CUT THE SIGNAL",
+     "Exit the game client and return to desktop."}
+}};
+
+inline constexpr const MainMenuPresentation& mainMenuPresentation(MainMenuAction action) {
+    return kMainMenuPresentation[static_cast<std::size_t>(action)];
+}
 
 enum class PauseAction {
     Continue,
@@ -168,6 +242,7 @@ void beginBossSelector(AppState& state);
 void beginBattleDemo(AppState& state);
 void beginBattle(AppState& state, int battleId);  // dispatches to the right battle by ID
 void beginBattle(AppState& state, const std::string& battleKey);
+void applyMainMenuAction(AppState& state, Window& window, MainMenuAction action);
 
 void renderMainMenu(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state,
                     int windowWidth, int windowHeight);

@@ -1,0 +1,27 @@
+flowchart TD
+    A["demo_jiafei<br/>battleKey = wild_scent_flowers"] --> B["load BattleDefinition"]
+    B --> C["boss = jiafeiBoss<br/>isLineupFixed = true<br/>lineup = miku, cupcakke, jiafei"]
+    C --> D["BattlePartySetupScreen.initialize()"]
+    D --> E["Fixed lineup -> skip setup -> auto-start"]
+    E --> F["startBattleWithParty(miku, cupcakke, jiafei)"]
+
+    F --> G["narrativeEnabled_ = false<br/>because battleDefinition.type is not tutorial"]
+    G --> H["Build hooks for shared core"]
+    H --> H1["onPreUpdate -> processAutomaticTurns() continuously"]
+    H --> H2["presentation hooks -> voices, hits, healing, hints, BGM"]
+    H --> H3["onPostRender -> no VN overlay because no narrative"]
+
+    H3 --> I["BattleSessionCore.initialize(...)"]
+    I --> J["Combat begin animation"]
+    J --> K["Main combat loop"]
+
+    K --> L["Player input handled by BattleSessionCore"]
+    L --> M["BattleManager executes player turn"]
+    M --> N["Presentation runtime may run interaction / animation"]
+    N --> O["onPreUpdate processes boss turns and auto-turns"]
+    O --> P["Audio hooks react to BattleActionEvent stream"]
+    P --> Q["Render world + HUD + combat feedback"]
+
+    Q --> R{"Battle over?"}
+    R -->|No| K
+    R -->|Yes| S["Session finished"]

@@ -181,6 +181,11 @@ private:
         const SDL_FRect lowerStrip{rect.x + 126.0f, rect.y + rect.h - 12.0f, rect.w - 196.0f, 4.0f};
         drawSlantedPanel(renderer, lowerStrip, 14.0f,
                          selected ? SDL_Color{72, 220, 255, 180} : SDL_Color{255, 118, 200, 132});
+
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, selected ? 125 : 98, 255, selected ? 245 : 243, selected ? 220 : 90);
+        const SDL_FRect beam{rect.x - 1.0f, rect.y - 1.0f, 4.0f, rect.h + 2.0f};
+        SDL_RenderFillRectF(renderer, &beam);
     }
 
     void renderOverlay(SDL_Renderer* renderer, const MenuResources& resources, const AppState& state) const {
