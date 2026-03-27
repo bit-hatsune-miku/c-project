@@ -1,0 +1,37 @@
+flowchart TD
+    A["demo executable default battleKey = test_ground<br/>or CLI override to test_ground"] --> B["load BattleDefinition"]
+    B --> C["type = tutorial<br/>boss = lyooBoss<br/>isLineupFixed = true<br/>lineup = miku, cupcakke"]
+    C --> D["BattlePartySetupScreen.initialize()"]
+    D --> E{"isLineupFixed?"}
+    E -->|Yes| F["skipSetup_ = true<br/>startRequested_ = true"]
+    F --> G["consumeStartRequest() immediately"]
+    G --> H["startBattleWithParty(lineup = miku, cupcakke)"]
+
+    H --> I["Build tutorial-enabled hooks"]
+    I --> J["BattleSessionCore.initialize(...)"]
+    J --> K["Combat begin animation"]
+    K --> L["DemoNarrativeFlow.initialize()"]
+    L --> M["Intro tutorial dialogue begins"]
+
+    M --> N["Runtime loop"]
+    N --> N1{"Dialogue active?"}
+    N1 -->|Yes| N2["VN overlay visible<br/>Space advances dialogue only"]
+    N1 -->|No| N3["BattleSessionCore handles input/update/render"]
+
+    N3 --> O["Player turn defaults to executePlayerTurn()"]
+    O --> O1{"Miku milestone hit?"}
+    O1 -->|First skill| P["Show post-skill tutorial dialogue"]
+    O1 -->|First ultimate extra turn| Q["Show post-ultimate tutorial dialogue"]
+    O1 -->|No| R["Continue automatic turns"]
+
+    Q --> S["After ultimate tutorial:<br/>pendingPostLyooAttackAfterMikuUltimateTutorial = true"]
+    S --> T{"Next actor is boss?"}
+    T -->|Yes| U["Run one boss action automatically"]
+    U --> V["Show post-Lyoo-attack tutorial dialogue"]
+
+    R --> W{"Boss defeated?"}
+    W -->|Yes| X["Show boss-defeated dialogue"]
+    X --> Y["Dialogue closes -> session finishes"]
+    W -->|No| N
+    P --> N
+    V --> N
