@@ -1,0 +1,59 @@
+<rml>
+<head>
+    <title>Settings</title>
+    <link type="text/rcss" href="front_ui_shared.rcss"/>
+</head>
+<body>
+    <div id="settings-overlay"></div>
+
+    <div id="settings-shell">
+        <div id="settings-title-shell">
+            <div id="settings-kicker">SYSTEM CONFIG / FRONTEND NODE</div>
+            <div id="settings-title">SETTINGS</div>
+        </div>
+
+        <div id="settings-focus-card" class="front-shell-panel">
+            <div id="settings-focus-code"></div>
+            <div id="settings-focus-copy-group">
+                <div id="settings-focus-title"></div>
+                <div id="settings-focus-copy"></div>
+            </div>
+        </div>
+
+        <div id="settings-section-tag">CORE CONTROLS</div>
+        <div id="settings-system-chip">SYS: LINKED</div>
+
+        <div id="settings-rows">
+            <button id="settings-row-display" class="settings-row selected">
+                <div id="settings-code-display" class="settings-row-code"></div>
+                <div id="settings-label-display" class="settings-row-label"></div>
+                <div id="settings-display-value" class="settings-row-value"></div>
+                <div class="settings-row-beam"></div>
+            </button>
+
+            <div id="settings-row-voice" class="settings-row settings-row-slider">
+                <div id="settings-code-voice" class="settings-row-code"></div>
+                <div id="settings-label-voice" class="settings-row-label"></div>
+                <div id="settings-voice-value" class="settings-row-value"></div>
+                <input class="settings-slider" id="settings-voice-slider" type="range" min="0" max="100" step="5" value="0" />
+                <div class="settings-row-beam"></div>
+            </div>
+
+            <div id="settings-row-text" class="settings-row settings-row-slider">
+                <div id="settings-code-text" class="settings-row-code"></div>
+                <div id="settings-label-text" class="settings-row-label"></div>
+                <div id="settings-text-value" class="settings-row-value"></div>
+                <input class="settings-slider" id="settings-text-slider" type="range" min="18" max="90" step="6" value="18" />
+                <div class="settings-row-beam"></div>
+            </div>
+
+            <button id="settings-row-back" class="settings-row settings-row-back">
+                <div id="settings-code-back" class="settings-row-code"></div>
+                <div id="settings-label-back" class="settings-row-label"></div>
+                <div class="settings-row-value settings-row-back-value">RETURN</div>
+                <div class="settings-row-beam"></div>
+            </button>
+        </div>
+    </div>
+</body>
+</rml>

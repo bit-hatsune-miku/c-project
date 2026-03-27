@@ -28,6 +28,10 @@ public:
 
     int getWidth() const { return width; }
     int getHeight() const { return height; }
+    int getWindowWidth() const { return windowWidth; }
+    int getWindowHeight() const { return windowHeight; }
+    int getDrawableWidth() const { return drawableWidth; }
+    int getDrawableHeight() const { return drawableHeight; }
     bool isFullscreen() const { return fullscreen; }
     bool setFullscreen(bool enabled);
 
@@ -41,6 +45,10 @@ private:
     SDL_GLContext glContext = nullptr;
     int width = 0;
     int height = 0;
+    int windowWidth = 0;
+    int windowHeight = 0;
+    int drawableWidth = 0;
+    int drawableHeight = 0;
     int windowedWidth = 0;
     int windowedHeight = 0;
     bool open = false;

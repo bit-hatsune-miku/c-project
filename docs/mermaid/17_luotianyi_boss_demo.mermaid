@@ -1,0 +1,24 @@
+flowchart TD
+    A["demo_luotianyi<br/>battleKey = luotianyi_boss_demo"] --> B["load BattleDefinition"]
+    B --> C["boss = luotianyiBoss<br/>isLineupFixed = true<br/>lineup = miku, cupcakke, luotianyi, wechatalipay"]
+    C --> D["BattlePartySetupScreen.initialize()"]
+    D --> E["Fixed lineup -> skip setup -> auto-start"]
+    E --> F["startBattleWithParty(miku, cupcakke, luotianyi, wechatalipay)"]
+
+    F --> G["narrativeEnabled_ = false"]
+    G --> H["Shared BattleSessionCore hooks installed"]
+    H --> H1["onPreUpdate -> processAutomaticTurns() and consume events"]
+    H --> H2["presentation callbacks -> one-shot audio, hit voices, heal voices, BGM"]
+    H --> H3["no VN overlay because this is not a tutorial battle"]
+
+    H3 --> I["BattleSessionCore.initialize(...)"]
+    I --> J["Combat begin animation"]
+    J --> K["Main battle loop"]
+
+    K --> L["Player turn resolution via BattleManager"]
+    L --> M["Luotianyi-specific skill / boss presentations can run"]
+    M --> N["Event consumption updates voice playback and HP snapshots"]
+    N --> O["Render world scene, HUD, feedback, and presentation overlays"]
+    O --> P{"Battle over?"}
+    P -->|No| K
+    P -->|Yes| Q["Session finished"]
