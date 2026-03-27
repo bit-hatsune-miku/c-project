@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 #include <iostream>
+#include <unordered_set>
 
 #include <SDL2/SDL.h>
 
@@ -24,10 +25,13 @@ using ui::kVisibleRosterRows;
 
 } // namespace
 
-bool BattlePartySetupScreen::initialize(SDL_Renderer* renderer, const BattleDefinition& battleDefinition) {
+bool BattlePartySetupScreen::initialize(SDL_Renderer* renderer,
+                                        const BattleDefinition& battleDefinition,
+                                        const PlayerProgression& progression) {
     shutdown();
 
     battleDefinition_ = battleDefinition;
+    progression_ = progression;
     result_.bossKey = battleDefinition.bossKey;
     if (!validateBattleDefinition()) {
         return false;
@@ -37,8 +41,8 @@ bool BattlePartySetupScreen::initialize(SDL_Renderer* renderer, const BattleDefi
     }
     seedSelection();
     if (battleDefinition_.isLineupFixed && !canStart()) {
-        std::cerr << "[Battle] Fixed lineup battle requires exactly " << battleDefinition_.partySize
-                  << " valid party members: " << battleDefinition_.key << "\n";
+        std::cerr << "[Battle] Fixed lineup battle requires at least one valid party member: "
+                  << battleDefinition_.key << "\n";
         shutdown();
         return false;
     }
@@ -74,7 +78,7 @@ bool BattlePartySetupScreen::validateBattleDefinition() const {
         }
         uniqueLocked.push_back(key);
     }
-    if (static_cast<int>(uniqueLocked.size()) > battleDefinition_.partySize) {
+    if (static_cast<int>(uniqueLocked.size()) > selectionCapacity()) {
         std::cerr << "[Battle] Battle definition locks more characters than allowed by partySize: "
                   << battleDefinition_.key << "\n";
         return false;
@@ -87,8 +91,8 @@ bool BattlePartySetupScreen::validateBattleDefinition() const {
                 merged.push_back(key);
             }
         }
-        if (static_cast<int>(merged.size()) != battleDefinition_.partySize) {
-            std::cerr << "[Battle] Fixed lineup battle must define exactly partySize unique characters: "
+        if (merged.empty()) {
+            std::cerr << "[Battle] Fixed lineup battle must define at least one unique character: "
                       << battleDefinition_.key << "\n";
             return false;
         }
@@ -103,8 +107,27 @@ bool BattlePartySetupScreen::loadRoster(SDL_Renderer* renderer) {
         return false;
     }
 
+    std::vector<std::string> visibleKeys = progression_.unlockedCharacterKeys;
+    if (visibleKeys.empty()) {
+        visibleKeys = progression_.currentPartyLineup;
+    }
+
+    std::unordered_set<std::string> visibleKeySet(visibleKeys.begin(), visibleKeys.end());
+    for (const std::string& key : battleDefinition_.lockedLineup) {
+        visibleKeySet.insert(key);
+    }
+    if (battleDefinition_.isLineupFixed) {
+        for (const std::string& key : battleDefinition_.lineup) {
+            visibleKeySet.insert(key);
+        }
+    }
+
     roster_.reserve(rosterCharacters.size());
     for (const CharacterDefinition& character : rosterCharacters) {
+        if (visibleKeySet.find(character.key) == visibleKeySet.end()) {
+            continue;
+        }
+
         Entry entry;
         entry.character = character;
         entry.iconTexture = ui::loadTexture(renderer, ui::findTexturePath("icons", character.assets));
@@ -127,13 +150,18 @@ void BattlePartySetupScreen::seedSelection() {
 
     const auto appendIfAvailable = [this](const std::string& key) {
         if (findRosterIndexByKey(key) >= 0 && !isSelectedCharacter(key) &&
-            static_cast<int>(selectedKeys_.size()) < battleDefinition_.partySize) {
+            static_cast<int>(selectedKeys_.size()) < selectionCapacity()) {
             selectedKeys_.push_back(key);
         }
     };
 
     for (const std::string& key : battleDefinition_.lockedLineup) {
         appendIfAvailable(key);
+    }
+    if (!battleDefinition_.isLineupFixed) {
+        for (const std::string& key : progression_.currentPartyLineup) {
+            appendIfAvailable(key);
+        }
     }
     for (const std::string& key : battleDefinition_.lineup) {
         appendIfAvailable(key);
@@ -270,6 +298,7 @@ void BattlePartySetupScreen::shutdown() {
     selectedKeys_.clear();
     result_ = PartySetupResult{};
     battleDefinition_ = BattleDefinition{};
+    progression_ = PlayerProgression{};
     focusedRosterIndex_ = 0;
     scrollOffset_ = 0;
     hoveredRosterIndex_ = -1;
@@ -434,7 +463,7 @@ void BattlePartySetupScreen::render(SDL_Renderer* renderer, int windowWidth, int
     ui::drawText(renderer,
                  fonts_.small,
                  fonts_.cjkSmall,
-                 "SELECT " + std::to_string(battleDefinition_.partySize) + " MEMBERS",
+                 "SELECT 1-" + std::to_string(selectionCapacity()) + " MEMBERS",
                  SDL_Color{243, 198, 112, 255},
                  ui::toWindowRect(SDL_FRect{
                      geometry.stagePanel.x + geometry.stagePanel.w - 220.0f,
@@ -577,7 +606,7 @@ void BattlePartySetupScreen::renderSelectedPartyPanel(SDL_Renderer* renderer,
         rosterMaxSpd = std::max(rosterMaxSpd, rosterEntry.character.spd);
     }
 
-    for (int slot = 0; slot < battleDefinition_.partySize; ++slot) {
+    for (int slot = 0; slot < selectionCapacity(); ++slot) {
         const SDL_FRect slotRefRect = ui::selectedCardRect(geometry, slot);
         const SDL_FRect slotRect = ui::toWindowRect(slotRefRect, layout);
         const bool slotHovered = mouseHoverActive && hoveredSelectedSlot_ == slot;
@@ -746,7 +775,7 @@ void BattlePartySetupScreen::renderStartButton(SDL_Renderer* renderer,
     ui::drawText(renderer,
                  fonts_.small,
                  fonts_.cjkSmall,
-                 std::to_string(static_cast<int>(selectedKeys_.size())) + " / " + std::to_string(battleDefinition_.partySize) + " selected",
+                 std::to_string(static_cast<int>(selectedKeys_.size())) + " / " + std::to_string(selectionCapacity()) + " selected",
                  SDL_Color{204, 216, 236, 255},
                  ui::toWindowRect(geometry.selectedCountRect, layout),
                  true);
@@ -842,8 +871,13 @@ const PartySetupResult& BattlePartySetupScreen::currentSelection() const {
     return result_;
 }
 
+int BattlePartySetupScreen::selectionCapacity() const {
+    return std::clamp(battleDefinition_.partySize, 1, 4);
+}
+
 bool BattlePartySetupScreen::canStart() const {
-    return static_cast<int>(selectedKeys_.size()) == battleDefinition_.partySize;
+    const int selectedCount = static_cast<int>(selectedKeys_.size());
+    return selectedCount >= 1 && selectedCount <= selectionCapacity();
 }
 
 bool BattlePartySetupScreen::isMouseHoverActive() const {
@@ -932,7 +966,7 @@ void BattlePartySetupScreen::updateHoverState(float windowX, float windowY, int 
         }
     }
 
-    for (int slot = 0; slot < battleDefinition_.partySize; ++slot) {
+    for (int slot = 0; slot < selectionCapacity(); ++slot) {
         if (ui::pointInRect(refX, refY, ui::selectedCardRect(geometry, slot))) {
             hoveredSelectedSlot_ = slot;
             break;
@@ -957,7 +991,7 @@ void BattlePartySetupScreen::setSelectedCharacter(const std::string& characterKe
         if (existing != selectedKeys_.end()) {
             return;
         }
-        if (static_cast<int>(selectedKeys_.size()) >= battleDefinition_.partySize) {
+        if (static_cast<int>(selectedKeys_.size()) >= selectionCapacity()) {
             return;
         }
         selectedKeys_.push_back(characterKey);
@@ -1008,7 +1042,7 @@ void BattlePartySetupScreen::handlePointerDown(float windowX, float windowY, int
         return;
     }
 
-    for (int slot = 0; slot < battleDefinition_.partySize; ++slot) {
+    for (int slot = 0; slot < selectionCapacity(); ++slot) {
         if (!ui::pointInRect(refX, refY, ui::selectedCardRect(geometry, slot))) {
             continue;
         }

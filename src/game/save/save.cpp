@@ -67,7 +67,68 @@ SaveGame normalizedSaveGame(SaveGame saveGame) {
     }
     saveGame.settings.voiceVolume = std::clamp(saveGame.settings.voiceVolume, 0, 100);
     saveGame.settings.textSpeed = std::max(1, saveGame.settings.textSpeed);
+    battle::normalizePlayerProgression(saveGame.progression, battle::ProgressionFallbackPolicy::StarterRoster);
+    saveGame.hasProgressionData = true;
     return saveGame;
+}
+
+json progressionJson(const battle::PlayerProgression& progression) {
+    return json{
+        {"unlockedCharacterKeys", progression.unlockedCharacterKeys},
+        {"currentPartyLineup", progression.currentPartyLineup},
+        {"clearedBattleKeys", progression.clearedBattleKeys}
+    };
+}
+
+bool parseProfileProgression(const json& root, battle::PlayerProgression& outProgression) {
+    if (!root.is_object()) {
+        return false;
+    }
+
+    const auto progressionIt = root.find("progression");
+    if (progressionIt == root.end() || !progressionIt->is_object()) {
+        return false;
+    }
+
+    outProgression = battle::PlayerProgression{};
+    outProgression.unlockedCharacterKeys =
+        progressionIt->value("unlockedCharacterKeys", std::vector<std::string>{});
+    outProgression.currentPartyLineup =
+        progressionIt->value("currentPartyLineup", std::vector<std::string>{});
+    outProgression.clearedBattleKeys =
+        progressionIt->value("clearedBattleKeys", std::vector<std::string>{});
+    return true;
+}
+
+json makeDefaultProfileJson() {
+    const battle::PlayerProgression defaultProgression = battle::makeDefaultPlayerProgression();
+    return json{
+        {"version", 1},
+        {"settings", {
+            {"fullscreen", false},
+            {"voiceVolume", 82},
+            {"textSpeed", 42}
+        }},
+        {"playStats", {
+            {"launches", 0},
+            {"manualSaves", 0}
+        }},
+        {"progression", progressionJson(defaultProgression)}
+    };
+}
+
+bool readProfileJson(json& outProfile) {
+    std::ifstream file(profilePath());
+    if (!file.is_open()) {
+        return false;
+    }
+
+    try {
+        file >> outProfile;
+        return outProfile.is_object();
+    } catch (const json::exception&) {
+        return false;
+    }
 }
 
 bool writeJsonFile(const fs::path& path, const json& value) {
@@ -162,20 +223,7 @@ void writeDefaultProfileIfMissing() {
     if (fs::exists(path)) {
         return;
     }
-
-    json profile = {
-        {"version", 1},
-        {"settings", {
-            {"fullscreen", false},
-            {"voiceVolume", 82},
-            {"textSpeed", 42}
-        }},
-        {"playStats", {
-            {"launches", 0},
-            {"manualSaves", 0}
-        }}
-    };
-    (void)writeJsonFile(path, profile);
+    (void)writeJsonFile(path, makeDefaultProfileJson());
 }
 
 bool isManagedSaveFile(const fs::path& path) {
@@ -374,6 +422,84 @@ std::vector<SlotInfo> listSlots() {
     return slots;
 }
 
+battle::PlayerProgression loadCurrentProgression() {
+    init();
+
+    battle::PlayerProgression progression;
+    if (loadProfileProgression(progression)) {
+        battle::normalizePlayerProgression(progression, battle::ProgressionFallbackPolicy::StarterRoster);
+        return progression;
+    }
+    if (loadLatestProgressionSnapshot(progression)) {
+        battle::normalizePlayerProgression(progression, battle::ProgressionFallbackPolicy::StarterRoster);
+        return progression;
+    }
+
+    battle::normalizePlayerProgression(progression, battle::ProgressionFallbackPolicy::StarterRoster);
+    return progression;
+}
+
+bool loadProfileProgression(battle::PlayerProgression& outProgression) {
+    init();
+
+    json profile;
+    if (!readProfileJson(profile)) {
+        return false;
+    }
+    if (!parseProfileProgression(profile, outProgression)) {
+        return false;
+    }
+
+    battle::normalizePlayerProgression(outProgression, battle::ProgressionFallbackPolicy::StarterRoster);
+    return true;
+}
+
+bool writeProfileProgression(const battle::PlayerProgression& progression) {
+    init();
+    if (!ensureGameDirectoriesExist()) {
+        return false;
+    }
+
+    json profile = makeDefaultProfileJson();
+    json existing;
+    if (readProfileJson(existing) && existing.is_object()) {
+        profile = std::move(existing);
+    }
+
+    battle::PlayerProgression normalized = progression;
+    battle::normalizePlayerProgression(normalized, battle::ProgressionFallbackPolicy::StarterRoster);
+    profile["progression"] = progressionJson(normalized);
+    if (!profile.contains("version")) {
+        profile["version"] = 1;
+    }
+
+    return writeJsonFile(profilePath(), profile);
+}
+
+bool loadLatestProgressionSnapshot(battle::PlayerProgression& outProgression) {
+    init();
+
+    std::optional<SaveGame> bestSave;
+    for (const SlotInfo& slot : listSlots()) {
+        const std::optional<SaveGame> saveGame = load(slot.path);
+        if (!saveGame.has_value() || !saveGame->hasProgressionData) {
+            continue;
+        }
+
+        if (!bestSave.has_value() || saveGame->timestamp > bestSave->timestamp) {
+            bestSave = saveGame;
+        }
+    }
+
+    if (!bestSave.has_value()) {
+        return false;
+    }
+
+    outProgression = bestSave->progression;
+    battle::normalizePlayerProgression(outProgression, battle::ProgressionFallbackPolicy::StarterRoster);
+    return true;
+}
+
 fs::path gameDataDir() {
     init();
     return gGameDataDir;
@@ -432,6 +558,9 @@ std::string formatTimestampForDisplay(const std::string& isoTimestamp) {
 }
 
 std::string chapterIdFromScript(const vn::Script& script) {
+    if (!script.scriptId.empty()) {
+        return script.scriptId;
+    }
     return "ch" + std::to_string(std::max(0, script.chapter));
 }
 

@@ -10,12 +10,14 @@
 #include <SDL2/SDL_ttf.h>
 #endif
 
+#include "../game/core/player_progression.h"
 #include "../game/vn/vn_script.h"
 
 class Window;
 
 enum class ScreenState {
     MainMenu,
+    BossSelector,
     Settings,
     LoadMenu,
     LoadConfirmDelete,
@@ -99,12 +101,15 @@ struct AppState {
     float pauseIntroTime = 0.0f;
     GameSettings settings;
     StorySession story;
+    battle::PlayerProgression progression;
     std::string noticeText;
     float noticeTimer = 0.0f;
     bool requestStoryManualSave = false;
     bool requestStoryOverwriteSave = false;
+    ScreenState storyEndReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleKey;
     bool pendingBattleLaunchedFromStory = false;
+    ScreenState pendingBattleReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleWinScript;
     std::string pendingBattleLoseScript;
     std::string pendingLoadPath;
@@ -156,7 +161,10 @@ bool beginReferenceLayout(SDL_Renderer* renderer, int windowWidth, int windowHei
 void endReferenceLayout(SDL_Renderer* renderer);
 bool mapWindowPointToReference(float windowX, float windowY, int windowWidth, int windowHeight, SDL_FPoint& outPoint);
 
-void beginStory(AppState& state);
+void beginStory(AppState& state,
+                const std::string& scriptRef = std::string(),
+                ScreenState endReturnScreen = ScreenState::MainMenu);
+void beginBossSelector(AppState& state);
 void beginBattleDemo(AppState& state);
 void beginBattle(AppState& state, int battleId);  // dispatches to the right battle by ID
 void beginBattle(AppState& state, const std::string& battleKey);

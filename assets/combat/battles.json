@@ -6,14 +6,13 @@
       "description": "The first trial. Lyoo challenges Miku to prove she is worthy of entering the BIT Underground Idol Competition.",
       "type": "tutorial",
       "bossKey": "lyooBoss",
-      "isLineupFixed": false,
+      "storyScript": "ch0",
+      "selectorVisible": true,
+      "isLineupFixed": true,
       "partySize": 4,
       "lineup": [
         "miku",
         "cupcakke"
-      ],
-      "lockedLineup": [
-        "miku"
       ],
       "stageKey": "default_stage"
     },
@@ -33,7 +32,10 @@
       "id": 2,
       "name": "野花香",
       "bossKey": "jiafeiBoss",
-      "isLineupFixed": true,
+      "storyScript": "ch0200",
+      "victoryStoryScript": "ch0201",
+      "selectorVisible": true,
+      "isLineupFixed": false,
       "lineup": [
         "miku",
         "cupcakke",
@@ -45,7 +47,8 @@
       "id": 99,
       "name": "A turn up of events",
       "bossKey": "lyooPlotTwist",
-      "isLineupFixed": true,
+      "storyScript": "finale",
+      "isLineupFixed": false,
       "lineup": [
         "miku",
         "cupcakke",
@@ -58,7 +61,10 @@
       "id": 100,
       "name": "Scan To Pay",
       "bossKey": "wechatalipayBoss",
-      "isLineupFixed": true,
+      "storyScript": "ch0300",
+      "victoryStoryScript": "ch0301",
+      "selectorVisible": true,
+      "isLineupFixed": false,
       "lineup": [
         "miku",
         "cupcakke",
@@ -71,7 +77,10 @@
       "id": 101,
       "name": "Whistle Note",
       "bossKey": "ariBoss",
-      "isLineupFixed": true,
+      "storyScript": "ch0400",
+      "victoryStoryScript": "ch0401",
+      "selectorVisible": true,
+      "isLineupFixed": false,
       "lineup": [
         "cupcakke",
         "wechatalipay",
@@ -84,7 +93,10 @@
       "id": 102,
       "name": "音龙",
       "bossKey": "luotianyiBoss",
-      "isLineupFixed": true,
+      "storyScript": "ch0500",
+      "victoryStoryScript": "ch0501",
+      "selectorVisible": true,
+      "isLineupFixed": false,
       "lineup": [
         "miku",
         "ari",

@@ -1,0 +1,12 @@
+{
+  "chapter": 102,
+  "title": "Luotianyi Intro",
+  "entries": [
+    {
+      "type": "narration",
+      "speaker": "",
+      "text": "Luotianyi prepares the tones. Placeholder intro: press SPACE to begin the battle.",
+      "battleKey": "luotianyi_boss_demo"
+    }
+  ]
+}

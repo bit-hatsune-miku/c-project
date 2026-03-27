@@ -1,0 +1,14 @@
+{
+  "chapter": 2,
+  "title": "Jiafei Intro",
+  "scriptId": "ch0200",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "type": "narration",
+      "speaker": "",
+      "text": "Jiafei steps onto the stage. Placeholder intro: press SPACE to begin the battle.",
+      "battleKey": "wild_scent_flowers"
+    }
+  ]
+}

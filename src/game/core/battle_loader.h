@@ -21,6 +21,7 @@ bool loadAllCharacterDefinitions(std::vector<CharacterDefinition>& outCharacters
 
 bool loadBattleDefinition(const std::string& battleKey, BattleDefinition& outBattle);
 bool loadBattleDefinitionById(int battleId, BattleDefinition& outBattle);
+bool loadAllBattleDefinitions(std::vector<BattleDefinition>& outBattles);
 
 bool loadAbilityDefinition(const std::string& abilityId, AbilityDefinition& outAbility);
 bool parseAbilityDefinition(const nlohmann::json& abilityJson,

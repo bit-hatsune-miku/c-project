@@ -1,0 +1,14 @@
+{
+  "chapter": 3,
+  "title": "WeChat Alipay Intro",
+  "scriptId": "ch0300",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "type": "narration",
+      "speaker": "",
+      "text": "WeChat Pay and Alipay slide their phone toward the spotlight. Placeholder intro: press SPACE to begin the battle.",
+      "battleKey": "scan_to_pay"
+    }
+  ]
+}

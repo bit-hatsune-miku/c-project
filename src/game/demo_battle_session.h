@@ -6,6 +6,8 @@
 
 #include <SDL2/SDL.h>
 
+#include "core/player_progression.h"
+
 namespace battle::demo {
 
 class SessionImpl;
@@ -24,13 +26,16 @@ public:
     Session(const Session&) = delete;
     Session& operator=(const Session&) = delete;
 
-    bool initialize(SDL_Renderer* renderer, const std::string& battleKey = "tutorial_vs_lyoo");
+    bool initialize(SDL_Renderer* renderer,
+                    const std::string& battleKey = "tutorial_vs_lyoo",
+                    const PlayerProgression& progression = PlayerProgression{});
     void shutdown();
     void handleEvent(const SDL_Event& event);
     void update(float deltaSeconds);
     void render(SDL_Renderer* renderer, int screenWidth, int screenHeight);
     bool isFinished() const;
     BattleOutcome outcome() const;
+    const std::vector<std::string>& currentPartyLineup() const;
 
 private:
     std::unique_ptr<SessionImpl> impl_;

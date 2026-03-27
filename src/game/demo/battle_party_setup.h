@@ -12,6 +12,7 @@
 struct TTF_Font;
 #endif
 
+#include "../core/player_progression.h"
 #include "../core/battle_manager.h"
 #include "battle_party_setup_ui.h"
 
@@ -28,7 +29,9 @@ public:
     BattlePartySetupScreen(const BattlePartySetupScreen&) = delete;
     BattlePartySetupScreen& operator=(const BattlePartySetupScreen&) = delete;
 
-    bool initialize(SDL_Renderer* renderer, const BattleDefinition& battleDefinition);
+    bool initialize(SDL_Renderer* renderer,
+                    const BattleDefinition& battleDefinition,
+                    const PlayerProgression& progression = PlayerProgression{});
     void shutdown();
 
     void handleEvent(const SDL_Event& event, int windowWidth, int windowHeight);
@@ -76,6 +79,7 @@ private:
     void seedSelection();
     void resetInteractionState();
 
+    int selectionCapacity() const;
     bool canStart() const;
     int findRosterIndexByKey(const std::string& characterKey) const;
     bool isLockedCharacter(const std::string& characterKey) const;
@@ -118,6 +122,7 @@ private:
     Uint32 startTransitionTick_ = 0;
 
     BattleDefinition battleDefinition_;
+    PlayerProgression progression_;
     std::vector<Entry> roster_;
     std::unordered_map<std::string, int> rosterIndexByKey_;
     std::vector<std::string> selectedKeys_;

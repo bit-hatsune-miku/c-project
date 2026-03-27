@@ -1,0 +1,13 @@
+{
+  "chapter": 4,
+  "title": "Ari Victory",
+  "scriptId": "ch0401",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "type": "narration",
+      "speaker": "",
+      "text": "Ari is defeated. Placeholder post-battle dialogue: press SPACE to return to the selector."
+    }
+  ]
+}

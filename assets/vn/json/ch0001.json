@@ -1,0 +1,68 @@
+{
+  "chapter": 0,
+  "title": "Tutorial Complete",
+  "scriptId": "ch0001",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "speaker": "Cupcakke",
+      "text": "This felt more like a rip off of a certain turn by turn based Chinese anime gacha game rather than an actual singing contest.",
+      "type": "dialogue",
+      "background": "assets/vn/backgrounds/ch0/5.png",
+      "voice": "",
+      "fontPath": "",
+      "icon": "assets/combat/icons/cupcakke.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Shh, don't break the fourth wall.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "assets/combat/icons/miku.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "Congratulations! You're officially in the competition! In order to win, you must reach idol rank 30.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "assets/vn/icons/lyoo/0.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "You can now stroll around the cyberpunk campus and find an idol you want to duel.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "assets/vn/icons/lyoo/0.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "Best of luck~",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "assets/vn/icons/lyoo/0.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    }
+  ]
+}

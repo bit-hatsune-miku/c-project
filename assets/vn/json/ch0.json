@@ -986,7 +986,7 @@
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
       "battleKey": "tutorial_vs_lyoo",
-      "battleWinScript": "",
+      "battleWinScript": "ch0001",
       "battleLoseScript": ""
     }
   ]
