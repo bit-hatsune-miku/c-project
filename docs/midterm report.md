@@ -1,13 +1,13 @@
 # Midterm Report
 
-This report is written based on the checklist in [`docs/2026-Midterm Report checklist.md`](/home/tim/Desktop/GameForC/c-project/docs/2026-Midterm%20Report%20checklist.md).
+This report is written based on the checklist in [`docs/2026-Midterm Report checklist.md`](/c-project/docs/2026-Midterm%20Report%20checklist.md).
 
 The purpose of this report is to explain the current program as a system, not just as a collection of files. The main focus is the shipped main application flow, while `battle_testing` is included as a secondary experimental battle architecture.
 
 Relevant supporting documents:
 
-- [`docs/architecture.md`](/home/tim/Desktop/GameForC/c-project/docs/architecture.md)
-- [`docs/mermaid/gamestate.mermaid`](/home/tim/Desktop/GameForC/c-project/docs/mermaid/gamestate.mermaid)
+- [`docs/architecture.md`](/c-project/docs/architecture.md)
+- [`docs/mermaid/gamestate.mermaid`](/c-project/docs/mermaid/gamestate.mermaid)
 
 ## Project Overview
 
@@ -49,7 +49,7 @@ The program can be understood as five major layers:
 4. Battle gameplay system
 5. Battle rendering and presentation system
 
-At runtime, the main application uses [`src/main.cpp`](/home/tim/Desktop/GameForC/c-project/src/main.cpp) as the top-level coordinator. It owns the main loop, the screen state, the active UI mode, and the transitions between story and battle.
+At runtime, the main application uses [`src/main.cpp`](/c-project/src/main.cpp) as the top-level coordinator. It owns the main loop, the screen state, the active UI mode, and the transitions between story and battle.
 
 High-level runtime flow:
 
@@ -64,11 +64,11 @@ Program start
 -> present frame
 ```
 
-The game state transitions themselves are represented by `AppState.screen`, which is documented visually in [`docs/mermaid/gamestate.mermaid`](/home/tim/Desktop/GameForC/c-project/docs/mermaid/gamestate.mermaid).
+The game state transitions themselves are represented by `AppState.screen`, which is documented visually in [`docs/mermaid/gamestate.mermaid`](/c-project/docs/mermaid/gamestate.mermaid).
 
 ### 1.2 Executable Structure
 
-The build configuration in [`CMakeLists.txt`](/home/tim/Desktop/GameForC/c-project/CMakeLists.txt) creates multiple executables.
+The build configuration in [`CMakeLists.txt`](/c-project/CMakeLists.txt) creates multiple executables.
 
 The most important ones are:
 
@@ -96,8 +96,8 @@ These executables include:
 
 `battle_testing` is a side architecture used for battle HUD and rendering experiments. It uses:
 
-- [`src/rmlui_battle_main.cpp`](/home/tim/Desktop/GameForC/c-project/src/rmlui_battle_main.cpp)
-- [`src/game/app_battle_session.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/app_battle_session.cpp)
+- [`src/rmlui_battle_main.cpp`](/c-project/src/rmlui_battle_main.cpp)
+- [`src/game/app_battle_session.cpp`](/c-project/src/game/app_battle_session.cpp)
 
 This is not the main story battle path, but it is still important because it shows an alternative battle UI and rendering design inside the same codebase.
 
@@ -110,14 +110,14 @@ The project follows a standard C++ modular structure:
 
 Examples:
 
-- [`src/window.h`](/home/tim/Desktop/GameForC/c-project/src/window.h) declares the `Window` class
-- [`src/window.cpp`](/home/tim/Desktop/GameForC/c-project/src/window.cpp) implements SDL window creation, renderer setup, OpenGL setup, and frame presentation
+- [`src/window.h`](/c-project/src/window.h) declares the `Window` class
+- [`src/window.cpp`](/c-project/src/window.cpp) implements SDL window creation, renderer setup, OpenGL setup, and frame presentation
 
-- [`src/game/vn/vn_system.h`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_system.h) declares the VN interface
-- [`src/game/vn/vn_system.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_system.cpp) implements dialogue rendering, voice playback, typewriter text, and presentation state export
+- [`src/game/vn/vn_system.h`](/c-project/src/game/vn/vn_system.h) declares the VN interface
+- [`src/game/vn/vn_system.cpp`](/c-project/src/game/vn/vn_system.cpp) implements dialogue rendering, voice playback, typewriter text, and presentation state export
 
-- [`src/game/core/battle_manager.h`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h) declares the core battle state and APIs
-- [`src/game/core/battle_manager.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.cpp) implements turn progression, damage, healing, buff logic, and battle resolution
+- [`src/game/core/battle_manager.h`](/c-project/src/game/core/battle_manager.h) declares the core battle state and APIs
+- [`src/game/core/battle_manager.cpp`](/c-project/src/game/core/battle_manager.cpp) implements turn progression, damage, healing, buff logic, and battle resolution
 
 This separation matters because it keeps the program understandable:
 
@@ -131,9 +131,9 @@ The project is organized into several functional areas.
 
 #### Application shell
 
-- [`src/main.cpp`](/home/tim/Desktop/GameForC/c-project/src/main.cpp)
-- [`src/window.cpp`](/home/tim/Desktop/GameForC/c-project/src/window.cpp)
-- [`src/GameMenu/menu_shared.h`](/home/tim/Desktop/GameForC/c-project/src/GameMenu/menu_shared.h)
+- [`src/main.cpp`](/c-project/src/main.cpp)
+- [`src/window.cpp`](/c-project/src/window.cpp)
+- [`src/GameMenu/menu_shared.h`](/c-project/src/GameMenu/menu_shared.h)
 
 Responsibilities:
 
@@ -146,8 +146,8 @@ Responsibilities:
 
 #### Story / VN system
 
-- [`src/game/vn/vn_system.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_system.cpp)
-- [`src/game/vn/vn_script.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_script.cpp)
+- [`src/game/vn/vn_system.cpp`](/c-project/src/game/vn/vn_system.cpp)
+- [`src/game/vn/vn_script.cpp`](/c-project/src/game/vn/vn_script.cpp)
 
 Responsibilities:
 
@@ -160,12 +160,12 @@ Responsibilities:
 
 #### Front-end UI system
 
-- [`src/graphics/front_ui_session.cpp`](/home/tim/Desktop/GameForC/c-project/src/graphics/front_ui_session.cpp)
-- [`src/graphics/front_ui_main_menu.cpp`](/home/tim/Desktop/GameForC/c-project/src/graphics/front_ui_main_menu.cpp)
-- [`src/graphics/front_ui_story.cpp`](/home/tim/Desktop/GameForC/c-project/src/graphics/front_ui_story.cpp)
-- [`src/graphics/front_ui_pause.cpp`](/home/tim/Desktop/GameForC/c-project/src/graphics/front_ui_pause.cpp)
-- [`src/graphics/front_ui_load.cpp`](/home/tim/Desktop/GameForC/c-project/src/graphics/front_ui_load.cpp)
-- [`src/graphics/front_ui_settings.cpp`](/home/tim/Desktop/GameForC/c-project/src/graphics/front_ui_settings.cpp)
+- [`src/graphics/front_ui_session.cpp`](/c-project/src/graphics/front_ui_session.cpp)
+- [`src/graphics/front_ui_main_menu.cpp`](/c-project/src/graphics/front_ui_main_menu.cpp)
+- [`src/graphics/front_ui_story.cpp`](/c-project/src/graphics/front_ui_story.cpp)
+- [`src/graphics/front_ui_pause.cpp`](/c-project/src/graphics/front_ui_pause.cpp)
+- [`src/graphics/front_ui_load.cpp`](/c-project/src/graphics/front_ui_load.cpp)
+- [`src/graphics/front_ui_settings.cpp`](/c-project/src/graphics/front_ui_settings.cpp)
 
 Responsibilities:
 
@@ -177,12 +177,12 @@ Responsibilities:
 
 #### Battle gameplay system
 
-- [`src/game/core/battle_loader.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_loader.cpp)
-- [`src/game/core/battle_manager.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.cpp)
-- [`src/game/core/turn_system.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/core/turn_system.cpp)
-- [`src/game/core/battle_turn_flow.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_turn_flow.cpp)
-- [`src/game/core/battle_flow_controller.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_flow_controller.cpp)
-- [`src/game/core/ability_system.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/core/ability_system.cpp)
+- [`src/game/core/battle_loader.cpp`](/c-project/src/game/core/battle_loader.cpp)
+- [`src/game/core/battle_manager.cpp`](/c-project/src/game/core/battle_manager.cpp)
+- [`src/game/core/turn_system.cpp`](/c-project/src/game/core/turn_system.cpp)
+- [`src/game/core/battle_turn_flow.cpp`](/c-project/src/game/core/battle_turn_flow.cpp)
+- [`src/game/core/battle_flow_controller.cpp`](/c-project/src/game/core/battle_flow_controller.cpp)
+- [`src/game/core/ability_system.cpp`](/c-project/src/game/core/ability_system.cpp)
 
 Responsibilities:
 
@@ -195,10 +195,10 @@ Responsibilities:
 
 #### Battle rendering and presentation
 
-- [`src/game/battle_session_core.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/battle_session_core.cpp)
-- [`src/game/render/`](/home/tim/Desktop/GameForC/c-project/src/game/render)
-- [`src/game/presentation/`](/home/tim/Desktop/GameForC/c-project/src/game/presentation)
-- [`src/game/demo_battle_session.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/demo_battle_session.cpp)
+- [`src/game/battle_session_core.cpp`](/c-project/src/game/battle_session_core.cpp)
+- [`src/game/render/`](/c-project/src/game/render)
+- [`src/game/presentation/`](/c-project/src/game/presentation)
+- [`src/game/demo_battle_session.cpp`](/c-project/src/game/demo_battle_session.cpp)
 
 Responsibilities:
 
@@ -293,7 +293,7 @@ Boot
 -> return to story or main menu
 ```
 
-The state transitions are controlled by the enum `ScreenState` in [`src/GameMenu/menu_shared.h`](/home/tim/Desktop/GameForC/c-project/src/GameMenu/menu_shared.h).
+The state transitions are controlled by the enum `ScreenState` in [`src/GameMenu/menu_shared.h`](/c-project/src/GameMenu/menu_shared.h).
 
 Important states:
 
@@ -369,7 +369,7 @@ This section explains the most important data structures in the system and why t
 
 ### 2.1 `AppState`
 
-Defined in [`src/GameMenu/menu_shared.h`](/home/tim/Desktop/GameForC/c-project/src/GameMenu/menu_shared.h).
+Defined in [`src/GameMenu/menu_shared.h`](/c-project/src/GameMenu/menu_shared.h).
 
 This is the main state container for the application shell.
 
@@ -402,7 +402,7 @@ How it supports the system:
 
 ### 2.2 `GameSettings`
 
-Also defined in [`src/GameMenu/menu_shared.h`](/home/tim/Desktop/GameForC/c-project/src/GameMenu/menu_shared.h).
+Also defined in [`src/GameMenu/menu_shared.h`](/c-project/src/GameMenu/menu_shared.h).
 
 Fields:
 
@@ -420,7 +420,7 @@ This is a good example of a small state structure used across multiple subsystem
 
 ### 2.3 `StorySession`
 
-Defined in [`src/GameMenu/menu_shared.h`](/home/tim/Desktop/GameForC/c-project/src/GameMenu/menu_shared.h).
+Defined in [`src/GameMenu/menu_shared.h`](/c-project/src/GameMenu/menu_shared.h).
 
 Fields:
 
@@ -441,7 +441,7 @@ How it supports the design:
 
 ### 2.4 `vn::ScriptEntry` and `vn::Script`
 
-Defined in [`src/game/vn/vn_script.h`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_script.h).
+Defined in [`src/game/vn/vn_script.h`](/c-project/src/game/vn/vn_script.h).
 
 `vn::ScriptEntry` contains:
 
@@ -481,7 +481,7 @@ This is one of the most important structures in the whole project because it con
 
 ### 2.5 `save::SaveGame` and `save::SlotInfo`
 
-Defined in [`src/game/save/save.h`](/home/tim/Desktop/GameForC/c-project/src/game/save/save.h).
+Defined in [`src/game/save/save.h`](/c-project/src/game/save/save.h).
 
 `SaveGame` contains:
 
@@ -509,7 +509,7 @@ These structures show that the project already supports state persistence, not j
 
 ### 2.6 `BattleDefinition`, `BossDefinition`, and `CharacterDefinition`
 
-Defined in [`src/game/core/battle_manager.h`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h), filled by [`src/game/core/battle_loader.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_loader.cpp).
+Defined in [`src/game/core/battle_manager.h`](/c-project/src/game/core/battle_manager.h), filled by [`src/game/core/battle_loader.cpp`](/c-project/src/game/core/battle_loader.cpp).
 
 #### `BattleDefinition`
 
@@ -575,7 +575,7 @@ How they support the system:
 
 ### 2.7 `BattleState`
 
-Defined in [`src/game/core/battle_manager.h`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h).
+Defined in [`src/game/core/battle_manager.h`](/c-project/src/game/core/battle_manager.h).
 
 Fields:
 
@@ -591,7 +591,7 @@ It is a compact "who is in this fight" representation.
 
 ### 2.8 `BattleCharacter`
 
-Defined in [`src/game/core/battle_manager.h`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h), implemented in [`src/game/core/battle_manager.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.cpp).
+Defined in [`src/game/core/battle_manager.h`](/c-project/src/game/core/battle_manager.h), implemented in [`src/game/core/battle_manager.cpp`](/c-project/src/game/core/battle_manager.cpp).
 
 This is the runtime version of a party member.
 
@@ -617,7 +617,7 @@ How it supports the system:
 
 ### 2.9 `AbilityDefinition`
 
-Defined in [`src/game/core/battle_manager.h`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h).
+Defined in [`src/game/core/battle_manager.h`](/c-project/src/game/core/battle_manager.h).
 
 Important fields:
 
@@ -641,7 +641,7 @@ This is a strong data design choice because it lets authored content control com
 
 ### 2.10 `TurnActor`, `TurnState`, and `TurnEvent`
 
-Defined in [`src/game/core/battle_manager.h`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h).
+Defined in [`src/game/core/battle_manager.h`](/c-project/src/game/core/battle_manager.h).
 
 #### `TurnActor`
 
@@ -687,7 +687,7 @@ These are among the most important data structures in the battle system.
 
 ### 2.11 `BattleActionEvent`
 
-Defined in [`src/game/core/battle_manager.h`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h).
+Defined in [`src/game/core/battle_manager.h`](/c-project/src/game/core/battle_manager.h).
 
 This structure records the result of executed battle actions.
 
@@ -709,7 +709,7 @@ This is a good design because it reduces direct coupling between the battle mana
 
 ### 2.12 `render::SceneEntity`
 
-Defined in [`src/game/render/battle_scene_types.h`](/home/tim/Desktop/GameForC/c-project/src/game/render/battle_scene_types.h).
+Defined in [`src/game/render/battle_scene_types.h`](/c-project/src/game/render/battle_scene_types.h).
 
 Important fields:
 
@@ -734,7 +734,7 @@ How it supports the design:
 
 ### 2.13 `BattleSessionCore::Hooks`
 
-Defined in [`src/game/battle_session_core.h`](/home/tim/Desktop/GameForC/c-project/src/game/battle_session_core.h).
+Defined in [`src/game/battle_session_core.h`](/c-project/src/game/battle_session_core.h).
 
 This is one of the most important extension structures in the project.
 
@@ -778,7 +778,7 @@ This section explains the core logic that makes the system work.
 
 ### 3.1 Startup and Scene Switching
 
-The central scene-switching logic lives in [`src/main.cpp`](/home/tim/Desktop/GameForC/c-project/src/main.cpp).
+The central scene-switching logic lives in [`src/main.cpp`](/c-project/src/main.cpp).
 
 The algorithm is roughly:
 
@@ -893,7 +893,7 @@ This algorithm is important because it shows how story and battle are connected 
 
 ### 3.6 Party Setup Logic
 
-The party setup system is implemented in [`src/game/demo/battle_party_setup.cpp`](/home/tim/Desktop/GameForC/c-project/src/game/demo/battle_party_setup.cpp).
+The party setup system is implemented in [`src/game/demo/battle_party_setup.cpp`](/c-project/src/game/demo/battle_party_setup.cpp).
 
 The algorithm is:
 
@@ -1155,7 +1155,7 @@ A practical presentation order would be:
 
 ### Slide 2: General Framework
 
-- use the game state diagram from [`docs/mermaid/gamestate.mermaid`](/home/tim/Desktop/GameForC/c-project/docs/mermaid/gamestate.mermaid)
+- use the game state diagram from [`docs/mermaid/gamestate.mermaid`](/c-project/docs/mermaid/gamestate.mermaid)
 - explain main menu -> story -> battle -> return flow
 - explain that `main.cpp` coordinates the whole program
 

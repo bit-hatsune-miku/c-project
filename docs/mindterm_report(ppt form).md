@@ -22,8 +22,8 @@ Put on the slide:
 
 References:
 
-- [`main.cpp`](/home/tim/Desktop/GameForC/c-project/src/main.cpp#L1080)
-- [`ScreenState`](/home/tim/Desktop/GameForC/c-project/src/GameMenu/menu_shared.h#L18)
+- [`main.cpp`](/c-project/src/main.cpp#L1080)
+- [`ScreenState`](/c-project/src/GameMenu/menu_shared.h#L18)
 
 ## Slide 2. General Framework
 
@@ -49,11 +49,11 @@ Real examples to mention on the slide:
 
 References:
 
-- [`AppState`](/home/tim/Desktop/GameForC/c-project/src/GameMenu/menu_shared.h#L161)
-- [`shouldUseFrontUiScreen`](/home/tim/Desktop/GameForC/c-project/src/main.cpp#L980)
-- [`beginBattle`](/home/tim/Desktop/GameForC/c-project/src/main.cpp#L831)
-- [`main loop`](/home/tim/Desktop/GameForC/c-project/src/main.cpp#L1125)
-- [`battle session lifecycle`](/home/tim/Desktop/GameForC/c-project/src/main.cpp#L1342)
+- [`AppState`](/c-project/src/GameMenu/menu_shared.h#L161)
+- [`shouldUseFrontUiScreen`](/c-project/src/main.cpp#L980)
+- [`beginBattle`](/c-project/src/main.cpp#L831)
+- [`main loop`](/c-project/src/main.cpp#L1125)
+- [`battle session lifecycle`](/c-project/src/main.cpp#L1342)
 
 ## Slide 3. OOP / Class Examples
 
@@ -79,12 +79,12 @@ Use these as real C++ examples of encapsulation:
 
 References:
 
-- [`Window`](/home/tim/Desktop/GameForC/c-project/src/window.h#L8)
-- [`frontui::Session`](/home/tim/Desktop/GameForC/c-project/src/graphics/front_ui_session.h#L24)
-- [`frontui stack logic`](/home/tim/Desktop/GameForC/c-project/src/graphics/front_ui_session.cpp#L27)
-- [`battle::demo::Session`](/home/tim/Desktop/GameForC/c-project/src/game/demo_battle_session.h#L19)
-- [`BattleManager`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h#L235)
-- [`BattleCharacter`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h#L127)
+- [`Window`](/c-project/src/window.h#L8)
+- [`frontui::Session`](/c-project/src/graphics/front_ui_session.h#L24)
+- [`frontui stack logic`](/c-project/src/graphics/front_ui_session.cpp#L27)
+- [`battle::demo::Session`](/c-project/src/game/demo_battle_session.h#L19)
+- [`BattleManager`](/c-project/src/game/core/battle_manager.h#L235)
+- [`BattleCharacter`](/c-project/src/game/core/battle_manager.h#L127)
 
 ## Slide 4. Key Data Structures
 
@@ -117,11 +117,11 @@ Why these matter:
 
 References:
 
-- [`StorySession`](/home/tim/Desktop/GameForC/c-project/src/GameMenu/menu_shared.h#L142)
-- [`AppState`](/home/tim/Desktop/GameForC/c-project/src/GameMenu/menu_shared.h#L161)
-- [`ScriptEntry`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_script.h#L15)
-- [`Script`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_script.h#L43)
-- [`SaveGame`](/home/tim/Desktop/GameForC/c-project/src/game/save/save.h#L16)
+- [`StorySession`](/c-project/src/GameMenu/menu_shared.h#L142)
+- [`AppState`](/c-project/src/GameMenu/menu_shared.h#L161)
+- [`ScriptEntry`](/c-project/src/game/vn/vn_script.h#L15)
+- [`Script`](/c-project/src/game/vn/vn_script.h#L43)
+- [`SaveGame`](/c-project/src/game/save/save.h#L16)
 
 ## Slide 5. Key Battle Data Structures
 
@@ -157,11 +157,11 @@ Real examples:
 
 References:
 
-- [`BattleDefinition`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h#L48)
-- [`AbilityDefinition`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h#L89)
-- [`TurnActor`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h#L191)
-- [`BattleActionEvent`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h#L217)
-- [`battle loader API`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_loader.h#L18)
+- [`BattleDefinition`](/c-project/src/game/core/battle_manager.h#L48)
+- [`AbilityDefinition`](/c-project/src/game/core/battle_manager.h#L89)
+- [`TurnActor`](/c-project/src/game/core/battle_manager.h#L191)
+- [`BattleActionEvent`](/c-project/src/game/core/battle_manager.h#L217)
+- [`battle loader API`](/c-project/src/game/core/battle_loader.h#L18)
 
 ## Slide 6. Key Algorithms: Dialogue Progression and State Switching
 
@@ -191,14 +191,17 @@ Real examples:
 
 References:
 
-- [`loadStoryScript`](/home/tim/Desktop/GameForC/c-project/src/main.cpp#L695)
-- [`beginStory`](/home/tim/Desktop/GameForC/c-project/src/main.cpp#L792)
-- [`story progression in main loop`](/home/tim/Desktop/GameForC/c-project/src/main.cpp#L1458)
-- [`showLine`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_system.cpp#L1074)
-- [`update`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_system.cpp#L1099)
-- [`onSpacePressed`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_system.cpp#L1308)
-- [`consumeAdvanceRequest`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_system.cpp#L1325)
-- [`ScriptEntry battle fields`](/home/tim/Desktop/GameForC/c-project/src/game/vn/vn_script.h#L26)
+- [`loadStoryScript`](/c-project/src/main.cpp#L695)
+- [`beginStory`](/c-project/src/main.cpp#L792)
+- [`story progression in main loop`](/c-project/src/main.cpp#L1458)
+- [`showLine`](/c-project/src/game/vn/vn_system.cpp#L1074)
+- [`update`](/c-project/src/game/vn/vn_system.cpp#L1099)
+- [`onSpacePressed`](/c-project/src/game/vn/vn_system.cpp#L1308)
+- [`consumeAdvanceRequest`](/home/tim/D
+
+
+esktop/GameForC/c-project/src/game/vn/vn_system.cpp#L1325)
+- [`ScriptEntry battle fields`](/c-project/src/game/vn/vn_script.h#L26)
 
 ## Slide 7. Key Algorithms: Battle Turn Management
 
@@ -225,15 +228,15 @@ Real examples:
 
 References:
 
-- [`actionValueFromSpeed`](/home/tim/Desktop/GameForC/c-project/src/game/core/turn_system.cpp#L15)
-- [`buildInitialTurnState`](/home/tim/Desktop/GameForC/c-project/src/game/core/turn_system.cpp#L36)
-- [`peekNextTurnEvent`](/home/tim/Desktop/GameForC/c-project/src/game/core/turn_system.cpp#L77)
-- [`advanceToNextTurnEvent`](/home/tim/Desktop/GameForC/c-project/src/game/core/turn_system.cpp#L109)
-- [`queueExtraTurnForCharacter`](/home/tim/Desktop/GameForC/c-project/src/game/core/turn_system.cpp#L125)
-- [`executePlayerTurn`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.cpp#L751)
-- [`processAutomaticTurns`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.cpp#L774)
-- [`resolvePlayerAction`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.cpp#L957)
-- [`resolveBossAction`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.cpp#L1016)
+- [`actionValueFromSpeed`](/c-project/src/game/core/turn_system.cpp#L15)
+- [`buildInitialTurnState`](/c-project/src/game/core/turn_system.cpp#L36)
+- [`peekNextTurnEvent`](/c-project/src/game/core/turn_system.cpp#L77)
+- [`advanceToNextTurnEvent`](/c-project/src/game/core/turn_system.cpp#L109)
+- [`queueExtraTurnForCharacter`](/c-project/src/game/core/turn_system.cpp#L125)
+- [`executePlayerTurn`](/c-project/src/game/core/battle_manager.cpp#L751)
+- [`processAutomaticTurns`](/c-project/src/game/core/battle_manager.cpp#L774)
+- [`resolvePlayerAction`](/c-project/src/game/core/battle_manager.cpp#L957)
+- [`resolveBossAction`](/c-project/src/game/core/battle_manager.cpp#L1016)
 
 ## Slide 8. Key Algorithms: Ability Resolution and Prototype Evidence
 
@@ -264,10 +267,10 @@ Real examples:
 
 References:
 
-- [`AbilityExecutionContext`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h#L117)
-- [`PresentationContext`](/home/tim/Desktop/GameForC/c-project/src/game/core/battle_manager.h#L105)
-- [`executeAbilityEffect`](/home/tim/Desktop/GameForC/c-project/src/game/core/ability_system.cpp#L18)
-- [`battle outcome return logic`](/home/tim/Desktop/GameForC/c-project/src/main.cpp#L1399)
+- [`AbilityExecutionContext`](/c-project/src/game/core/battle_manager.h#L117)
+- [`PresentationContext`](/c-project/src/game/core/battle_manager.h#L105)
+- [`executeAbilityEffect`](/c-project/src/game/core/ability_system.cpp#L18)
+- [`battle outcome return logic`](/c-project/src/main.cpp#L1399)
 
 ## Short Final Checklist
 
