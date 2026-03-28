@@ -1004,6 +1004,15 @@ void loadMenuResources(MenuResources& resources, SDL_Renderer* renderer) {
 #endif
 }
 
+void releaseRendererUi(MenuResources& menuResources, bool& rendererUiReady) {
+    if (!rendererUiReady) {
+        return;
+    }
+
+    destroyMenuResources(menuResources);
+    rendererUiReady = false;
+}
+
 bool restoreRendererUi(Window& window, MenuResources& menuResources, const GameSettings& settings) {
     if (!window.enableRenderer()) {
         return false;
@@ -1042,6 +1051,10 @@ bool shouldUseFrontUiScreen(const AppState& state) {
            (state.settingsReturnScreen == ScreenState::MainMenu ||
             (state.settingsReturnScreen == ScreenState::PauseMenu &&
              state.pauseContext == PauseContext::Story));
+}
+
+bool shouldDeferBackendRestore(const AppState& state) {
+    return state.screen == ScreenState::BossSelector;
 }
 
 bool shouldKeepStoryBgmPlaying(const AppState& state) {
@@ -1133,12 +1146,6 @@ bool applyFrontMenuAction(AppState& state,
     if (action == MainMenuAction::Settings) {
         applyMainMenuAction(state, window, action);
         return restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state);
-    }
-
-    if (action == MainMenuAction::Battle) {
-        if (!restoreNonMainMenuUi(window, frontUi, menuResources, rendererUiReady, state.settings)) {
-            return false;
-        }
     }
 
     applyMainMenuAction(state, window, action);
@@ -1377,7 +1384,8 @@ int main(int argc, char** argv) {
                 std::cerr << "Failed to restore RmlUi front-ui screen\n";
                 return 1;
             }
-        } else if (!restoreNonMainMenuUi(window, frontUi, menuResources, rendererUiReady, state.settings)) {
+        } else if (!shouldDeferBackendRestore(state) &&
+                   !restoreNonMainMenuUi(window, frontUi, menuResources, rendererUiReady, state.settings)) {
             std::cerr << "Failed to restore renderer UI\n";
             return 1;
         }
@@ -1465,7 +1473,12 @@ int main(int argc, char** argv) {
 
 #ifdef RMLUI_SDL_VERSION_MAJOR
         if (state.screen == ScreenState::BossSelector && bossSelectorSession == nullptr) {
-            destroyMenuResources(menuResources);
+            releaseRendererUi(menuResources, rendererUiReady);
+#ifdef APP_ENABLE_RMLUI
+            if (frontUi.isInitialized()) {
+                frontUi.shutdown();
+            }
+#endif
             vn::stopVoicePlayback();
             vn::shutdown();
 
@@ -1637,14 +1650,19 @@ int main(int argc, char** argv) {
                 if (const auto request = bossSelectorSession->consumeLaunchRequest(); request.has_value()) {
                     bossSelectorSession->shutdown();
                     bossSelectorSession.reset();
-                    if (!restoreRendererUi(window, menuResources, state.settings)) {
-                        std::cerr << "Failed to restore renderer UI after selector launch\n";
-                        return 1;
-                    }
 
                     if (request->type == battle::selector::LaunchRequest::Type::Story) {
+                        if (!vn::initialize(nullptr, window.getWidth(), window.getHeight())) {
+                            std::cerr << "Failed to initialize VN system after selector story launch\n";
+                            return 1;
+                        }
                         beginStory(state, request->reference, ScreenState::BossSelector);
                     } else {
+                        if (!restoreRendererUi(window, menuResources, state.settings)) {
+                            std::cerr << "Failed to restore renderer UI after selector battle launch\n";
+                            return 1;
+                        }
+                        rendererUiReady = true;
                         state.pendingBattleReturnScreen = ScreenState::BossSelector;
                         state.pendingBattleLaunchedFromStory = false;
                         state.pendingBattleWinScript.clear();
@@ -1654,10 +1672,6 @@ int main(int argc, char** argv) {
                 } else if (bossSelectorSession->isFinished()) {
                     bossSelectorSession->shutdown();
                     bossSelectorSession.reset();
-                    if (!restoreRendererUi(window, menuResources, state.settings)) {
-                        std::cerr << "Failed to restore renderer UI after selector exit\n";
-                        return 1;
-                    }
                     state.screen = ScreenState::MainMenu;
                     state.mainSelection = MainMenuAction::Battle;
                 }
@@ -1713,7 +1727,8 @@ int main(int argc, char** argv) {
                 std::cerr << "Failed to restore RmlUi front-ui screen\n";
                 return 1;
             }
-        } else if (!restoreNonMainMenuUi(window, frontUi, menuResources, rendererUiReady, state.settings)) {
+        } else if (!shouldDeferBackendRestore(state) &&
+                   !restoreNonMainMenuUi(window, frontUi, menuResources, rendererUiReady, state.settings)) {
             std::cerr << "Failed to restore renderer UI\n";
             return 1;
         }

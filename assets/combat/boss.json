@@ -1,6 +1,6 @@
 {
     "lyooBoss": {
-        "title": "[Underground BIT Host] Lyoo",
+        "title": "Host | Lyoo",
         "assets": "lyooBoss",
         "voiceHit": "assets/combat/voices/lyoo/hit.wav",
         "spd": 220,
@@ -27,8 +27,8 @@
         "bgm": "lyooBoss",
         "bgmVolume": 0.1
     },
-    "lyooPlotTwist": {
-        "title": "断川",
+    "lyooPlotTwist":  {
+        "title": "断川 | CaiNiao Reinforcement Learning Assistant",
         "assets": "lyooPlotTwist",
         "voiceHit": "assets/combat/voices/lyooPlotTwist/hit.wav",
         "spd": 90,
