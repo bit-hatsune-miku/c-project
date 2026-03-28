@@ -6,6 +6,7 @@
 #include <RmlUi/Core/Element.h>
 #include <RmlUi/Core/Event.h>
 
+#include "../platform/path_resolution.h"
 #include "front_ui_load.h"
 #include "front_ui_pause.h"
 #include "front_ui_settings.h"
@@ -33,6 +34,15 @@ constexpr int actionIndex(MainMenuAction action) {
     return static_cast<int>(action);
 }
 
+void applyStaticArtSources(Rml::ElementDocument& document) {
+    if (Rml::Element* element = document.GetElementById("bg-art")) {
+        element->SetAttribute("src", platform::path::resolvePath(kMainMenuBackgroundArtPath));
+    }
+    if (Rml::Element* element = document.GetElementById("title-logo")) {
+        element->SetAttribute("src", platform::path::resolvePath(kMainMenuTitleLogoPath));
+    }
+}
+
 }  // namespace
 
 bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppState& state) {
@@ -41,6 +51,7 @@ bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppS
     pendingCommand_.reset();
     selection_ = state.mainSelection;
 
+    applyStaticArtSources(document);
     applyButtonCopy();
     attachListeners();
     applySelectionStyles();

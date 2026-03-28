@@ -4,7 +4,7 @@
     <link type="text/rcss" href="front_ui_shared.rcss"/>
 </head>
 <body>
-    <img id="bg-art" src="../../vn/backgrounds/General_Art/mainmenu art.png"/>
+    <img id="bg-art" src=""/>
     <div id="bg-dim"></div>
     <div id="bg-top-glow"></div>
     <div id="bg-grid-vertical"></div>
@@ -15,7 +15,7 @@
     <div id="menu-column">
         <div id="title-shell">
             <div id="title-kicker">VISUAL NOVEL / UNDERGROUND SIGNAL</div>
-            <img id="title-logo" src="../../vn/backgrounds/General_Art/MainMenuTitle.png"/>
+            <img id="title-logo" src=""/>
         </div>
 
         <div id="menu-shell">
