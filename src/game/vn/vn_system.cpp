@@ -4,6 +4,7 @@
 #include <cctype>
 #include <cmath>
 #include <iostream>
+#include <optional>
 #include <vector>
 
 #ifdef VN_ENABLE_TTF
@@ -13,6 +14,7 @@
 #include <SDL2/SDL_image.h>
 #endif
 
+#include "../audio/bgm_player.h"
 #include "../../platform/path_resolution.h"
 #include "../../platform/text_fallback.h"
 
@@ -29,6 +31,7 @@ bool gInitialized = false;
 std::string gSpeakerName;
 std::string gText;
 std::string gVoicePath;
+std::string gBgmPath;
 std::string gFontPath;
 std::string gIconPath;
 std::string gBackgroundPath;
@@ -49,6 +52,8 @@ constexpr float kBackgroundFadeDuration = 0.30f;
 
 float gCharsPerSecond = 45.0f;
 float gVoiceVolume = 0.85f;
+float gBgmVolume = 1.0f;
+float gBgmCurrentVolume = 0.0f;
 float gTypeAccumulator = 0.0f;
 size_t gVisibleChars = 0;
 size_t gTotalVisibleChars = 0;
@@ -64,6 +69,12 @@ Uint32 gLoadedWavLength = 0;
 bool gVoicePlaying = false;
 bool gImageInitialized = false;
 bool gTtfInitialized = false;
+game::audio::BgmPlayer gBgmPlayer;
+std::string gPendingBgmPath;
+float gPendingBgmVolume = 1.0f;
+bool gBgmFadeOutRequested = false;
+bool gBgmPauseAfterFadeOut = false;
+constexpr float kBgmFadeDuration = 0.35f;
 
 #ifdef VN_ENABLE_TTF
 TTF_Font* gFont = nullptr;
@@ -206,6 +217,156 @@ void playVoiceIfAny() {
 
     SDL_PauseAudioDevice(gAudioDevice, 0);
     gVoicePlaying = gVoiceVolume > 0.0f;
+}
+
+void clearPendingBgmTransition() {
+    gPendingBgmPath.clear();
+    gPendingBgmVolume = 1.0f;
+    gBgmFadeOutRequested = false;
+    gBgmPauseAfterFadeOut = false;
+}
+
+void applyCurrentBgmVolume(float volume01) {
+    gBgmCurrentVolume = std::clamp(volume01, 0.0f, 1.0f);
+    if (gBgmPlayer.isPlaying()) {
+        gBgmPlayer.setVolume(gBgmCurrentVolume);
+    }
+}
+
+bool startImmediateBgmPlayback(const std::string& wavPath, float volume01) {
+    const float clampedVolume = std::clamp(volume01, 0.0f, 1.0f);
+    if (!gBgmPlayer.play(wavPath, clampedVolume)) {
+        std::cerr << "[VN] Could not load BGM WAV: " << wavPath << " (" << SDL_GetError() << ")\n";
+        return false;
+    }
+
+    gBgmPath = wavPath;
+    gBgmVolume = clampedVolume;
+    gBgmCurrentVolume = clampedVolume;
+    return true;
+}
+
+void requestBgmTransition(const std::string& wavPath,
+                          bool hasRequestedVolume,
+                          float requestedVolume,
+                          bool stopRequested,
+                          std::optional<bool> pauseRequested) {
+    const float targetVolume = hasRequestedVolume
+        ? std::clamp(requestedVolume, 0.0f, 1.0f)
+        : gBgmVolume;
+
+    if (stopRequested) {
+        if (!gBgmPlayer.isPlaying()) {
+            stopBgmPlayback();
+            return;
+        }
+
+        gPendingBgmPath.clear();
+        gPendingBgmVolume = 0.0f;
+        gBgmFadeOutRequested = true;
+        return;
+    }
+
+    if (pauseRequested.has_value() && wavPath.empty()) {
+        if (hasRequestedVolume) {
+            gBgmVolume = targetVolume;
+        }
+
+        if (*pauseRequested) {
+            if (!gBgmPlayer.isPlaying() || gBgmPlayer.isPaused()) {
+                return;
+            }
+
+            gPendingBgmPath.clear();
+            gPendingBgmVolume = 0.0f;
+            gBgmFadeOutRequested = true;
+            gBgmPauseAfterFadeOut = true;
+            return;
+        }
+
+        if (!gBgmPlayer.isPlaying() || !gBgmPlayer.isPaused()) {
+            return;
+        }
+
+        gBgmPlayer.resume();
+        return;
+    }
+
+    if (wavPath.empty()) {
+        if (hasRequestedVolume) {
+            gBgmVolume = targetVolume;
+        }
+        return;
+    }
+
+    if (!gBgmPlayer.isPlaying()) {
+        if (startImmediateBgmPlayback(wavPath, 0.0f)) {
+            gBgmVolume = targetVolume;
+        }
+        clearPendingBgmTransition();
+        return;
+    }
+
+    if (wavPath == gBgmPath) {
+        if (hasRequestedVolume) {
+            gBgmVolume = targetVolume;
+        }
+        gPendingBgmPath.clear();
+        gPendingBgmVolume = 1.0f;
+        return;
+    }
+
+    gPendingBgmPath = wavPath;
+    gPendingBgmVolume = targetVolume;
+    gBgmFadeOutRequested = true;
+}
+
+void updateBgmTransition(float deltaSeconds) {
+    const float fadeStep = kBgmFadeDuration <= 0.0f ? 1.0f : deltaSeconds / kBgmFadeDuration;
+
+    if (gBgmFadeOutRequested && gBgmPlayer.isPlaying()) {
+        applyCurrentBgmVolume(std::max(0.0f, gBgmCurrentVolume - fadeStep));
+        if (gBgmCurrentVolume <= 0.001f) {
+            if (gBgmPauseAfterFadeOut) {
+                gBgmPlayer.pause();
+                gBgmFadeOutRequested = false;
+                gBgmPauseAfterFadeOut = false;
+                return;
+            }
+
+            gBgmPlayer.stop();
+            gBgmPath.clear();
+            gBgmCurrentVolume = 0.0f;
+            gBgmFadeOutRequested = false;
+
+            if (!gPendingBgmPath.empty()) {
+                const std::string nextPath = gPendingBgmPath;
+                const float nextVolume = gPendingBgmVolume;
+                gPendingBgmPath.clear();
+                gPendingBgmVolume = 1.0f;
+                if (startImmediateBgmPlayback(nextPath, 0.0f)) {
+                    gBgmVolume = nextVolume;
+                }
+            } else {
+                gBgmVolume = 0.0f;
+            }
+        }
+        return;
+    }
+
+    if (!gBgmPlayer.isPlaying()) {
+        return;
+    }
+
+    if (std::fabs(gBgmCurrentVolume - gBgmVolume) <= 0.001f) {
+        return;
+    }
+
+    if (gBgmCurrentVolume < gBgmVolume) {
+        applyCurrentBgmVolume(std::min(gBgmVolume, gBgmCurrentVolume + fadeStep));
+    } else {
+        applyCurrentBgmVolume(std::max(gBgmVolume, gBgmCurrentVolume - fadeStep));
+    }
 }
 
 #ifdef VN_ENABLE_TTF
@@ -900,6 +1061,7 @@ void shutdown() {
         return;
     }
 
+    stopBgmPlayback();
     destroyIconTexture();
     destroyBackgroundTexture();
     if (gPreviousBackgroundTexture != nullptr) {
@@ -1001,6 +1163,35 @@ void setVoice(const std::string& wavPath) {
     gVoicePath = wavPath;
 }
 
+void setBgm(const std::string& wavPath, float volume01) {
+    if (wavPath.empty()) {
+        return;
+    }
+
+    clearPendingBgmTransition();
+    (void)startImmediateBgmPlayback(wavPath, volume01);
+}
+
+void stopBgmPlayback() {
+    gBgmPlayer.stop();
+    gBgmPath.clear();
+    gBgmCurrentVolume = 0.0f;
+    gBgmVolume = 0.0f;
+    clearPendingBgmTransition();
+}
+
+void setBgmPaused(bool paused) {
+    if (!gBgmPlayer.isPlaying()) {
+        return;
+    }
+    if (paused) {
+        gBgmPlayer.pause();
+        gBgmCurrentVolume = 0.0f;
+    } else {
+        gBgmPlayer.resume();
+    }
+}
+
 void setFont(const std::string& fontPath, int ptSize) {
     gFontPath = fontPath;
 #ifdef VN_ENABLE_TTF
@@ -1046,12 +1237,25 @@ void setVoiceVolume(float volume01) {
     gVoicePlaying = gVoiceVolume > 0.0f;
 }
 
+void setBgmVolume(float volume01) {
+    gBgmVolume = std::clamp(volume01, 0.0f, 1.0f);
+    if (gBgmPlayer.isPlaying()) {
+        applyCurrentBgmVolume(gBgmVolume);
+    } else {
+        gBgmCurrentVolume = gBgmVolume;
+    }
+}
+
 float getTypewriterSpeed() {
     return gCharsPerSecond;
 }
 
 float getVoiceVolume() {
     return gVoiceVolume;
+}
+
+float getBgmVolume() {
+    return gBgmVolume;
 }
 
 void setText(const std::string& text) {
@@ -1080,12 +1284,19 @@ void showLine(
     bool autoAdvanceOnVoiceEnd,
     int iconFrameCount,
     float iconFps,
-    const std::string& backgroundPath
+    const std::string& backgroundPath,
+    const std::string& bgmPath,
+    float bgmVolume,
+    bool bgmStop,
+    std::optional<bool> bgmPause
 ) {
+    const bool hasBgmVolume = bgmVolume >= 0.0f;
+
     setText(text);
     setSpeakerName(speakerName);
     setIcon(iconPath, iconFrameCount, iconFps);
     setVoice(voicePath);
+    requestBgmTransition(bgmPath, hasBgmVolume, bgmVolume, bgmStop, bgmPause);
     if (!fontPath.empty()) {
         setFont(fontPath);
     }
@@ -1100,6 +1311,8 @@ void update(float deltaSeconds) {
     if (gPaused) {
         return;
     }
+
+    updateBgmTransition(deltaSeconds);
 
     if (gBackgroundFadeActive) {
         gBackgroundFadeElapsed = std::min(kBackgroundFadeDuration, gBackgroundFadeElapsed + deltaSeconds);
@@ -1162,6 +1375,7 @@ bool isVoicePlaying() {
 
 void reset() {
     stopAndFreeVoiceBuffer();
+    stopBgmPlayback();
 
     destroyIconTexture();
     destroyBackgroundTexture();
@@ -1173,6 +1387,7 @@ void reset() {
     gSpeakerName.clear();
     gText.clear();
     gVoicePath.clear();
+    gBgmPath.clear();
     gFontPath.clear();
     gIconPath.clear();
     gBackgroundPath.clear();
@@ -1194,6 +1409,9 @@ void reset() {
     gAdvanceRequested = false;
     gPaused = false;
     gVoicePlaying = false;
+    gBgmCurrentVolume = 0.0f;
+    gBgmVolume = 0.0f;
+    clearPendingBgmTransition();
 
 #ifdef VN_ENABLE_TTF
     if (gFont != nullptr) {

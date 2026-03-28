@@ -35,7 +35,7 @@
             }
         },
         "ultimatePoints": 3,
-        "startingOrbs": 2,
+        "startingOrbs": 0,
         "baseShield": 18
     },
     "miku": {
@@ -71,7 +71,7 @@
             }
         },
         "ultimatePoints": 3,
-        "startingOrbs": 2
+        "startingOrbs": 0
     },
     "iroha": {
         "title": "Iroha",
@@ -175,7 +175,7 @@
             }
         },
         "ultimatePoints": 4,
-        "startingOrbs": 3
+        "startingOrbs": 0
     },
     "jiafei": {
         "title": "Jiafei",
@@ -209,7 +209,7 @@
             }
         },
         "ultimatePoints": 2,
-        "startingOrbs": 1
+        "startingOrbs": 0
     },
     "luotianyi": {
         "title": "洛天依",
@@ -245,7 +245,7 @@
             }
         },
         "ultimatePoints": 3,
-        "startingOrbs": 2
+        "startingOrbs": 0
     },
     "wechatalipay": {
         "title": "微信姐 & 支付宝姐",
@@ -281,7 +281,7 @@
             }
         },
         "ultimatePoints": 4,
-        "startingOrbs": 3
+        "startingOrbs": 0
     },
     "ari": {
         "title": "Ariana Grande",
@@ -316,8 +316,8 @@
                 "presentationId": "high_note"
             }
         },
-        "ultimatePoints": 3,
-        "startingOrbs": 2
+        "ultimatePoints": 5,
+        "startingOrbs": 0
     },
     "teto": {
         "title": "Kasane Teto",

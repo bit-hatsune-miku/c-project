@@ -43,21 +43,6 @@
       ],
       "stageKey": "default_stage"
     },
-    "lyoo_plot_twist": {
-      "id": 99,
-      "name": "A turn up of events",
-      "bossKey": "lyooPlotTwist",
-      "storyScript": "finale",
-      "isLineupFixed": false,
-      "victoryStoryScript": "finale02",
-      "lineup": [
-        "miku",
-        "cupcakke",
-        "jiafei",
-        "ari"
-      ],
-      "stageKey": "default_stage"
-    },
     "scan_to_pay": {
       "id": 100,
       "name": "Scan To Pay",
@@ -103,6 +88,38 @@
         "ari",
         "cupcakke",
         "wechatalipay"
+      ],
+      "stageKey": "default_stage"
+    },
+    "lyoo_plot_twist": {
+      "id": 99,
+      "name": "A turn up of events",
+      "bossKey": "lyooPlotTwist",
+      "storyScript": "finale",
+      "isLineupFixed": false,
+      "victoryStoryScript": "finale02",
+      "lineup": [
+        "miku",
+        "cupcakke",
+        "jiafei",
+        "ari"
+      ],
+      "stageKey": "default_stage"
+    },
+    "miku_plot_twist": {
+      "id": 100,
+      "name": "Corrupted Miku",
+      "bossKey": "miku",
+      "storyScript": "finale02",
+      "isLineupFixed": true,
+      "selectorVisible": false,
+      "victoryStoryScript": "finale03",
+      "lineup": [
+        "cupcakke",
+        "jiafei",
+        "wechatalipay",
+        "ari",
+        "luotianyi"
       ],
       "stageKey": "default_stage"
     }

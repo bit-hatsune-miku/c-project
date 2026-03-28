@@ -5,7 +5,8 @@
 </head>
 <body>
     <div id="story-advance-target">
-        <img id="story-bg-art" src=""/>
+        <img id="story-bg-art-prev" src="" class="is-hidden"/>
+        <img id="story-bg-art" src="" class="is-hidden"/>
         <div id="story-dialogue-box">
             <div id="story-speaker-name"></div>
             <div id="story-portrait-frame">

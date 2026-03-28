@@ -32,11 +32,14 @@ private:
     Rml::ElementDocument* document_ = nullptr;
     std::vector<EventListenerBinding> listeners_;
     std::string lastBackground_;
+    std::string fadingOutBackground_;
     std::string lastPortrait_;
     std::string lastSpeaker_;
     std::string lastText_;
     std::size_t lastVisibleCharacters_ = 0;
     std::size_t lastTotalVisibleCharacters_ = 0;
+    float backgroundFadeElapsed_ = 0.0f;
+    bool backgroundFadeActive_ = false;
     bool pendingOpenPause_ = false;
 };
 
