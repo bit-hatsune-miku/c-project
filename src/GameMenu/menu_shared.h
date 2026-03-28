@@ -21,7 +21,7 @@ enum class ScreenState {
     BossSelector,
     PartyLoader,
     Settings,
-    LoadMenu,
+    LoadGameMenu,
     LoadConfirmDelete,
     BattleDemo,
     Playing,
