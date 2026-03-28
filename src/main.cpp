@@ -641,16 +641,6 @@ std::string storyScriptPathFromReference(const std::string& scriptRef) {
     return resolvePath("assets/vn/json/" + normalized);
 }
 
-ScreenState resolveStoryEndReturnScreen(const vn::Script& script, ScreenState fallback) {
-    if (script.endReturnScreen == "selector" || script.endReturnScreen == "boss_selector") {
-        return ScreenState::MainMenu;
-    }
-    if (script.endReturnScreen == "main_menu" || script.endReturnScreen == "menu") {
-        return ScreenState::MainMenu;
-    }
-    return fallback;
-}
-
 void applyCurrentEntry(const StorySession& story, const GameSettings& settings) {
     if (story.script.entries.empty() || story.entryIndex >= story.script.entries.size()) {
         return;
@@ -816,13 +806,6 @@ void beginStory(AppState& state) {
     (void)save::autosave(buildStorySaveGame(state));
 }
 
-void beginBossSelector(AppState& state) {
-    state.pendingBattleKey.clear();
-    state.pendingBattleLaunchedFromStory = false;
-    state.pendingBattleWinScript.clear();
-    state.pendingBattleLoseScript.clear();
-    beginBattleDemo(state);
-}
 void beginBattleDemo(AppState& state) {
     state.pauseSelection = PauseAction::Continue;
     state.pauseContext = PauseContext::Battle;
@@ -1049,7 +1032,6 @@ bool shouldKeepStoryBgmPlaying(const AppState& state) {
     return false;
 }
 
-#ifdef APP_ENABLE_RMLUI
 bool restoreFrontMenuUi(Window& window,
                         graphics::frontui::Session& frontUi,
                         MenuResources& menuResources,
@@ -1400,41 +1382,6 @@ int main(int argc, char** argv) {
             }
         }
 
-<<<<<<< HEAD
-=======
-#ifdef RMLUI_SDL_VERSION_MAJOR
-        if (state.screen == ScreenState::BossSelector && bossSelectorSession == nullptr) {
-            releaseRendererUi(menuResources, rendererUiReady);
-#ifdef APP_ENABLE_RMLUI
-            if (frontUi.isInitialized()) {
-                frontUi.shutdown();
-            }
-#endif
-            vn::stopVoicePlayback();
-            vn::shutdown();
-
-            if (!window.enableOpenGL()) {
-                state.screen = ScreenState::MainMenu;
-                state.noticeText = "Boss selector failed to open.";
-                state.noticeTimer = 2.8f;
-            } else {
-                bossSelectorSession = std::make_unique<battle::selector::Session>();
-                if (!bossSelectorSession->initialize(window)) {
-                    bossSelectorSession->shutdown();
-                    bossSelectorSession.reset();
-                    if (!restoreRendererUi(window, menuResources, state.settings)) {
-                        std::cerr << "Failed to restore renderer UI after selector load failure\n";
-                        return 1;
-                    }
-                    state.screen = ScreenState::MainMenu;
-                    state.noticeText = "Boss selector failed to load.";
-                    state.noticeTimer = 2.8f;
-                }
-            }
-        }
-#endif
-
->>>>>>> 2e93cee (refactor: Update battle and boss intro titles, remove unused intro files)
         if (state.screen == ScreenState::MainMenu && battleSession != nullptr) {
             battleSession->shutdown();
             battleSession.reset();
@@ -1533,47 +1480,7 @@ int main(int argc, char** argv) {
                     }
                 }
             }
-<<<<<<< HEAD
         } else if (state.screen == ScreenState::Playing) {
-=======
-        }
-#ifdef RMLUI_SDL_VERSION_MAJOR
-        else if (state.screen == ScreenState::BossSelector) {
-            if (bossSelectorSession != nullptr) {
-                bossSelectorSession->update(deltaSeconds);
-                if (const auto request = bossSelectorSession->consumeLaunchRequest(); request.has_value()) {
-                    bossSelectorSession->shutdown();
-                    bossSelectorSession.reset();
-
-                    if (request->type == battle::selector::LaunchRequest::Type::Story) {
-                        if (!vn::initialize(nullptr, window.getWidth(), window.getHeight())) {
-                            std::cerr << "Failed to initialize VN system after selector story launch\n";
-                            return 1;
-                        }
-                        beginStory(state, request->reference, ScreenState::BossSelector);
-                    } else {
-                        if (!restoreRendererUi(window, menuResources, state.settings)) {
-                            std::cerr << "Failed to restore renderer UI after selector battle launch\n";
-                            return 1;
-                        }
-                        rendererUiReady = true;
-                        state.pendingBattleReturnScreen = ScreenState::BossSelector;
-                        state.pendingBattleLaunchedFromStory = false;
-                        state.pendingBattleWinScript.clear();
-                        state.pendingBattleLoseScript.clear();
-                        beginBattle(state, request->reference);
-                    }
-                } else if (bossSelectorSession->isFinished()) {
-                    bossSelectorSession->shutdown();
-                    bossSelectorSession.reset();
-                    state.screen = ScreenState::MainMenu;
-                    state.mainSelection = MainMenuAction::Battle;
-                }
-            }
-        }
-#endif
-        else if (state.screen == ScreenState::Playing) {
->>>>>>> 2e93cee (refactor: Update battle and boss intro titles, remove unused intro files)
             vn::update(deltaSeconds);
 
             if (vn::consumeAdvanceRequest()) {
