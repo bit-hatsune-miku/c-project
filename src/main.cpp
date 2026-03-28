@@ -1003,7 +1003,7 @@ bool shouldUseFrontUiScreen(const AppState& state) {
         return true;
     }
 
-    if ((state.screen == ScreenState::LoadMenu ||
+    if ((state.screen == ScreenState::LoadGameMenu ||
          state.screen == ScreenState::LoadConfirmDelete) &&
         (state.loadReturnScreen == ScreenState::MainMenu ||
          (state.loadReturnScreen == ScreenState::PauseMenu &&
@@ -1040,7 +1040,7 @@ bool shouldKeepStoryBgmPlaying(const AppState& state) {
                 state.pauseContext == PauseContext::Story);
     }
 
-    if (state.screen == ScreenState::LoadMenu || state.screen == ScreenState::LoadConfirmDelete) {
+    if (state.screen == ScreenState::LoadGameMenu || state.screen == ScreenState::LoadConfirmDelete) {
         return state.loadReturnScreen == ScreenState::Playing ||
                (state.loadReturnScreen == ScreenState::PauseMenu &&
                 state.pauseContext == PauseContext::Story);
@@ -1199,7 +1199,7 @@ int main(int argc, char** argv) {
 #endif
                     break;
 
-                case ScreenState::LoadMenu:
+                case ScreenState::LoadGameMenu:
                 case ScreenState::LoadConfirmDelete:
 #ifdef APP_ENABLE_RMLUI
                     if (shouldUseFrontUiScreen(state)) {
@@ -1669,7 +1669,7 @@ int main(int argc, char** argv) {
                 settingsMenu.render(window.getRenderer(), menuResources, state,
                                     window.getWidth(), window.getHeight(), false);
             }
-        } else if (state.screen == ScreenState::LoadMenu ||
+        } else if (state.screen == ScreenState::LoadGameMenu ||
                    state.screen == ScreenState::LoadConfirmDelete) {
             renderLoadScreen(window.getRenderer(), menuResources, state, window.getWidth(), window.getHeight());
         } else if (state.screen == ScreenState::BattleDemo && battleSession != nullptr) {

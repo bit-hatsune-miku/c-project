@@ -18,7 +18,7 @@ class Window;
 enum class ScreenState {
     MainMenu,
     Settings,
-    LoadMenu,
+    LoadGameMenu,
     LoadConfirmDelete,
     BattleDemo,
     Playing,

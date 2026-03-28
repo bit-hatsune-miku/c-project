@@ -50,7 +50,7 @@ std::vector<ScreenId> stackForAppState(const AppState& state) {
             }
             return {};
 
-        case ScreenState::LoadMenu:
+        case ScreenState::LoadGameMenu:
         case ScreenState::LoadConfirmDelete:
             if (state.loadReturnScreen == ScreenState::MainMenu) {
                 return {ScreenId::MainMenu, ScreenId::Load};

@@ -488,7 +488,7 @@ private:
         }
 
         clearDeletePromptState(state);
-        state.screen = ScreenState::LoadMenu;
+        state.screen = ScreenState::LoadGameMenu;
     }
 
     void handleDeleteConfirmEvent(AppState& state, Window& window, const SDL_Event& event,
@@ -525,7 +525,7 @@ private:
             activateDeleteConfirmAction(state);
         } else if (event.key.keysym.sym == SDLK_ESCAPE) {
             clearDeletePromptState(state);
-            state.screen = ScreenState::LoadMenu;
+            state.screen = ScreenState::LoadGameMenu;
         } else if (event.key.keysym.sym == SDLK_F11) {
             SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
         }
@@ -534,7 +534,7 @@ private:
     void activateDeleteConfirmAction(AppState& state) {
         if (state.confirmSelection == ConfirmAction::Cancel) {
             clearDeletePromptState(state);
-            state.screen = ScreenState::LoadMenu;
+            state.screen = ScreenState::LoadGameMenu;
             return;
         }
 
@@ -625,7 +625,7 @@ void openLoadMenu(AppState& state, ScreenState returnScreen) {
     state.loadSlotSelection = 0;
     clearDeletePromptState(state);
     loadMenuController().open(state);
-    state.screen = ScreenState::LoadMenu;
+    state.screen = ScreenState::LoadGameMenu;
 }
 
 void renderLoadScreen(SDL_Renderer* renderer, const MenuResources& resources, AppState& state,
