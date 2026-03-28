@@ -201,7 +201,7 @@ void LoadDocumentController::applyState(AppState& state) {
     if (pendingDismissConfirm_) {
         pendingDismissConfirm_ = false;
         pendingDeletePath_.clear();
-        state.screen = ScreenState::LoadMenu;
+        state.screen = ScreenState::LoadGameMenu;
         return;
     }
 
@@ -215,14 +215,14 @@ void LoadDocumentController::applyState(AppState& state) {
         pendingDeleteConfirm_ = false;
         if (confirmSelection_ == ConfirmAction::Cancel) {
             pendingDeletePath_.clear();
-            state.screen = ScreenState::LoadMenu;
+            state.screen = ScreenState::LoadGameMenu;
         } else if (!pendingDeletePath_.empty()) {
             const bool deleted = save::deleteManualSave(pendingDeletePath_);
             refreshSlots();
             applySelectionAfterDelete();
             state.loadSelection = selection_;
             state.loadSlotSelection = slotSelection_;
-            state.screen = ScreenState::LoadMenu;
+            state.screen = ScreenState::LoadGameMenu;
             state.noticeText = deleted ? "Save deleted." : "Delete failed.";
             state.noticeTimer = 2.0f;
             pendingDeletePath_.clear();
