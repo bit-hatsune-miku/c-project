@@ -38,7 +38,7 @@ struct MenuButton {
 constexpr std::array<MenuButton, 5> kMenuButtons{{
     {MainMenuAction::Start, "Start", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 246.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
     {MainMenuAction::Load, "Load", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 320.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
-    {MainMenuAction::Battle, "Battle", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 394.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
+    {MainMenuAction::Battle, "Battle Selector", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 394.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
     {MainMenuAction::Settings, "Settings", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 468.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
     {MainMenuAction::Exit, "Exit", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 542.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}}
 }};

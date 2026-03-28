@@ -155,6 +155,7 @@ void DemoNarrativeFlow::showDialogueLine(const DialogueLine& line) const {
     const std::string iconPath = line.icon.empty() ? std::string{} : platform::path::resolvePath(line.icon);
     const std::string backgroundPath = line.background.empty() ? std::string{} : platform::path::resolvePath(line.background);
     const std::string voicePath = line.voice.empty() ? std::string{} : platform::path::resolvePath(line.voice);
+    const std::string bgmPath = line.bgm.empty() ? std::string{} : platform::path::resolvePath(line.bgm);
     const std::string fontPath = line.fontPath.empty() ? std::string{} : platform::path::resolvePath(line.fontPath);
 
     vn::showLine(
@@ -166,7 +167,11 @@ void DemoNarrativeFlow::showDialogueLine(const DialogueLine& line) const {
         line.autoAdvanceOnVoiceEnd,
         line.iconFrameCount,
         line.iconFps,
-        backgroundPath
+        backgroundPath,
+        bgmPath,
+        line.bgmVolume,
+        line.bgmStop,
+        line.bgmPause
     );
 }
 
