@@ -641,6 +641,16 @@ std::string storyScriptPathFromReference(const std::string& scriptRef) {
     return resolvePath("assets/vn/json/" + normalized);
 }
 
+ScreenState resolveStoryEndReturnScreen(const vn::Script& script, ScreenState fallback) {
+    if (script.endReturnScreen == "selector" || script.endReturnScreen == "boss_selector") {
+        return ScreenState::MainMenu;
+    }
+    if (script.endReturnScreen == "main_menu" || script.endReturnScreen == "menu") {
+        return ScreenState::MainMenu;
+    }
+    return fallback;
+}
+
 void applyCurrentEntry(const StorySession& story, const GameSettings& settings) {
     if (story.script.entries.empty() || story.entryIndex >= story.script.entries.size()) {
         return;
@@ -652,6 +662,7 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
     const auto& entry = story.script.entries[story.entryIndex];
     const std::string iconPath = entry.icon.empty() ? std::string{} : platform::path::resolvePath(entry.icon);
     const std::string voicePath = entry.voice.empty() ? std::string{} : platform::path::resolvePath(entry.voice);
+    const std::string bgmPath = entry.bgm.empty() ? std::string{} : platform::path::resolvePath(entry.bgm);
     const std::string fontPath = entry.fontPath.empty() ? std::string{} : platform::path::resolvePath(entry.fontPath);
     const std::string backgroundRef = entry.background.empty()
         ? effectiveStoryBackground(story, story.entryIndex)
@@ -667,7 +678,11 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
         entry.autoAdvanceOnVoiceEnd,
         entry.iconFrameCount,
         entry.iconFps,
-        backgroundPath
+        backgroundPath,
+        bgmPath,
+        entry.bgmVolume,
+        entry.bgmStop,
+        entry.bgmPause
     );
 }
 
@@ -801,6 +816,13 @@ void beginStory(AppState& state) {
     (void)save::autosave(buildStorySaveGame(state));
 }
 
+void beginBossSelector(AppState& state) {
+    state.pendingBattleKey.clear();
+    state.pendingBattleLaunchedFromStory = false;
+    state.pendingBattleWinScript.clear();
+    state.pendingBattleLoseScript.clear();
+    beginBattleDemo(state);
+}
 void beginBattleDemo(AppState& state) {
     state.pauseSelection = PauseAction::Continue;
     state.pauseContext = PauseContext::Battle;
@@ -821,6 +843,7 @@ void beginBattle(AppState& state, const std::string& battleKey) {
         return;
     }
 
+    vn::stopBgmPlayback();
     vn::setBackground("");
     battle::BattleDefinition battleDefinition;
     if (!battle::loader::loadBattleDefinition(battleKey, battleDefinition)) {
@@ -985,6 +1008,37 @@ bool shouldUseFrontUiScreen(const AppState& state) {
              state.pauseContext == PauseContext::Story));
 }
 
+<<<<<<< HEAD
+=======
+bool shouldKeepStoryBgmPlaying(const AppState& state) {
+    if (state.screen == ScreenState::Playing) {
+        return true;
+    }
+
+    if ((state.screen == ScreenState::PauseMenu ||
+         state.screen == ScreenState::PauseConfirmExit ||
+         state.screen == ScreenState::PauseConfirmOverwriteSave) &&
+        state.pauseContext == PauseContext::Story) {
+        return true;
+    }
+
+    if (state.screen == ScreenState::Settings) {
+        return state.settingsReturnScreen == ScreenState::Playing ||
+               (state.settingsReturnScreen == ScreenState::PauseMenu &&
+                state.pauseContext == PauseContext::Story);
+    }
+
+    if (state.screen == ScreenState::LoadMenu || state.screen == ScreenState::LoadConfirmDelete) {
+        return state.loadReturnScreen == ScreenState::Playing ||
+               (state.loadReturnScreen == ScreenState::PauseMenu &&
+                state.pauseContext == PauseContext::Story);
+    }
+
+    return false;
+}
+
+#ifdef APP_ENABLE_RMLUI
+>>>>>>> 9e4e165 (vn stuff)
 bool restoreFrontMenuUi(Window& window,
                         graphics::frontui::Session& frontUi,
                         MenuResources& menuResources,
@@ -1486,6 +1540,10 @@ int main(int argc, char** argv) {
             return 1;
         }
 #endif
+
+        if (!shouldKeepStoryBgmPlaying(state)) {
+            vn::stopBgmPlayback();
+        }
 
         if (window.getRenderer() != nullptr) {
             window.clear(14, 18, 30, 255);

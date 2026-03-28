@@ -67,6 +67,16 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
 
             entry.background = entryJson.value("background", "");
             entry.voice = entryJson.value("voice", "");
+            entry.bgm = entryJson.value("bgm", "");
+            if (const auto bgmVolumeIt = entryJson.find("bgmVolume");
+                bgmVolumeIt != entryJson.end() && bgmVolumeIt->is_number()) {
+                entry.bgmVolume = bgmVolumeIt->get<float>();
+            }
+            entry.bgmStop = entryJson.value("bgmStop", false);
+            if (const auto bgmPauseIt = entryJson.find("bgmPause");
+                bgmPauseIt != entryJson.end() && bgmPauseIt->is_boolean()) {
+                entry.bgmPause = bgmPauseIt->get<bool>();
+            }
             entry.fontPath = entryJson.value("fontPath", "");
             entry.icon = entryJson.value("icon", "");
             entry.iconFrameCount = entryJson.value("iconFrameCount", 1);

@@ -12,7 +12,9 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/vn/bgm/ch0/0.wav",
+      "bgmVolume": 0.3
     },
     {
       "speaker": "Miku",
@@ -60,7 +62,9 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": true
+      "bgm": "assets/vn/bgm/ch0/1.wav",
+      "bgmVolume": 0.3,
+      "autoAdvanceOnVoiceEnd": false
     },
     {
       "speaker": "Teto",
@@ -71,6 +75,7 @@
       "fontPath": "",
       "icon": "",
       "iconFrameCount": 1,
+      "bgmStop": true,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false
     },
@@ -207,6 +212,18 @@
       "autoAdvanceOnVoiceEnd": false
     },
     {
+      "speaker": "",
+      "text": "*door slam*",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/83.wav",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
       "speaker": "Miku",
       "text": "Well… Hi, my name is Hatsune Miku…! This is my life, an ordinary student at BIT.",
       "type": "dialogue",
@@ -216,7 +233,9 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/vn/bgm/ch0/2.wav",
+      "bgmVolume": 0.1
     },
     {
       "speaker": "Miku",
@@ -252,7 +271,9 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/vn/bgm/ch0/boshihou.wav",
+      "bgmVolume": 0.3
     },
     {
       "speaker": "Miku",
@@ -423,6 +444,18 @@
       "autoAdvanceOnVoiceEnd": false
     },
     {
+      "speaker": "",
+      "text": "*car crash*",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
       "speaker": "Miku",
       "text": "NOOOOOOOOOOOOOOO!",
       "type": "dialogue",
@@ -448,7 +481,7 @@
     },
     {
       "speaker": "Miku",
-      "text": "I dgaf about the dawg. I'm sad about my diandong.",
+      "text": "I don't care about the dawg. I'm sad about my diandong.",
       "type": "dialogue",
       "background": "",
       "voice": "assets/vn/voices/ch0/37.wav",
@@ -496,7 +529,7 @@
     },
     {
       "speaker": "Miku",
-      "text": "No idgaf",
+      "text": "No I don't care",
       "type": "dialogue",
       "background": "",
       "voice": "assets/vn/voices/ch0/41.wav",
@@ -508,7 +541,7 @@
     },
     {
       "speaker": "Cupcakke",
-      "text": "Would you dgaf too if you were an Indonesian student crushed by a truck at 9:21 PM on the night of November 2nd while you were on the way to the Tianjie MRT station and nobody called an ambulance for you?",
+      "text": "Would you not care too if you were an Indonesian student crushed by a truck at 9:21 PM on the night of November 2nd while you were on the way to the Tianjie MRT station and nobody called an ambulance for you?",
       "type": "dialogue",
       "background": "",
       "voice": "assets/vn/voices/ch0/42.wav",
@@ -520,7 +553,7 @@
     },
     {
       "speaker": "Miku",
-      "text": "…. Girl, don't say that out loud… What if he's in the classroom right now.",
+      "text": "… Girl, don't say that out loud… What if he's in the classroom right now.",
       "type": "dialogue",
       "background": "",
       "voice": "assets/vn/voices/ch0/43.wav",
@@ -600,7 +633,9 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/vn/bgm/ch0/stairs.wav",
+      "bgmVolume": 0.1
     },
     {
       "speaker": "Cupcakke",
@@ -660,7 +695,8 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": true
+      "autoAdvanceOnVoiceEnd": true,
+      "bgmStop": true
     },
     {
       "speaker": "Lyoo",
@@ -672,7 +708,9 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": true
+      "autoAdvanceOnVoiceEnd": true,
+      "bgm": "assets/vn/bgm/ch0/underground.wav",
+      "bgmVolume": 0.2
     },
     {
       "speaker": "Cupcakke",
@@ -684,7 +722,8 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": true
     },
     {
       "speaker": "Lyoo",
@@ -744,7 +783,8 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": false
     },
     {
       "speaker": "Lyoo",
@@ -780,7 +820,8 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": true
     },
     {
       "speaker": "Miku",
@@ -788,6 +829,44 @@
       "type": "dialogue",
       "background": "",
       "voice": "assets/vn/voices/ch0/63.wav",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "This underground is a place where students often come to watch some entertainment and relax-",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/64.wav",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "Is that why the average GPA in here is 2.1?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/65.wav",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": true
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "….. Just let me talk, please.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/ch0/66.wav",
       "fontPath": "",
       "icon": "",
       "iconFrameCount": 1,
@@ -804,7 +883,8 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": false
     },
     {
       "speaker": "Miku",
@@ -864,7 +944,8 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": true
     },
     {
       "speaker": "Lyoo",
@@ -900,7 +981,8 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": false
     },
     {
       "speaker": "Lyoo",

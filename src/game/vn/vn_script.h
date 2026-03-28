@@ -1,6 +1,7 @@
 #ifndef VN_SCRIPT_H
 #define VN_SCRIPT_H
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -18,6 +19,10 @@ struct ScriptEntry {
     EntryType type;
     std::string background;
     std::string voice;
+    std::string bgm;
+    float bgmVolume;
+    bool bgmStop;
+    std::optional<bool> bgmPause;
     std::string fontPath;
     std::string icon;
     int iconFrameCount;
@@ -30,6 +35,10 @@ struct ScriptEntry {
 
     ScriptEntry()
         : type(EntryType::Dialogue)
+        , bgm()
+        , bgmVolume(-1.0f)
+        , bgmStop(false)
+        , bgmPause(std::nullopt)
         , iconFrameCount(1)
         , iconFps(8.0f)
         , autoAdvanceOnVoiceEnd(false)

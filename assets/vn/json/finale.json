@@ -12,7 +12,9 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/vn/bgm/finale/lyooPlotTwistReveal.wav",
+      "bgmVolume": 0.2
     },
     {
       "speaker": "Lyoo",
@@ -156,7 +158,8 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": true
     },
     {
       "speaker": "Lyoo",
@@ -264,7 +267,8 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": false
     },
     {
       "speaker": "System",
@@ -276,7 +280,8 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": true
     },
     {
       "speaker": "Miku",
@@ -288,7 +293,8 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmPause": false
     },
     {
       "speaker": "Lyoo",
