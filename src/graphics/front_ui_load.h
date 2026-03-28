@@ -184,7 +184,7 @@ private:
     Rml::ElementDocument* document_ = nullptr;
     std::vector<EventListenerBinding> listeners_;
     std::vector<SlotPresentation> cachedSlots_;
-    ScreenState screen_ = ScreenState::LoadMenu;
+    ScreenState screen_ = ScreenState::LoadGameMenu;
     ScreenState returnScreen_ = ScreenState::MainMenu;
     std::size_t selection_ = 0;
     std::size_t slotSelection_ = 0;
