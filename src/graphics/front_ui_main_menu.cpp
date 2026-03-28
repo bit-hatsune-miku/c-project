@@ -12,6 +12,7 @@
 #include <RmlUi/Core/Element.h>
 #include <RmlUi/Core/Event.h>
 
+#include "../platform/path_resolution.h"
 #include "front_ui_load.h"
 #include "front_ui_pause.h"
 #include "front_ui_settings.h"
@@ -134,6 +135,15 @@ std::string translateScale(float x, float y, float scale) {
     return "translate(" + formatDp(x) + ", " + formatDp(y) + ") scale(" + formatNumber(scale) + ")";
 }
 
+void applyStaticArtSources(Rml::ElementDocument& document) {
+    if (Rml::Element* element = document.GetElementById("bg-art")) {
+        element->SetAttribute("src", platform::path::resolvePath(kMainMenuBackgroundArtPath));
+    }
+    if (Rml::Element* element = document.GetElementById("title-logo")) {
+        element->SetAttribute("src", platform::path::resolvePath(kMainMenuTitleLogoPath));
+    }
+}
+
 }  /**
  * @brief Binds this controller to an Rml document and initializes UI, selection, overlay,
  * and animation state from the provided application state.
@@ -163,6 +173,7 @@ bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppS
     introElapsedSeconds_ = 0.0f;
     introActive_ = false;
 
+    applyStaticArtSources(document);
     cacheElements();
     applyButtonCopy();
     attachListeners();
