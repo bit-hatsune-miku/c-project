@@ -2,7 +2,7 @@
   "battles": {
     "tutorial_vs_lyoo": {
       "id": 0,
-      "name": "Tutorial - vs Lyoo",
+      "name": "Prologue & Tutorial",
       "description": "The first trial. Lyoo challenges Miku to prove she is worthy of entering the BIT Underground Idol Competition.",
       "type": "tutorial",
       "bossKey": "lyooBoss",
