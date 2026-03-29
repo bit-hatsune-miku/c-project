@@ -7,6 +7,7 @@
 
 #include <SDL2/SDL.h>
 
+#include "../game/audio/ui_music_types.h"
 #include "../graphics/rmlui_loading_overlay.h"
 
 class Window;
@@ -39,6 +40,7 @@ public:
     void update(float deltaSeconds);
     void render();
     void setLoadingOverlay(const graphics::RmlUiLoadingOverlayState& state);
+    void setUiMusicVisualState(const game::audio::UiMusicVisualState& state);
     bool isFinished() const;
     std::optional<LaunchRequest> consumeLaunchRequest();
 

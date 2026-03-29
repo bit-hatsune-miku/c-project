@@ -159,6 +159,7 @@ void Session::shutdown() {
     scrollSfxPath_.clear();
     confirmSfxPath_.clear();
     audioReady_ = false;
+    uiMusicVisualState_ = game::audio::UiMusicVisualState{};
 
     while (!documents_.empty()) {
         popScreen();
@@ -274,6 +275,7 @@ void Session::update(const AppState& state, float deltaSeconds) {
     }
 
     (void)showForState(state);
+    applyUiMusicVisualState();
 
     for (ActiveDocument& entry : documents_) {
         if (entry.controller != nullptr) {
@@ -305,6 +307,11 @@ void Session::render() {
 void Session::setLoadingOverlay(const RmlUiLoadingOverlayState& state) {
     loadingOverlayState_ = state;
     loadingOverlay_.apply(loadingOverlayState_);
+}
+
+void Session::setUiMusicVisualState(const game::audio::UiMusicVisualState& state) {
+    uiMusicVisualState_ = state;
+    applyUiMusicVisualState();
 }
 
 void Session::playResolvedSfx(const SoundRequest& request) {
@@ -389,7 +396,10 @@ bool Session::pushScreen(ScreenId screen, const AppState& state) {
     }
 
     document->Show();
-    documents_.push_back(ActiveDocument{screen, document, std::move(controller)});
+    ActiveDocument entry{screen, document, std::move(controller)};
+    entry.uiMusicBars = cacheUiMusicBarStrip(*document);
+    documents_.push_back(std::move(entry));
+    applyUiMusicVisualState();
     return true;
 }
 
@@ -420,6 +430,12 @@ void Session::syncState(AppState& state) {
         if (entry.controller != nullptr) {
             entry.controller->applyState(state);
         }
+    }
+}
+
+void Session::applyUiMusicVisualState() {
+    for (ActiveDocument& entry : documents_) {
+        applyUiMusicBarStrip(entry.uiMusicBars, uiMusicVisualState_);
     }
 }
 

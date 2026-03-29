@@ -1,0 +1,32 @@
+.ui-music-bars-root {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 404dp;
+    overflow: hidden;
+    pointer-events: none;
+    display: none;
+    opacity: 0;
+}
+
+.ui-music-bars-track {
+    position: absolute;
+    left: 18dp;
+    right: 18dp;
+    bottom: 18dp;
+    height: 352dp;
+    display: flex;
+    align-items: flex-end;
+    gap: 7dp;
+}
+
+.ui-music-bar {
+    position: relative;
+    flex: 1;
+    height: 10dp;
+    background-color: rgba(129, 120, 141, 124);
+    border: 1dp rgba(255, 140, 194, 86);
+    border-radius: 999dp 999dp 10dp 10dp;
+    box-shadow: 0 0 0 1dp rgba(255, 255, 255, 34);
+}
