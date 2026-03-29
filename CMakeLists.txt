@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.16)
 project(OurUndergroundBITIdol CXX)
 
+# Generate compile_commands.json for clangd / VS Code IntelliSense.
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
