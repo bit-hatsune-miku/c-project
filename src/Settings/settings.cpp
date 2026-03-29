@@ -16,7 +16,7 @@ constexpr float kSettingsTitleWidth = 920.0f;
 constexpr float kMinTextSpeed = 18.0f;
 constexpr float kMaxTextSpeed = 90.0f;
 constexpr float kTextSpeedRange = kMaxTextSpeed - kMinTextSpeed;
-constexpr int kSettingsItemCount = 4;
+constexpr int kSettingsItemCount = 5;
 
 using Item = SettingsItem;
 
@@ -30,15 +30,18 @@ constexpr SDL_FRect kSettingsShellRect{centeredX(kSettingsShellWidth), 154.0f, k
 constexpr SDL_FRect kSettingsSectionLabelRect{centeredX(kSettingsTitleWidth) + 28.0f, 188.0f, 250.0f, 28.0f};
 constexpr SDL_FRect kSettingsHintRect{centeredX(kSettingsTitleWidth) + 28.0f, 214.0f, 640.0f, 26.0f};
 constexpr SDL_FRect kSettingsFooterBandRect{centeredX(kSettingsTitleWidth), 612.0f, kSettingsTitleWidth, 26.0f};
-constexpr SDL_FRect kDisplayModeRowRect{centeredX(kSettingsTitleWidth), 278.0f, kSettingsTitleWidth, 58.0f};
-constexpr SDL_FRect kVolumeRowRect{centeredX(kSettingsTitleWidth), 354.0f, kSettingsTitleWidth, 58.0f};
-constexpr SDL_FRect kSpeedRowRect{centeredX(kSettingsTitleWidth), 430.0f, kSettingsTitleWidth, 58.0f};
-constexpr SDL_FRect kBackRowRect{centeredX(kSettingsTitleWidth), 506.0f, kSettingsTitleWidth, 58.0f};
-constexpr SDL_FRect kDisplayModeValueRect{centeredX(kSettingsTitleWidth) + 692.0f, 289.0f, 206.0f, 36.0f};
-constexpr SDL_FRect kVolumeSliderRect{centeredX(kSettingsTitleWidth) + 390.0f, 365.0f, 298.0f, 36.0f};
-constexpr SDL_FRect kSpeedSliderRect{centeredX(kSettingsTitleWidth) + 390.0f, 441.0f, 298.0f, 36.0f};
-constexpr SDL_FRect kVolumeValueRect{centeredX(kSettingsTitleWidth) + 708.0f, 365.0f, 190.0f, 36.0f};
-constexpr SDL_FRect kSpeedValueRect{centeredX(kSettingsTitleWidth) + 708.0f, 441.0f, 190.0f, 36.0f};
+constexpr SDL_FRect kDisplayModeRowRect{centeredX(kSettingsTitleWidth), 262.0f, kSettingsTitleWidth, 52.0f};
+constexpr SDL_FRect kMusicRowRect{centeredX(kSettingsTitleWidth), 326.0f, kSettingsTitleWidth, 52.0f};
+constexpr SDL_FRect kVolumeRowRect{centeredX(kSettingsTitleWidth), 390.0f, kSettingsTitleWidth, 52.0f};
+constexpr SDL_FRect kSpeedRowRect{centeredX(kSettingsTitleWidth), 454.0f, kSettingsTitleWidth, 52.0f};
+constexpr SDL_FRect kBackRowRect{centeredX(kSettingsTitleWidth), 518.0f, kSettingsTitleWidth, 52.0f};
+constexpr SDL_FRect kDisplayModeValueRect{centeredX(kSettingsTitleWidth) + 692.0f, 270.0f, 206.0f, 36.0f};
+constexpr SDL_FRect kMusicSliderRect{centeredX(kSettingsTitleWidth) + 390.0f, 334.0f, 298.0f, 36.0f};
+constexpr SDL_FRect kVolumeSliderRect{centeredX(kSettingsTitleWidth) + 390.0f, 398.0f, 298.0f, 36.0f};
+constexpr SDL_FRect kSpeedSliderRect{centeredX(kSettingsTitleWidth) + 390.0f, 462.0f, 298.0f, 36.0f};
+constexpr SDL_FRect kMusicValueRect{centeredX(kSettingsTitleWidth) + 708.0f, 334.0f, 190.0f, 36.0f};
+constexpr SDL_FRect kVolumeValueRect{centeredX(kSettingsTitleWidth) + 708.0f, 398.0f, 190.0f, 36.0f};
+constexpr SDL_FRect kSpeedValueRect{centeredX(kSettingsTitleWidth) + 708.0f, 462.0f, 190.0f, 36.0f};
 
 struct SettingsRow {
     SettingsItem selection;
@@ -50,11 +53,17 @@ struct SettingsRow {
 
 constexpr std::array<SettingsRow, kSettingsItemCount> kSettingsRows{{
     {Item::DisplayMode, "01", "Display Mode", kDisplayModeRowRect, kDisplayModeValueRect},
-    {Item::VoiceVolume, "02", "Voice Volume", kVolumeRowRect, kVolumeValueRect},
-    {Item::TextSpeed, "03", "Text Speed", kSpeedRowRect, kSpeedValueRect},
-    {Item::Back, "04", "Back", kBackRowRect, SDL_FRect{0.0f, 0.0f, 0.0f, 0.0f}}
+    {Item::MusicVolume, "02", "Music Volume", kMusicRowRect, kMusicValueRect},
+    {Item::VoiceVolume, "03", "Voice Volume", kVolumeRowRect, kVolumeValueRect},
+    {Item::TextSpeed, "04", "Text Speed", kSpeedRowRect, kSpeedValueRect},
+    {Item::Back, "05", "Back", kBackRowRect, SDL_FRect{0.0f, 0.0f, 0.0f, 0.0f}}
 }};
 
+/**
+ * @brief Convert a SettingsItem enum value to its integer index.
+ *
+ * @return int Integer index corresponding to the enum value.
+ */
 constexpr int toIndex(SettingsItem item) {
     return static_cast<int>(item);
 }
@@ -83,10 +92,53 @@ float normalizeTextSpeed(float textSpeed) {
     return std::clamp((textSpeed - kMinTextSpeed) / kTextSpeedRange, 0.0f, 1.0f);
 }
 
+/**
+ * @brief Map a normalized value in [0,1] to the configured text speed range.
+ *
+ * @param normalizedValue Normalized input where 0 corresponds to the minimum text speed
+ *                        and 1 corresponds to the maximum; values outside [0,1] are clamped.
+ * @return float Text speed in characters per second, clamped to [kMinTextSpeed, kMaxTextSpeed].
+ */
 float denormalizeTextSpeed(float normalizedValue) {
     return kMinTextSpeed + std::clamp(normalizedValue, 0.0f, 1.0f) * kTextSpeedRange;
 }
 
+/**
+ * @brief Update the game's music volume setting and apply it to the audio system.
+ *
+ * Clamps the provided value to the range [0.0, 1.0], stores it in `settings.musicVolume`,
+ * and forwards the new volume to the audio subsystem.
+ *
+ * @param settings Mutable game settings object to update.
+ * @param value Desired volume where 0.0 is silent and 1.0 is maximum.
+ */
+void setMusicVolume(GameSettings& settings, float value) {
+    settings.musicVolume = std::clamp(value, 0.0f, 1.0f);
+    vn::setMusicVolume(settings.musicVolume);
+}
+
+/**
+ * @brief Adjusts the music volume by a fixed step in the specified direction.
+ *
+ * Adjusts and persists the music volume in `settings` by 0.05 (5%) per unit of `direction`,
+ * clamping the resulting value to the valid [0, 1] range.
+ *
+ * @param settings Game settings instance to update with the new clamped music volume.
+ * @param direction Positive to increase volume, negative to decrease volume; magnitude scales the change (0 = no change).
+ */
+void adjustMusicVolume(GameSettings& settings, int direction) {
+    setMusicVolume(settings, settings.musicVolume + 0.05f * static_cast<float>(direction));
+}
+
+/**
+ * @brief Set and apply the voice volume level.
+ *
+ * Clamps the provided value to the range [0.0, 1.0], stores it in settings.voiceVolume,
+ * and updates the runtime voice volume.
+ *
+ * @param settings Mutable GameSettings instance to update.
+ * @param value Desired volume level where 0.0 is silent and 1.0 is maximum.
+ */
 void setVoiceVolume(GameSettings& settings, float value) {
     settings.voiceVolume = std::clamp(value, 0.0f, 1.0f);
     vn::setVoiceVolume(settings.voiceVolume);
@@ -198,6 +250,16 @@ void SettingsMenuController::applyDisplayMode(Window& window, GameSettings& sett
     }
 }
 
+/**
+ * @brief Render the settings menu overlay, including panels, labels, value badges, and sliders.
+ *
+ * Renders the decorative UI, text, individual setting rows, value badges, and three sliders (music, voice, text speed)
+ * according to the provided application state; highlights the currently selected row and displays current values.
+ *
+ * @param renderer SDL renderer used for drawing.
+ * @param resources Fonts and other resources required for text and UI rendering.
+ * @param state Current application state used to determine selection and setting values to display.
+ */
 void SettingsMenuController::renderOverlay(SDL_Renderer* renderer, const MenuResources& resources,
                                            const AppState& state) const {
     const float shellAccentBottom = kBackRowRect.y + kBackRowRect.h + 20.0f;
@@ -263,7 +325,7 @@ void SettingsMenuController::renderOverlay(SDL_Renderer* renderer, const MenuRes
     drawShadowedTextInRect(renderer, resources.titleFont, "System Settings",
                            SDL_Color{240, 248, 255, 255}, kSettingsTitleRect);
     drawTextInRect(renderer, resources.tinyFont != nullptr ? resources.tinyFont : resources.smallFont,
-                   "ENTER TO TOGGLE DISPLAY MODE. DRAG OR TAP THE SLIDERS FOR VOICE AND TEXT SPEED.",
+                   "ENTER TO TOGGLE DISPLAY MODE. DRAG OR TAP THE SLIDERS FOR MUSIC, VOICE, AND TEXT SPEED.",
                    SDL_Color{198, 246, 255, 255},
                    SDL_FRect{kSettingsFooterBandRect.x + 12.0f, kSettingsFooterBandRect.y,
                              kSettingsFooterBandRect.w - 24.0f, kSettingsFooterBandRect.h});
@@ -295,6 +357,9 @@ void SettingsMenuController::renderOverlay(SDL_Renderer* renderer, const MenuRes
     drawTextInRect(renderer, resources.smallFont, formatDisplayMode(state.settings.fullscreen),
                    state.settingsSelection == Item::DisplayMode ? SDL_Color{12, 28, 48, 255} : SDL_Color{216, 248, 255, 255},
                    kDisplayModeValueRect);
+    drawTextInRect(renderer, resources.smallFont, formatPercent(state.settings.musicVolume),
+                   state.settingsSelection == Item::MusicVolume ? SDL_Color{12, 28, 48, 255} : SDL_Color{216, 248, 255, 255},
+                   kMusicValueRect);
     drawTextInRect(renderer, resources.smallFont, formatPercent(state.settings.voiceVolume),
                    state.settingsSelection == Item::VoiceVolume ? SDL_Color{12, 28, 48, 255} : SDL_Color{216, 248, 255, 255},
                    kVolumeValueRect);
@@ -303,6 +368,7 @@ void SettingsMenuController::renderOverlay(SDL_Renderer* renderer, const MenuRes
                    kSpeedValueRect);
 #endif
 
+    renderSlider(renderer, kMusicSliderRect, state.settings.musicVolume, state.settingsSelection == Item::MusicVolume);
     renderSlider(renderer, kVolumeSliderRect, state.settings.voiceVolume, state.settingsSelection == Item::VoiceVolume);
     renderSlider(renderer, kSpeedSliderRect, normalizeTextSpeed(state.settings.textSpeed), state.settingsSelection == Item::TextSpeed);
 }
@@ -327,6 +393,27 @@ void SettingsMenuController::handleMouseEvent(AppState& state, Window& window, c
     updateFromPointer(state, window, settingsPoint.x, settingsPoint.y, true);
 }
 
+/**
+ * @brief Handle keyboard input for navigating and changing Settings menu options.
+ *
+ * Processes navigation keys (Up/Down/W/S) to move the selection, Left/Right/A/D to
+ * adjust the currently selected setting (toggle display mode or change volume/text speed),
+ * Enter/Space to toggle or activate the selected item, and Escape to return to the
+ * previous screen. Updates the provided application state and may modify the window's
+ * display mode.
+ *
+ * Key behavior summary:
+ * - Escape: set the current screen to the settings return screen.
+ * - Up / W: move selection to the previous settings item.
+ * - Down / S: move selection to the next settings item.
+ * - Left / A: decrease the selected setting (or set windowed mode for display mode).
+ * - Right / D: increase the selected setting (or set fullscreen for display mode).
+ * - Enter / Keypad Enter / Space: toggle display mode if selected, or activate Back.
+ *
+ * @param state Application state to update (selection, settings, and screen).
+ * @param window Window object used when applying display mode changes.
+ * @param event Keyboard event to handle.
+ */
 void SettingsMenuController::handleKeyboardEvent(AppState& state, Window& window,
                                                  const SDL_KeyboardEvent& event) const {
     if (event.keysym.sym == SDLK_ESCAPE) {
@@ -347,6 +434,8 @@ void SettingsMenuController::handleKeyboardEvent(AppState& state, Window& window
     if (event.keysym.sym == SDLK_LEFT || event.keysym.sym == SDLK_a) {
         if (state.settingsSelection == Item::DisplayMode) {
             applyDisplayMode(window, state.settings, false);
+        } else if (state.settingsSelection == Item::MusicVolume) {
+            adjustMusicVolume(state.settings, -1);
         } else if (state.settingsSelection == Item::VoiceVolume) {
             adjustVoiceVolume(state.settings, -1);
         } else if (state.settingsSelection == Item::TextSpeed) {
@@ -358,6 +447,8 @@ void SettingsMenuController::handleKeyboardEvent(AppState& state, Window& window
     if (event.keysym.sym == SDLK_RIGHT || event.keysym.sym == SDLK_d) {
         if (state.settingsSelection == Item::DisplayMode) {
             applyDisplayMode(window, state.settings, true);
+        } else if (state.settingsSelection == Item::MusicVolume) {
+            adjustMusicVolume(state.settings, 1);
         } else if (state.settingsSelection == Item::VoiceVolume) {
             adjustVoiceVolume(state.settings, 1);
         } else if (state.settingsSelection == Item::TextSpeed) {
@@ -384,12 +475,27 @@ void SettingsMenuController::updateSelectionFromMouse(AppState& state, float mou
     }
 }
 
+/**
+ * @brief Updates the current settings selection and adjusts settings based on a pointer position.
+ *
+ * Interprets the given reference-space mouse coordinates to update which row is selected,
+ * toggle display mode, change music/voice/text-speed values by slider position, or activate
+ * the Back action depending on which UI region contains the pointer.
+ *
+ * @param state Application state containing current settings and screen selection; modified when navigation or value changes occur.
+ * @param window Window used when applying display-mode changes.
+ * @param mouseX X coordinate of the pointer in reference layout coordinates.
+ * @param mouseY Y coordinate of the pointer in reference layout coordinates.
+ * @param allowNavigation If true, pointer interaction may trigger navigation actions (toggle display mode or activate Back); if false, only value adjustments are applied.
+ */
 void SettingsMenuController::updateFromPointer(AppState& state, Window& window, float mouseX, float mouseY,
                                                bool allowNavigation) const {
     updateSelectionFromMouse(state, mouseX, mouseY);
 
     if (pointInRect(mouseX, mouseY, kDisplayModeRowRect) && allowNavigation) {
         applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+    } else if (pointInRect(mouseX, mouseY, kMusicSliderRect)) {
+        setMusicVolume(state.settings, (mouseX - kMusicSliderRect.x) / kMusicSliderRect.w);
     } else if (pointInRect(mouseX, mouseY, kVolumeSliderRect)) {
         setVoiceVolume(state.settings, (mouseX - kVolumeSliderRect.x) / kVolumeSliderRect.w);
     } else if (pointInRect(mouseX, mouseY, kSpeedSliderRect)) {

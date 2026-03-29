@@ -2,9 +2,14 @@
 <head>
     <title>Main Menu</title>
     <link type="text/rcss" href="main_menu_revamp.rcss"/>
+    <link type="text/rcss" href="../shared/ui_music_bars.rcss"/>
 </head>
 <body>
     <div id="main-menu-root">
+        <div id="ui-music-bars-root" class="ui-music-bars-root">
+            <div id="ui-music-bars-track" class="ui-music-bars-track"></div>
+        </div>
+
         <div id="main-menu-disc-layer">
             <div id="disc-outer"></div>
             <div id="disc-ring-a"></div>

@@ -66,7 +66,22 @@ constexpr float kDiscStartOffsetY = 116.0f;
 constexpr float kUiStartOffsetX = -86.0f;
 constexpr float kUiStartOffsetY = 148.0f;
 constexpr float kLogoStartScale = 1.06f;
+constexpr float kSubmenuSmoothing = 11.0f;
+constexpr float kSubmenuUiOffsetX = -348.0f;
+constexpr float kSubmenuUiOffsetY = 10.0f;
+constexpr float kSubmenuFixedOffsetX = -214.0f;
+constexpr float kSubmenuDiscOffsetX = 28.0f;
+constexpr float kSubmenuDiscOffsetY = -4.0f;
+constexpr float kSubmenuLogoOffsetX = 286.0f;
+constexpr float kSubmenuLogoOffsetY = -22.0f;
+constexpr float kSubmenuLogoScale = 0.88f;
 
+/**
+ * @brief Returns the horizontal drift offset used for visual transforms for a given main menu action.
+ *
+ * @param action The main menu action whose horizontal drift offset to retrieve.
+ * @return float The horizontal drift offset value. 
+ */
 float driftOffsetX(MainMenuAction action) {
     return kDriftOffsetsX[static_cast<std::size_t>(action)];
 }
@@ -119,7 +134,19 @@ std::string translateScale(float x, float y, float scale) {
     return "translate(" + formatDp(x) + ", " + formatDp(y) + ") scale(" + formatNumber(scale) + ")";
 }
 
-}  // namespace
+}  /**
+ * @brief Binds this controller to an Rml document and initializes UI, selection, overlay,
+ * and animation state from the provided application state.
+ *
+ * Initializes internal element caches, copies button text to the document, attaches event
+ * listeners, applies selection and status visuals, and either starts the intro animation
+ * or applies the current visual state depending on the active screen.
+ *
+ * @param document The Rml document that this controller will manage.
+ * @param state The current application state used to initialize selection, overlay mode,
+ * and animation targets.
+ * @return `true` if the controller was bound to the document and initialized successfully, `false` otherwise.
+ */
 
 bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppState& state) {
     document_ = &document;
@@ -130,6 +157,9 @@ bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppS
     driftCurrentY_ = driftOffsetY(selection_);
     driftTargetX_ = driftCurrentX_;
     driftTargetY_ = driftCurrentY_;
+    overlayMode_ = overlayModeForState(state);
+    submenuCurrent_ = overlayMode_ == MainMenuOverlayMode::None ? 0.0f : 1.0f;
+    submenuTarget_ = submenuCurrent_;
     introElapsedSeconds_ = 0.0f;
     introActive_ = false;
 
@@ -138,8 +168,8 @@ bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppS
     attachListeners();
     applySelectionStyles();
     updateStatusCopy();
-    mainMenuVisible_ = state.screen == ScreenState::MainMenu;
-    if (mainMenuVisible_) {
+    menuStackActive_ = isMenuStackActive(state);
+    if (state.screen == ScreenState::MainMenu) {
         restartIntroAnimation();
     } else {
         applyVisualState();
@@ -147,6 +177,13 @@ bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppS
     return true;
 }
 
+/**
+ * @brief Unbinds the controller from its Rml document and resets internal UI state.
+ *
+ * Detaches any attached event listeners, clears cached element pointers, disables the intro
+ * animation and menu-stack tracking, resets the overlay mode to None, and clears the stored
+ * document pointer.
+ */
 void MainMenuDocumentController::unbind() {
     detachEventListeners(listeners_);
     whiteoutElement_ = nullptr;
@@ -155,10 +192,21 @@ void MainMenuDocumentController::unbind() {
     uiLayerElement_ = nullptr;
     fixedLayerElement_ = nullptr;
     introActive_ = false;
-    mainMenuVisible_ = false;
+    menuStackActive_ = false;
+    overlayMode_ = MainMenuOverlayMode::None;
     document_ = nullptr;
 }
 
+/**
+ * @brief Update the controller's selection and submenu overlay target from the application state.
+ *
+ * If the controller is not currently bound to a document, this is a no-op. Synchronizes the
+ * selected main menu entry from `state.mainSelection`, updates the computed overlay mode for
+ * the current state, and sets `submenuTarget_` to 0.0 when no overlay is active or 1.0 when an
+ * overlay is present.
+ *
+ * @param state Current application state used to update selection, overlay mode, and submenu target.
+ */
 void MainMenuDocumentController::sync(const AppState& state) {
     if (document_ == nullptr) {
         return;
@@ -167,28 +215,96 @@ void MainMenuDocumentController::sync(const AppState& state) {
     if (selection_ != state.mainSelection) {
         setSelection(state.mainSelection);
     }
+
+    overlayMode_ = overlayModeForState(state);
+    submenuTarget_ = overlayMode_ == MainMenuOverlayMode::None ? 0.0f : 1.0f;
 }
 
+/**
+ * @brief Advances the document controller's animations and visual state for the current frame.
+ *
+ * Updates internal animation timers and transforms based on the provided application state and
+ * elapsed time; if the menu stack becomes active while on the main menu, the intro animation is
+ * restarted. No action is taken when no document is bound or when the menu stack is not active.
+ *
+ * @param state Current application state used to determine menu-stack activity and overlay mode.
+ * @param deltaSeconds Time elapsed since the last update, in seconds.
+ */
 void MainMenuDocumentController::update(const AppState& state, float deltaSeconds) {
     if (document_ == nullptr) {
         return;
     }
 
-    const bool visibleNow = state.screen == ScreenState::MainMenu;
-    if (visibleNow && !mainMenuVisible_) {
+    const bool activeNow = isMenuStackActive(state);
+    if (activeNow && !menuStackActive_ && state.screen == ScreenState::MainMenu) {
         restartIntroAnimation();
     }
-    mainMenuVisible_ = visibleNow;
+    menuStackActive_ = activeNow;
 
-    if (!visibleNow) {
+    if (!activeNow) {
         return;
     }
 
     updateDrift(deltaSeconds);
     updateIntro(deltaSeconds);
+    updateSubmenu(deltaSeconds);
     applyVisualState();
 }
 
+/**
+ * @brief Determines whether the main menu stack should be considered active for the given application state.
+ *
+ * The main menu stack is active when:
+ * - the current screen is MainMenu, or
+ * - the current screen is Settings and settingsReturnScreen equals MainMenu, or
+ * - the current screen is LoadMenu or LoadConfirmDelete and loadReturnScreen equals MainMenu.
+ *
+ * @param state Current application state to evaluate.
+ * @return true if the main menu stack should be active in this state, false otherwise.
+ */
+bool MainMenuDocumentController::isMenuStackActive(const AppState& state) const {
+    if (state.screen == ScreenState::MainMenu) {
+        return true;
+    }
+
+    if (state.screen == ScreenState::Settings) {
+        return state.settingsReturnScreen == ScreenState::MainMenu;
+    }
+
+    return (state.screen == ScreenState::LoadMenu || state.screen == ScreenState::LoadConfirmDelete) &&
+           state.loadReturnScreen == ScreenState::MainMenu;
+}
+
+/**
+ * @brief Determine which main-menu overlay mode applies for the given application state.
+ *
+ * @param state Current application state used to infer whether the main menu is being shown
+ *              as an overlay after returning from another screen.
+ * @return MainMenuOverlayMode
+ *         `MainMenuOverlayMode::Settings` if `state.screen` is `Settings` and
+ *         `state.settingsReturnScreen` is `MainMenu`.
+ *         `MainMenuOverlayMode::Load` if `state.screen` is `LoadMenu` or `LoadConfirmDelete`
+ *         and `state.loadReturnScreen` is `MainMenu`.
+ *         `MainMenuOverlayMode::None` otherwise.
+ */
+MainMenuOverlayMode MainMenuDocumentController::overlayModeForState(const AppState& state) const {
+    if (state.screen == ScreenState::Settings && state.settingsReturnScreen == ScreenState::MainMenu) {
+        return MainMenuOverlayMode::Settings;
+    }
+
+    if ((state.screen == ScreenState::LoadMenu || state.screen == ScreenState::LoadConfirmDelete) &&
+        state.loadReturnScreen == ScreenState::MainMenu) {
+        return MainMenuOverlayMode::Load;
+    }
+
+    return MainMenuOverlayMode::None;
+}
+
+/**
+ * Moves the current menu selection by the given offset, wrapping around the available menu entries.
+ *
+ * @param delta Signed offset in menu indices: positive values move the selection forward, negative values move it backward. A value of zero leaves the selection unchanged.
+ */
 void MainMenuDocumentController::moveSelection(int delta) {
     if (delta == 0) {
         return;
@@ -347,6 +463,15 @@ void MainMenuDocumentController::updateDrift(float deltaSeconds) {
     }
 }
 
+/**
+ * @brief Advance the intro animation timer and end the intro when its duration is reached.
+ *
+ * Increments the stored intro elapsed time by the provided frame delta (negative values are treated
+ * as zero). If the elapsed time reaches or exceeds the configured intro duration, clamps the elapsed
+ * time to that duration and disables the intro flag.
+ *
+ * @param deltaSeconds Time elapsed since the last update, in seconds; negative values are treated as zero.
+ */
 void MainMenuDocumentController::updateIntro(float deltaSeconds) {
     if (!introActive_) {
         return;
@@ -359,6 +484,35 @@ void MainMenuDocumentController::updateIntro(float deltaSeconds) {
     }
 }
 
+/**
+ * @brief Smoothly updates the submenu blend value toward its target.
+ *
+ * Advances internal submenu blending state from its current value toward
+ * `submenuTarget_` based on the elapsed time, using exponential smoothing,
+ * and snaps to the target when within 0.002.
+ *
+ * @param deltaSeconds Time elapsed since the last update, in seconds.
+ */
+void MainMenuDocumentController::updateSubmenu(float deltaSeconds) {
+    const float blend = deltaSeconds > 0.0f
+        ? std::clamp(1.0f - std::exp(-deltaSeconds * kSubmenuSmoothing), 0.0f, 1.0f)
+        : 1.0f;
+
+    submenuCurrent_ += (submenuTarget_ - submenuCurrent_) * blend;
+    if (std::fabs(submenuCurrent_ - submenuTarget_) < 0.002f) {
+        submenuCurrent_ = submenuTarget_;
+    }
+}
+
+/**
+ * @brief Updates and applies visual properties for the main-menu layers.
+ *
+ * Computes opacity, translation, and scale values from the controller's animation state
+ * (intro progress, drift offsets, and submenu overlay blending) and writes those values
+ * into the cached Rml elements for the whiteout, disc, logo, UI, and fixed layers.
+ *
+ * The method is a no-op when no document is bound.
+ */
 void MainMenuDocumentController::applyVisualState() const {
     if (document_ == nullptr) {
         return;
@@ -374,6 +528,8 @@ void MainMenuDocumentController::applyVisualState() const {
     float uiOpacity = 1.0f;
     float uiIntroX = 0.0f;
     float uiIntroY = 0.0f;
+    const float submenuDiscOffsetX = overlayMode_ == MainMenuOverlayMode::Settings ? 34.0f : kSubmenuDiscOffsetX;
+    const float submenuDiscOffsetY = overlayMode_ == MainMenuOverlayMode::Settings ? -10.0f : kSubmenuDiscOffsetY;
 
     if (introActive_) {
         const float whiteFade = smoothstep01(rangeProgress(
@@ -409,38 +565,40 @@ void MainMenuDocumentController::applyVisualState() const {
     }
 
     if (discLayerElement_ != nullptr) {
-        discLayerElement_->SetProperty("opacity", formatNumber(discOpacity));
+        discLayerElement_->SetProperty("opacity", formatNumber(discOpacity * lerp(1.0f, 0.9f, submenuCurrent_)));
         discLayerElement_->SetProperty(
             "transform",
             translateDp(
-                driftCurrentX_ * kDiscDriftXMultiplier + discIntroX,
-                driftCurrentY_ * kDiscDriftYMultiplier + discIntroY));
+                driftCurrentX_ * kDiscDriftXMultiplier + discIntroX + submenuDiscOffsetX * submenuCurrent_,
+                driftCurrentY_ * kDiscDriftYMultiplier + discIntroY + submenuDiscOffsetY * submenuCurrent_));
     }
 
     if (logoLayerElement_ != nullptr) {
-        logoLayerElement_->SetProperty("opacity", formatNumber(logoOpacity));
+        logoLayerElement_->SetProperty("opacity", formatNumber(logoOpacity * (1.0f - submenuCurrent_)));
         logoLayerElement_->SetProperty(
             "transform",
             translateScale(
-                driftCurrentX_ * kLogoDriftXMultiplier,
-                driftCurrentY_ * kLogoDriftYMultiplier + logoTranslateY,
-                logoScale));
+                driftCurrentX_ * kLogoDriftXMultiplier + kSubmenuLogoOffsetX * submenuCurrent_,
+                driftCurrentY_ * kLogoDriftYMultiplier + logoTranslateY + kSubmenuLogoOffsetY * submenuCurrent_,
+                lerp(logoScale, kSubmenuLogoScale, submenuCurrent_)));
     }
 
     if (uiLayerElement_ != nullptr) {
-        uiLayerElement_->SetProperty("opacity", formatNumber(uiOpacity));
+        uiLayerElement_->SetProperty("opacity", formatNumber(uiOpacity * lerp(1.0f, 0.26f, submenuCurrent_)));
         uiLayerElement_->SetProperty(
             "transform",
             translateDp(
-                driftCurrentX_ * kUiDriftXMultiplier + uiIntroX,
-                driftCurrentY_ * kUiDriftYMultiplier + uiIntroY));
+                driftCurrentX_ * kUiDriftXMultiplier + uiIntroX + kSubmenuUiOffsetX * submenuCurrent_,
+                driftCurrentY_ * kUiDriftYMultiplier + uiIntroY + kSubmenuUiOffsetY * submenuCurrent_));
     }
 
     if (fixedLayerElement_ != nullptr) {
-        fixedLayerElement_->SetProperty("opacity", formatNumber(uiOpacity));
+        fixedLayerElement_->SetProperty("opacity", formatNumber(uiOpacity * (1.0f - submenuCurrent_)));
         fixedLayerElement_->SetProperty(
             "transform",
-            translateDp(0.0f, uiIntroY * 0.30f));
+            translateDp(
+                kSubmenuFixedOffsetX * submenuCurrent_,
+                uiIntroY * 0.30f + 6.0f * submenuCurrent_));
     }
 }
 
@@ -461,6 +619,12 @@ std::unique_ptr<DocumentController> createControllerForScreen(ScreenId screen) {
     return nullptr;
 }
 
+/**
+ * @brief Resolve the Rml document path for a given screen.
+ *
+ * @param screen Screen identifier whose document path is requested.
+ * @return std::string Path to the RML document for the specified screen, or an empty string if the screen has no associated document.
+ */
 std::string resolveDocumentPath(ScreenId screen) {
     switch (screen) {
         case ScreenId::MainMenu:
@@ -470,7 +634,7 @@ std::string resolveDocumentPath(ScreenId screen) {
         case ScreenId::Settings:
             return "assets/rmlui/front_ui/settings.rml";
         case ScreenId::Pause:
-            return "assets/rmlui/front_ui/pause.rml";
+            return "assets/rmlui/front_ui/pause_sleek.rml";
         case ScreenId::Load:
             return "assets/rmlui/front_ui/load.rml";
     }

@@ -45,6 +45,9 @@ set(MAIN_APP_SOURCES
     src/GameMenu/exit_to_main_menu.cpp
     src/Settings/settings.cpp
     src/window.cpp
+    src/game/audio/ui_music_controller.cpp
+    src/game/audio/ui_music_controller.h
+    src/game/audio/ui_music_types.h
     src/game/vn/vn_system.cpp
     src/game/vn/vn_script.cpp
     src/game/save/save.cpp
@@ -347,6 +350,8 @@ if (ENABLE_RMLUI)
         src/window.h
         src/graphics/rmlui_loading_overlay.cpp
         src/graphics/rmlui_loading_overlay.h
+        src/graphics/rmlui_sdl_gl_renderer.cpp
+        src/graphics/rmlui_sdl_gl_renderer.h
         src/game/boss_selector_session.cpp
         src/game/boss_selector_session.h
         src/game/save/save.cpp

@@ -27,6 +27,7 @@
 #ifdef RMLUI_SDL_VERSION_MAJOR
 #include "game/boss_selector_session.h"
 #endif
+#include "game/audio/ui_music_controller.h"
 #include "game/demo_battle_session.h"
 #include "game/save/save.h"
 #include "game/vn/vn_system.h"
@@ -665,11 +666,24 @@ ScreenState resolveStoryEndReturnScreen(const vn::Script& script, ScreenState fa
     return fallback;
 }
 
+/**
+ * @brief Apply the currently indexed script entry to the VN runtime.
+ *
+ * If the story has no entries or the entry index is out of range, this function does nothing.
+ * Otherwise it updates VN runtime audio and text speed from settings, resolves any per-entry
+ * asset references (icon, voice, bgm, font, and background — falling back to the nearest
+ * previous non-empty background when the entry's background is empty), and displays the
+ * entry's line with the resolved assets and entry playback flags.
+ *
+ * @param story Current story session containing the script and entry index.
+ * @param settings Runtime settings used to set music volume, voice volume, and typewriter speed.
+ */
 void applyCurrentEntry(const StorySession& story, const GameSettings& settings) {
     if (story.script.entries.empty() || story.entryIndex >= story.script.entries.size()) {
         return;
     }
 
+    vn::setMusicVolume(settings.musicVolume);
     vn::setVoiceVolume(settings.voiceVolume);
     vn::setTypewriterSpeed(settings.textSpeed);
 
@@ -720,12 +734,31 @@ bool ensureStoryLoaded(StorySession& story) {
     return loadStoryScript(story, kChapterScriptPath);
 }
 
+/**
+ * @brief Builds a SaveGame snapshot capturing the current story position and relevant player settings.
+ *
+ * Populates a save::SaveGame with the active chapter id, current entry index and generated label,
+ * serialized display/audio/text settings, and the current progression state.
+ *
+ * @param state The current application state used as the source of truth for story position, settings, and progression.
+ * @return save::SaveGame A save object containing:
+ *  - `chapter`: chapter id derived from the current script,
+ *  - `entryIndex`: index of the current story entry,
+ *  - `label`: generated label for the save position,
+ *  - `settings.fullscreen`: fullscreen flag,
+ *  - `settings.musicVolume`: music volume as an integer 0–100,
+ *  - `settings.voiceVolume`: voice volume as an integer 0–100,
+ *  - `settings.textSpeed`: text speed as an integer >= 1,
+ *  - `progression`: copied progression data,
+ *  - `hasProgressionData`: set to `true`.
+ */
 save::SaveGame buildStorySaveGame(const AppState& state) {
     save::SaveGame saveGame;
     saveGame.chapter = save::chapterIdFromScript(state.story.script);
     saveGame.entryIndex = static_cast<int>(state.story.entryIndex);
     saveGame.label = save::generateLabel(state.story.script, state.story.entryIndex);
     saveGame.settings.fullscreen = state.settings.fullscreen;
+    saveGame.settings.musicVolume = static_cast<int>(std::lround(std::clamp(state.settings.musicVolume, 0.0f, 1.0f) * 100.0f));
     saveGame.settings.voiceVolume = static_cast<int>(std::lround(std::clamp(state.settings.voiceVolume, 0.0f, 1.0f) * 100.0f));
     saveGame.settings.textSpeed = static_cast<int>(std::lround(std::max(1.0f, state.settings.textSpeed)));
     saveGame.progression = state.progression;
@@ -768,6 +801,18 @@ bool canSaveCurrentStoryState(const AppState& state, std::string& outReason) {
     return true;
 }
 
+/**
+ * @brief Restores application state from a saved story snapshot and prepares playback.
+ *
+ * Loads the saved chapter script, validates it, restores settings (fullscreen, music/voice volumes, text speed),
+ * player progression, and VN runtime state, then positions the story at the saved entry and applies that entry
+ * so playback resumes immediately.
+ *
+ * @param state Mutable application state to update with restored data.
+ * @param saveGame Saved game data to restore from.
+ * @return true if the save was successfully restored and the story is ready to play; `false` if the script
+ *         could not be loaded or the loaded script contains no entries.
+ */
 bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
     vn::Script script;
     const std::string scriptPath = resolvePath(save::chapterScriptPathFromId(saveGame.chapter));
@@ -779,6 +824,7 @@ bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
     }
 
     state.settings.fullscreen = saveGame.settings.fullscreen;
+    state.settings.musicVolume = std::clamp(static_cast<float>(saveGame.settings.musicVolume) / 100.0f, 0.0f, 1.0f);
     state.settings.voiceVolume = std::clamp(static_cast<float>(saveGame.settings.voiceVolume) / 100.0f, 0.0f, 1.0f);
     state.settings.textSpeed = static_cast<float>(std::max(1, saveGame.settings.textSpeed));
     state.progression = saveGame.progression;
@@ -789,8 +835,10 @@ bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
     state.story.loaded = true;
     state.story.entryIndex = static_cast<std::size_t>(std::clamp(saveGame.entryIndex, 0, static_cast<int>(state.story.script.entries.size() - 1)));
     state.storyEndReturnScreen = resolveStoryEndReturnScreen(state.story.script, ScreenState::MainMenu);
+    state.requestStoryReturnToBossSelector = false;
 
     vn::reset();
+    vn::setMusicVolume(state.settings.musicVolume);
     vn::setVoiceVolume(state.settings.voiceVolume);
     vn::setTypewriterSpeed(state.settings.textSpeed);
 
@@ -804,6 +852,20 @@ bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
     return true;
 }
 
+/**
+ * @brief Initialize and begin playback of a story script.
+ *
+ * Loads the script identified by `scriptRef` (or the default when empty), validates it has dialogue
+ * entries, and transitions the application into the Playing screen. On load failure or an empty
+ * script the function sets an explanatory notice and returns to the main menu. When successful,
+ * the function initializes story playback state (entry index, end-return target, pause/confirm
+ * defaults), clears any pending battle data, resets the VN runtime, applies runtime audio and
+ * typewriter settings, displays the first entry, and performs an autosave of the story state.
+ *
+ * @param state Application state to update (modified in-place; selects screen and story fields).
+ * @param scriptRef Reference to the script to load; empty means use the default chapter script.
+ * @param endReturnScreen Screen to use if the script does not specify its own end-return target.
+ */
 void beginStory(AppState& state, const std::string& scriptRef, ScreenState endReturnScreen) {
     const bool loaded = scriptRef.empty()
         ? ensureStoryLoaded(state.story)
@@ -826,6 +888,7 @@ void beginStory(AppState& state, const std::string& scriptRef, ScreenState endRe
 
     state.story.entryIndex = 0;
     state.storyEndReturnScreen = resolveStoryEndReturnScreen(state.story.script, endReturnScreen);
+    state.requestStoryReturnToBossSelector = false;
     state.pauseSelection = PauseAction::Continue;
     state.pauseContext = PauseContext::Story;
     state.confirmSelection = ConfirmAction::Cancel;
@@ -836,15 +899,27 @@ void beginStory(AppState& state, const std::string& scriptRef, ScreenState endRe
     state.pendingBattleWinScript.clear();
     state.pendingBattleLoseScript.clear();
     vn::reset();
+    vn::setMusicVolume(state.settings.musicVolume);
     vn::setVoiceVolume(state.settings.voiceVolume);
     vn::setTypewriterSpeed(state.settings.textSpeed);
     applyCurrentEntry(state.story, state.settings);
     (void)save::autosave(buildStorySaveGame(state));
 }
 
+/**
+ * @brief Transition the application into the boss selector screen.
+ *
+ * When built with RmlUi support, configures and clears relevant AppState fields to enter
+ * the BossSelector screen (pause context, selection defaults, pending-battle fields,
+ * and stops story BGM). When RmlUi is not available, sets a short notice and returns to
+ * the main menu.
+ *
+ * @param state Mutable application state updated to reflect the new screen and related defaults.
+ */
 void beginBossSelector(AppState& state) {
 #ifdef RMLUI_SDL_VERSION_MAJOR
     vn::stopBgmPlayback();
+    state.requestStoryReturnToBossSelector = false;
     state.pauseSelection = PauseAction::Continue;
     state.pauseContext = PauseContext::Story;
     state.confirmSelection = ConfirmAction::Cancel;
@@ -1319,6 +1394,17 @@ void releaseRendererUi(MenuResources& menuResources, bool& rendererUiReady) {
     rendererUiReady = false;
 }
 
+/**
+ * @brief Restores the renderer-based UI and initializes VN state for the given window.
+ *
+ * Initializes the VN renderer and applies runtime UI resources and audio/text settings so the
+ * application's renderer-based front-end can be used again.
+ *
+ * @param window Window instance whose renderer and native window are used.
+ * @param menuResources Storage for menu textures and fonts that will be (re)loaded.
+ * @param settings Runtime display and audio settings to apply (music volume, voice volume, text speed).
+ * @return true if the renderer UI and VN subsystem were successfully initialized and resources loaded, false otherwise.
+ */
 bool restoreRendererUi(Window& window, MenuResources& menuResources, const GameSettings& settings) {
     if (!window.enableRenderer()) {
         return false;
@@ -1327,6 +1413,7 @@ bool restoreRendererUi(Window& window, MenuResources& menuResources, const GameS
     if (!vn::initialize(window.getRenderer(), window.getWidth(), window.getHeight())) {
         return false;
     }
+    vn::setMusicVolume(settings.musicVolume);
     vn::setVoiceVolume(settings.voiceVolume);
     vn::setTypewriterSpeed(settings.textSpeed);
     loadMenuResources(menuResources, window.getRenderer());
@@ -1459,6 +1546,19 @@ bool applyFrontMenuAction(AppState& state,
 }
 #endif
 
+/**
+ * @brief Program entry point that initializes subsystems, runs the main event/update/render loop, and performs cleanup.
+ *
+ * The application parses optional command-line startup modes (for example: "battle mode", "selector",
+ * "story <ref>", or "battle <key>"), initializes windowing, audio, UI, and VN subsystems, and enters
+ * the main loop that processes input, updates VN and battle sessions, drives loading transitions,
+ * handles saves/loads, and renders the active UI or gameplay view. On exit all subsystems and
+ * resources are shut down and released.
+ *
+ * @param argc Number of command-line arguments.
+ * @param argv Command-line argument vector.
+ * @return int 0 on normal exit, non-zero on initialization or fatal runtime failure.
+ */
 int main(int argc, char** argv) {
     if (argc >= 3 && std::string(argv[1]) == "battle" && std::string(argv[2]) == "mode") {
         return launchDefaultBattleMode(argc, argv);
@@ -1495,12 +1595,31 @@ int main(int argc, char** argv) {
 
     MenuResources menuResources;
     SettingsMenuController settingsMenu;
+    game::audio::UiMusicController uiMusic;
     std::unique_ptr<battle::demo::Session> battleSession;
 #ifdef RMLUI_SDL_VERSION_MAJOR
     std::unique_ptr<battle::selector::Session> bossSelectorSession;
 #endif
 
     bool rendererUiReady = false;
+    (void)uiMusic.initialize();
+    GameSettings appliedRuntimeSettings = state.settings;
+    const auto applyRuntimeSettings = [&](bool force = false) {
+        const auto differs = [&](float lhs, float rhs) {
+            return std::fabs(lhs - rhs) > 0.0001f;
+        };
+
+        if (force || differs(appliedRuntimeSettings.musicVolume, state.settings.musicVolume)) {
+            vn::setMusicVolume(state.settings.musicVolume);
+        }
+        if (force || differs(appliedRuntimeSettings.voiceVolume, state.settings.voiceVolume)) {
+            vn::setVoiceVolume(state.settings.voiceVolume);
+        }
+        if (force || differs(appliedRuntimeSettings.textSpeed, state.settings.textSpeed)) {
+            vn::setTypewriterSpeed(state.settings.textSpeed);
+        }
+        appliedRuntimeSettings = state.settings;
+    };
 #ifdef APP_ENABLE_RMLUI
     graphics::frontui::Session frontUi;
     if (!restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state)) {
@@ -1513,9 +1632,8 @@ int main(int argc, char** argv) {
         return 1;
     }
     rendererUiReady = true;
-    vn::setVoiceVolume(state.settings.voiceVolume);
-    vn::setTypewriterSpeed(state.settings.textSpeed);
 #endif
+    applyRuntimeSettings(true);
 
 #ifdef VN_AUTO_START_STORY
     beginStory(state);
@@ -1578,6 +1696,7 @@ int main(int argc, char** argv) {
 
     const auto commitStoryExitToMainMenu = [&]() -> bool {
         state.requestStoryExitToMainMenu = false;
+        state.requestStoryReturnToBossSelector = false;
         vn::setPaused(false);
         vn::reset();
         state.story.entryIndex = 0;
@@ -1589,6 +1708,19 @@ int main(int argc, char** argv) {
         state.mainSelection = MainMenuAction::Start;
         state.noticeText = "Current progress was discarded.";
         state.noticeTimer = 2.6f;
+        return true;
+    };
+
+    const auto commitStoryReturnToBossSelector = [&]() -> bool {
+        state.requestStoryReturnToBossSelector = false;
+        vn::setPaused(false);
+        vn::reset();
+        state.story.entryIndex = 0;
+        state.pauseSelection = PauseAction::Continue;
+        state.pauseContext = PauseContext::Story;
+        state.confirmSelection = ConfirmAction::Cancel;
+        state.pauseIntroTime = 0.0f;
+        beginBossSelector(state);
         return true;
     };
 
@@ -1781,6 +1913,14 @@ int main(int argc, char** argv) {
                 commitStoryExitToMainMenu);
         }
 
+        if (!loadingTransition.active && state.requestStoryReturnToBossSelector) {
+            startLoadingTransition(
+                loadingTransition,
+                LoadingTransitionPresentation::RmlUi,
+                std::function<bool()>{},
+                commitStoryReturnToBossSelector);
+        }
+
         if (shouldUseFrontUiScreen(state)) {
             if (!restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state)) {
                 std::cerr << "Failed to restore RmlUi front-ui screen\n";
@@ -1902,7 +2042,7 @@ int main(int argc, char** argv) {
                 if (tryStartDuplicateSaveOverwritePrompt(state, saveGame)) {
                     // confirmation modal opened
                 } else if (save::manualSave(saveGame)) {
-                    state.noticeText = "Game saved.";
+                    state.noticeText = "File Saved";
                     state.noticeTimer = 2.0f;
                 } else {
                     state.noticeText = "Save failed.";
@@ -1921,7 +2061,7 @@ int main(int argc, char** argv) {
                 state.pendingOverwriteSavePath.clear();
             } else if (!state.pendingOverwriteSavePath.empty() &&
                        save::writeToPath(state.pendingOverwriteSavePath, buildStorySaveGame(state))) {
-                state.noticeText = "Game saved.";
+                state.noticeText = "File Saved";
                 state.noticeTimer = 2.0f;
                 state.pendingOverwriteSavePath.clear();
             } else {
@@ -1931,24 +2071,38 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (!state.pendingLoadPath.empty()) {
+        if (!state.pendingLoadPath.empty() && !loadingTransition.active) {
             const std::string pendingLoadPath = state.pendingLoadPath;
             state.pendingLoadPath.clear();
 
-            const std::optional<save::SaveGame> saveGame = save::load(pendingLoadPath);
-            if (!saveGame.has_value()) {
-                state.noticeText = "Save file corrupted.";
-                state.noticeTimer = 2.4f;
-            } else {
-                if (restoreStorySave(state, *saveGame)) {
+            const LoadingTransitionPresentation presentation = shouldUseFrontUiScreen(state)
+                ? LoadingTransitionPresentation::RmlUi
+                : LoadingTransitionPresentation::RendererFallback;
+            startLoadingTransition(
+                loadingTransition,
+                presentation,
+                presentation == LoadingTransitionPresentation::RendererFallback
+                    ? std::function<bool()>(prepareRendererLoadingHold)
+                    : std::function<bool()>{},
+                [&, pendingLoadPath]() -> bool {
+                    const std::optional<save::SaveGame> saveGame = save::load(pendingLoadPath);
+                    if (!saveGame.has_value()) {
+                        state.noticeText = "Save file corrupted.";
+                        state.noticeTimer = 2.4f;
+                        return true;
+                    }
+
+                    if (!restoreStorySave(state, *saveGame)) {
+                        state.noticeText = "Load failed.";
+                        state.noticeTimer = 2.4f;
+                        return true;
+                    }
+
                     SettingsMenuController::applyDisplayMode(window, state.settings, saveGame->settings.fullscreen);
                     state.noticeText = "Game loaded.";
                     state.noticeTimer = 2.0f;
-                } else {
-                    state.noticeText = "Load failed.";
-                    state.noticeTimer = 2.4f;
-                }
-            }
+                    return true;
+                });
         }
 
         if (state.screen == ScreenState::BattleDemo && battleSession == nullptr) {
@@ -2083,6 +2237,7 @@ int main(int argc, char** argv) {
                         state.storyEndReturnScreen =
                             resolveStoryEndReturnScreen(state.story.script, endReturnScreen);
                         vn::reset();
+                        vn::setMusicVolume(state.settings.musicVolume);
                         vn::setVoiceVolume(state.settings.voiceVolume);
                         vn::setTypewriterSpeed(state.settings.textSpeed);
                         state.pauseSelection = PauseAction::Continue;
@@ -2176,7 +2331,7 @@ int main(int argc, char** argv) {
                     beginBattle(state, pendingBattleId);
                 } else if (state.story.entryIndex >= state.story.script.entries.size()) {
                     if (state.storyEndReturnScreen == ScreenState::BossSelector) {
-                        beginBossSelector(state);
+                        state.requestStoryReturnToBossSelector = true;
                     } else {
                         state.screen = ScreenState::MainMenu;
                         state.mainSelection = MainMenuAction::Start;
@@ -2206,19 +2361,26 @@ int main(int argc, char** argv) {
         }
 #endif
 
+        applyRuntimeSettings();
+
         if (!shouldKeepStoryBgmPlaying(state)) {
             vn::stopBgmPlayback();
         }
 
+        uiMusic.update(state, loadingTransition.active, deltaSeconds);
+
 #if defined(APP_ENABLE_RMLUI) || defined(RMLUI_SDL_VERSION_MAJOR)
+        const game::audio::UiMusicVisualState& uiMusicVisualState = uiMusic.visualState();
         const graphics::RmlUiLoadingOverlayState hiddenRmlLoadingOverlay;
 #ifdef APP_ENABLE_RMLUI
         if (frontUi.isInitialized()) {
+            frontUi.setUiMusicVisualState(uiMusicVisualState);
             frontUi.setLoadingOverlay(hiddenRmlLoadingOverlay);
         }
 #endif
 #ifdef RMLUI_SDL_VERSION_MAJOR
         if (bossSelectorSession != nullptr) {
+            bossSelectorSession->setUiMusicVisualState(uiMusicVisualState);
             bossSelectorSession->setLoadingOverlay(hiddenRmlLoadingOverlay);
         }
 #endif
@@ -2347,6 +2509,7 @@ int main(int argc, char** argv) {
     destroyLoadingLogoTexture();
     destroyLoadingOverlayGlState(loadingOverlayGl);
     destroyMenuResources(menuResources);
+    uiMusic.shutdown();
     vn::shutdown();
     return 0;
 }

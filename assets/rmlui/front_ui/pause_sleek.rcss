@@ -1,0 +1,268 @@
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    /* backdrop-filter intentionally not overridden — inherits blur(8px) from submenu_revamp.rcss body,
+       which appears/disappears instantly with the document (no lingering blur issues) */
+    color: #17141f;
+    font-family: "Space Mono";
+}
+
+/* hide shared-layout elements that bleed in from other menus */
+#system-caption-copy,
+#menu-title-hint,
+#menu-section-tag {
+    display: none !important;
+}
+
+/* dark tint overlay — no backdrop-filter here, just the dimming layer */
+#pause-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(2, 8, 10, 0);
+    opacity: 0;
+    transition: opacity 0.28s ease;
+}
+
+#pause-overlay.fade-in {
+    opacity: 1;
+    background-color: rgba(2, 8, 10, 0.28);
+}
+
+/* entry: slide down from above + fade in */
+@keyframes pause-shell-enter {
+    from {
+        opacity: 0;
+        transform: translateY(-36dp);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0dp);
+    }
+}
+
+/* exit: slide back up + fade out */
+@keyframes pause-shell-exit {
+    from {
+        opacity: 1;
+        transform: translateY(0dp);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-36dp);
+    }
+}
+
+/* centered card panel — invisible by default, animated via class */
+#pause-shell {
+    position: absolute;
+    left: 20.5%;
+    right: 20.5%;
+    top: 9%;
+    bottom: 9%;
+    background-color: rgba(255, 255, 255, 235);
+    border: 4dp solid #ff63b0;
+    border-radius: 24dp;
+    box-shadow: 0 12dp 36dp rgba(23, 20, 31, 40);
+    opacity: 0;
+    transform: translateY(-36dp);
+}
+
+#pause-shell.entered {
+    animation: pause-shell-enter 0.52s cubic-out;
+    opacity: 1;
+    transform: translateY(0dp);
+}
+
+#pause-shell.exiting {
+    animation: pause-shell-exit 0.42s cubic-out;
+    opacity: 0;
+    transform: translateY(-36dp);
+}
+
+/* logo — centered at top of shell */
+#pause-logo {
+    position: absolute;
+    left: 50%;
+    top: 14dp;
+    width: 320dp;
+    height: 96dp;
+    margin-left: -160dp;
+}
+
+/* title then kicker */
+#pause-title-shell {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 116dp;
+    text-align: center;
+}
+
+#pause-title {
+    font-size: 34dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    color: #17141f;
+    text-transform: uppercase;
+}
+
+#pause-kicker {
+    margin-top: 4dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: rgba(23, 20, 31, 108);
+    text-transform: uppercase;
+}
+
+/* buttons — centered, compact height to match prototype */
+#pause-buttons {
+    position: absolute;
+    left: 50%;
+    top: 182dp;
+    width: 540dp;
+    margin-left: -270dp;
+}
+
+#pause-buttons .submenu-row {
+    height: 52dp;
+    margin-bottom: 10dp;
+}
+
+#pause-buttons .submenu-row-accent {
+    top: 11dp;
+    height: 30dp;
+}
+
+#pause-buttons .submenu-row-code {
+    top: 18dp;
+}
+
+#pause-buttons .submenu-row-main {
+    top: 14dp;
+}
+
+#pause-buttons .submenu-row-tail {
+    top: 14dp;
+}
+
+/* notice is hidden — toast is used instead */
+#pause-notice {
+    display: none;
+}
+
+/* confirm dialog — full-screen dark backdrop with centered card */
+#pause-confirm {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(12, 10, 14, 176);
+    display: none;
+}
+
+#pause-confirm.is-visible {
+    display: block;
+}
+
+#pause-confirm-card {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 430dp;
+    height: 230dp;
+    margin-left: -215dp;
+    margin-top: -115dp;
+    background-color: rgba(255, 251, 253, 246);
+    border: 1dp rgba(23, 20, 31, 24);
+    border-radius: 24dp;
+    box-shadow: 0 20dp 40dp rgba(23, 20, 31, 26);
+}
+
+#pause-confirm-title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 30dp;
+    font-size: 24dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    color: #17141f;
+    text-align: center;
+}
+
+#pause-confirm-body {
+    position: absolute;
+    left: 28dp;
+    right: 28dp;
+    top: 72dp;
+    font-size: 12dp;
+    line-height: 18dp;
+    color: rgba(23, 20, 31, 144);
+    text-align: center;
+}
+
+#pause-confirm-actions {
+    position: absolute;
+    left: 22dp;
+    right: 22dp;
+    bottom: 22dp;
+    display: flex;
+    gap: 14dp;
+}
+
+#pause-confirm-cancel,
+#pause-confirm-confirm {
+    flex: 1;
+}
+
+/* centered label inside skewed confirm buttons */
+.pause-confirm-inner {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 22dp;
+    transform: skewX(18deg);
+    text-align: center;
+    font-size: 14dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    color: #17141f;
+}
+
+.submenu-confirm-button.is-selected .pause-confirm-inner {
+    color: #ffffff;
+}
+
+/* toast — bottom-center, same style as battle selector */
+#pause-toast {
+    position: absolute;
+    left: 50%;
+    bottom: 36dp;
+    width: 320dp;
+    height: 34dp;
+    margin-left: -160dp;
+    padding-top: 10dp;
+    background-color: rgba(23, 20, 31, 224);
+    border-radius: 999dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    text-align: center;
+    color: #ffffff;
+    opacity: 0;
+    transform: translate(0dp, 0dp);
+    transition: opacity 0.22s cubic-out, transform 0.22s cubic-out;
+}
+
+#pause-toast.is-visible {
+    opacity: 1;
+    transform: translate(0dp, -6dp);
+}
