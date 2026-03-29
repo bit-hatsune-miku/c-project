@@ -16,7 +16,7 @@ constexpr float kSettingsTitleWidth = 920.0f;
 constexpr float kMinTextSpeed = 18.0f;
 constexpr float kMaxTextSpeed = 90.0f;
 constexpr float kTextSpeedRange = kMaxTextSpeed - kMinTextSpeed;
-constexpr int kSettingsItemCount = 4;
+constexpr int kSettingsItemCount = 5;
 
 using Item = SettingsItem;
 
@@ -30,15 +30,18 @@ constexpr SDL_FRect kSettingsShellRect{centeredX(kSettingsShellWidth), 154.0f, k
 constexpr SDL_FRect kSettingsSectionLabelRect{centeredX(kSettingsTitleWidth) + 28.0f, 188.0f, 250.0f, 28.0f};
 constexpr SDL_FRect kSettingsHintRect{centeredX(kSettingsTitleWidth) + 28.0f, 214.0f, 640.0f, 26.0f};
 constexpr SDL_FRect kSettingsFooterBandRect{centeredX(kSettingsTitleWidth), 612.0f, kSettingsTitleWidth, 26.0f};
-constexpr SDL_FRect kDisplayModeRowRect{centeredX(kSettingsTitleWidth), 278.0f, kSettingsTitleWidth, 58.0f};
-constexpr SDL_FRect kVolumeRowRect{centeredX(kSettingsTitleWidth), 354.0f, kSettingsTitleWidth, 58.0f};
-constexpr SDL_FRect kSpeedRowRect{centeredX(kSettingsTitleWidth), 430.0f, kSettingsTitleWidth, 58.0f};
-constexpr SDL_FRect kBackRowRect{centeredX(kSettingsTitleWidth), 506.0f, kSettingsTitleWidth, 58.0f};
-constexpr SDL_FRect kDisplayModeValueRect{centeredX(kSettingsTitleWidth) + 692.0f, 289.0f, 206.0f, 36.0f};
-constexpr SDL_FRect kVolumeSliderRect{centeredX(kSettingsTitleWidth) + 390.0f, 365.0f, 298.0f, 36.0f};
-constexpr SDL_FRect kSpeedSliderRect{centeredX(kSettingsTitleWidth) + 390.0f, 441.0f, 298.0f, 36.0f};
-constexpr SDL_FRect kVolumeValueRect{centeredX(kSettingsTitleWidth) + 708.0f, 365.0f, 190.0f, 36.0f};
-constexpr SDL_FRect kSpeedValueRect{centeredX(kSettingsTitleWidth) + 708.0f, 441.0f, 190.0f, 36.0f};
+constexpr SDL_FRect kDisplayModeRowRect{centeredX(kSettingsTitleWidth), 262.0f, kSettingsTitleWidth, 52.0f};
+constexpr SDL_FRect kMusicRowRect{centeredX(kSettingsTitleWidth), 326.0f, kSettingsTitleWidth, 52.0f};
+constexpr SDL_FRect kVolumeRowRect{centeredX(kSettingsTitleWidth), 390.0f, kSettingsTitleWidth, 52.0f};
+constexpr SDL_FRect kSpeedRowRect{centeredX(kSettingsTitleWidth), 454.0f, kSettingsTitleWidth, 52.0f};
+constexpr SDL_FRect kBackRowRect{centeredX(kSettingsTitleWidth), 518.0f, kSettingsTitleWidth, 52.0f};
+constexpr SDL_FRect kDisplayModeValueRect{centeredX(kSettingsTitleWidth) + 692.0f, 270.0f, 206.0f, 36.0f};
+constexpr SDL_FRect kMusicSliderRect{centeredX(kSettingsTitleWidth) + 390.0f, 334.0f, 298.0f, 36.0f};
+constexpr SDL_FRect kVolumeSliderRect{centeredX(kSettingsTitleWidth) + 390.0f, 398.0f, 298.0f, 36.0f};
+constexpr SDL_FRect kSpeedSliderRect{centeredX(kSettingsTitleWidth) + 390.0f, 462.0f, 298.0f, 36.0f};
+constexpr SDL_FRect kMusicValueRect{centeredX(kSettingsTitleWidth) + 708.0f, 334.0f, 190.0f, 36.0f};
+constexpr SDL_FRect kVolumeValueRect{centeredX(kSettingsTitleWidth) + 708.0f, 398.0f, 190.0f, 36.0f};
+constexpr SDL_FRect kSpeedValueRect{centeredX(kSettingsTitleWidth) + 708.0f, 462.0f, 190.0f, 36.0f};
 
 struct SettingsRow {
     SettingsItem selection;
@@ -50,9 +53,10 @@ struct SettingsRow {
 
 constexpr std::array<SettingsRow, kSettingsItemCount> kSettingsRows{{
     {Item::DisplayMode, "01", "Display Mode", kDisplayModeRowRect, kDisplayModeValueRect},
-    {Item::VoiceVolume, "02", "Voice Volume", kVolumeRowRect, kVolumeValueRect},
-    {Item::TextSpeed, "03", "Text Speed", kSpeedRowRect, kSpeedValueRect},
-    {Item::Back, "04", "Back", kBackRowRect, SDL_FRect{0.0f, 0.0f, 0.0f, 0.0f}}
+    {Item::MusicVolume, "02", "Music Volume", kMusicRowRect, kMusicValueRect},
+    {Item::VoiceVolume, "03", "Voice Volume", kVolumeRowRect, kVolumeValueRect},
+    {Item::TextSpeed, "04", "Text Speed", kSpeedRowRect, kSpeedValueRect},
+    {Item::Back, "05", "Back", kBackRowRect, SDL_FRect{0.0f, 0.0f, 0.0f, 0.0f}}
 }};
 
 constexpr int toIndex(SettingsItem item) {
@@ -85,6 +89,15 @@ float normalizeTextSpeed(float textSpeed) {
 
 float denormalizeTextSpeed(float normalizedValue) {
     return kMinTextSpeed + std::clamp(normalizedValue, 0.0f, 1.0f) * kTextSpeedRange;
+}
+
+void setMusicVolume(GameSettings& settings, float value) {
+    settings.musicVolume = std::clamp(value, 0.0f, 1.0f);
+    vn::setMusicVolume(settings.musicVolume);
+}
+
+void adjustMusicVolume(GameSettings& settings, int direction) {
+    setMusicVolume(settings, settings.musicVolume + 0.05f * static_cast<float>(direction));
 }
 
 void setVoiceVolume(GameSettings& settings, float value) {
@@ -263,7 +276,7 @@ void SettingsMenuController::renderOverlay(SDL_Renderer* renderer, const MenuRes
     drawShadowedTextInRect(renderer, resources.titleFont, "System Settings",
                            SDL_Color{240, 248, 255, 255}, kSettingsTitleRect);
     drawTextInRect(renderer, resources.tinyFont != nullptr ? resources.tinyFont : resources.smallFont,
-                   "ENTER TO TOGGLE DISPLAY MODE. DRAG OR TAP THE SLIDERS FOR VOICE AND TEXT SPEED.",
+                   "ENTER TO TOGGLE DISPLAY MODE. DRAG OR TAP THE SLIDERS FOR MUSIC, VOICE, AND TEXT SPEED.",
                    SDL_Color{198, 246, 255, 255},
                    SDL_FRect{kSettingsFooterBandRect.x + 12.0f, kSettingsFooterBandRect.y,
                              kSettingsFooterBandRect.w - 24.0f, kSettingsFooterBandRect.h});
@@ -295,6 +308,9 @@ void SettingsMenuController::renderOverlay(SDL_Renderer* renderer, const MenuRes
     drawTextInRect(renderer, resources.smallFont, formatDisplayMode(state.settings.fullscreen),
                    state.settingsSelection == Item::DisplayMode ? SDL_Color{12, 28, 48, 255} : SDL_Color{216, 248, 255, 255},
                    kDisplayModeValueRect);
+    drawTextInRect(renderer, resources.smallFont, formatPercent(state.settings.musicVolume),
+                   state.settingsSelection == Item::MusicVolume ? SDL_Color{12, 28, 48, 255} : SDL_Color{216, 248, 255, 255},
+                   kMusicValueRect);
     drawTextInRect(renderer, resources.smallFont, formatPercent(state.settings.voiceVolume),
                    state.settingsSelection == Item::VoiceVolume ? SDL_Color{12, 28, 48, 255} : SDL_Color{216, 248, 255, 255},
                    kVolumeValueRect);
@@ -303,6 +319,7 @@ void SettingsMenuController::renderOverlay(SDL_Renderer* renderer, const MenuRes
                    kSpeedValueRect);
 #endif
 
+    renderSlider(renderer, kMusicSliderRect, state.settings.musicVolume, state.settingsSelection == Item::MusicVolume);
     renderSlider(renderer, kVolumeSliderRect, state.settings.voiceVolume, state.settingsSelection == Item::VoiceVolume);
     renderSlider(renderer, kSpeedSliderRect, normalizeTextSpeed(state.settings.textSpeed), state.settingsSelection == Item::TextSpeed);
 }
@@ -347,6 +364,8 @@ void SettingsMenuController::handleKeyboardEvent(AppState& state, Window& window
     if (event.keysym.sym == SDLK_LEFT || event.keysym.sym == SDLK_a) {
         if (state.settingsSelection == Item::DisplayMode) {
             applyDisplayMode(window, state.settings, false);
+        } else if (state.settingsSelection == Item::MusicVolume) {
+            adjustMusicVolume(state.settings, -1);
         } else if (state.settingsSelection == Item::VoiceVolume) {
             adjustVoiceVolume(state.settings, -1);
         } else if (state.settingsSelection == Item::TextSpeed) {
@@ -358,6 +377,8 @@ void SettingsMenuController::handleKeyboardEvent(AppState& state, Window& window
     if (event.keysym.sym == SDLK_RIGHT || event.keysym.sym == SDLK_d) {
         if (state.settingsSelection == Item::DisplayMode) {
             applyDisplayMode(window, state.settings, true);
+        } else if (state.settingsSelection == Item::MusicVolume) {
+            adjustMusicVolume(state.settings, 1);
         } else if (state.settingsSelection == Item::VoiceVolume) {
             adjustVoiceVolume(state.settings, 1);
         } else if (state.settingsSelection == Item::TextSpeed) {
@@ -390,6 +411,8 @@ void SettingsMenuController::updateFromPointer(AppState& state, Window& window, 
 
     if (pointInRect(mouseX, mouseY, kDisplayModeRowRect) && allowNavigation) {
         applyDisplayMode(window, state.settings, !state.settings.fullscreen);
+    } else if (pointInRect(mouseX, mouseY, kMusicSliderRect)) {
+        setMusicVolume(state.settings, (mouseX - kMusicSliderRect.x) / kMusicSliderRect.w);
     } else if (pointInRect(mouseX, mouseY, kVolumeSliderRect)) {
         setVoiceVolume(state.settings, (mouseX - kVolumeSliderRect.x) / kVolumeSliderRect.w);
     } else if (pointInRect(mouseX, mouseY, kSpeedSliderRect)) {

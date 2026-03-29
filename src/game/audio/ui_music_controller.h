@@ -39,7 +39,10 @@ private:
                                  UiMusicSurface nextSurface,
                                  const AppState& state);
     void updateStoryBgmBridge(float deltaSeconds);
-    void updateMusicPlayback(float deltaSeconds, UiMusicSurface desiredSurface, bool loadingTransitionActive);
+    void updateMusicPlayback(float deltaSeconds,
+                             UiMusicSurface desiredSurface,
+                             bool loadingTransitionActive,
+                             float musicVolume);
     bool startTrackForSurface(UiMusicSurface surface);
     std::size_t drawNextTrackIndex();
     void refillDrawBag();
@@ -69,6 +72,7 @@ private:
     float storyBgmFadeElapsed_ = 0.0f;
     float fadeOutSeconds_ = 0.9f;
     float currentTrackGain_ = 1.0f;
+    float currentAudibleGain_ = 0.0f;
     UiMusicSurface deferredStartSurface_ = UiMusicSurface::None;
 };
 

@@ -33,6 +33,7 @@ private:
     void setSelection(SettingsItem selection, bool playSound);
     void queueDisplayMode(bool fullscreen);
     void queueReturn();
+    void setMusicVolume(float value);
     void setVoiceVolume(float value);
     void setTextSpeed(float value);
     void queueSound(const char* path, float volume = 0.9f);

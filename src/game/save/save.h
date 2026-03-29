@@ -17,6 +17,7 @@ constexpr int SAVE_VERSION = 1;
 struct SaveGame {
     struct Settings {
         bool fullscreen = false;
+        int musicVolume = 100;
         int voiceVolume = 82;
         int textSpeed = 42;
     };
@@ -68,15 +69,17 @@ std::string generateLabel(const vn::Script& script, std::size_t entryIndex);
 inline void to_json(nlohmann::json& jsonValue, const SaveGame::Settings& settings) {
     jsonValue = nlohmann::json{
         {"fullscreen", settings.fullscreen},
+        {"musicVolume", settings.musicVolume},
         {"voiceVolume", settings.voiceVolume},
         {"textSpeed", settings.textSpeed}
     };
 }
 
 inline void from_json(const nlohmann::json& jsonValue, SaveGame::Settings& settings) {
-    jsonValue.at("fullscreen").get_to(settings.fullscreen);
-    jsonValue.at("voiceVolume").get_to(settings.voiceVolume);
-    jsonValue.at("textSpeed").get_to(settings.textSpeed);
+    settings.fullscreen = jsonValue.value("fullscreen", false);
+    settings.musicVolume = jsonValue.value("musicVolume", 100);
+    settings.voiceVolume = jsonValue.value("voiceVolume", 82);
+    settings.textSpeed = jsonValue.value("textSpeed", 42);
 }
 
 inline void to_json(nlohmann::json& jsonValue, const SaveGame& saveGame) {

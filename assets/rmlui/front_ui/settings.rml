@@ -28,6 +28,20 @@
                         </div>
                     </button>
 
+                    <div id="settings-row-music" class="submenu-row submenu-row-slider">
+                        <div class="submenu-row-content">
+                            <div class="submenu-row-accent"></div>
+                            <div id="settings-code-music" class="submenu-row-code"></div>
+                            <div class="submenu-row-main">
+                                <div id="settings-label-music" class="submenu-row-label"></div>
+                                <div class="submenu-row-sub">MENU / STORY BGM LEVEL</div>
+                            </div>
+                            <div id="settings-music-value" class="submenu-row-value"></div>
+                            <input class="submenu-slider" id="settings-music-slider" type="range" min="0" max="100" step="5" value="0" />
+                            <div class="submenu-row-tail"></div>
+                        </div>
+                    </div>
+
                     <div id="settings-row-voice" class="submenu-row submenu-row-slider">
                         <div class="submenu-row-content">
                             <div class="submenu-row-accent"></div>
@@ -82,6 +96,13 @@
                     <div id="settings-preview-main-value" class="submenu-preview-value">WINDOWED</div>
 
                     <div class="submenu-preview-meter">
+                        <div class="submenu-preview-meter-label">MUSIC</div>
+                        <div class="submenu-preview-track">
+                            <div id="settings-preview-music-fill" class="submenu-preview-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="submenu-preview-meter">
                         <div class="submenu-preview-meter-label">VOICE</div>
                         <div class="submenu-preview-track">
                             <div id="settings-preview-voice-fill" class="submenu-preview-fill"></div>
@@ -100,6 +121,10 @@
                     <div class="submenu-detail-cell">
                         <div class="submenu-detail-label">Display</div>
                         <div id="settings-context-display" class="submenu-detail-value">Windowed</div>
+                    </div>
+                    <div class="submenu-detail-cell">
+                        <div class="submenu-detail-label">Music</div>
+                        <div id="settings-context-music" class="submenu-detail-value">100%</div>
                     </div>
                     <div class="submenu-detail-cell">
                         <div class="submenu-detail-label">Voice</div>
