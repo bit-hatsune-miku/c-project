@@ -1927,7 +1927,7 @@ int main(int argc, char** argv) {
                 if (tryStartDuplicateSaveOverwritePrompt(state, saveGame)) {
                     // confirmation modal opened
                 } else if (save::manualSave(saveGame)) {
-                    state.noticeText = "Game saved.";
+                    state.noticeText = "File Saved";
                     state.noticeTimer = 2.0f;
                 } else {
                     state.noticeText = "Save failed.";
@@ -1946,7 +1946,7 @@ int main(int argc, char** argv) {
                 state.pendingOverwriteSavePath.clear();
             } else if (!state.pendingOverwriteSavePath.empty() &&
                        save::writeToPath(state.pendingOverwriteSavePath, buildStorySaveGame(state))) {
-                state.noticeText = "Game saved.";
+                state.noticeText = "File Saved";
                 state.noticeTimer = 2.0f;
                 state.pendingOverwriteSavePath.clear();
             } else {

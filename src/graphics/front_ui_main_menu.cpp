@@ -528,7 +528,7 @@ std::string resolveDocumentPath(ScreenId screen) {
         case ScreenId::Settings:
             return "assets/rmlui/front_ui/settings.rml";
         case ScreenId::Pause:
-            return "assets/rmlui/front_ui/pause.rml";
+            return "assets/rmlui/front_ui/pause_sleek.rml";
         case ScreenId::Load:
             return "assets/rmlui/front_ui/load.rml";
     }

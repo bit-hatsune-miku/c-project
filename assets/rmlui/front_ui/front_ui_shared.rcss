@@ -328,6 +328,7 @@ button {
     line-height: 11dp;
     letter-spacing: 0.2dp;
     color: rgba(216, 255, 251, 162);
+    display: none !important;
 }
 
 #settings-overlay,
