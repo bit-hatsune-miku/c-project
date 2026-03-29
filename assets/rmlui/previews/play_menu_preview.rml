@@ -1,0 +1,398 @@
+<rml>
+<head>
+    <title>Play Menu Preview</title>
+    <style>
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #fffdfd;
+            color: #17141f;
+            font-family: "Space Mono";
+        }
+
+        button {
+            display: block;
+            cursor: pointer;
+            background-color: transparent;
+            border: 0dp rgba(0, 0, 0, 0);
+            padding: 0;
+        }
+
+        #page-artboard {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        #preview-disc-layer,
+        #preview-logo-layer,
+        #preview-ui-layer,
+        #menu-intro-whiteout {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #preview-disc-layer {
+            z-index: 0;
+        }
+
+        #preview-logo-layer {
+            z-index: 1;
+        }
+
+        #preview-ui-layer {
+            z-index: 2;
+        }
+
+        #disc-outer {
+            position: absolute;
+            left: 760dp;
+            top: 106dp;
+            width: 612dp;
+            height: 612dp;
+            background-color: rgba(255, 255, 255, 250);
+            border: 1dp rgba(23, 20, 31, 22);
+            border-radius: 306dp;
+        }
+
+        #disc-ring-a {
+            position: absolute;
+            left: 822dp;
+            top: 168dp;
+            width: 488dp;
+            height: 488dp;
+            border: 1dp rgba(23, 20, 31, 18);
+            border-radius: 244dp;
+        }
+
+        #disc-ring-b {
+            position: absolute;
+            left: 888dp;
+            top: 234dp;
+            width: 356dp;
+            height: 356dp;
+            border: 1dp rgba(255, 99, 176, 38);
+            border-radius: 178dp;
+        }
+
+        #disc-core {
+            position: absolute;
+            left: 1032dp;
+            top: 378dp;
+            width: 68dp;
+            height: 68dp;
+            background-color: rgba(255, 99, 176, 20);
+            border: 1dp rgba(255, 99, 176, 92);
+            border-radius: 34dp;
+        }
+
+        #disc-core-hole {
+            position: absolute;
+            left: 1058dp;
+            top: 404dp;
+            width: 16dp;
+            height: 16dp;
+            background-color: #ffffff;
+            border: 1dp rgba(23, 20, 31, 46);
+            border-radius: 8dp;
+        }
+
+        #title-logo-shell {
+            position: absolute;
+            left: 50%;
+            top: 36dp;
+            width: 484dp;
+            height: 148dp;
+            margin-left: -242dp;
+        }
+
+        #title-logo {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 484dp;
+            height: 148dp;
+        }
+
+        #menu-title-hint {
+            position: absolute;
+            left: 96dp;
+            top: 166dp;
+            font-size: 12dp;
+            font-weight: bold;
+            letter-spacing: 3dp;
+            color: rgba(23, 20, 31, 104);
+        }
+
+        #menu-stack {
+            position: absolute;
+            left: 84dp;
+            top: 208dp;
+            width: 620dp;
+            height: 394dp;
+        }
+
+        .menu-button {
+            position: relative;
+            height: 60dp;
+            margin-bottom: 16dp;
+            background-color: rgba(255, 255, 255, 238);
+            border: 1dp rgba(23, 20, 31, 50);
+            border-radius: 18dp;
+            transform-origin: left center;
+            transform: skewX(-18deg) scale(1.0);
+            transition: transform 0.26s cubic-out, background-color 0.26s cubic-out, border-color 0.26s cubic-out;
+        }
+
+        .menu-button-content {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            transform: skewX(18deg);
+        }
+
+        .menu-button-accent {
+            position: absolute;
+            left: 16dp;
+            top: 14dp;
+            width: 10dp;
+            height: 32dp;
+            background-color: rgba(23, 20, 31, 26);
+            border-radius: 5dp;
+            transition: background-color 0.26s cubic-out;
+        }
+
+        .menu-button-code {
+            position: absolute;
+            left: 38dp;
+            top: 21dp;
+            width: 30dp;
+            height: 16dp;
+            font-size: 11dp;
+            font-weight: bold;
+            letter-spacing: 2dp;
+            color: rgba(23, 20, 31, 118);
+            transition: color 0.26s cubic-out;
+        }
+
+        .menu-button-label {
+            position: absolute;
+            left: 92dp;
+            top: 15dp;
+            font-size: 22dp;
+            font-weight: bold;
+            letter-spacing: 1.6dp;
+            white-space: nowrap;
+            color: #17141f;
+            transition: font-size 0.26s cubic-out, color 0.26s cubic-out, letter-spacing 0.26s cubic-out;
+        }
+
+        .menu-button-glow {
+            position: absolute;
+            right: 18dp;
+            top: 18dp;
+            width: 88dp;
+            height: 24dp;
+            background-color: rgba(255, 103, 182, 0);
+            border: 1dp rgba(255, 255, 255, 0);
+            border-radius: 12dp;
+            opacity: 0.32;
+            transition: background-color 0.26s cubic-out, border-color 0.26s cubic-out, opacity 0.26s cubic-out;
+        }
+
+        #menu-button-start {
+            margin-left: 0dp;
+            width: 424dp;
+        }
+
+        #menu-button-load {
+            margin-left: 26dp;
+            width: 462dp;
+        }
+
+        #menu-button-battle {
+            margin-left: 54dp;
+            width: 526dp;
+        }
+
+        #menu-button-settings {
+            margin-left: 26dp;
+            width: 462dp;
+        }
+
+        #menu-button-exit {
+            margin-left: 0dp;
+            width: 424dp;
+        }
+
+        .menu-button.is-selected {
+            background-color: #ff67b6;
+            border: 2dp #ff67b6;
+            transform: skewX(-18deg) scale(1.08);
+        }
+
+        .menu-button.is-selected .menu-button-accent {
+            background-color: rgba(255, 255, 255, 88);
+        }
+
+        .menu-button.is-selected .menu-button-code {
+            color: rgba(255, 255, 255, 214);
+        }
+
+        .menu-button.is-selected .menu-button-label {
+            font-size: 24dp;
+            letter-spacing: 2.2dp;
+            color: #ffffff;
+        }
+
+        .menu-button.is-selected .menu-button-glow {
+            background-color: rgba(255, 255, 255, 26);
+            border: 1dp rgba(255, 255, 255, 122);
+            opacity: 1;
+        }
+
+        #menu-status {
+            position: absolute;
+            left: 96dp;
+            bottom: 86dp;
+            width: 536dp;
+            height: 126dp;
+        }
+
+        #menu-focus-code {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 64dp;
+            height: 16dp;
+            font-size: 12dp;
+            font-weight: bold;
+            letter-spacing: 2.8dp;
+            color: rgba(255, 103, 182, 224);
+        }
+
+        #menu-status-title {
+            position: absolute;
+            left: 0;
+            top: 22dp;
+            width: 520dp;
+            font-size: 18dp;
+            font-weight: bold;
+            letter-spacing: 1.3dp;
+            color: #181820;
+        }
+
+        #menu-status-copy {
+            position: absolute;
+            left: 0;
+            top: 52dp;
+            width: 520dp;
+            font-size: 12dp;
+            line-height: 18dp;
+            letter-spacing: 0.4dp;
+            color: rgba(24, 24, 32, 154);
+        }
+
+        #corner-kicker {
+            position: absolute;
+            right: 72dp;
+            bottom: 58dp;
+            font-size: 11dp;
+            letter-spacing: 3dp;
+            color: rgba(24, 24, 32, 92);
+        }
+
+        #menu-intro-whiteout {
+            background-color: #fffdfd;
+        }
+    </style>
+</head>
+<body>
+    <div id="page-artboard">
+        <div id="preview-disc-layer">
+            <div id="disc-outer"></div>
+            <div id="disc-ring-a"></div>
+            <div id="disc-ring-b"></div>
+            <div id="disc-core"></div>
+            <div id="disc-core-hole"></div>
+        </div>
+
+        <div id="preview-logo-layer">
+            <div id="title-logo-shell">
+                <img id="title-logo" src="../../vn/backgrounds/General_Art/MainMenuTitle.png"/>
+            </div>
+        </div>
+
+        <div id="preview-ui-layer">
+            <div id="menu-title-hint">PLAY MENU PREVIEW</div>
+
+            <div id="menu-stack">
+                <button id="menu-button-start" class="menu-button is-selected">
+                    <div class="menu-button-content">
+                        <div class="menu-button-accent"></div>
+                        <div id="menu-button-code-start" class="menu-button-code"></div>
+                        <div id="menu-button-label-start" class="menu-button-label"></div>
+                        <div class="menu-button-glow"></div>
+                    </div>
+                </button>
+
+                <button id="menu-button-load" class="menu-button">
+                    <div class="menu-button-content">
+                        <div class="menu-button-accent"></div>
+                        <div id="menu-button-code-load" class="menu-button-code"></div>
+                        <div id="menu-button-label-load" class="menu-button-label"></div>
+                        <div class="menu-button-glow"></div>
+                    </div>
+                </button>
+
+                <button id="menu-button-battle" class="menu-button">
+                    <div class="menu-button-content">
+                        <div class="menu-button-accent"></div>
+                        <div id="menu-button-code-battle" class="menu-button-code"></div>
+                        <div id="menu-button-label-battle" class="menu-button-label"></div>
+                        <div class="menu-button-glow"></div>
+                    </div>
+                </button>
+
+                <button id="menu-button-settings" class="menu-button">
+                    <div class="menu-button-content">
+                        <div class="menu-button-accent"></div>
+                        <div id="menu-button-code-settings" class="menu-button-code"></div>
+                        <div id="menu-button-label-settings" class="menu-button-label"></div>
+                        <div class="menu-button-glow"></div>
+                    </div>
+                </button>
+
+                <button id="menu-button-exit" class="menu-button">
+                    <div class="menu-button-content">
+                        <div class="menu-button-accent"></div>
+                        <div id="menu-button-code-exit" class="menu-button-code"></div>
+                        <div id="menu-button-label-exit" class="menu-button-label"></div>
+                        <div class="menu-button-glow"></div>
+                    </div>
+                </button>
+            </div>
+
+            <div id="menu-status">
+                <div id="menu-focus-code"></div>
+                <div id="menu-status-title"></div>
+                <div id="menu-status-copy"></div>
+            </div>
+        </div>
+
+        <div id="corner-kicker">ARROWS OR WASD TO MOVE. ENTER, SPACE, OR CLICK TO CHOOSE.</div>
+
+        <div id="menu-intro-whiteout"></div>
+    </div>
+</body>
+</rml>

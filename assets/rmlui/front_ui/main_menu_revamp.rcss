@@ -1,0 +1,303 @@
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #fffdfd;
+    color: #17141f;
+    font-family: "Space Mono";
+}
+
+button {
+    display: block;
+    cursor: pointer;
+    background-color: transparent;
+    border: 0dp rgba(0, 0, 0, 0);
+    padding: 0;
+}
+
+#main-menu-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #fffdfd;
+}
+
+#main-menu-disc-layer,
+#main-menu-logo-layer,
+#main-menu-ui-layer,
+#main-menu-fixed-layer,
+#menu-intro-whiteout {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#disc-outer {
+    position: absolute;
+    left: 760dp;
+    top: 106dp;
+    width: 612dp;
+    height: 612dp;
+    background-color: rgba(255, 255, 255, 250);
+    border: 1dp rgba(23, 20, 31, 22);
+    border-radius: 306dp;
+}
+
+#disc-ring-a {
+    position: absolute;
+    left: 822dp;
+    top: 168dp;
+    width: 488dp;
+    height: 488dp;
+    border: 1dp rgba(23, 20, 31, 18);
+    border-radius: 244dp;
+}
+
+#disc-ring-b {
+    position: absolute;
+    left: 888dp;
+    top: 234dp;
+    width: 356dp;
+    height: 356dp;
+    border: 1dp rgba(255, 99, 176, 38);
+    border-radius: 178dp;
+}
+
+#disc-core {
+    position: absolute;
+    left: 1032dp;
+    top: 378dp;
+    width: 68dp;
+    height: 68dp;
+    background-color: rgba(255, 99, 176, 20);
+    border: 1dp rgba(255, 99, 176, 92);
+    border-radius: 34dp;
+}
+
+#disc-core-hole {
+    position: absolute;
+    left: 1058dp;
+    top: 404dp;
+    width: 16dp;
+    height: 16dp;
+    background-color: #ffffff;
+    border: 1dp rgba(23, 20, 31, 46);
+    border-radius: 8dp;
+}
+
+#title-logo-shell {
+    position: absolute;
+    left: 50%;
+    top: 36dp;
+    width: 484dp;
+    height: 148dp;
+    margin-left: -242dp;
+}
+
+#title-logo {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 484dp;
+    height: 148dp;
+}
+
+#menu-title-hint {
+    position: absolute;
+    left: 96dp;
+    top: 166dp;
+    font-size: 12dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: rgba(23, 20, 31, 104);
+}
+
+#menu-stack {
+    position: absolute;
+    left: 84dp;
+    top: 208dp;
+    width: 620dp;
+    height: 394dp;
+}
+
+.menu-button {
+    position: relative;
+    height: 60dp;
+    margin-bottom: 16dp;
+    background-color: rgba(255, 255, 255, 238);
+    border: 1dp rgba(23, 20, 31, 50);
+    border-radius: 18dp;
+    transform-origin: left center;
+    transform: skewX(-18deg) scale(1.0);
+    transition: transform 0.26s cubic-out, background-color 0.26s cubic-out, border-color 0.26s cubic-out;
+}
+
+.menu-button-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    transform: skewX(18deg);
+}
+
+.menu-button-accent {
+    position: absolute;
+    left: 16dp;
+    top: 14dp;
+    width: 10dp;
+    height: 32dp;
+    background-color: rgba(23, 20, 31, 26);
+    border-radius: 5dp;
+    transition: background-color 0.26s cubic-out;
+}
+
+.menu-button-code {
+    position: absolute;
+    left: 38dp;
+    top: 21dp;
+    width: 30dp;
+    height: 16dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    color: rgba(23, 20, 31, 118);
+    transition: color 0.26s cubic-out;
+}
+
+.menu-button-label {
+    position: absolute;
+    left: 92dp;
+    top: 15dp;
+    font-size: 22dp;
+    font-weight: bold;
+    letter-spacing: 1.6dp;
+    white-space: nowrap;
+    color: #17141f;
+    transition: font-size 0.26s cubic-out, color 0.26s cubic-out, letter-spacing 0.26s cubic-out;
+}
+
+.menu-button-glow {
+    position: absolute;
+    right: 18dp;
+    top: 18dp;
+    width: 88dp;
+    height: 24dp;
+    background-color: rgba(255, 103, 182, 0);
+    border: 1dp rgba(255, 255, 255, 0);
+    border-radius: 12dp;
+    opacity: 0.32;
+    transition: background-color 0.26s cubic-out, border-color 0.26s cubic-out, opacity 0.26s cubic-out;
+}
+
+#menu-button-start {
+    margin-left: 0dp;
+    width: 424dp;
+}
+
+#menu-button-load {
+    margin-left: 26dp;
+    width: 462dp;
+}
+
+#menu-button-battle {
+    margin-left: 54dp;
+    width: 526dp;
+}
+
+#menu-button-settings {
+    margin-left: 26dp;
+    width: 462dp;
+}
+
+#menu-button-exit {
+    margin-left: 0dp;
+    width: 424dp;
+}
+
+.menu-button.is-selected {
+    background-color: #ff67b6;
+    border: 2dp #ff67b6;
+    transform: skewX(-18deg) scale(1.08);
+}
+
+.menu-button.is-selected .menu-button-accent {
+    background-color: rgba(255, 255, 255, 88);
+}
+
+.menu-button.is-selected .menu-button-code {
+    color: rgba(255, 255, 255, 214);
+}
+
+.menu-button.is-selected .menu-button-label {
+    font-size: 24dp;
+    letter-spacing: 2.2dp;
+    color: #ffffff;
+}
+
+.menu-button.is-selected .menu-button-glow {
+    background-color: rgba(255, 255, 255, 26);
+    border: 1dp rgba(255, 255, 255, 122);
+    opacity: 1;
+}
+
+#menu-status {
+    position: absolute;
+    left: 84dp;
+    bottom: 28dp;
+    width: 452dp;
+    height: 90dp;
+}
+
+#menu-focus-code {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 64dp;
+    height: 14dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 2.4dp;
+    color: rgba(255, 103, 182, 224);
+}
+
+#menu-status-title {
+    position: absolute;
+    left: 0;
+    top: 18dp;
+    width: 436dp;
+    font-size: 16dp;
+    font-weight: bold;
+    letter-spacing: 1.0dp;
+    color: #181820;
+}
+
+#menu-status-copy {
+    position: absolute;
+    left: 0;
+    top: 42dp;
+    width: 436dp;
+    font-size: 11dp;
+    line-height: 16dp;
+    letter-spacing: 0.3dp;
+    color: rgba(24, 24, 32, 154);
+}
+
+#corner-kicker {
+    position: absolute;
+    right: 72dp;
+    bottom: 30dp;
+    font-size: 11dp;
+    letter-spacing: 3dp;
+    color: rgba(24, 24, 32, 92);
+}
+
+#menu-intro-whiteout {
+    background-color: #fffdfd;
+}

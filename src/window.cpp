@@ -2,12 +2,13 @@
 #include <SDL2/SDL_opengl.h>
 #include <iostream>
 
-Window::Window(const std::string& title, int windowWidth, int windowHeight)
+Window::Window(const std::string& title, int windowWidth, int windowHeight, bool windowResizable)
     : title(title),
       width(windowWidth),
       height(windowHeight),
       windowedWidth(windowWidth),
       windowedHeight(windowHeight),
+      resizable(windowResizable),
       open(true) {
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
@@ -117,7 +118,10 @@ bool Window::recreateWindow(bool enableOpenGLFlag) {
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     }
 
-    Uint32 windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE;
+    Uint32 windowFlags = SDL_WINDOW_SHOWN;
+    if (resizable) {
+        windowFlags |= SDL_WINDOW_RESIZABLE;
+    }
     if (enableOpenGLFlag) {
         windowFlags |= SDL_WINDOW_OPENGL;
     }

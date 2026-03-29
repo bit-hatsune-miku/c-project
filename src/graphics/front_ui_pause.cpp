@@ -366,15 +366,11 @@ void PauseDocumentController::queueConfirmAction(ConfirmAction action) {
 
 void PauseDocumentController::exitStoryToMainMenu(AppState& state) const {
     vn::setPaused(false);
-    vn::reset();
-    state.story.entryIndex = 0;
     state.pauseSelection = PauseAction::Continue;
     state.confirmSelection = ConfirmAction::Cancel;
     state.settingsReturnScreen = ScreenState::MainMenu;
-    state.screen = ScreenState::MainMenu;
     state.mainSelection = MainMenuAction::Start;
-    state.noticeText = "Current progress was discarded.";
-    state.noticeTimer = 2.6f;
+    state.requestStoryExitToMainMenu = true;
 }
 
 }  // namespace graphics::frontui

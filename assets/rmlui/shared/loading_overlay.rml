@@ -1,0 +1,54 @@
+<rml>
+    <head>
+        <title>Loading Overlay</title>
+        <style>
+            body {
+                margin: 0;
+                width: 100%;
+                height: 100%;
+                overflow: hidden;
+                background: transparent;
+            }
+
+            #loading-overlay-root {
+                position: absolute;
+                top: 0dp;
+                left: 0dp;
+                width: 100%;
+                height: 100%;
+                opacity: 0;
+                display: none;
+            }
+
+            #loading-overlay-backdrop {
+                position: absolute;
+                top: 0dp;
+                left: 0dp;
+                width: 100%;
+                height: 100%;
+                background-color: #000000;
+            }
+
+            #loading-overlay-logo-anchor {
+                position: absolute;
+                left: 36dp;
+                bottom: 30dp;
+                width: 320dp;
+                display: none;
+            }
+
+            #loading-overlay-logo {
+                width: 100%;
+                height: auto;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="loading-overlay-root">
+            <div id="loading-overlay-backdrop"></div>
+            <div id="loading-overlay-logo-anchor">
+                <img id="loading-overlay-logo" src="../../vn/backgrounds/General_Art/MainMenuTitle.png"/>
+            </div>
+        </div>
+    </body>
+</rml>

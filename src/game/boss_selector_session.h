@@ -7,6 +7,8 @@
 
 #include <SDL2/SDL.h>
 
+#include "../graphics/rmlui_loading_overlay.h"
+
 class Window;
 
 namespace battle::selector {
@@ -36,6 +38,7 @@ public:
     void handleEvent(const SDL_Event& event);
     void update(float deltaSeconds);
     void render();
+    void setLoadingOverlay(const graphics::RmlUiLoadingOverlayState& state);
     bool isFinished() const;
     std::optional<LaunchRequest> consumeLaunchRequest();
 

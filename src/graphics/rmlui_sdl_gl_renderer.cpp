@@ -2,7 +2,7 @@
 
 #include "rmlui_sdl_gl_renderer.h"
 
-#ifdef VN_ENABLE_IMAGE
+#if defined(VN_ENABLE_IMAGE) || defined(BATTLE_ENABLE_IMAGE)
 #include <SDL2/SDL_image.h>
 #endif
 
@@ -14,8 +14,11 @@
 namespace graphics {
 
 Rml::TextureHandle RmlUiSdlGlRenderInterface::LoadTexture(Rml::Vector2i& textureDimensions, const Rml::String& source) {
-#ifdef VN_ENABLE_IMAGE
+#if defined(VN_ENABLE_IMAGE) || defined(BATTLE_ENABLE_IMAGE)
     Rml::FileInterface* fileInterface = Rml::GetFileInterface();
+    if (fileInterface == nullptr) {
+        return {};
+    }
     Rml::FileHandle fileHandle = fileInterface->Open(source);
     if (!fileHandle) {
         return {};
@@ -24,6 +27,10 @@ Rml::TextureHandle RmlUiSdlGlRenderInterface::LoadTexture(Rml::Vector2i& texture
     fileInterface->Seek(fileHandle, 0, SEEK_END);
     const size_t bufferSize = fileInterface->Tell(fileHandle);
     fileInterface->Seek(fileHandle, 0, SEEK_SET);
+    if (bufferSize == 0) {
+        fileInterface->Close(fileHandle);
+        return {};
+    }
 
     using Rml::byte;
     Rml::UniquePtr<byte[]> buffer(new byte[bufferSize]);

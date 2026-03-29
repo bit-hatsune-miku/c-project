@@ -7,7 +7,7 @@
 
 class Window {
 public:
-    Window(const std::string& title, int width, int height);
+    Window(const std::string& title, int width, int height, bool resizable = true);
     Window(const Window&) = delete;
     Window& operator=(const Window&) = delete;
     ~Window();
@@ -53,6 +53,7 @@ private:
     int windowedHeight = 0;
     bool open = false;
     bool fullscreen = false;
+    bool resizable = true;
     bool escapeToQuitEnabled = true;
 };
 

@@ -1,76 +1,86 @@
 <rml>
 <head>
     <title>Main Menu</title>
-    <link type="text/rcss" href="front_ui_shared.rcss"/>
+    <link type="text/rcss" href="main_menu_revamp.rcss"/>
 </head>
 <body>
-    <img id="bg-art" src="../../vn/backgrounds/General_Art/mainmenu art.png"/>
-    <div id="bg-dim"></div>
-    <div id="bg-top-glow"></div>
-    <div id="bg-grid-vertical"></div>
-    <div id="bg-grid-horizontal"></div>
-    <div id="hero-frame"></div>
-    <div id="hero-reticle"></div>
-
-    <div id="menu-column">
-        <div id="title-shell">
-            <div id="title-kicker">VISUAL NOVEL / UNDERGROUND SIGNAL</div>
-            <img id="title-logo" src="../../vn/backgrounds/General_Art/MainMenuTitle.png"/>
+    <div id="main-menu-root">
+        <div id="main-menu-disc-layer">
+            <div id="disc-outer"></div>
+            <div id="disc-ring-a"></div>
+            <div id="disc-ring-b"></div>
+            <div id="disc-core"></div>
+            <div id="disc-core-hole"></div>
         </div>
 
-        <div id="menu-shell">
-            <div id="menu-header-row">
-                <div id="menu-section-tag">MAIN MENU</div>
-                <div id="menu-system-chip">SYS: READY</div>
+        <div id="main-menu-logo-layer">
+            <div id="title-logo-shell">
+                <img id="title-logo" src="../../vn/backgrounds/General_Art/MainMenuTitle.png"/>
             </div>
+        </div>
 
-            <div id="menu-status-card" class="front-shell-panel">
-                <div id="menu-focus-code"></div>
-                <div id="menu-status-copy-group">
-                    <div id="menu-status-title"></div>
-                    <div id="menu-status-copy"></div>
-                </div>
-            </div>
+        <div id="main-menu-ui-layer">
+            <div id="menu-title-hint">PLAY MENU</div>
 
-            <div id="menu-buttons">
+            <div id="menu-stack">
                 <button id="menu-button-start" class="menu-button is-selected">
-                    <div id="menu-button-code-start" class="menu-button-code"></div>
-                    <div id="menu-button-label-start" class="menu-button-label"></div>
-                    <div class="menu-button-beam"></div>
+                    <div class="menu-button-content">
+                        <div class="menu-button-accent"></div>
+                        <div id="menu-button-code-start" class="menu-button-code"></div>
+                        <div id="menu-button-label-start" class="menu-button-label"></div>
+                        <div class="menu-button-glow"></div>
+                    </div>
                 </button>
 
                 <button id="menu-button-load" class="menu-button">
-                    <div id="menu-button-code-load" class="menu-button-code"></div>
-                    <div id="menu-button-label-load" class="menu-button-label"></div>
-                    <div class="menu-button-beam"></div>
+                    <div class="menu-button-content">
+                        <div class="menu-button-accent"></div>
+                        <div id="menu-button-code-load" class="menu-button-code"></div>
+                        <div id="menu-button-label-load" class="menu-button-label"></div>
+                        <div class="menu-button-glow"></div>
+                    </div>
                 </button>
 
                 <button id="menu-button-battle" class="menu-button">
-                    <div id="menu-button-code-battle" class="menu-button-code"></div>
-                    <div id="menu-button-label-battle" class="menu-button-label"></div>
-                    <div class="menu-button-beam"></div>
+                    <div class="menu-button-content">
+                        <div class="menu-button-accent"></div>
+                        <div id="menu-button-code-battle" class="menu-button-code"></div>
+                        <div id="menu-button-label-battle" class="menu-button-label"></div>
+                        <div class="menu-button-glow"></div>
+                    </div>
                 </button>
 
                 <button id="menu-button-settings" class="menu-button">
-                    <div id="menu-button-code-settings" class="menu-button-code"></div>
-                    <div id="menu-button-label-settings" class="menu-button-label"></div>
-                    <div class="menu-button-beam"></div>
+                    <div class="menu-button-content">
+                        <div class="menu-button-accent"></div>
+                        <div id="menu-button-code-settings" class="menu-button-code"></div>
+                        <div id="menu-button-label-settings" class="menu-button-label"></div>
+                        <div class="menu-button-glow"></div>
+                    </div>
                 </button>
 
                 <button id="menu-button-exit" class="menu-button">
-                    <div id="menu-button-code-exit" class="menu-button-code"></div>
-                    <div id="menu-button-label-exit" class="menu-button-label"></div>
-                    <div class="menu-button-beam"></div>
+                    <div class="menu-button-content">
+                        <div class="menu-button-accent"></div>
+                        <div id="menu-button-code-exit" class="menu-button-code"></div>
+                        <div id="menu-button-label-exit" class="menu-button-label"></div>
+                        <div class="menu-button-glow"></div>
+                    </div>
                 </button>
             </div>
         </div>
-    </div>
 
-    <div id="system-caption">
-        <div id="system-caption-line"></div>
-        <div id="system-caption-label">STORY ROUTE</div>
-        <div id="system-caption-title">A clean launch rail for the VN and the battle demo.</div>
-        <div id="system-caption-copy">Miku cyan leads the UI. The title art stays intact, the interface stays sharp, and every route change reads clearly from the first frame.</div>
+        <div id="main-menu-fixed-layer">
+            <div id="menu-status">
+                <div id="menu-focus-code"></div>
+                <div id="menu-status-title"></div>
+                <div id="menu-status-copy"></div>
+            </div>
+
+            <div id="corner-kicker">ARROWS OR WASD TO MOVE. ENTER, SPACE, OR CLICK TO CHOOSE.</div>
+        </div>
+
+        <div id="menu-intro-whiteout"></div>
     </div>
 </body>
 </rml>

@@ -1,6 +1,12 @@
 #include "front_ui_main_menu.h"
 
+#include <algorithm>
+#include <array>
+#include <cmath>
 #include <functional>
+#include <iomanip>
+#include <sstream>
+#include <string>
 #include <utility>
 
 #include <RmlUi/Core/Element.h>
@@ -33,6 +39,86 @@ constexpr int actionIndex(MainMenuAction action) {
     return static_cast<int>(action);
 }
 
+constexpr float kDriftSmoothing = 12.0f;
+constexpr float kDiscDriftXMultiplier = 0.36f;
+constexpr float kDiscDriftYMultiplier = 0.48f;
+constexpr float kUiDriftXMultiplier = 0.70f;
+constexpr float kUiDriftYMultiplier = 0.68f;
+constexpr float kLogoDriftXMultiplier = -0.08f;
+constexpr float kLogoDriftYMultiplier = -0.12f;
+constexpr std::array<float, 5> kDriftOffsetsX{{-16.0f, -8.0f, 0.0f, 8.0f, 16.0f}};
+constexpr std::array<float, 5> kDriftOffsetsY{{-14.0f, -7.0f, 0.0f, 7.0f, 14.0f}};
+
+constexpr float kIntroDurationSeconds = 2.80f;
+constexpr float kWhiteFadeStartSeconds = 0.62f;
+constexpr float kWhiteFadeEndSeconds = 1.38f;
+constexpr float kLogoFadeStartSeconds = 0.86f;
+constexpr float kLogoFadeEndSeconds = 1.62f;
+constexpr float kLogoSlideStartSeconds = 1.70f;
+constexpr float kLogoSlideEndSeconds = 2.48f;
+constexpr float kDiscSlideStartSeconds = 1.96f;
+constexpr float kDiscSlideEndSeconds = 2.64f;
+constexpr float kUiSlideStartSeconds = 2.08f;
+constexpr float kUiSlideEndSeconds = 2.74f;
+constexpr float kLogoStartOffsetY = 250.0f;
+constexpr float kDiscStartOffsetX = 136.0f;
+constexpr float kDiscStartOffsetY = 116.0f;
+constexpr float kUiStartOffsetX = -86.0f;
+constexpr float kUiStartOffsetY = 148.0f;
+constexpr float kLogoStartScale = 1.06f;
+
+float driftOffsetX(MainMenuAction action) {
+    return kDriftOffsetsX[static_cast<std::size_t>(action)];
+}
+
+float driftOffsetY(MainMenuAction action) {
+    return kDriftOffsetsY[static_cast<std::size_t>(action)];
+}
+
+float clamp01(float value) {
+    return std::clamp(value, 0.0f, 1.0f);
+}
+
+float rangeProgress(float value, float start, float end) {
+    if (end <= start) {
+        return value >= end ? 1.0f : 0.0f;
+    }
+    return clamp01((value - start) / (end - start));
+}
+
+float smoothstep01(float value) {
+    const float t = clamp01(value);
+    return t * t * (3.0f - 2.0f * t);
+}
+
+float easeOutCubic(float value) {
+    const float t = clamp01(value);
+    const float inverse = 1.0f - t;
+    return 1.0f - inverse * inverse * inverse;
+}
+
+float lerp(float start, float end, float t) {
+    return start + (end - start) * t;
+}
+
+std::string formatNumber(float value) {
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(3) << value;
+    return stream.str();
+}
+
+std::string formatDp(float value) {
+    return formatNumber(value) + "dp";
+}
+
+std::string translateDp(float x, float y) {
+    return "translate(" + formatDp(x) + ", " + formatDp(y) + ")";
+}
+
+std::string translateScale(float x, float y, float scale) {
+    return "translate(" + formatDp(x) + ", " + formatDp(y) + ") scale(" + formatNumber(scale) + ")";
+}
+
 }  // namespace
 
 bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppState& state) {
@@ -40,29 +126,67 @@ bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppS
     detachEventListeners(listeners_);
     pendingCommand_.reset();
     selection_ = state.mainSelection;
+    driftCurrentX_ = driftOffsetX(selection_);
+    driftCurrentY_ = driftOffsetY(selection_);
+    driftTargetX_ = driftCurrentX_;
+    driftTargetY_ = driftCurrentY_;
+    introElapsedSeconds_ = 0.0f;
+    introActive_ = false;
 
+    cacheElements();
     applyButtonCopy();
     attachListeners();
     applySelectionStyles();
     updateStatusCopy();
+    mainMenuVisible_ = state.screen == ScreenState::MainMenu;
+    if (mainMenuVisible_) {
+        restartIntroAnimation();
+    } else {
+        applyVisualState();
+    }
     return true;
 }
 
 void MainMenuDocumentController::unbind() {
     detachEventListeners(listeners_);
+    whiteoutElement_ = nullptr;
+    discLayerElement_ = nullptr;
+    logoLayerElement_ = nullptr;
+    uiLayerElement_ = nullptr;
+    fixedLayerElement_ = nullptr;
+    introActive_ = false;
+    mainMenuVisible_ = false;
     document_ = nullptr;
 }
 
 void MainMenuDocumentController::sync(const AppState& state) {
-    if (document_ == nullptr || selection_ == state.mainSelection) {
+    if (document_ == nullptr) {
         return;
     }
-    setSelection(state.mainSelection);
+
+    if (selection_ != state.mainSelection) {
+        setSelection(state.mainSelection);
+    }
 }
 
 void MainMenuDocumentController::update(const AppState& state, float deltaSeconds) {
-    (void)state;
-    (void)deltaSeconds;
+    if (document_ == nullptr) {
+        return;
+    }
+
+    const bool visibleNow = state.screen == ScreenState::MainMenu;
+    if (visibleNow && !mainMenuVisible_) {
+        restartIntroAnimation();
+    }
+    mainMenuVisible_ = visibleNow;
+
+    if (!visibleNow) {
+        return;
+    }
+
+    updateDrift(deltaSeconds);
+    updateIntro(deltaSeconds);
+    applyVisualState();
 }
 
 void MainMenuDocumentController::moveSelection(int delta) {
@@ -133,6 +257,18 @@ void MainMenuDocumentController::attachListeners() {
     }
 }
 
+void MainMenuDocumentController::cacheElements() {
+    if (document_ == nullptr) {
+        return;
+    }
+
+    whiteoutElement_ = document_->GetElementById("menu-intro-whiteout");
+    discLayerElement_ = document_->GetElementById("main-menu-disc-layer");
+    logoLayerElement_ = document_->GetElementById("main-menu-logo-layer");
+    uiLayerElement_ = document_->GetElementById("main-menu-ui-layer");
+    fixedLayerElement_ = document_->GetElementById("main-menu-fixed-layer");
+}
+
 void MainMenuDocumentController::applyButtonCopy() const {
     if (document_ == nullptr) {
         return;
@@ -150,6 +286,8 @@ void MainMenuDocumentController::applyButtonCopy() const {
 
 void MainMenuDocumentController::setSelection(MainMenuAction action) {
     selection_ = action;
+    driftTargetX_ = driftOffsetX(selection_);
+    driftTargetY_ = driftOffsetY(selection_);
     applySelectionStyles();
     updateStatusCopy();
 }
@@ -184,6 +322,125 @@ void MainMenuDocumentController::updateStatusCopy() const {
     }
     if (Rml::Element* element = document_->GetElementById("menu-status-copy")) {
         element->SetInnerRML(definition.statusBody);
+    }
+}
+
+void MainMenuDocumentController::restartIntroAnimation() {
+    introElapsedSeconds_ = 0.0f;
+    introActive_ = true;
+    applyVisualState();
+}
+
+void MainMenuDocumentController::updateDrift(float deltaSeconds) {
+    const float blend = deltaSeconds > 0.0f
+        ? std::clamp(1.0f - std::exp(-deltaSeconds * kDriftSmoothing), 0.0f, 1.0f)
+        : 1.0f;
+
+    driftCurrentX_ += (driftTargetX_ - driftCurrentX_) * blend;
+    driftCurrentY_ += (driftTargetY_ - driftCurrentY_) * blend;
+
+    if (std::fabs(driftCurrentX_ - driftTargetX_) < 0.02f) {
+        driftCurrentX_ = driftTargetX_;
+    }
+    if (std::fabs(driftCurrentY_ - driftTargetY_) < 0.02f) {
+        driftCurrentY_ = driftTargetY_;
+    }
+}
+
+void MainMenuDocumentController::updateIntro(float deltaSeconds) {
+    if (!introActive_) {
+        return;
+    }
+
+    introElapsedSeconds_ += std::max(deltaSeconds, 0.0f);
+    if (introElapsedSeconds_ >= kIntroDurationSeconds) {
+        introElapsedSeconds_ = kIntroDurationSeconds;
+        introActive_ = false;
+    }
+}
+
+void MainMenuDocumentController::applyVisualState() const {
+    if (document_ == nullptr) {
+        return;
+    }
+
+    float whiteoutOpacity = 0.0f;
+    float logoOpacity = 1.0f;
+    float logoTranslateY = 0.0f;
+    float logoScale = 1.0f;
+    float discOpacity = 1.0f;
+    float discIntroX = 0.0f;
+    float discIntroY = 0.0f;
+    float uiOpacity = 1.0f;
+    float uiIntroX = 0.0f;
+    float uiIntroY = 0.0f;
+
+    if (introActive_) {
+        const float whiteFade = smoothstep01(rangeProgress(
+            introElapsedSeconds_, kWhiteFadeStartSeconds, kWhiteFadeEndSeconds));
+        const float logoFade = easeOutCubic(rangeProgress(
+            introElapsedSeconds_, kLogoFadeStartSeconds, kLogoFadeEndSeconds));
+        const float logoSlide = easeOutCubic(rangeProgress(
+            introElapsedSeconds_, kLogoSlideStartSeconds, kLogoSlideEndSeconds));
+        const float discSlide = easeOutCubic(rangeProgress(
+            introElapsedSeconds_, kDiscSlideStartSeconds, kDiscSlideEndSeconds));
+        const float uiSlide = easeOutCubic(rangeProgress(
+            introElapsedSeconds_, kUiSlideStartSeconds, kUiSlideEndSeconds));
+
+        whiteoutOpacity = 1.0f - whiteFade;
+        logoOpacity = logoFade;
+        logoTranslateY = lerp(kLogoStartOffsetY, 0.0f, logoSlide);
+        logoScale = lerp(kLogoStartScale, 1.0f, logoSlide);
+        discOpacity = discSlide;
+        discIntroX = lerp(kDiscStartOffsetX, 0.0f, discSlide);
+        discIntroY = lerp(kDiscStartOffsetY, 0.0f, discSlide);
+        uiOpacity = uiSlide;
+        uiIntroX = lerp(kUiStartOffsetX, 0.0f, uiSlide);
+        uiIntroY = lerp(kUiStartOffsetY, 0.0f, uiSlide);
+    }
+
+    if (whiteoutElement_ != nullptr) {
+        if (whiteoutOpacity > 0.001f) {
+            whiteoutElement_->SetProperty("display", "block");
+            whiteoutElement_->SetProperty("opacity", formatNumber(whiteoutOpacity));
+        } else {
+            whiteoutElement_->SetProperty("display", "none");
+        }
+    }
+
+    if (discLayerElement_ != nullptr) {
+        discLayerElement_->SetProperty("opacity", formatNumber(discOpacity));
+        discLayerElement_->SetProperty(
+            "transform",
+            translateDp(
+                driftCurrentX_ * kDiscDriftXMultiplier + discIntroX,
+                driftCurrentY_ * kDiscDriftYMultiplier + discIntroY));
+    }
+
+    if (logoLayerElement_ != nullptr) {
+        logoLayerElement_->SetProperty("opacity", formatNumber(logoOpacity));
+        logoLayerElement_->SetProperty(
+            "transform",
+            translateScale(
+                driftCurrentX_ * kLogoDriftXMultiplier,
+                driftCurrentY_ * kLogoDriftYMultiplier + logoTranslateY,
+                logoScale));
+    }
+
+    if (uiLayerElement_ != nullptr) {
+        uiLayerElement_->SetProperty("opacity", formatNumber(uiOpacity));
+        uiLayerElement_->SetProperty(
+            "transform",
+            translateDp(
+                driftCurrentX_ * kUiDriftXMultiplier + uiIntroX,
+                driftCurrentY_ * kUiDriftYMultiplier + uiIntroY));
+    }
+
+    if (fixedLayerElement_ != nullptr) {
+        fixedLayerElement_->SetProperty("opacity", formatNumber(uiOpacity));
+        fixedLayerElement_->SetProperty(
+            "transform",
+            translateDp(0.0f, uiIntroY * 0.30f));
     }
 }
 

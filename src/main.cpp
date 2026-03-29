@@ -1,8 +1,11 @@
+#define GL_GLEXT_PROTOTYPES
+
 #include <algorithm>
 #include <array>
 #include <cstdlib>
 #include <cmath>
 #include <filesystem>
+#include <functional>
 #include <iostream>
 #include <memory>
 #include <optional>
@@ -38,9 +41,17 @@ constexpr const char* kChapterScriptPath = VN_SCRIPT_PATH;
 #else
 constexpr const char* kChapterScriptPath = "assets/vn/json/ch0.json";
 #endif
+constexpr int kStartupWindowWidth = 1280;
+constexpr int kStartupWindowHeight = 720;
 constexpr int kReferenceWidth = 1280;
 constexpr int kReferenceHeight = 720;
 constexpr float kMenuCanvasScale = 2.0f;
+constexpr float kLoadingFadeInSeconds = 0.42f;
+constexpr float kLoadingLogoHoldSeconds = 3.0f;
+constexpr float kLoadingFadeOutSeconds = 0.44f;
+constexpr float kLoadingLogoBounceAmplitude = 8.0f;
+constexpr float kLoadingLogoBounceSpeed = 2.4f;
+constexpr float kPi = 3.14159265358979323846f;
 
 std::string resolvePath(const std::string& relativePath) {
     const std::array<std::string, 3> candidates = {
@@ -1004,6 +1015,301 @@ void loadMenuResources(MenuResources& resources, SDL_Renderer* renderer) {
 #endif
 }
 
+struct LoadingOverlayGlState {
+    SDL_GLContext context = nullptr;
+    GLuint program = 0;
+    GLuint vao = 0;
+    GLuint vbo = 0;
+    GLint viewportUniform = -1;
+    GLint alphaUniform = -1;
+};
+
+enum class LoadingTransitionPresentation {
+    RendererFallback,
+    RmlUi
+};
+
+struct LoadingTransitionState {
+    bool active = false;
+    bool holdPrepared = false;
+    bool committed = false;
+    float elapsedSeconds = 0.0f;
+    LoadingTransitionPresentation presentation = LoadingTransitionPresentation::RendererFallback;
+    std::function<bool()> prepareHold;
+    std::function<bool()> commit;
+};
+
+float totalLoadingTransitionSeconds() {
+    return kLoadingFadeInSeconds + kLoadingLogoHoldSeconds + kLoadingFadeOutSeconds;
+}
+
+float loadingOverlayAlpha(const LoadingTransitionState& transition) {
+    if (!transition.active) {
+        return 0.0f;
+    }
+
+    if (transition.elapsedSeconds < kLoadingFadeInSeconds) {
+        return std::clamp(transition.elapsedSeconds / kLoadingFadeInSeconds, 0.0f, 1.0f);
+    }
+
+    if (transition.elapsedSeconds < kLoadingFadeInSeconds + kLoadingLogoHoldSeconds) {
+        return 1.0f;
+    }
+
+    const float fadeOutElapsed =
+        transition.elapsedSeconds - (kLoadingFadeInSeconds + kLoadingLogoHoldSeconds);
+    return std::clamp(1.0f - fadeOutElapsed / kLoadingFadeOutSeconds, 0.0f, 1.0f);
+}
+
+bool loadingTransitionInHold(const LoadingTransitionState& transition) {
+    return transition.active &&
+           transition.elapsedSeconds >= kLoadingFadeInSeconds &&
+           transition.elapsedSeconds < kLoadingFadeInSeconds + kLoadingLogoHoldSeconds;
+}
+
+bool loadingTransitionInFadeOut(const LoadingTransitionState& transition) {
+    return transition.active &&
+           transition.elapsedSeconds >= kLoadingFadeInSeconds + kLoadingLogoHoldSeconds &&
+           transition.elapsedSeconds < totalLoadingTransitionSeconds();
+}
+
+bool loadingTransitionUsesRmlUi(const LoadingTransitionState& transition) {
+    return transition.active && transition.presentation == LoadingTransitionPresentation::RmlUi;
+}
+
+#if defined(APP_ENABLE_RMLUI) || defined(RMLUI_SDL_VERSION_MAJOR)
+graphics::RmlUiLoadingOverlayState buildRmlLoadingOverlayState(const LoadingTransitionState& transition) {
+    graphics::RmlUiLoadingOverlayState state;
+    if (!loadingTransitionUsesRmlUi(transition)) {
+        return state;
+    }
+
+    state.visible = true;
+    state.opacity = loadingOverlayAlpha(transition);
+    state.showLogo = loadingTransitionInHold(transition);
+    if (state.showLogo) {
+        const float holdElapsed = std::max(0.0f, transition.elapsedSeconds - kLoadingFadeInSeconds);
+        state.logoBounceOffsetY =
+            std::sin(holdElapsed * kLoadingLogoBounceSpeed * 2.0f * kPi) *
+            kLoadingLogoBounceAmplitude;
+    }
+    return state;
+}
+#endif
+
+void clearLoadingTransition(LoadingTransitionState& transition) {
+    transition.active = false;
+    transition.holdPrepared = false;
+    transition.committed = false;
+    transition.elapsedSeconds = 0.0f;
+    transition.presentation = LoadingTransitionPresentation::RendererFallback;
+    transition.prepareHold = nullptr;
+    transition.commit = nullptr;
+}
+
+void startLoadingTransition(LoadingTransitionState& transition,
+                            LoadingTransitionPresentation presentation,
+                            std::function<bool()> prepareHold,
+                            std::function<bool()> commit) {
+    transition.active = true;
+    transition.holdPrepared = false;
+    transition.committed = false;
+    transition.elapsedSeconds = 0.0f;
+    transition.presentation = presentation;
+    transition.prepareHold = std::move(prepareHold);
+    transition.commit = std::move(commit);
+}
+
+void destroyLoadingOverlayGlState(LoadingOverlayGlState& state) {
+    if (state.context != nullptr && SDL_GL_GetCurrentContext() == nullptr) {
+        state = LoadingOverlayGlState{};
+        return;
+    }
+
+    if (state.vbo != 0) {
+        glDeleteBuffers(1, &state.vbo);
+        state.vbo = 0;
+    }
+    if (state.vao != 0) {
+        glDeleteVertexArrays(1, &state.vao);
+        state.vao = 0;
+    }
+    if (state.program != 0) {
+        glDeleteProgram(state.program);
+        state.program = 0;
+    }
+    state.viewportUniform = -1;
+    state.alphaUniform = -1;
+    state.context = nullptr;
+}
+
+GLuint compileLoadingOverlayShader(GLenum type, const char* source) {
+    const GLuint shader = glCreateShader(type);
+    glShaderSource(shader, 1, &source, nullptr);
+    glCompileShader(shader);
+
+    GLint success = GL_FALSE;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    if (success == GL_TRUE) {
+        return shader;
+    }
+
+    char logBuffer[512] = {};
+    GLsizei logLength = 0;
+    glGetShaderInfoLog(shader, static_cast<GLsizei>(sizeof(logBuffer)), &logLength, logBuffer);
+    std::cerr << "Loading overlay shader compile failed: "
+              << std::string(logBuffer, static_cast<std::size_t>(std::max<GLsizei>(0, logLength))) << "\n";
+    glDeleteShader(shader);
+    return 0;
+}
+
+bool ensureLoadingOverlayGlState(LoadingOverlayGlState& state, SDL_GLContext context) {
+    if (context == nullptr) {
+        return false;
+    }
+    if (state.context == context && state.program != 0 && state.vao != 0 && state.vbo != 0) {
+        return true;
+    }
+
+    destroyLoadingOverlayGlState(state);
+
+    static constexpr const char* kVertexShaderSource = R"GLSL(
+        #version 330 core
+        layout (location = 0) in vec2 a_position;
+        uniform vec2 u_viewport;
+        void main() {
+            vec2 ndc = vec2(
+                (a_position.x / u_viewport.x) * 2.0 - 1.0,
+                1.0 - (a_position.y / u_viewport.y) * 2.0
+            );
+            gl_Position = vec4(ndc, 0.0, 1.0);
+        }
+    )GLSL";
+
+    static constexpr const char* kFragmentShaderSource = R"GLSL(
+        #version 330 core
+        uniform float u_alpha;
+        out vec4 fragColor;
+        void main() {
+            fragColor = vec4(0.0, 0.0, 0.0, u_alpha);
+        }
+    )GLSL";
+
+    const GLuint vertexShader = compileLoadingOverlayShader(GL_VERTEX_SHADER, kVertexShaderSource);
+    const GLuint fragmentShader = compileLoadingOverlayShader(GL_FRAGMENT_SHADER, kFragmentShaderSource);
+    if (vertexShader == 0 || fragmentShader == 0) {
+        if (vertexShader != 0) {
+            glDeleteShader(vertexShader);
+        }
+        if (fragmentShader != 0) {
+            glDeleteShader(fragmentShader);
+        }
+        return false;
+    }
+
+    state.program = glCreateProgram();
+    glAttachShader(state.program, vertexShader);
+    glAttachShader(state.program, fragmentShader);
+    glLinkProgram(state.program);
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
+
+    GLint linked = GL_FALSE;
+    glGetProgramiv(state.program, GL_LINK_STATUS, &linked);
+    if (linked != GL_TRUE) {
+        char logBuffer[512] = {};
+        GLsizei logLength = 0;
+        glGetProgramInfoLog(state.program, static_cast<GLsizei>(sizeof(logBuffer)), &logLength, logBuffer);
+        std::cerr << "Loading overlay program link failed: "
+                  << std::string(logBuffer, static_cast<std::size_t>(std::max<GLsizei>(0, logLength))) << "\n";
+        destroyLoadingOverlayGlState(state);
+        return false;
+    }
+
+    glGenVertexArrays(1, &state.vao);
+    glGenBuffers(1, &state.vbo);
+    glBindVertexArray(state.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, state.vbo);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeof(float) * 12), nullptr, GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, static_cast<GLsizei>(sizeof(float) * 2), nullptr);
+    glEnableVertexAttribArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+
+    state.viewportUniform = glGetUniformLocation(state.program, "u_viewport");
+    state.alphaUniform = glGetUniformLocation(state.program, "u_alpha");
+    state.context = context;
+    return true;
+}
+
+void renderLoadingOverlayGl(LoadingOverlayGlState& state,
+                            SDL_GLContext context,
+                            int width,
+                            int height,
+                            float alpha) {
+    if (alpha <= 0.0f || !ensureLoadingOverlayGlState(state, context)) {
+        return;
+    }
+
+    const float vertices[] = {
+        0.0f, 0.0f,
+        static_cast<float>(width), 0.0f,
+        static_cast<float>(width), static_cast<float>(height),
+        0.0f, 0.0f,
+        static_cast<float>(width), static_cast<float>(height),
+        0.0f, static_cast<float>(height),
+    };
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glUseProgram(state.program);
+    glUniform2f(state.viewportUniform, static_cast<float>(width), static_cast<float>(height));
+    glUniform1f(state.alphaUniform, std::clamp(alpha, 0.0f, 1.0f));
+    glBindVertexArray(state.vao);
+    glBindBuffer(GL_ARRAY_BUFFER, state.vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(sizeof(vertices)), vertices);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
+    glUseProgram(0);
+    glDisable(GL_BLEND);
+}
+
+void renderLoadingHoldRenderer(Window& window, SDL_Texture* logoTexture, float elapsedSeconds) {
+    SDL_Renderer* renderer = window.getRenderer();
+    if (renderer == nullptr) {
+        return;
+    }
+
+    window.clear(0, 0, 0, 255);
+    if (logoTexture == nullptr) {
+        return;
+    }
+
+    int textureWidth = 0;
+    int textureHeight = 0;
+    SDL_QueryTexture(logoTexture, nullptr, nullptr, &textureWidth, &textureHeight);
+    if (textureWidth <= 0 || textureHeight <= 0) {
+        return;
+    }
+
+    const float maxWidth = std::min(window.getWidth() * 0.34f, 320.0f);
+    const float scale = maxWidth / static_cast<float>(textureWidth);
+    const float width = static_cast<float>(textureWidth) * scale;
+    const float height = static_cast<float>(textureHeight) * scale;
+    const float bounceOffset =
+        std::sin(elapsedSeconds * kLoadingLogoBounceSpeed * 2.0f * kPi) *
+        kLoadingLogoBounceAmplitude;
+
+    const SDL_FRect destination{
+        36.0f,
+        static_cast<float>(window.getHeight()) - height - 34.0f + bounceOffset,
+        width,
+        height,
+    };
+    SDL_RenderCopyF(renderer, logoTexture, nullptr, &destination);
+}
+
 void releaseRendererUi(MenuResources& menuResources, bool& rendererUiReady) {
     if (!rendererUiReady) {
         return;
@@ -1172,7 +1478,7 @@ int main(int argc, char** argv) {
         }
     }
 
-    Window window("Hatsune Miku: Our Underground BIT Idol", 1280, 720);
+    Window window("Hatsune Miku: Our Underground BIT Idol", kStartupWindowWidth, kStartupWindowHeight, false);
     if (!window.isOpen()) {
         std::cerr << "Failed to initialize window\n";
         return 1;
@@ -1224,6 +1530,68 @@ int main(int argc, char** argv) {
     }
 #endif
 
+    LoadingTransitionState loadingTransition;
+    LoadingOverlayGlState loadingOverlayGl;
+    SDL_Texture* loadingLogoTexture = nullptr;
+
+    const auto destroyLoadingLogoTexture = [&]() {
+        if (loadingLogoTexture != nullptr) {
+            SDL_DestroyTexture(loadingLogoTexture);
+            loadingLogoTexture = nullptr;
+        }
+    };
+
+    const auto prepareRendererLoadingHold = [&]() -> bool {
+#ifdef RMLUI_SDL_VERSION_MAJOR
+        if (bossSelectorSession != nullptr) {
+            bossSelectorSession->shutdown();
+            bossSelectorSession.reset();
+        }
+#endif
+#ifdef APP_ENABLE_RMLUI
+        if (frontUi.isInitialized()) {
+            frontUi.shutdown();
+        }
+#endif
+        if (rendererUiReady) {
+            destroyMenuResources(menuResources);
+            rendererUiReady = false;
+        }
+
+        vn::stopVoicePlayback();
+        vn::shutdown();
+
+        destroyLoadingLogoTexture();
+        if (!window.enableRenderer()) {
+            state.noticeText = "Loading transition failed.";
+            state.noticeTimer = 2.6f;
+            return false;
+        }
+
+        SDL_SetWindowResizable(window.getNativeWindow(), SDL_FALSE);
+        loadingLogoTexture = loadTexture(window.getRenderer(), resolvePath(kMainMenuTitleLogoPath));
+        if (loadingLogoTexture != nullptr) {
+            SDL_SetTextureBlendMode(loadingLogoTexture, SDL_BLENDMODE_BLEND);
+        }
+        return true;
+    };
+
+    const auto commitStoryExitToMainMenu = [&]() -> bool {
+        state.requestStoryExitToMainMenu = false;
+        vn::setPaused(false);
+        vn::reset();
+        state.story.entryIndex = 0;
+        state.pauseSelection = PauseAction::Continue;
+        state.pauseContext = PauseContext::Story;
+        state.confirmSelection = ConfirmAction::Cancel;
+        state.settingsReturnScreen = ScreenState::MainMenu;
+        state.screen = ScreenState::MainMenu;
+        state.mainSelection = MainMenuAction::Start;
+        state.noticeText = "Current progress was discarded.";
+        state.noticeTimer = 2.6f;
+        return true;
+    };
+
     Uint64 lastCounter = SDL_GetPerformanceCounter();
 
     while (window.isOpen()) {
@@ -1235,6 +1603,10 @@ int main(int argc, char** argv) {
                 event.type == SDL_WINDOWEVENT &&
                 (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED || event.window.event == SDL_WINDOWEVENT_RESIZED)) {
                 vn::setViewportSize(window.getWidth(), window.getHeight());
+            }
+
+            if (loadingTransition.active) {
+                continue;
             }
 
             if (event.type == SDL_KEYDOWN && event.key.repeat != 0) {
@@ -1359,24 +1731,54 @@ int main(int argc, char** argv) {
         }
 
 #ifdef APP_ENABLE_RMLUI
-        if (const std::optional<graphics::frontui::Command> command = frontUi.consumeCommand(); command.has_value()) {
-            switch (command->type) {
-                case graphics::frontui::CommandType::ActivateMainMenuAction:
-                    if (!applyFrontMenuAction(state, window, frontUi, menuResources, rendererUiReady,
-                                              command->mainMenuAction)) {
-                        std::cerr << "Failed to apply main menu action\n";
-                        return 1;
-                    }
-                    break;
+        if (!loadingTransition.active) {
+            if (const std::optional<graphics::frontui::Command> command = frontUi.consumeCommand(); command.has_value()) {
+                switch (command->type) {
+                    case graphics::frontui::CommandType::ActivateMainMenuAction:
+                        if (command->mainMenuAction == MainMenuAction::Start) {
+                            state.mainSelection = MainMenuAction::Start;
+                            startLoadingTransition(
+                                loadingTransition,
+                                LoadingTransitionPresentation::RmlUi,
+                                std::function<bool()>{},
+                                [&]() -> bool {
+                                    beginStory(state);
+                                    return state.screen == ScreenState::Playing;
+                                });
+                        } else if (command->mainMenuAction == MainMenuAction::Battle) {
+                            state.mainSelection = MainMenuAction::Battle;
+                            startLoadingTransition(
+                                loadingTransition,
+                                LoadingTransitionPresentation::RmlUi,
+                                std::function<bool()>{},
+                                [&]() -> bool {
+                                    beginBossSelector(state);
+                                    return state.screen == ScreenState::BossSelector;
+                                });
+                        } else if (!applyFrontMenuAction(state, window, frontUi, menuResources, rendererUiReady,
+                                                         command->mainMenuAction)) {
+                            std::cerr << "Failed to apply main menu action\n";
+                            return 1;
+                        }
+                        break;
 
-                case graphics::frontui::CommandType::ApplyDisplayMode:
-                    SettingsMenuController::applyDisplayMode(window, state.settings, command->displayModeFullscreen);
-                    break;
+                    case graphics::frontui::CommandType::ApplyDisplayMode:
+                        SettingsMenuController::applyDisplayMode(window, state.settings, command->displayModeFullscreen);
+                        break;
 
-                case graphics::frontui::CommandType::ReturnFromSettings:
-                    state.screen = state.settingsReturnScreen;
-                    break;
+                    case graphics::frontui::CommandType::ReturnFromSettings:
+                        state.screen = state.settingsReturnScreen;
+                        break;
+                }
             }
+        }
+
+        if (!loadingTransition.active && state.requestStoryExitToMainMenu) {
+            startLoadingTransition(
+                loadingTransition,
+                LoadingTransitionPresentation::RmlUi,
+                std::function<bool()>{},
+                commitStoryExitToMainMenu);
         }
 
         if (shouldUseFrontUiScreen(state)) {
@@ -1390,6 +1792,103 @@ int main(int argc, char** argv) {
             return 1;
         }
 #endif
+
+#ifdef RMLUI_SDL_VERSION_MAJOR
+        if (!loadingTransition.active &&
+            state.screen == ScreenState::BossSelector &&
+            bossSelectorSession != nullptr) {
+            if (const auto request = bossSelectorSession->consumeLaunchRequest(); request.has_value()) {
+                const battle::selector::LaunchRequest launchRequest = *request;
+                startLoadingTransition(
+                    loadingTransition,
+                    launchRequest.type == battle::selector::LaunchRequest::Type::Story
+                        ? LoadingTransitionPresentation::RmlUi
+                        : LoadingTransitionPresentation::RendererFallback,
+                    launchRequest.type == battle::selector::LaunchRequest::Type::Story
+                        ? std::function<bool()>{}
+                        : std::function<bool()>(prepareRendererLoadingHold),
+                    [&, launchRequest]() -> bool {
+                        if (launchRequest.type == battle::selector::LaunchRequest::Type::Story) {
+#ifdef APP_ENABLE_RMLUI
+                            if (bossSelectorSession != nullptr) {
+                                bossSelectorSession->shutdown();
+                                bossSelectorSession.reset();
+                            }
+                            state.screen = ScreenState::MainMenu;
+                            state.mainSelection = MainMenuAction::Battle;
+                            if (!restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state)) {
+                                state.noticeText = "Story failed to load.";
+                                state.noticeTimer = 2.6f;
+                                return false;
+                            }
+                            beginStory(state, launchRequest.reference, ScreenState::BossSelector);
+                            return true;
+#else
+                            state.noticeText = "Story launch requires RmlUi front UI.";
+                            state.noticeTimer = 2.6f;
+                            return false;
+#endif
+                        }
+
+                        destroyLoadingLogoTexture();
+                        if (!restoreRendererUi(window, menuResources, state.settings)) {
+                            state.noticeText = "Battle failed to load.";
+                            state.noticeTimer = 2.6f;
+                            return false;
+                        }
+                        rendererUiReady = true;
+                        state.pendingBattleReturnScreen = ScreenState::BossSelector;
+                        state.pendingBattleLaunchedFromStory = false;
+                        state.pendingBattleWinScript.clear();
+                        state.pendingBattleLoseScript.clear();
+                        beginBattle(state, launchRequest.reference);
+                        return true;
+                    });
+            }
+        }
+#endif
+
+        const Uint64 now = SDL_GetPerformanceCounter();
+        const float deltaSeconds = static_cast<float>(now - lastCounter) /
+            static_cast<float>(SDL_GetPerformanceFrequency());
+        lastCounter = now;
+
+        if (loadingTransition.active) {
+            loadingTransition.elapsedSeconds += deltaSeconds;
+
+            if (!loadingTransition.holdPrepared &&
+                loadingTransition.elapsedSeconds >= kLoadingFadeInSeconds) {
+                loadingTransition.holdPrepared = true;
+                if (loadingTransition.prepareHold && !loadingTransition.prepareHold()) {
+                    clearLoadingTransition(loadingTransition);
+                }
+            }
+
+            if (loadingTransition.active &&
+                !loadingTransition.committed &&
+                loadingTransition.elapsedSeconds >= kLoadingFadeInSeconds + kLoadingLogoHoldSeconds) {
+                if (!loadingTransitionUsesRmlUi(loadingTransition)) {
+                    destroyLoadingLogoTexture();
+                }
+                loadingTransition.committed = true;
+                if (loadingTransition.commit && !loadingTransition.commit()) {
+                    clearLoadingTransition(loadingTransition);
+                }
+            }
+        }
+
+        if (!loadingTransitionUsesRmlUi(loadingTransition) &&
+            loadingTransitionInHold(loadingTransition)) {
+            renderLoadingHoldRenderer(
+                window,
+                loadingLogoTexture,
+                std::max(0.0f, loadingTransition.elapsedSeconds - kLoadingFadeInSeconds));
+            window.present();
+            if (loadingTransition.elapsedSeconds >= totalLoadingTransitionSeconds()) {
+                clearLoadingTransition(loadingTransition);
+            }
+            continue;
+        }
 
         if (state.requestStoryManualSave) {
             state.requestStoryManualSave = false;
@@ -1512,11 +2011,6 @@ int main(int argc, char** argv) {
             state.pendingBattleWinScript.clear();
             state.pendingBattleLoseScript.clear();
         }
-
-        const Uint64 now = SDL_GetPerformanceCounter();
-        const float deltaSeconds = static_cast<float>(now - lastCounter) /
-            static_cast<float>(SDL_GetPerformanceFrequency());
-        lastCounter = now;
 
         if (state.noticeTimer > 0.0f) {
             state.noticeTimer = std::max(0.0f, state.noticeTimer - deltaSeconds);
@@ -1647,29 +2141,7 @@ int main(int argc, char** argv) {
         else if (state.screen == ScreenState::BossSelector) {
             if (bossSelectorSession != nullptr) {
                 bossSelectorSession->update(deltaSeconds);
-                if (const auto request = bossSelectorSession->consumeLaunchRequest(); request.has_value()) {
-                    bossSelectorSession->shutdown();
-                    bossSelectorSession.reset();
-
-                    if (request->type == battle::selector::LaunchRequest::Type::Story) {
-                        if (!vn::initialize(nullptr, window.getWidth(), window.getHeight())) {
-                            std::cerr << "Failed to initialize VN system after selector story launch\n";
-                            return 1;
-                        }
-                        beginStory(state, request->reference, ScreenState::BossSelector);
-                    } else {
-                        if (!restoreRendererUi(window, menuResources, state.settings)) {
-                            std::cerr << "Failed to restore renderer UI after selector battle launch\n";
-                            return 1;
-                        }
-                        rendererUiReady = true;
-                        state.pendingBattleReturnScreen = ScreenState::BossSelector;
-                        state.pendingBattleLaunchedFromStory = false;
-                        state.pendingBattleWinScript.clear();
-                        state.pendingBattleLoseScript.clear();
-                        beginBattle(state, request->reference);
-                    }
-                } else if (bossSelectorSession->isFinished()) {
+                if (bossSelectorSession->isFinished()) {
                     bossSelectorSession->shutdown();
                     bossSelectorSession.reset();
                     state.screen = ScreenState::MainMenu;
@@ -1738,6 +2210,37 @@ int main(int argc, char** argv) {
             vn::stopBgmPlayback();
         }
 
+#if defined(APP_ENABLE_RMLUI) || defined(RMLUI_SDL_VERSION_MAJOR)
+        const graphics::RmlUiLoadingOverlayState hiddenRmlLoadingOverlay;
+#ifdef APP_ENABLE_RMLUI
+        if (frontUi.isInitialized()) {
+            frontUi.setLoadingOverlay(hiddenRmlLoadingOverlay);
+        }
+#endif
+#ifdef RMLUI_SDL_VERSION_MAJOR
+        if (bossSelectorSession != nullptr) {
+            bossSelectorSession->setLoadingOverlay(hiddenRmlLoadingOverlay);
+        }
+#endif
+
+        if (loadingTransitionUsesRmlUi(loadingTransition)) {
+            const graphics::RmlUiLoadingOverlayState rmlLoadingOverlay =
+                buildRmlLoadingOverlayState(loadingTransition);
+            bool overlayApplied = false;
+#ifdef RMLUI_SDL_VERSION_MAJOR
+            if (state.screen == ScreenState::BossSelector && bossSelectorSession != nullptr) {
+                bossSelectorSession->setLoadingOverlay(rmlLoadingOverlay);
+                overlayApplied = true;
+            }
+#endif
+#ifdef APP_ENABLE_RMLUI
+            if (!overlayApplied && frontUi.isInitialized()) {
+                frontUi.setLoadingOverlay(rmlLoadingOverlay);
+            }
+#endif
+        }
+#endif
+
         if (window.getRenderer() != nullptr) {
             window.clear(14, 18, 30, 255);
         }
@@ -1797,7 +2300,34 @@ int main(int argc, char** argv) {
 #endif
         }
 
+        const float overlayAlpha = loadingOverlayAlpha(loadingTransition);
+        if (!loadingTransitionUsesRmlUi(loadingTransition) && overlayAlpha > 0.0f) {
+            if (SDL_Renderer* renderer = window.getRenderer(); renderer != nullptr) {
+                SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+                SDL_SetRenderDrawColor(
+                    renderer,
+                    0,
+                    0,
+                    0,
+                    static_cast<Uint8>(std::lround(std::clamp(overlayAlpha, 0.0f, 1.0f) * 255.0f)));
+                const SDL_Rect overlayRect{0, 0, window.getWidth(), window.getHeight()};
+                SDL_RenderFillRect(renderer, &overlayRect);
+            } else if (window.getGlContext() != nullptr) {
+                renderLoadingOverlayGl(
+                    loadingOverlayGl,
+                    window.getGlContext(),
+                    window.getDrawableWidth(),
+                    window.getDrawableHeight(),
+                    overlayAlpha);
+            }
+        }
+
         window.present();
+
+        if (loadingTransition.active &&
+            loadingTransition.elapsedSeconds >= totalLoadingTransitionSeconds()) {
+            clearLoadingTransition(loadingTransition);
+        }
     }
 
     if (battleSession != nullptr) {
@@ -1814,6 +2344,8 @@ int main(int argc, char** argv) {
 #ifdef APP_ENABLE_RMLUI
     frontUi.shutdown();
 #endif
+    destroyLoadingLogoTexture();
+    destroyLoadingOverlayGlState(loadingOverlayGl);
     destroyMenuResources(menuResources);
     vn::shutdown();
     return 0;
