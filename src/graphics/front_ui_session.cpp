@@ -152,6 +152,14 @@ bool Session::initialize(Window& window, const AppState& state) {
     return true;
 }
 
+/**
+ * @brief Tears down the Session, releasing all UI, audio, and GL resources.
+ *
+ * Stops SDL text input and the internal SFX player, clears stored SFX paths and
+ * UI music visual state, closes and removes all active documents, shuts down
+ * the loading overlay, calls Rml and RmlGL shutdown if they were initialized,
+ * and releases render interface, context, GL context, and window handles.
+ */
 void Session::shutdown() {
     initialized_ = false;
     SDL_StopTextInput();
@@ -159,6 +167,7 @@ void Session::shutdown() {
     scrollSfxPath_.clear();
     confirmSfxPath_.clear();
     audioReady_ = false;
+    uiMusicVisualState_ = game::audio::UiMusicVisualState{};
 
     while (!documents_.empty()) {
         popScreen();
@@ -188,6 +197,14 @@ bool Session::showForState(const AppState& state) {
     return syncStackForState(state);
 }
 
+/**
+ * @brief Processes a single SDL event for the front-end UI, routing input to Rml, updating
+ * the viewport on window resize, dispatching keyboard navigation to the top document controller,
+ * synchronizing controllers with the application state, and triggering any resulting UI sounds.
+ *
+ * @param event SDL event to handle.
+ * @param state Current application state which controllers may read from and modify.
+ */
 void Session::handleEvent(const SDL_Event& event, AppState& state) {
     if (!initialized_ || context_ == nullptr || window_ == nullptr) {
         return;
@@ -258,6 +275,7 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
     }
 
     syncState(state);
+    playQueuedControllerSounds();
 
     const std::optional<MainMenuAction> selectionAfterEvent = currentMainMenuSelection();
     if (selectionBeforeEvent.has_value() &&
@@ -267,12 +285,22 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
     }
 }
 
+/**
+ * @brief Advance the UI session to reflect the given application state and elapsed time.
+ *
+ * Synchronizes visible documents with the supplied AppState, reapplies the UI music visual
+ * state, updates each active document controller, and performs sound-effect playback cleanup.
+ *
+ * @param state Current application state to apply to session controllers.
+ * @param deltaSeconds Time in seconds since the previous update used to advance controllers.
+ */
 void Session::update(const AppState& state, float deltaSeconds) {
     if (!initialized_) {
         return;
     }
 
     (void)showForState(state);
+    applyUiMusicVisualState();
 
     for (ActiveDocument& entry : documents_) {
         if (entry.controller != nullptr) {
@@ -301,11 +329,76 @@ void Session::render() {
     renderInterface_->EndFrame();
 }
 
+/**
+ * @brief Update and apply the loading overlay state for the UI.
+ *
+ * Stores the provided loading overlay state and immediately applies it to the active loading overlay document.
+ *
+ * @param state Loading overlay visual and state parameters to set.
+ */
 void Session::setLoadingOverlay(const RmlUiLoadingOverlayState& state) {
     loadingOverlayState_ = state;
     loadingOverlay_.apply(loadingOverlayState_);
 }
 
+/**
+ * @brief Update the stored UI music visual state and apply it to all active documents.
+ *
+ * Stores the provided visual state and immediately updates each active document's cached
+ * UI music bar strip to reflect the new state.
+ *
+ * @param state The UI music visual state to store and apply.
+ */
+void Session::setUiMusicVisualState(const game::audio::UiMusicVisualState& state) {
+    uiMusicVisualState_ = state;
+    applyUiMusicVisualState();
+}
+
+/**
+ * @brief Plays a one-shot WAV sound described by a SoundRequest if audio is available.
+ *
+ * Resolves the request's relativePath to an absolute filesystem path and, if the file
+ * exists and audio is ready, plays it once at the requested volume (clamped to the
+ * range [0.0, 1.0]). Does nothing if audio is not ready, the relativePath is empty,
+ * path resolution fails, or the resolved file does not exist.
+ *
+ * @param request SoundRequest containing `relativePath` (relative filesystem path to the WAV)
+ *                and `volume` (requested playback volume).
+ */
+void Session::playResolvedSfx(const SoundRequest& request) {
+    if (!audioReady_ || request.relativePath.empty()) {
+        return;
+    }
+
+    const std::string resolvedPath = platform::path::resolvePath(request.relativePath);
+    if (resolvedPath.empty() || !std::filesystem::exists(resolvedPath)) {
+        return;
+    }
+
+    (void)sfxPlayer_.playWavOneShot(resolvedPath, std::clamp(request.volume, 0.0f, 1.0f), true);
+}
+
+/**
+ * @brief Consumes pending sound requests from the active top document controller and plays each available sound.
+ *
+ * If there is no top controller or it has no pending requests, the function does nothing.
+ */
+void Session::playQueuedControllerSounds() {
+    if (DocumentController* controller = topController()) {
+        for (const SoundRequest& request : controller->consumeSoundRequests()) {
+            playResolvedSfx(request);
+        }
+    }
+}
+
+/**
+ * Consume and return the next command produced by the top active document controller.
+ *
+ * If the top controller provides a command of type `ActivateMainMenuAction`, a confirmation
+ * sound effect is played as a side effect.
+ *
+ * @return std::optional<Command> The consumed command if one was available, `std::nullopt` otherwise.
+ */
 std::optional<Command> Session::consumeCommand() {
     if (DocumentController* controller = topController()) {
         std::optional<Command> command = controller->consumeCommand();
@@ -348,6 +441,21 @@ bool Session::syncStackForState(const AppState& state) {
     return true;
 }
 
+/**
+ * @brief Pushes a UI screen onto the session's active document stack.
+ *
+ * Loads and shows the RmlUi document for the specified screen, creates and binds
+ * its controller using the provided application state, caches the document's UI
+ * music bar strip, updates the internal document stack, and applies the current
+ * UI music visual state.
+ *
+ * @param screen Identifier of the screen/document to push.
+ * @param state Application state passed to the controller's bind call.
+ * @return true if the document was successfully loaded, its controller created
+ *         and bound, and the screen pushed; `false` if the context is null,
+ *         the screen is not implemented, the document failed to load, or the
+ *         controller could not be created or bound.
+ */
 bool Session::pushScreen(ScreenId screen, const AppState& state) {
     if (context_ == nullptr || !isScreenImplemented(screen)) {
         return false;
@@ -367,7 +475,10 @@ bool Session::pushScreen(ScreenId screen, const AppState& state) {
     }
 
     document->Show();
-    documents_.push_back(ActiveDocument{screen, document, std::move(controller)});
+    ActiveDocument entry{screen, document, std::move(controller)};
+    entry.uiMusicBars = cacheUiMusicBarStrip(*document);
+    documents_.push_back(std::move(entry));
+    applyUiMusicVisualState();
     return true;
 }
 
@@ -393,6 +504,14 @@ DocumentController* Session::topController() const {
     return documents_.back().controller.get();
 }
 
+/**
+ * @brief Apply the given AppState to all active document controllers.
+ *
+ * For each active document with an associated controller, forwards `state`
+ * so the controller can apply or modify state-dependent UI information.
+ *
+ * @param state Application state object that controllers may read and modify.
+ */
 void Session::syncState(AppState& state) {
     for (ActiveDocument& entry : documents_) {
         if (entry.controller != nullptr) {
@@ -401,6 +520,25 @@ void Session::syncState(AppState& state) {
     }
 }
 
+/**
+ * @brief Applies the stored UI music visual state to every active document's cached music bar strip.
+ *
+ * Iterates the active document stack and updates each entry's cached UI music bar strip using the
+ * current `uiMusicVisualState_`.
+ */
+void Session::applyUiMusicVisualState() {
+    for (ActiveDocument& entry : documents_) {
+        applyUiMusicBarStrip(entry.uiMusicBars, uiMusicVisualState_);
+    }
+}
+
+/**
+ * @brief Update stored window and drawable dimensions from the window host and apply the GL viewport.
+ *
+ * Reads window and drawable sizes from the internal window host, clamps each dimension to at least 1,
+ * stores them in the session's width/height members, and calls glViewport(0, 0, drawableWidth_, drawableHeight_).
+ * If no window host is available, the function returns without changing state.
+ */
 void Session::updateViewportFromWindow() {
     if (windowHost_ == nullptr) {
         return;
@@ -442,6 +580,13 @@ bool Session::loadFonts() const {
     return loadedLatin || loadedFallback;
 }
 
+/**
+ * @brief Prepares the session's audio support and resolves UI sound file paths.
+ *
+ * Resolves and stores absolute paths for the scroll and confirm UI sound effects, ensures the SDL audio subsystem is initialized, and marks the session as audio-ready when successful. Sets internal path members to empty and clears the audio-ready flag on failure.
+ *
+ * @return true if the SDL audio subsystem is available and the session is marked audio-ready, `false` if audio initialization failed.
+ */
 bool Session::initializeAudio() {
     scrollSfxPath_ = platform::path::resolvePath(kScrollSfxRelativePath);
     confirmSfxPath_ = platform::path::resolvePath(kConfirmSfxRelativePath);
@@ -456,7 +601,7 @@ bool Session::initializeAudio() {
         }
     }
 
-    audioReady_ = !scrollSfxPath_.empty() || !confirmSfxPath_.empty();
+    audioReady_ = true;
     return audioReady_;
 }
 

@@ -1,0 +1,93 @@
+<rml>
+<head>
+    <title>Pause (Sleek)</title>
+    <link type="text/rcss" href="submenu_revamp.rcss"/>
+    <link type="text/rcss" href="pause_sleek.rcss"/>
+    <link type="text/rcss" href="../shared/ui_music_bars.rcss"/>
+</head>
+
+<body>
+    <div id="pause-overlay"></div>
+    <div id="ui-music-bars-root" class="ui-music-bars-root">
+        <div id="ui-music-bars-track" class="ui-music-bars-track"></div>
+    </div>
+
+    <div id="pause-shell">
+        <img id="pause-logo" src="../../vn/backgrounds/General_Art/MainMenuTitle.png"/>
+        <div id="pause-title-shell">
+            <div id="pause-title">PAUSE</div>
+            <div id="pause-kicker">STORY CONTROL / SESSION HOLD</div>
+        </div>
+        <div id="pause-buttons">
+            <button id="pause-button-continue" class="submenu-row is-selected">
+                <div class="submenu-row-content">
+                    <div class="submenu-row-accent"></div>
+                    <div class="submenu-row-code">01</div>
+                    <div class="submenu-row-main">
+                        <div class="submenu-row-label">CONTINUE</div>
+                    </div>
+                    <div class="submenu-row-tail"></div>
+                </div>
+            </button>
+            <button id="pause-button-save" class="submenu-row">
+                <div class="submenu-row-content">
+                    <div class="submenu-row-accent"></div>
+                    <div class="submenu-row-code">02</div>
+                    <div class="submenu-row-main">
+                        <div class="submenu-row-label">SAVE</div>
+                    </div>
+                    <div class="submenu-row-tail"></div>
+                </div>
+            </button>
+            <button id="pause-button-load" class="submenu-row">
+                <div class="submenu-row-content">
+                    <div class="submenu-row-accent"></div>
+                    <div class="submenu-row-code">03</div>
+                    <div class="submenu-row-main">
+                        <div class="submenu-row-label">LOAD</div>
+                    </div>
+                    <div class="submenu-row-tail"></div>
+                </div>
+            </button>
+            <button id="pause-button-settings" class="submenu-row">
+                <div class="submenu-row-content">
+                    <div class="submenu-row-accent"></div>
+                    <div class="submenu-row-code">04</div>
+                    <div class="submenu-row-main">
+                        <div class="submenu-row-label">SETTINGS</div>
+                    </div>
+                    <div class="submenu-row-tail"></div>
+                </div>
+            </button>
+            <button id="pause-button-exit" class="submenu-row">
+                <div class="submenu-row-content">
+                    <div class="submenu-row-accent"></div>
+                    <div class="submenu-row-code">05</div>
+                    <div class="submenu-row-main">
+                        <div class="submenu-row-label">EXIT TO MENU</div>
+                    </div>
+                    <div class="submenu-row-tail"></div>
+                </div>
+            </button>
+        </div>
+        <div id="pause-notice"></div>
+    </div>
+
+    <div id="pause-confirm">
+        <div id="pause-confirm-card">
+            <div id="pause-confirm-title"></div>
+            <div id="pause-confirm-body"></div>
+            <div id="pause-confirm-actions">
+                <button id="pause-confirm-cancel" class="submenu-confirm-button is-selected">
+                    <div id="pause-confirm-cancel-label" class="pause-confirm-inner">Stay</div>
+                </button>
+                <button id="pause-confirm-confirm" class="submenu-confirm-button">
+                    <div id="pause-confirm-confirm-label" class="pause-confirm-inner">Exit To Menu</div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pause-toast"></div>
+</body>
+</rml>

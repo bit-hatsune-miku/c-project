@@ -91,9 +91,9 @@ inline constexpr std::array<MainMenuPresentation, 5> kMainMenuPresentation{{
      "menu-button-detail-settings",
      "04",
      "SETTINGS",
-     "DISPLAY / VOICE / TEXT",
+     "DISPLAY / MUSIC / VOICE / TEXT",
      "TUNE THE VN SYSTEM",
-     "Adjust fullscreen mode, voice volume, and text speed."},
+     "Adjust fullscreen mode, menu and story music volume, voice volume, and text speed."},
     {MainMenuAction::Exit,
      "menu-button-exit",
      "menu-button-code-exit",
@@ -130,6 +130,7 @@ enum class ConfirmAction {
 
 enum class SettingsItem {
     DisplayMode,
+    MusicVolume,
     VoiceVolume,
     TextSpeed,
     Back
@@ -137,6 +138,7 @@ enum class SettingsItem {
 
 struct GameSettings {
     bool fullscreen = false;
+    float musicVolume = 1.0f;
     float voiceVolume = 0.82f;
     float textSpeed = 42.0f;
 };
@@ -181,6 +183,7 @@ struct AppState {
     bool requestStoryManualSave = false;
     bool requestStoryOverwriteSave = false;
     bool requestStoryExitToMainMenu = false;
+    bool requestStoryReturnToBossSelector = false;
     ScreenState storyEndReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleKey;
     bool pendingBattleLaunchedFromStory = false;
