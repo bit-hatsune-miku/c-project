@@ -42,6 +42,11 @@ private:
     std::optional<ConfirmAction> pendingConfirmAction_;
     bool pendingDismissConfirm_ = false;
     bool pendingResume_ = false;
+    std::vector<SoundRequest> pendingSoundRequests_;
+    bool needsEntryAnimation_ = false;
+
+    void queueSound(const char* path, float volume);
+    std::vector<SoundRequest> consumeSoundRequests() override;
 };
 
 }  // namespace graphics::frontui

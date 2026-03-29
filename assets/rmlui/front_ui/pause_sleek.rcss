@@ -3,62 +3,266 @@ body {
     width: 100%;
     height: 100%;
     overflow: hidden;
+    background: transparent;
+    /* backdrop-filter intentionally not overridden — inherits blur(8px) from submenu_revamp.rcss body,
+       which appears/disappears instantly with the document (no lingering blur issues) */
     color: #17141f;
     font-family: "Space Mono";
 }
 
+/* hide shared-layout elements that bleed in from other menus */
+#system-caption-copy,
+#menu-title-hint,
+#menu-section-tag {
+    display: none !important;
+}
+
+/* dark tint overlay — no backdrop-filter here, just the dimming layer */
 #pause-overlay {
     position: absolute;
-    left: 0; top: 0; width: 100%; height: 100%;
-    background-color: rgba(2,8,10,0.28);
-    backdrop-filter: blur(8px) saturate(120%);
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(2, 8, 10, 0);
+    opacity: 0;
+    transition: opacity 0.28s ease;
 }
 
+#pause-overlay.fade-in {
+    opacity: 1;
+    background-color: rgba(2, 8, 10, 0.28);
+}
+
+/* entry: slide down from above + fade in */
+@keyframes pause-shell-enter {
+    from {
+        opacity: 0;
+        transform: translateY(-36dp);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0dp);
+    }
+}
+
+/* exit: slide back up + fade out */
+@keyframes pause-shell-exit {
+    from {
+        opacity: 1;
+        transform: translateY(0dp);
+    }
+    to {
+        opacity: 0;
+        transform: translateY(-36dp);
+    }
+}
+
+/* centered card panel — invisible by default, animated via class */
 #pause-shell {
     position: absolute;
-    left: 20.5%; right: 20.5%; top: 10%; bottom: 10%;
-    background-color: rgba(255,255,255,0.92);
-    border: 1dp rgba(23,20,31,0.1);
+    left: 20.5%;
+    right: 20.5%;
+    top: 9%;
+    bottom: 9%;
+    background-color: rgba(255, 255, 255, 235);
+    border: 4dp solid #ff63b0;
     border-radius: 24dp;
-    box-shadow: 0 12dp 36dp rgba(23,20,31,16);
-    transform: translateY(-8%);
+    box-shadow: 0 12dp 36dp rgba(23, 20, 31, 40);
     opacity: 0;
-    transition: transform 520ms cubic-bezier(.22,1,.36,1), opacity 420ms ease;
+    transform: translateY(-36dp);
 }
 
-#pause-shell.entered { transform: translateY(0); opacity: 1; }
+#pause-shell.entered {
+    animation: pause-shell-enter 0.52s cubic-out;
+    opacity: 1;
+    transform: translateY(0dp);
+}
 
-#pause-logo { display: block; width: 420dp; margin: 18dp auto 6dp auto; }
+#pause-shell.exiting {
+    animation: pause-shell-exit 0.42s cubic-out;
+    opacity: 0;
+    transform: translateY(-36dp);
+}
 
-#pause-title-shell { position: absolute; left: 50%; top: 40dp; width: 560dp; margin-left: -280dp; }
-#pause-kicker { font-size: 12dp; letter-spacing: 2.8dp; color: rgba(23,20,31,0.54); text-align:center }
-#pause-title { font-size: 38dp; font-weight: bold; letter-spacing: 4dp; text-align:center; color: #17141f }
+/* logo — centered at top of shell */
+#pause-logo {
+    position: absolute;
+    left: 50%;
+    top: 14dp;
+    width: 320dp;
+    height: 96dp;
+    margin-left: -160dp;
+}
 
-#pause-buttons { position: absolute; left: 50%; top: 144dp; width: 540dp; margin-left: -270dp; display: block }
-.pause-button { position: relative; display: block; width: 540dp; height: 52dp; margin-bottom: 10dp; background: transparent; border: 0 }
-.pause-button::before { content: ''; position: absolute; inset: 0; border-radius: 14dp; background: rgba(255,255,255,0.96); border: 1dp rgba(23,20,31,0.08); transform: skewX(-18deg) }
-.pause-inner { position: absolute; inset: 0; display:flex; align-items:center; gap: 12dp; padding: 10dp 16dp; transform: skewX(-18deg) }
-.pause-inner > * { transform: skewX(18deg) }
-.pause-accent { width: 10dp; height: 28dp; border-radius: 999dp; background: rgba(23,20,31,0.18) }
-.pause-code { min-width:40dp; font-size: 12dp; font-weight: bold; color: rgba(23,20,31,0.54) }
-.pause-label { flex: 1; font-size: 18dp; font-weight: bold; text-transform: uppercase; color: #17141f }
-.pause-tail { width: 68dp; height: 22dp; border-radius: 999dp; background: rgba(255,255,255,0.22); opacity: 0; transition: opacity 260ms }
+/* title then kicker */
+#pause-title-shell {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 116dp;
+    text-align: center;
+}
 
-.pause-button.is-selected::before { background: #ff63b0; border-color: rgba(255,99,176,0.92) }
-.pause-button.is-selected .pause-accent { background: rgba(255,255,255,0.8) }
-.pause-button.is-selected .pause-code { color: rgba(255,255,255,0.86) }
-.pause-button.is-selected .pause-label { color: #fff }
-.pause-button.is-selected .pause-tail { opacity: 1 }
+#pause-title {
+    font-size: 34dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    color: #17141f;
+    text-transform: uppercase;
+}
 
-#pause-notice { position: absolute; left: 0; right: 0; bottom: 28dp; text-align:center; color: rgba(23,20,31,0.48); font-size: 12dp }
+#pause-kicker {
+    margin-top: 4dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: rgba(23, 20, 31, 108);
+    text-transform: uppercase;
+}
 
-#pause-confirm { position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); display: none }
+/* buttons — centered, compact height to match prototype */
+#pause-buttons {
+    position: absolute;
+    left: 50%;
+    top: 182dp;
+    width: 540dp;
+    margin-left: -270dp;
+}
 
-#pause-toast { position: absolute; left: 50%; bottom: 36dp; transform: translateX(-50%); background: rgba(23,20,31,0.9); color: #fff; padding: 12dp 16dp; border-radius: 10dp; font-weight: bold; opacity: 0; transition: opacity 240ms, transform 240ms }
-#pause-toast.is-visible { opacity: 1; transform: translateX(-50%) translateY(-6dp) }
+#pause-buttons .submenu-row {
+    height: 52dp;
+    margin-bottom: 10dp;
+}
 
-/* small */
-@media (max-width: 520dp) {
-    #pause-shell { left: 6dp; right: 6dp; top: 6dp; bottom: 6dp }
-    #pause-logo { width: 280dp }
+#pause-buttons .submenu-row-accent {
+    top: 11dp;
+    height: 30dp;
+}
+
+#pause-buttons .submenu-row-code {
+    top: 18dp;
+}
+
+#pause-buttons .submenu-row-main {
+    top: 14dp;
+}
+
+#pause-buttons .submenu-row-tail {
+    top: 14dp;
+}
+
+/* notice is hidden — toast is used instead */
+#pause-notice {
+    display: none;
+}
+
+/* confirm dialog — full-screen dark backdrop with centered card */
+#pause-confirm {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(12, 10, 14, 176);
+    display: none;
+}
+
+#pause-confirm.is-visible {
+    display: block;
+}
+
+#pause-confirm-card {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 430dp;
+    height: 230dp;
+    margin-left: -215dp;
+    margin-top: -115dp;
+    background-color: rgba(255, 251, 253, 246);
+    border: 1dp rgba(23, 20, 31, 24);
+    border-radius: 24dp;
+    box-shadow: 0 20dp 40dp rgba(23, 20, 31, 26);
+}
+
+#pause-confirm-title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 30dp;
+    font-size: 24dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    color: #17141f;
+    text-align: center;
+}
+
+#pause-confirm-body {
+    position: absolute;
+    left: 28dp;
+    right: 28dp;
+    top: 72dp;
+    font-size: 12dp;
+    line-height: 18dp;
+    color: rgba(23, 20, 31, 144);
+    text-align: center;
+}
+
+#pause-confirm-actions {
+    position: absolute;
+    left: 22dp;
+    right: 22dp;
+    bottom: 22dp;
+    display: flex;
+    gap: 14dp;
+}
+
+#pause-confirm-cancel,
+#pause-confirm-confirm {
+    flex: 1;
+}
+
+/* centered label inside skewed confirm buttons */
+.pause-confirm-inner {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 22dp;
+    transform: skewX(18deg);
+    text-align: center;
+    font-size: 14dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    color: #17141f;
+}
+
+.submenu-confirm-button.is-selected .pause-confirm-inner {
+    color: #ffffff;
+}
+
+/* toast — bottom-center, same style as battle selector */
+#pause-toast {
+    position: absolute;
+    left: 50%;
+    bottom: 36dp;
+    width: 320dp;
+    height: 34dp;
+    margin-left: -160dp;
+    padding-top: 10dp;
+    background-color: rgba(23, 20, 31, 224);
+    border-radius: 999dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    text-align: center;
+    color: #ffffff;
+    opacity: 0;
+    transform: translate(0dp, 0dp);
+    transition: opacity 0.22s cubic-out, transform 0.22s cubic-out;
+}
+
+#pause-toast.is-visible {
+    opacity: 1;
+    transform: translate(0dp, -6dp);
 }

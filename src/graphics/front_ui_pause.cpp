@@ -80,6 +80,10 @@ constexpr std::array<ConfirmButtonDefinition, 2> kConfirmButtons{{
 
 }  // namespace
 
+constexpr const char* kScrollSfxPath = "assets/ui/sfx/Multiplayer_player-ready-all.wav";
+constexpr const char* kConfirmSfxPath = "assets/ui/sfx/UI_dialog-pop-in.wav";
+constexpr const char* kBackSfxPath = "assets/ui/sfx/UI_screen-back.wav";
+
 bool PauseDocumentController::bind(Rml::ElementDocument& document, const AppState& state) {
     document_ = &document;
     detachEventListeners(listeners_);
@@ -90,6 +94,13 @@ bool PauseDocumentController::bind(Rml::ElementDocument& document, const AppStat
     refreshFromState(state);
     attachListeners();
     refreshDocument();
+
+    // Entry animation and open sound happen after first frame is rendered
+    if (Rml::Element* shell = document_->GetElementById("pause-shell")) {
+        shell->SetClass("entered", false);
+        needsEntryAnimation_ = true;
+    }
+    queueSound(kConfirmSfxPath, 0.9f);
     return true;
 }
 
@@ -106,6 +117,14 @@ void PauseDocumentController::sync(const AppState& state) {
 void PauseDocumentController::update(const AppState& state, float deltaSeconds) {
     (void)deltaSeconds;
     refreshFromState(state);
+
+    if (needsEntryAnimation_ && document_ != nullptr) {
+        if (Rml::Element* shell = document_->GetElementById("pause-shell")) {
+            shell->SetClass("entered", true);
+        }
+        needsEntryAnimation_ = false;
+    }
+
     refreshDocument();
 }
 
@@ -117,7 +136,11 @@ void PauseDocumentController::moveSelection(int delta) {
     if (showingConfirm()) {
         confirmSelection_ = nextConfirm(delta);
     } else {
+        const PauseAction prev = selection_;
         selection_ = nextAction(delta);
+        if (selection_ != prev) {
+            queueSound(kScrollSfxPath, 0.82f);
+        }
     }
     refreshDocument();
 }
@@ -135,7 +158,13 @@ void PauseDocumentController::activateSelection() {
     if (showingConfirm()) {
         queueConfirmAction(confirmSelection_);
     } else {
-        queuePauseAction(selection_);
+        if (selection_ == PauseAction::Continue) {
+            pendingResume_ = true;
+            queueSound(kBackSfxPath, 0.9f);
+        } else {
+            queuePauseAction(selection_);
+            queueSound(kConfirmSfxPath, 0.92f);
+        }
     }
 }
 
@@ -144,6 +173,7 @@ void PauseDocumentController::cancel() {
         pendingDismissConfirm_ = true;
     } else {
         pendingResume_ = true;
+        queueSound(kBackSfxPath, 0.9f);
     }
 }
 
@@ -242,7 +272,7 @@ void PauseDocumentController::attachListeners() {
 
             auto clickListener = std::make_unique<CallbackEventListener>([this, action = button.action](Rml::Event&) {
                 selection_ = action;
-                queuePauseAction(action);
+                activateSelection();
             });
             element->AddEventListener(Rml::EventId::Click, clickListener.get());
             listeners_.push_back(EventListenerBinding{
@@ -250,6 +280,17 @@ void PauseDocumentController::attachListeners() {
                 Rml::EventId::Click,
                 false,
                 std::move(clickListener),
+            });
+            // play scroll sfx on hover
+            auto hoverSfxListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
+                queueSound(kScrollSfxPath, 0.82f);
+            });
+            element->AddEventListener(Rml::EventId::Mouseover, hoverSfxListener.get());
+            listeners_.push_back(EventListenerBinding{
+                element,
+                Rml::EventId::Mouseover,
+                false,
+                std::move(hoverSfxListener),
             });
         }
     }
@@ -281,6 +322,22 @@ void PauseDocumentController::attachListeners() {
             });
         }
     }
+
+    // confirm buttons: play sfx on hover as well
+    for (const ConfirmButtonDefinition& button : kConfirmButtons) {
+        if (Rml::Element* element = document_->GetElementById(button.id)) {
+            auto hoverSfxListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
+                queueSound(kScrollSfxPath, 0.82f);
+            });
+            element->AddEventListener(Rml::EventId::Mouseover, hoverSfxListener.get());
+            listeners_.push_back(EventListenerBinding{
+                element,
+                Rml::EventId::Mouseover,
+                false,
+                std::move(hoverSfxListener),
+            });
+        }
+    }
 }
 
 void PauseDocumentController::refreshFromState(const AppState& state) {
@@ -301,14 +358,20 @@ void PauseDocumentController::refreshDocument() const {
         }
     }
 
+    if (Rml::Element* overlay = document_->GetElementById("pause-overlay")) {
+        overlay->SetClass("fade-in", true);
+    }
+
     const bool confirmVisible = showingConfirm();
     if (Rml::Element* element = document_->GetElementById("pause-confirm")) {
         element->SetClass("is-visible", confirmVisible);
     }
 
-    if (Rml::Element* element = document_->GetElementById("pause-notice")) {
-        element->SetInnerRML(noticeText_.empty() ? "" : escapeRmlText(noticeText_));
-        element->SetClass("is-visible", !noticeText_.empty());
+    if (Rml::Element* toast = document_->GetElementById("pause-toast")) {
+        if (!noticeText_.empty()) {
+            toast->SetInnerRML(escapeRmlText(noticeText_));
+        }
+        toast->SetClass("is-visible", !noticeText_.empty());
     }
 
     if (Rml::Element* element = document_->GetElementById("pause-confirm-title")) {
@@ -323,11 +386,15 @@ void PauseDocumentController::refreshDocument() const {
     }
     if (Rml::Element* element = document_->GetElementById("pause-confirm-cancel")) {
         element->SetClass("is-selected", confirmSelection_ == ConfirmAction::Cancel);
-        element->SetInnerRML(screen_ == ScreenState::PauseConfirmOverwriteSave ? "Cancel" : "Stay");
+    }
+    if (Rml::Element* label = document_->GetElementById("pause-confirm-cancel-label")) {
+        label->SetInnerRML(screen_ == ScreenState::PauseConfirmOverwriteSave ? "Cancel" : "Stay");
     }
     if (Rml::Element* element = document_->GetElementById("pause-confirm-confirm")) {
         element->SetClass("is-selected", confirmSelection_ == ConfirmAction::ExitToMainMenu);
-        element->SetInnerRML(
+    }
+    if (Rml::Element* label = document_->GetElementById("pause-confirm-confirm-label")) {
+        label->SetInnerRML(
             screen_ == ScreenState::PauseConfirmOverwriteSave ? "Overwrite Save" : "Exit To Menu");
     }
 }
@@ -362,6 +429,16 @@ void PauseDocumentController::queuePauseAction(PauseAction action) {
 
 void PauseDocumentController::queueConfirmAction(ConfirmAction action) {
     pendingConfirmAction_ = action;
+}
+
+void PauseDocumentController::queueSound(const char* path, float volume) {
+    pendingSoundRequests_.push_back(SoundRequest{path, volume});
+}
+
+std::vector<SoundRequest> PauseDocumentController::consumeSoundRequests() {
+    std::vector<SoundRequest> requests = std::move(pendingSoundRequests_);
+    pendingSoundRequests_.clear();
+    return requests;
 }
 
 void PauseDocumentController::exitStoryToMainMenu(AppState& state) const {
