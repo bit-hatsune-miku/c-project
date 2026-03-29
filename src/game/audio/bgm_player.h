@@ -11,6 +11,107 @@
 
 #include <SDL2/SDL.h>
 
+/**
+ * Looping background-music player that feeds audio to SDL2 via an audio callback.
+ * Loads an entire WAV into memory when playback starts and continuously loops it until stopped.
+ */
+
+/**
+ * Destructor that stops playback and releases resources.
+ */
+
+/**
+ * Load the WAV at wavPath, begin looping playback, and initialize playback state.
+ *
+ * @param wavPath Path to the WAV file to load.
+ * @param volume Initial playback volume, clamped to the range [0, 1].
+ * @param startFraction Fractional start position within the track, clamped to [0, 1]; 0.0 starts at the beginning, 1.0 at the end.
+ * @returns `true` if the WAV was loaded and the audio device opened successfully, `false` on failure.
+ */
+
+/**
+ * Stop playback, close the audio device (if open), and clear all loaded/decoded audio state.
+ */
+
+/**
+ * Set playback volume; value is clamped to [0, 1]. This method is safe to call from other threads while playing.
+ *
+ * @param volume Desired volume level.
+ */
+
+/**
+ * Pause playback if currently playing.
+ */
+
+/**
+ * Resume playback if currently paused.
+ */
+
+/**
+ * @returns `true` if an audio device is open and playback is active, `false` otherwise.
+ */
+
+/**
+ * @returns `true` if playback is paused, `false` otherwise.
+ */
+
+/**
+ * @returns The index of the current audio frame within the decoded frames.
+ */
+
+/**
+ * @returns The total number of audio frames derived from the loaded WAV, or 0 if none.
+ */
+
+/**
+ * @returns The sample rate (Hz) of the loaded WAV, or 0 if none.
+ */
+
+/**
+ * @returns The channel count used for decoding (at least 1).
+ */
+
+/**
+ * @returns Reference to the decoded mono float samples (one value per frame). May be empty if decoding failed or no data is loaded.
+ */
+
+/**
+ * @returns `true` if decoded mono samples, a positive frame count, and a valid sample rate are available, `false` otherwise.
+ */
+
+/**
+ * Read a single sample from raw audio bytes and convert it to a normalized float in the range [-1.0, 1.0].
+ *
+ * @param data Pointer to the sample's first byte.
+ * @param format SDL audio format describing bit depth, signedness, float/integer and endianness.
+ * @returns Normalized sample value in [-1.0, 1.0]; returns 0.0 for unsupported formats.
+ */
+
+/**
+ * Decode and mix multi-channel PCM or float audio into a mono vector of normalized floats (one sample per frame).
+ *
+ * @param audioData Raw audio bytes from the loaded WAV.
+ * @param spec SDL_AudioSpec describing the audio format.
+ * @param frameCount Number of frames available in audioData.
+ * @param bytesPerFrame Number of bytes representing one frame (all channels).
+ * @returns A vector of mono normalized float samples; may be empty if decoding prerequisites are invalid.
+ */
+
+/**
+ * SDL audio callback entry point that forwards to the instance's fillStream.
+ *
+ * @param userdata Pointer to the BgmPlayer instance.
+ * @param stream Destination audio buffer provided by SDL.
+ * @param len Length in bytes of the destination buffer.
+ */
+
+/**
+ * Fill SDL's output buffer by mixing and looping the loaded audio data into stream.
+ * Updates the internal play position and current frame as audio is consumed.
+ *
+ * @param stream Destination audio buffer provided by SDL.
+ * @param len Length in bytes of the destination buffer.
+ */
 namespace game::audio {
 
 // Looping BGM player backed by SDL2's audio callback.

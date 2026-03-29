@@ -23,6 +23,12 @@ constexpr std::size_t kAnalysisWindowSize = 2048;
 constexpr float kPi = 3.14159265358979323846f;
 constexpr float kUiMusicMasterGain = 0.82f;
 
+/**
+ * @brief Extracts the filename stem from a filesystem path and returns it in lowercase.
+ *
+ * @param path File system path to a file.
+ * @return std::string Lowercase filename stem (filename without directory or extension).
+ */
 std::string lowercaseTrackStem(const std::string& path) {
     std::string stem = std::filesystem::path(path).stem().string();
     std::transform(stem.begin(), stem.end(), stem.begin(), [](unsigned char ch) {
@@ -31,10 +37,26 @@ std::string lowercaseTrackStem(const std::string& path) {
     return stem;
 }
 
+/**
+ * @brief Clamp a floating-point value to the range [0, 1].
+ *
+ * @param value Input value to clamp.
+ * @return float `value` clamped to the range [0, 1].
+ */
 float clamp01(float value) {
     return std::clamp(value, 0.0f, 1.0f);
 }
 
+/**
+ * @brief Determines whether the application is currently showing a story-mode pause screen.
+ *
+ * Evaluates whether the current screen is one of the pause-related screens and the pause
+ * context is `PauseContext::Story`.
+ *
+ * @param state Current application state to evaluate.
+ * @return `true` if the screen is `PauseMenu`, `PauseConfirmExit`, or `PauseConfirmOverwriteSave`
+ *         and `pauseContext` equals `PauseContext::Story`, `false` otherwise.
+ */
 bool isPauseStoryScreen(const AppState& state) {
     return (state.screen == ScreenState::PauseMenu ||
             state.screen == ScreenState::PauseConfirmExit ||
@@ -42,6 +64,14 @@ bool isPauseStoryScreen(const AppState& state) {
            state.pauseContext == PauseContext::Story;
 }
 
+/**
+ * @brief Determines whether the current screen should be treated as a pause-child screen for story pause music behavior.
+ *
+ * Evaluates Settings, LoadMenu, and LoadConfirmDelete screens to see if they will return to PauseMenu and the pause context is Story.
+ *
+ * @param state Current application state used to inspect screen, return-target fields, and pause context.
+ * @return true if the current screen is a pause-child (i.e., will return to PauseMenu and pause context is Story), false otherwise.
+ */
 bool isPauseChildScreen(const AppState& state) {
     if (state.screen == ScreenState::Settings) {
         return state.settingsReturnScreen == ScreenState::PauseMenu &&
@@ -56,6 +86,16 @@ bool isPauseChildScreen(const AppState& state) {
     return false;
 }
 
+/**
+ * @brief Determines whether the current UI surface is ready for UI music playback.
+ *
+ * For regular (non-pause) surfaces this is always true. For pause-related
+ * surfaces (story pause or its child screens) the surface is ready only when
+ * the pause intro timer has reached its maximum threshold (within 0.0001 seconds).
+ *
+ * @param state Current application state used to evaluate screen and pause timing.
+ * @return `true` if music may start or unpause on the current surface, `false` otherwise.
+ */
 bool isPauseSurfaceReadyForMusic(const AppState& state) {
     if (!(isPauseStoryScreen(state) || isPauseChildScreen(state))) {
         return true;
@@ -64,7 +104,14 @@ bool isPauseSurfaceReadyForMusic(const AppState& state) {
     return state.pauseIntroTime >= kPauseIntroMaxTime - 0.0001f;
 }
 
-}  // namespace
+}  /**
+ * @brief Initializes the UI music controller, preparing audio and loading the UI BGM track pool.
+ *
+ * Performs shutdown of any prior state, initializes the audio subsystem, loads the track pool,
+ * and marks the controller as initialized.
+ *
+ * @return true if the controller completed initialization.
+ */
 
 bool UiMusicController::initialize() {
     shutdown();
@@ -74,6 +121,13 @@ bool UiMusicController::initialize() {
     return true;
 }
 
+/**
+ * @brief Stops playback and resets the controller to an uninitialized default state.
+ *
+ * Clears loaded tracks and the draw bag, stops the audio player, resets visual/analysis
+ * state and smoothed bars, and restores all gain/volume, surface, and story-BGM bridge
+ * flags/fields to their default values so the controller behaves as if not initialized.
+ */
 void UiMusicController::shutdown() {
     player_.stop();
     tracks_.clear();
@@ -98,6 +152,14 @@ void UiMusicController::shutdown() {
     deferredStartSurface_ = UiMusicSurface::None;
 }
 
+/**
+ * @brief Ensures the SDL audio subsystem is initialized and marks the controller as audio-ready.
+ *
+ * Attempts to initialize SDL audio if it is not already initialized. On success the controller's
+ * internal audio-ready flag is set to true; on failure it is set to false and an error is reported.
+ *
+ * @return true if the SDL audio subsystem is available and the controller is marked audio-ready, false otherwise.
+ */
 bool UiMusicController::initializeAudio() {
     if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
@@ -111,6 +173,17 @@ bool UiMusicController::initializeAudio() {
     return true;
 }
 
+/**
+ * @brief Loads UI "classic" WAV tracks into the controller's track pool.
+ *
+ * Clears any existing pool and attempts to resolve and enumerate the configured
+ * classics directory. Regular files with a `.wav` extension are added to the
+ * controller's track list as usable entries and the draw bag is refilled.
+ *
+ * @return `true` if one or more tracks were successfully loaded into the pool;
+ * `false` if the directory could not be resolved, directory iteration failed,
+ * or no `.wav` tracks were found.
+ */
 bool UiMusicController::loadTrackPool() {
     tracks_.clear();
     drawBag_.clear();
@@ -159,6 +232,15 @@ bool UiMusicController::loadTrackPool() {
     return !tracks_.empty();
 }
 
+/**
+ * @brief Determines which UI music surface should be active for the given application state.
+ *
+ * Inspects the current screen, pause context, and certain return-screen fields to map the
+ * application's UI state to a UiMusicSurface value that drives UI BGM selection and playback.
+ *
+ * @param state Current application state used to resolve the appropriate music surface.
+ * @return UiMusicSurface The resolved music surface: MainMenu, BattleSelector, PauseMenu, or None.
+ */
 UiMusicSurface UiMusicController::resolveSurface(const AppState& state) const {
     if (state.screen == ScreenState::MainMenu) {
         return UiMusicSurface::MainMenu;
@@ -188,6 +270,22 @@ UiMusicSurface UiMusicController::resolveSurface(const AppState& state) const {
     return UiMusicSurface::None;
 }
 
+/**
+ * @brief Handle a transition between UI music "surfaces", configuring fade timers
+ *        and coordinating pause/resume behavior for visual-novel (VN) story BGM.
+ *
+ * Adjusts internal fade-out duration, sets a deferred start for entering the PauseMenu,
+ * and manages the story-BGM bridge used when the application is in a pause-story context:
+ * - When entering the PauseMenu from a non-pause surface and the app is in a pause-story
+ *   screen, begins fading the VN BGM out (and records whether it should be resumed).
+ * - When leaving the PauseMenu, optionally begins fading the VN BGM back in and unpauses
+ *   VN playback if it was previously marked to resume; otherwise clears resume state.
+ *
+ * @param previousSurface The music surface that was active before the transition.
+ * @param nextSurface The music surface that will be active after the transition.
+ * @param state The current application state used to decide pause-story conditions
+ *              and whether to resume VN story BGM.
+ */
 void UiMusicController::handleSurfaceTransition(UiMusicSurface previousSurface,
                                                 UiMusicSurface nextSurface,
                                                 const AppState& state) {
@@ -234,6 +332,16 @@ void UiMusicController::handleSurfaceTransition(UiMusicSurface previousSurface,
     }
 }
 
+/**
+ * @brief Advances the VN (story) background-music bridge state machine to fade the story BGM out or back in while the UI enters or leaves pause.
+ *
+ * Progresses the current StoryBgmPauseMode using the elapsed time to:
+ * - fade the VN BGM volume to 0 and pause it when entering a pause, or
+ * - interpolate the VN BGM volume back to the recorded resume target when leaving a pause.
+ * The method also clears the resume intent and resets the pause mode when VN BGM is unavailable.
+ *
+ * @param deltaSeconds Elapsed time in seconds since the last update (non-negative values are used).
+ */
 void UiMusicController::updateStoryBgmBridge(float deltaSeconds) {
     switch (storyBgmPauseMode_) {
         case StoryBgmPauseMode::Idle:
@@ -281,6 +389,19 @@ void UiMusicController::updateStoryBgmBridge(float deltaSeconds) {
     }
 }
 
+/**
+ * @brief Advance the UI music controller for a single frame.
+ *
+ * Resolves the current UI music surface from application state, handles any surface
+ * transition (including bridging story BGM pause/resume), updates music playback
+ * (start/stop/fade and volume) and refreshes audio-driven visual state.
+ *
+ * This will call initialize() if the controller has not yet been initialized.
+ *
+ * @param state Current application state used to determine the active UI surface and settings.
+ * @param loadingTransitionActive When true, music playback is suppressed for loading transitions.
+ * @param deltaSeconds Time elapsed since the last update, in seconds.
+ */
 void UiMusicController::update(const AppState& state, bool loadingTransitionActive, float deltaSeconds) {
     if (!initialized_) {
         initialize();
@@ -301,6 +422,19 @@ void UiMusicController::update(const AppState& state, bool loadingTransitionActi
     refreshVisualState(deltaSeconds);
 }
 
+/**
+ * @brief Update UI music player's playback state, fades, and audible volume for the current frame.
+ *
+ * Updates the controller's requested surface, ensures a track is started when appropriate (respecting
+ * deferred starts and loading transitions), advances fade-in/out toward the target surface, computes
+ * the audible gain using the per-track gain and the provided music volume, applies the volume to the
+ * player, and stops playback when fully faded out (optionally starting the next requested track).
+ *
+ * @param deltaSeconds Time elapsed since the last update, in seconds.
+ * @param desiredSurface The UI music surface that should be active this frame.
+ * @param loadingTransitionActive If true, suppresses starting new tracks while a loading transition is active.
+ * @param musicVolume Master music volume in the range [0.0, 1.0]; used to scale the audible gain.
+ */
 void UiMusicController::updateMusicPlayback(float deltaSeconds,
                                             UiMusicSurface desiredSurface,
                                             bool loadingTransitionActive,
@@ -351,6 +485,19 @@ void UiMusicController::updateMusicPlayback(float deltaSeconds,
     }
 }
 
+/**
+ * @brief Attempt to start a randomized, playable UI music track for the given surface.
+ *
+ * Tries up to the number of currently usable tracks, drawing indices from the internal
+ * randomized draw bag to avoid immediate repeats. On a successful play start, the controller's
+ * playback state is updated (current surface and gain state) and the player begins playback
+ * from a randomized start position. If a track fails to start it is marked unusable and the
+ * draw bag is refreshed; the function returns `false` when audio is not ready, there are no
+ * usable tracks, or no playable track could be started.
+ *
+ * @param surface The UI music surface to start music for; must not be `UiMusicSurface::None`.
+ * @return `true` if a track was started and playback initiated, `false` otherwise.
+ */
 bool UiMusicController::startTrackForSurface(UiMusicSurface surface) {
     if (!audioReady_ || surface == UiMusicSurface::None) {
         return false;
@@ -390,6 +537,13 @@ bool UiMusicController::startTrackForSurface(UiMusicSurface surface) {
     return false;
 }
 
+/**
+ * Selects and removes the next track index from the draw bag, refilling the bag if it is empty.
+ *
+ * This modifies the internal draw bag by popping the chosen index.
+ *
+ * @return std::size_t The selected track index, or `std::numeric_limits<std::size_t>::max()` if no index is available.
+ */
 std::size_t UiMusicController::drawNextTrackIndex() {
     if (drawBag_.empty()) {
         refillDrawBag();
@@ -403,6 +557,15 @@ std::size_t UiMusicController::drawNextTrackIndex() {
     return trackIndex;
 }
 
+/**
+ * @brief Refills the randomized draw bag with indices of currently usable tracks.
+ *
+ * Clears the existing draw bag, appends the index of each track whose `usable` flag is true,
+ * and returns early if no usable tracks are available. When populated, the bag is shuffled
+ * using the controller's RNG. If the controller knows the last-played track and the last
+ * element after shuffling would repeat it while the bag contains more than one entry, the
+ * function swaps that last element with an earlier, different index to reduce immediate repeats.
+ */
 void UiMusicController::refillDrawBag() {
     drawBag_.clear();
     for (std::size_t i = 0; i < tracks_.size(); ++i) {
@@ -426,11 +589,25 @@ void UiMusicController::refillDrawBag() {
     }
 }
 
+/**
+ * @brief Choose a random start position fraction within the first half of a track.
+ *
+ * @return A float in the range [0.0, 0.5] representing the start fraction of the track.
+ */
 float UiMusicController::randomStartFraction() {
     std::uniform_real_distribution<float> distribution(0.0f, 0.5f);
     return distribution(rng_);
 }
 
+/**
+ * @brief Computes the master gain multiplier to apply for a specific UI music file.
+ *
+ * Determines a per-track master gain based on the file's filename stem to normalize perceived loudness
+ * between tracks; returns a scaled multiplier for known tracks or the default master gain otherwise.
+ *
+ * @param path Path to the audio file (used to derive the filename stem).
+ * @return float Master gain multiplier to apply for the given track path.
+ */
 float UiMusicController::gainForTrackPath(const std::string& path) const {
     const std::string stem = lowercaseTrackStem(path);
 
@@ -457,6 +634,19 @@ float UiMusicController::gainForTrackPath(const std::string& path) const {
     return kUiMusicMasterGain;
 }
 
+/**
+ * @brief Analyze the currently decoded audio and produce per-band bar levels for UI visualization.
+ *
+ * Computes frequency-band magnitudes from the player's decoded mono samples (using a Hann window
+ * and a Goertzel-style probe across logarithmically spaced bands), applies tilting and nonlinear
+ * normalization, scales results by the controller's current audible gain, and clamps values to
+ * the range [0.0, 1.0]. If no decoded samples are available, the sample rate is invalid, the
+ * analysis window is too small, or the audible gain is effectively zero, the function returns an
+ * array of zeros.
+ *
+ * @return std::array<float, kUiMusicBarCount> Array of normalized bar levels (one per visual band),
+ *         each in the range [0.0, 1.0], scaled by the current audible gain.
+ */
 std::array<float, kUiMusicBarCount> UiMusicController::analyzeCurrentTrack() const {
     std::array<float, kUiMusicBarCount> analyzed{};
     if (!player_.hasDecodedSamples() || currentAudibleGain_ <= 0.001f) {
@@ -531,6 +721,15 @@ std::array<float, kUiMusicBarCount> UiMusicController::analyzeCurrentTrack() con
     return analyzed;
 }
 
+/**
+ * @brief Updates smoothed audio-visual bars and overall UI music visibility/opacity.
+ *
+ * Applies per-frame attack/release smoothing to frequency-band levels produced by analyzeCurrentTrack(),
+ * writes the smoothed band values into visualState_.bars, and sets visualState_.visible and
+ * visualState_.opacity based on whether any bars are meaningfully active and the current audible gain.
+ *
+ * @param deltaSeconds Time elapsed since the last update, in seconds; used to compute attack/release blends.
+ */
 void UiMusicController::refreshVisualState(float deltaSeconds) {
     const std::array<float, kUiMusicBarCount> analyzed = analyzeCurrentTrack();
     const float attackBlend = deltaSeconds > 0.0f
