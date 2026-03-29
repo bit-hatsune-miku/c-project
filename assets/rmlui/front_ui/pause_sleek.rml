@@ -1,0 +1,51 @@
+<rml>
+<head>
+    <title>Pause (Sleek)</title>
+    <link type="text/rcss" href="pause_sleek.rcss"/>
+</head>
+<body>
+    <div id="pause-overlay"></div>
+
+    <div id="pause-shell" class="pause-shell">
+        <img id="pause-logo" src="../../vn/backgrounds/General_Art/MainMenuTitle.png"/>
+
+        <div id="pause-title-shell">
+            <div id="pause-kicker">STORY CONTROL / SESSION HOLD</div>
+            <div id="pause-title">PAUSE</div>
+        </div>
+
+        <div id="pause-buttons">
+            <button id="pause-button-continue" class="pause-button is-selected">
+                <div class="pause-inner"><div class="pause-accent"></div><div class="pause-code">01</div><div class="pause-label">CONTINUE</div><div class="pause-tail"></div></div>
+            </button>
+            <button id="pause-button-save" class="pause-button">
+                <div class="pause-inner"><div class="pause-accent"></div><div class="pause-code">02</div><div class="pause-label">SAVE</div><div class="pause-tail"></div></div>
+            </button>
+            <button id="pause-button-load" class="pause-button">
+                <div class="pause-inner"><div class="pause-accent"></div><div class="pause-code">03</div><div class="pause-label">LOAD</div><div class="pause-tail"></div></div>
+            </button>
+            <button id="pause-button-settings" class="pause-button">
+                <div class="pause-inner"><div class="pause-accent"></div><div class="pause-code">04</div><div class="pause-label">SETTINGS</div><div class="pause-tail"></div></div>
+            </button>
+            <button id="pause-button-exit" class="pause-button">
+                <div class="pause-inner"><div class="pause-accent"></div><div class="pause-code">05</div><div class="pause-label">EXIT TO MENU</div><div class="pause-tail"></div></div>
+            </button>
+        </div>
+
+        <div id="pause-notice"></div>
+    </div>
+
+    <div id="pause-confirm">
+        <div id="pause-confirm-card">
+            <div id="pause-confirm-title"></div>
+            <div id="pause-confirm-body"></div>
+            <div id="pause-confirm-actions">
+                <button id="pause-confirm-cancel" class="pause-confirm-button is-selected">Stay</button>
+                <button id="pause-confirm-confirm" class="pause-confirm-button">Exit To Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pause-toast" class="pause-toast"></div>
+</body>
+</rml>

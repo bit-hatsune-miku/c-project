@@ -522,6 +522,7 @@ void LoadDocumentController::refreshDocument() const {
         if (Rml::Element* element = document_->GetElementById(kSlotButtonIds[i])) {
             element->SetClass("is-hidden", !visible);
             element->SetClass("is-selected", visible && selection_ == slotIndex);
+            element->SetProperty("display", visible ? "block" : "none");
         }
         if (!visible) {
             continue;
@@ -539,9 +540,13 @@ void LoadDocumentController::refreshDocument() const {
         }
     }
 
+    const bool hasSlotData = !cachedSlots_.empty();
+
     if (Rml::Element* element = document_->GetElementById("load-footer-delete")) {
+        element->SetClass("is-hidden", !hasSlotData);
         element->SetClass("is-selected", deleteSelected());
         element->SetClass("is-disabled", !selectedSlotCanDelete());
+        element->SetProperty("display", hasSlotData ? "block" : "none");
     }
     if (Rml::Element* element = document_->GetElementById("load-footer-back")) {
         element->SetClass("is-selected", backSelected());

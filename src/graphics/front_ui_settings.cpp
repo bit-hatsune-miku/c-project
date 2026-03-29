@@ -350,7 +350,7 @@ void SettingsDocumentController::applySelectionStyles() const {
 
     for (const SettingsRowDefinition& row : kRows) {
         if (Rml::Element* element = document_->GetElementById(row.rowId)) {
-            element->SetClass("selected", row.item == selection_);
+            element->SetClass("is-selected", row.item == selection_);
         }
     }
 }
