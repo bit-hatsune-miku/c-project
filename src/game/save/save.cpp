@@ -65,6 +65,7 @@ SaveGame normalizedSaveGame(SaveGame saveGame) {
     if (saveGame.timestamp.empty()) {
         saveGame.timestamp = makeIsoUtcTimestamp();
     }
+    saveGame.settings.musicVolume = std::clamp(saveGame.settings.musicVolume, 0, 100);
     saveGame.settings.voiceVolume = std::clamp(saveGame.settings.voiceVolume, 0, 100);
     saveGame.settings.textSpeed = std::max(1, saveGame.settings.textSpeed);
     battle::normalizePlayerProgression(saveGame.progression, battle::ProgressionFallbackPolicy::StarterRoster);
@@ -106,6 +107,7 @@ json makeDefaultProfileJson() {
         {"version", 1},
         {"settings", {
             {"fullscreen", false},
+            {"musicVolume", 100},
             {"voiceVolume", 82},
             {"textSpeed", 42}
         }},
@@ -341,6 +343,7 @@ std::optional<SaveGame> load(const fs::path& path) {
         if (saveGame.chapter.empty() || saveGame.entryIndex < 0) {
             return std::nullopt;
         }
+        saveGame.settings.musicVolume = std::clamp(saveGame.settings.musicVolume, 0, 100);
         saveGame.settings.voiceVolume = std::clamp(saveGame.settings.voiceVolume, 0, 100);
         saveGame.settings.textSpeed = std::max(1, saveGame.settings.textSpeed);
         return saveGame;

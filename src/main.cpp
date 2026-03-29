@@ -671,6 +671,7 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
         return;
     }
 
+    vn::setMusicVolume(settings.musicVolume);
     vn::setVoiceVolume(settings.voiceVolume);
     vn::setTypewriterSpeed(settings.textSpeed);
 
@@ -727,6 +728,7 @@ save::SaveGame buildStorySaveGame(const AppState& state) {
     saveGame.entryIndex = static_cast<int>(state.story.entryIndex);
     saveGame.label = save::generateLabel(state.story.script, state.story.entryIndex);
     saveGame.settings.fullscreen = state.settings.fullscreen;
+    saveGame.settings.musicVolume = static_cast<int>(std::lround(std::clamp(state.settings.musicVolume, 0.0f, 1.0f) * 100.0f));
     saveGame.settings.voiceVolume = static_cast<int>(std::lround(std::clamp(state.settings.voiceVolume, 0.0f, 1.0f) * 100.0f));
     saveGame.settings.textSpeed = static_cast<int>(std::lround(std::max(1.0f, state.settings.textSpeed)));
     saveGame.progression = state.progression;
@@ -780,6 +782,7 @@ bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
     }
 
     state.settings.fullscreen = saveGame.settings.fullscreen;
+    state.settings.musicVolume = std::clamp(static_cast<float>(saveGame.settings.musicVolume) / 100.0f, 0.0f, 1.0f);
     state.settings.voiceVolume = std::clamp(static_cast<float>(saveGame.settings.voiceVolume) / 100.0f, 0.0f, 1.0f);
     state.settings.textSpeed = static_cast<float>(std::max(1, saveGame.settings.textSpeed));
     state.progression = saveGame.progression;
@@ -793,6 +796,7 @@ bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
     state.requestStoryReturnToBossSelector = false;
 
     vn::reset();
+    vn::setMusicVolume(state.settings.musicVolume);
     vn::setVoiceVolume(state.settings.voiceVolume);
     vn::setTypewriterSpeed(state.settings.textSpeed);
 
@@ -839,6 +843,7 @@ void beginStory(AppState& state, const std::string& scriptRef, ScreenState endRe
     state.pendingBattleWinScript.clear();
     state.pendingBattleLoseScript.clear();
     vn::reset();
+    vn::setMusicVolume(state.settings.musicVolume);
     vn::setVoiceVolume(state.settings.voiceVolume);
     vn::setTypewriterSpeed(state.settings.textSpeed);
     applyCurrentEntry(state.story, state.settings);
@@ -1331,6 +1336,7 @@ bool restoreRendererUi(Window& window, MenuResources& menuResources, const GameS
     if (!vn::initialize(window.getRenderer(), window.getWidth(), window.getHeight())) {
         return false;
     }
+    vn::setMusicVolume(settings.musicVolume);
     vn::setVoiceVolume(settings.voiceVolume);
     vn::setTypewriterSpeed(settings.textSpeed);
     loadMenuResources(menuResources, window.getRenderer());
@@ -1507,6 +1513,23 @@ int main(int argc, char** argv) {
 
     bool rendererUiReady = false;
     (void)uiMusic.initialize();
+    GameSettings appliedRuntimeSettings = state.settings;
+    const auto applyRuntimeSettings = [&](bool force = false) {
+        const auto differs = [&](float lhs, float rhs) {
+            return std::fabs(lhs - rhs) > 0.0001f;
+        };
+
+        if (force || differs(appliedRuntimeSettings.musicVolume, state.settings.musicVolume)) {
+            vn::setMusicVolume(state.settings.musicVolume);
+        }
+        if (force || differs(appliedRuntimeSettings.voiceVolume, state.settings.voiceVolume)) {
+            vn::setVoiceVolume(state.settings.voiceVolume);
+        }
+        if (force || differs(appliedRuntimeSettings.textSpeed, state.settings.textSpeed)) {
+            vn::setTypewriterSpeed(state.settings.textSpeed);
+        }
+        appliedRuntimeSettings = state.settings;
+    };
 #ifdef APP_ENABLE_RMLUI
     graphics::frontui::Session frontUi;
     if (!restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state)) {
@@ -1519,9 +1542,8 @@ int main(int argc, char** argv) {
         return 1;
     }
     rendererUiReady = true;
-    vn::setVoiceVolume(state.settings.voiceVolume);
-    vn::setTypewriterSpeed(state.settings.textSpeed);
 #endif
+    applyRuntimeSettings(true);
 
 #ifdef VN_AUTO_START_STORY
     beginStory(state);
@@ -2125,6 +2147,7 @@ int main(int argc, char** argv) {
                         state.storyEndReturnScreen =
                             resolveStoryEndReturnScreen(state.story.script, endReturnScreen);
                         vn::reset();
+                        vn::setMusicVolume(state.settings.musicVolume);
                         vn::setVoiceVolume(state.settings.voiceVolume);
                         vn::setTypewriterSpeed(state.settings.textSpeed);
                         state.pauseSelection = PauseAction::Continue;
@@ -2247,6 +2270,8 @@ int main(int argc, char** argv) {
             return 1;
         }
 #endif
+
+        applyRuntimeSettings();
 
         if (!shouldKeepStoryBgmPlaying(state)) {
             vn::stopBgmPlayback();

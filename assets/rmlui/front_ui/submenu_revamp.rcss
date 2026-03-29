@@ -121,8 +121,83 @@ button {
     position: absolute;
     left: 24dp;
     right: 24dp;
-    top: 164dp;
-    bottom: 26dp;
+    top: 150dp;
+    bottom: 18dp;
+}
+
+#settings-shell .submenu-copy {
+    top: 98dp;
+    font-size: 11dp;
+    line-height: 16dp;
+}
+
+#settings-list .submenu-row {
+    height: 62dp;
+    margin-bottom: 10dp;
+}
+
+#settings-list .submenu-row-slider {
+    height: 80dp;
+}
+
+#settings-list .submenu-row-accent {
+    top: 15dp;
+    height: 31dp;
+}
+
+#settings-list .submenu-row-code {
+    top: 20dp;
+}
+
+#settings-list .submenu-row-main {
+    top: 10dp;
+    right: 144dp;
+}
+
+#settings-list .submenu-row-label {
+    font-size: 17dp;
+}
+
+#settings-list .submenu-row-sub {
+    margin-top: 4dp;
+    font-size: 9dp;
+    letter-spacing: 2dp;
+}
+
+#settings-list .submenu-row-value {
+    top: 22dp;
+    font-size: 10dp;
+}
+
+#settings-list .submenu-slider {
+    right: 132dp;
+    bottom: 12dp;
+}
+
+#settings-focus-shell {
+    padding: 24dp;
+}
+
+#settings-focus-shell .submenu-preview-card {
+    height: 206dp;
+}
+
+#settings-focus-shell .submenu-preview-meter {
+    margin-top: 14dp;
+}
+
+#settings-focus-shell .submenu-detail-grid {
+    gap: 8dp;
+    margin-top: 14dp;
+}
+
+#settings-focus-shell .submenu-detail-cell {
+    width: 136dp;
+    padding: 12dp 14dp;
+}
+
+#settings-focus-shell .submenu-footer-hint {
+    margin-top: 14dp;
 }
 
 #load-slot-list {
@@ -350,7 +425,7 @@ input.submenu-slider sliderarrowinc {
 }
 
 #settings-focus-shell {
-    padding: 28dp;
+    padding: 24dp;
 }
 
 .submenu-detail-kicker {

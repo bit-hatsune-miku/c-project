@@ -51,6 +51,7 @@ bool gBackgroundFadeActive = false;
 constexpr float kBackgroundFadeDuration = 0.30f;
 
 float gCharsPerSecond = 45.0f;
+float gBgmMasterVolume = 1.0f;
 float gVoiceVolume = 0.85f;
 float gBgmVolume = 1.0f;
 float gBgmCurrentVolume = 0.0f;
@@ -229,13 +230,13 @@ void clearPendingBgmTransition() {
 void applyCurrentBgmVolume(float volume01) {
     gBgmCurrentVolume = std::clamp(volume01, 0.0f, 1.0f);
     if (gBgmPlayer.isPlaying()) {
-        gBgmPlayer.setVolume(gBgmCurrentVolume);
+        gBgmPlayer.setVolume(gBgmCurrentVolume * gBgmMasterVolume);
     }
 }
 
 bool startImmediateBgmPlayback(const std::string& wavPath, float volume01) {
     const float clampedVolume = std::clamp(volume01, 0.0f, 1.0f);
-    if (!gBgmPlayer.play(wavPath, clampedVolume)) {
+    if (!gBgmPlayer.play(wavPath, clampedVolume * gBgmMasterVolume)) {
         std::cerr << "[VN] Could not load BGM WAV: " << wavPath << " (" << SDL_GetError() << ")\n";
         return false;
     }
@@ -1225,11 +1226,29 @@ void setAutoAdvanceOnVoiceEnd(bool enabled) {
 }
 
 void setTypewriterSpeed(float charsPerSecond) {
-    gCharsPerSecond = std::max(1.0f, charsPerSecond);
+    const float clamped = std::max(1.0f, charsPerSecond);
+    if (std::fabs(gCharsPerSecond - clamped) <= 0.001f) {
+        return;
+    }
+    gCharsPerSecond = clamped;
+}
+
+void setMusicVolume(float volume01) {
+    const float clamped = std::clamp(volume01, 0.0f, 1.0f);
+    if (std::fabs(gBgmMasterVolume - clamped) <= 0.001f) {
+        return;
+    }
+
+    gBgmMasterVolume = clamped;
+    applyCurrentBgmVolume(gBgmCurrentVolume);
 }
 
 void setVoiceVolume(float volume01) {
-    gVoiceVolume = std::clamp(volume01, 0.0f, 1.0f);
+    const float clamped = std::clamp(volume01, 0.0f, 1.0f);
+    if (std::fabs(gVoiceVolume - clamped) <= 0.001f) {
+        return;
+    }
+    gVoiceVolume = clamped;
 
     if (gAudioDevice == 0 || gLoadedWavBuffer == nullptr || gLoadedWavLength == 0) {
         return;
@@ -1246,7 +1265,11 @@ void setVoiceVolume(float volume01) {
 }
 
 void setBgmVolume(float volume01) {
-    gBgmVolume = std::clamp(volume01, 0.0f, 1.0f);
+    const float clamped = std::clamp(volume01, 0.0f, 1.0f);
+    if (std::fabs(gBgmVolume - clamped) <= 0.001f) {
+        return;
+    }
+    gBgmVolume = clamped;
     if (gBgmPlayer.isPlaying()) {
         applyCurrentBgmVolume(gBgmVolume);
     } else {
@@ -1256,6 +1279,10 @@ void setBgmVolume(float volume01) {
 
 float getTypewriterSpeed() {
     return gCharsPerSecond;
+}
+
+float getMusicVolume() {
+    return gBgmMasterVolume;
 }
 
 float getVoiceVolume() {

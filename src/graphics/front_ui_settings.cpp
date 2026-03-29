@@ -48,7 +48,7 @@ struct SettingsRowDefinition {
     const char* focusBody;
 };
 
-constexpr std::array<SettingsRowDefinition, 4> kRows{{
+constexpr std::array<SettingsRowDefinition, 5> kRows{{
     {SettingsItem::DisplayMode,
      "settings-row-display",
      "settings-code-display",
@@ -59,13 +59,23 @@ constexpr std::array<SettingsRowDefinition, 4> kRows{{
      "DISPLAY MODE",
      "DISPLAY MODE",
      "Toggle between windowed mode and fullscreen rendering."},
+    {SettingsItem::MusicVolume,
+     "settings-row-music",
+     "settings-code-music",
+     "settings-label-music",
+     "settings-music-value",
+     "settings-music-slider",
+     "02",
+     "MUSIC VOLUME",
+     "MUSIC VOLUME",
+     "Adjust menu and story background music volume. Combat BGM will hook into this later."},
     {SettingsItem::VoiceVolume,
      "settings-row-voice",
      "settings-code-voice",
      "settings-label-voice",
      "settings-voice-value",
      "settings-voice-slider",
-     "02",
+     "03",
      "VOICE VOLUME",
      "VOICE VOLUME",
      "Adjust spoken dialogue volume for the visual novel and battle scenes."},
@@ -75,7 +85,7 @@ constexpr std::array<SettingsRowDefinition, 4> kRows{{
      "settings-label-text",
      "settings-text-value",
      "settings-text-slider",
-     "03",
+     "04",
      "TEXT SPEED",
      "TEXT SPEED",
      "Set the dialogue reveal speed in characters per second."},
@@ -85,7 +95,7 @@ constexpr std::array<SettingsRowDefinition, 4> kRows{{
      "settings-label-back",
      nullptr,
      nullptr,
-     "04",
+     "05",
      "BACK",
      "RETURN",
      "Leave settings and return to the previous front-ui screen."}
@@ -110,6 +120,7 @@ const SettingsRowDefinition& rowFor(SettingsItem item) {
 
 bool settingsEqual(const GameSettings& lhs, const GameSettings& rhs) {
     return lhs.fullscreen == rhs.fullscreen &&
+           std::fabs(lhs.musicVolume - rhs.musicVolume) < 0.0001f &&
            std::fabs(lhs.voiceVolume - rhs.voiceVolume) < 0.0001f &&
            std::fabs(lhs.textSpeed - rhs.textSpeed) < 0.0001f;
 }
@@ -127,6 +138,10 @@ std::string formatCharsPerSecond(float value) {
 }
 
 float clampVoice(float value) {
+    return std::clamp(value, 0.0f, 1.0f);
+}
+
+float clampMusic(float value) {
     return std::clamp(value, 0.0f, 1.0f);
 }
 
@@ -207,6 +222,10 @@ void SettingsDocumentController::adjustSelection(int delta) {
             queueDisplayMode(delta > 0);
             break;
 
+        case SettingsItem::MusicVolume:
+            setMusicVolume(workingSettings_.musicVolume + 0.05f * static_cast<float>(delta));
+            break;
+
         case SettingsItem::VoiceVolume:
             setVoiceVolume(workingSettings_.voiceVolume + 0.05f * static_cast<float>(delta));
             break;
@@ -230,6 +249,7 @@ void SettingsDocumentController::activateSelection() {
             queueReturn();
             break;
 
+        case SettingsItem::MusicVolume:
         case SettingsItem::VoiceVolume:
         case SettingsItem::TextSpeed:
             break;
@@ -243,6 +263,7 @@ void SettingsDocumentController::cancel() {
 void SettingsDocumentController::applyState(AppState& state) {
     state.settingsSelection = selection_;
     state.settings.fullscreen = workingSettings_.fullscreen;
+    state.settings.musicVolume = workingSettings_.musicVolume;
     state.settings.voiceVolume = workingSettings_.voiceVolume;
     state.settings.textSpeed = workingSettings_.textSpeed;
 }
@@ -323,7 +344,9 @@ void SettingsDocumentController::attachListeners() {
                     const std::string value = control->GetValue();
                     try {
                         const float parsed = std::stof(value);
-                        if (item == SettingsItem::VoiceVolume) {
+                        if (item == SettingsItem::MusicVolume) {
+                            setMusicVolume(parsed / 100.0f);
+                        } else if (item == SettingsItem::VoiceVolume) {
                             setVoiceVolume(parsed / 100.0f);
                         } else if (item == SettingsItem::TextSpeed) {
                             setTextSpeed(parsed);
@@ -411,11 +434,17 @@ void SettingsDocumentController::syncControlValues() const {
     if (Rml::Element* element = document_->GetElementById("settings-display-value")) {
         element->SetInnerRML(formatDisplayMode(workingSettings_.fullscreen));
     }
+    if (Rml::Element* element = document_->GetElementById("settings-music-value")) {
+        element->SetInnerRML(formatPercent(workingSettings_.musicVolume));
+    }
     if (Rml::Element* element = document_->GetElementById("settings-voice-value")) {
         element->SetInnerRML(formatPercent(workingSettings_.voiceVolume));
     }
     if (Rml::Element* element = document_->GetElementById("settings-text-value")) {
         element->SetInnerRML(formatCharsPerSecond(workingSettings_.textSpeed));
+    }
+    if (auto* control = dynamic_cast<Rml::ElementFormControl*>(document_->GetElementById("settings-music-slider"))) {
+        control->SetValue(std::to_string(static_cast<int>(std::lround(clampMusic(workingSettings_.musicVolume) * 100.0f))));
     }
     if (auto* control = dynamic_cast<Rml::ElementFormControl*>(document_->GetElementById("settings-voice-slider"))) {
         control->SetValue(std::to_string(static_cast<int>(std::lround(clampVoice(workingSettings_.voiceVolume) * 100.0f))));
@@ -426,14 +455,19 @@ void SettingsDocumentController::syncControlValues() const {
     if (Rml::Element* element = document_->GetElementById("settings-preview-main-value")) {
         element->SetInnerRML(selection_ == SettingsItem::DisplayMode
             ? formatDisplayMode(workingSettings_.fullscreen)
-            : (selection_ == SettingsItem::VoiceVolume
+            : (selection_ == SettingsItem::MusicVolume
+                ? formatPercent(workingSettings_.musicVolume)
+                : (selection_ == SettingsItem::VoiceVolume
                 ? formatPercent(workingSettings_.voiceVolume)
                 : (selection_ == SettingsItem::TextSpeed
                     ? formatCharsPerSecond(workingSettings_.textSpeed)
-                    : (returnScreen_ == ScreenState::MainMenu ? "MAIN MENU" : "RETURN"))));
+                    : (returnScreen_ == ScreenState::MainMenu ? "MAIN MENU" : "RETURN")))));
     }
     if (Rml::Element* element = document_->GetElementById("settings-preview-chip")) {
         element->SetInnerRML(selection_ == SettingsItem::Back ? "RETURN ROUTE" : "LIVE VALUE");
+    }
+    if (Rml::Element* element = document_->GetElementById("settings-preview-music-fill")) {
+        element->SetProperty("width", formatPercent(workingSettings_.musicVolume));
     }
     if (Rml::Element* element = document_->GetElementById("settings-preview-voice-fill")) {
         element->SetProperty("width", formatPercent(workingSettings_.voiceVolume));
@@ -445,6 +479,9 @@ void SettingsDocumentController::syncControlValues() const {
     }
     if (Rml::Element* element = document_->GetElementById("settings-context-display")) {
         element->SetInnerRML(formatDisplayMode(workingSettings_.fullscreen));
+    }
+    if (Rml::Element* element = document_->GetElementById("settings-context-music")) {
+        element->SetInnerRML(formatPercent(workingSettings_.musicVolume));
     }
     if (Rml::Element* element = document_->GetElementById("settings-context-voice")) {
         element->SetInnerRML(formatPercent(workingSettings_.voiceVolume));
@@ -485,6 +522,17 @@ void SettingsDocumentController::queueDisplayMode(bool fullscreen) {
 void SettingsDocumentController::queueReturn() {
     pendingCommand_ = Command{CommandType::ReturnFromSettings};
     queueSound(kBackSfxPath, 0.92f);
+}
+
+void SettingsDocumentController::setMusicVolume(float value) {
+    const float clamped = clampMusic(value);
+    if (std::fabs(workingSettings_.musicVolume - clamped) < 0.001f) {
+        return;
+    }
+    workingSettings_.musicVolume = clamped;
+    syncControlValues();
+    updateFocusCopy();
+    queueSound(kAdjustSfxPath, 0.84f);
 }
 
 void SettingsDocumentController::setVoiceVolume(float value) {

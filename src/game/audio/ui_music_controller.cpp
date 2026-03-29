@@ -94,6 +94,7 @@ void UiMusicController::shutdown() {
     storyBgmFadeElapsed_ = 0.0f;
     fadeOutSeconds_ = kUiMusicFadeOutSeconds;
     currentTrackGain_ = 1.0f;
+    currentAudibleGain_ = 0.0f;
     deferredStartSurface_ = UiMusicSurface::None;
 }
 
@@ -295,17 +296,20 @@ void UiMusicController::update(const AppState& state, bool loadingTransitionActi
     updateMusicPlayback(
         deltaSeconds,
         loadingTransitionActive ? UiMusicSurface::None : resolvedSurface,
-        loadingTransitionActive);
+        loadingTransitionActive,
+        std::clamp(state.settings.musicVolume, 0.0f, 1.0f));
     refreshVisualState(deltaSeconds);
 }
 
 void UiMusicController::updateMusicPlayback(float deltaSeconds,
                                             UiMusicSurface desiredSurface,
-                                            bool loadingTransitionActive) {
+                                            bool loadingTransitionActive,
+                                            float musicVolume) {
     requestedSurface_ = desiredSurface;
 
     if (!player_.isPlaying()) {
         currentGain_ = 0.0f;
+        currentAudibleGain_ = 0.0f;
         currentSurface_ = UiMusicSurface::None;
         if (requestedSurface_ != UiMusicSurface::None && !loadingTransitionActive) {
             if (deferredStartSurface_ == requestedSurface_) {
@@ -330,11 +334,13 @@ void UiMusicController::updateMusicPlayback(float deltaSeconds,
     } else {
         currentGain_ = std::max(targetGain, currentGain_ - step);
     }
-    player_.setVolume(currentGain_ * currentTrackGain_);
+    currentAudibleGain_ = currentGain_ * currentTrackGain_ * std::clamp(musicVolume, 0.0f, 1.0f);
+    player_.setVolume(currentAudibleGain_);
 
     if (targetGain <= 0.0f && currentGain_ <= 0.001f) {
         player_.stop();
         currentGain_ = 0.0f;
+        currentAudibleGain_ = 0.0f;
         currentSurface_ = UiMusicSurface::None;
         fadeOutSeconds_ = kUiMusicFadeOutSeconds;
         currentTrackGain_ = 1.0f;
@@ -366,6 +372,7 @@ bool UiMusicController::startTrackForSurface(UiMusicSurface surface) {
         if (player_.play(tracks_[trackIndex].path, 0.0f, startFraction)) {
             currentSurface_ = surface;
             currentGain_ = 0.0f;
+            currentAudibleGain_ = 0.0f;
             fadeOutSeconds_ = kUiMusicFadeOutSeconds;
             currentTrackGain_ = gainForTrackPath(tracks_[trackIndex].path);
             player_.setVolume(0.0f);
@@ -452,7 +459,7 @@ float UiMusicController::gainForTrackPath(const std::string& path) const {
 
 std::array<float, kUiMusicBarCount> UiMusicController::analyzeCurrentTrack() const {
     std::array<float, kUiMusicBarCount> analyzed{};
-    if (!player_.hasDecodedSamples() || currentGain_ <= 0.001f) {
+    if (!player_.hasDecodedSamples() || currentAudibleGain_ <= 0.001f) {
         return analyzed;
     }
 
@@ -518,7 +525,7 @@ std::array<float, kUiMusicBarCount> UiMusicController::analyzeCurrentTrack() con
             (goertzelMagnitude(probeA) + goertzelMagnitude(probeB) + goertzelMagnitude(probeC)) / 3.0f;
         const float tilt = 1.10f - (static_cast<float>(i) / static_cast<float>(analyzed.size())) * 0.18f;
         const float normalized = std::pow(std::max(0.0f, magnitude * tilt * 14.5f), 0.74f);
-        analyzed[i] = std::clamp(normalized * currentGain_, 0.0f, 1.0f);
+        analyzed[i] = std::clamp(normalized * currentAudibleGain_, 0.0f, 1.0f);
     }
 
     return analyzed;
@@ -537,7 +544,7 @@ void UiMusicController::refreshVisualState(float deltaSeconds) {
     for (std::size_t i = 0; i < smoothedBars_.size(); ++i) {
         float target = analyzed[i];
         if (target > 0.0f) {
-            target = std::max(target, 0.032f * currentGain_);
+            target = std::max(target, 0.032f * currentAudibleGain_);
         }
 
         const float blend = target > smoothedBars_[i] ? attackBlend : releaseBlend;
@@ -552,7 +559,7 @@ void UiMusicController::refreshVisualState(float deltaSeconds) {
 
     visualState_.visible = anyVisible;
     visualState_.opacity = anyVisible
-        ? std::clamp(0.18f + currentGain_ * 0.34f, 0.0f, 0.52f)
+        ? std::clamp(0.18f + currentAudibleGain_ * 0.34f, 0.0f, 0.52f)
         : 0.0f;
 }
 
