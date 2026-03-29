@@ -118,6 +118,16 @@ const SettingsRowDefinition& rowFor(SettingsItem item) {
     return kRows[static_cast<std::size_t>(itemIndex(item))];
 }
 
+/**
+ * @brief Determines whether two GameSettings instances represent the same settings.
+ *
+ * Compares fullscreen for exact equality and compares music volume, voice volume,
+ * and text speed using a tolerance of 0.0001.
+ *
+ * @param lhs Left-hand GameSettings to compare.
+ * @param rhs Right-hand GameSettings to compare.
+ * @return true if fullscreen matches exactly and the other numeric fields differ by less than 0.0001, false otherwise.
+ */
 bool settingsEqual(const GameSettings& lhs, const GameSettings& rhs) {
     return lhs.fullscreen == rhs.fullscreen &&
            std::fabs(lhs.musicVolume - rhs.musicVolume) < 0.0001f &&
@@ -137,19 +147,46 @@ std::string formatCharsPerSecond(float value) {
     return std::to_string(static_cast<int>(std::lround(value))) + " CPS";
 }
 
+/**
+ * @brief Clamp a voice volume value into the valid range.
+ *
+ * @param value Input volume value.
+ * @return float Value clamped to the inclusive range [0.0, 1.0].
+ */
 float clampVoice(float value) {
     return std::clamp(value, 0.0f, 1.0f);
 }
 
+/**
+ * @brief Clamp a music volume value to the valid range.
+ *
+ * @param value Desired music volume where 0.0 is silence and 1.0 is full volume.
+ * @return float The value clamped to the range [0.0, 1.0].
+ */
 float clampMusic(float value) {
     return std::clamp(value, 0.0f, 1.0f);
 }
 
+/**
+ * @brief Clamps a text display speed to the allowed characters-per-second range.
+ *
+ * @param value Desired text speed in characters per second.
+ * @return float Value clamped to the inclusive range [kMinTextSpeed, kMaxTextSpeed].
+ */
 float clampTextSpeed(float value) {
     return std::clamp(value, kMinTextSpeed, kMaxTextSpeed);
 }
 
-}  // namespace
+}  /**
+ * @brief Bind the controller to a document and initialize its UI state from the application state.
+ *
+ * Initializes internal pointers and working settings, clears pending commands and sound requests,
+ * attaches event listeners, and synchronizes the document's UI to the current settings.
+ *
+ * @param document The Rml document to bind to; the controller will cache a pointer to this document.
+ * @param state Source application state used to initialize selection, settings, and return-screen.
+ * @return true if the controller was successfully bound to the document and initialized.
+ */
 
 bool SettingsDocumentController::bind(Rml::ElementDocument& document, const AppState& state) {
     document_ = &document;
@@ -168,12 +205,25 @@ bool SettingsDocumentController::bind(Rml::ElementDocument& document, const AppS
     return true;
 }
 
+/**
+ * @brief Detaches all UI event listeners, clears queued sound requests, and disassociates the controller from its document.
+ *
+ * After calling this, the controller will not receive DOM events, there will be no pending sound requests retained, and the internal document pointer will be set to null.
+ */
 void SettingsDocumentController::unbind() {
     detachEventListeners(listeners_);
     pendingSoundRequests_.clear();
     document_ = nullptr;
 }
 
+/**
+ * @brief Synchronizes the controller with the given application state and refreshes the UI when needed.
+ *
+ * Updates the controller's selection, working settings, and return-screen to match the provided AppState.
+ * If any of those fields change, refreshes the document's row copy, selection styling, control values, and focus copy.
+ *
+ * @param state Source application state to synchronize from.
+ */
 void SettingsDocumentController::sync(const AppState& state) {
     bool needsRefresh = false;
 
@@ -205,6 +255,13 @@ void SettingsDocumentController::update(const AppState& state, float deltaSecond
     (void)deltaSeconds;
 }
 
+/**
+ * @brief Move the current settings selection by a relative number of rows.
+ *
+ * Advances or retreats the active selection by the given number of positions in the row list, wrapping around if needed, and plays the selection sound when a change occurs.
+ *
+ * @param delta Number of positions to move: positive to move forward, negative to move backward. A value of zero has no effect.
+ */
 void SettingsDocumentController::moveSelection(int delta) {
     if (delta == 0) {
         return;
@@ -212,6 +269,19 @@ void SettingsDocumentController::moveSelection(int delta) {
     setSelection(itemForIndex(itemIndex(selection_) + delta), true);
 }
 
+/**
+ * @brief Adjusts the currently selected setting by the given step delta.
+ *
+ * Positive delta increases and negative delta decreases the selected value; zero is a no-op.
+ *
+ * Behavior by selection:
+ * - DisplayMode: requests fullscreen when delta > 0 or windowed when delta < 0.
+ * - MusicVolume, VoiceVolume: increments the volume by 0.05 per step (result constrained to the valid volume range).
+ * - TextSpeed: increments text speed by 6.0 CPS per step (result constrained to the valid text-speed range).
+ * - Back: no effect.
+ *
+ * @param delta Number of adjustment steps; positive to increase, negative to decrease, zero does nothing.
+ */
 void SettingsDocumentController::adjustSelection(int delta) {
     if (delta == 0) {
         return;
@@ -239,6 +309,13 @@ void SettingsDocumentController::adjustSelection(int delta) {
     }
 }
 
+/**
+ * @brief Perform the primary action for the currently selected settings item.
+ *
+ * If the DisplayMode row is selected, toggles the fullscreen setting.
+ * If the Back row is selected, initiates returning from the settings screen.
+ * If a volume or text-speed row is selected, no action is taken.
+ */
 void SettingsDocumentController::activateSelection() {
     switch (selection_) {
         case SettingsItem::DisplayMode:
@@ -260,6 +337,11 @@ void SettingsDocumentController::cancel() {
     queueReturn();
 }
 
+/**
+ * @brief Writes the controller's current selection and working settings back into the provided AppState.
+ *
+ * @param state Application state to receive the controller's selection, fullscreen flag, music volume, voice volume, and text speed.
+ */
 void SettingsDocumentController::applyState(AppState& state) {
     state.settingsSelection = selection_;
     state.settings.fullscreen = workingSettings_.fullscreen;
@@ -268,18 +350,49 @@ void SettingsDocumentController::applyState(AppState& state) {
     state.settings.textSpeed = workingSettings_.textSpeed;
 }
 
+/**
+ * @brief Retrieves and clears the currently queued command.
+ *
+ * Consumes the controller's pending command: returns the stored command and resets internal pending state.
+ *
+ * @return std::optional<Command> The pending `Command` if one was queued, `std::nullopt` otherwise.
+ */
 std::optional<Command> SettingsDocumentController::consumeCommand() {
     const std::optional<Command> result = pendingCommand_;
     pendingCommand_.reset();
     return result;
 }
 
+/**
+ * @brief Retrieve and clear queued sound requests.
+ *
+ * Returns the list of sound requests that were pending in the controller and clears the controller's internal queue.
+ *
+ * @return std::vector<SoundRequest> The previously queued SoundRequest objects; the controller's pending list is empty after this call.
+ */
 std::vector<SoundRequest> SettingsDocumentController::consumeSoundRequests() {
     std::vector<SoundRequest> requests = std::move(pendingSoundRequests_);
     pendingSoundRequests_.clear();
     return requests;
 }
 
+/**
+ * @brief Attach UI event listeners for each settings row and its sliders.
+ *
+ * @details If no document is bound, this is a no-op. For every row defined in
+ * `kRows` it:
+ * - Adds a mouseover listener that selects the row and plays the selection sound.
+ * - For the DisplayMode row, adds a click listener that queues a display-mode toggle.
+ * - For the Back row, adds a click listener that queues a return command.
+ * - For rows with an associated slider element, adds a mouseover listener that
+ *   selects the row and a change listener that reads the slider's form-control
+ *   value, parses it as a float, and applies it to the appropriate setting:
+ *   MusicVolume (value interpreted as percentage and divided by 100), VoiceVolume
+ *   (percentage divided by 100), or TextSpeed (raw value).
+ *
+ * Successfully created listeners are stored in `listeners_` so they can be
+ * detached later. Slider value parse failures are silently ignored.
+ */
 void SettingsDocumentController::attachListeners() {
     if (document_ == nullptr) {
         return;
@@ -366,6 +479,13 @@ void SettingsDocumentController::attachListeners() {
     }
 }
 
+/**
+ * @brief Update DOM row elements to reflect the current selection by toggling the "is-selected" CSS class.
+ *
+ * Iterates the configured settings rows and sets the "is-selected" class on the DOM element for a row when
+ * that row matches the controller's current selection; clears the class for other rows. If the document is
+ * not bound, the function is a no-op.
+ */
 void SettingsDocumentController::applySelectionStyles() const {
     if (document_ == nullptr) {
         return;
@@ -378,6 +498,13 @@ void SettingsDocumentController::applySelectionStyles() const {
     }
 }
 
+/**
+ * @brief Updates the document's row labels and codes to reflect current row copy and return-screen state.
+ *
+ * Updates each row's code and label elements in the bound Rml document. For the Back row, the label
+ * is set to "RETURN TO MAIN MENU" when the return screen is MainMenu, otherwise "BACK". Also updates
+ * the "settings-back-value" element to "RETURN" when returning to the main menu, otherwise "BACK".
+ */
 void SettingsDocumentController::applyRowCopy() const {
     if (document_ == nullptr) {
         return;
@@ -401,6 +528,13 @@ void SettingsDocumentController::applyRowCopy() const {
     }
 }
 
+/**
+ * @brief Update the focus pane copy (code, title, and descriptive body) to reflect the current selection.
+ *
+ * If no document is bound, this is a no-op. For the Back selection when the return screen is MainMenu,
+ * the title and body are replaced with a special "RETURN TO MAIN MENU" title and a specific explanatory body;
+ * otherwise the selected row's configured focus title and body are used.
+ */
 void SettingsDocumentController::updateFocusCopy() const {
     if (document_ == nullptr) {
         return;
@@ -426,6 +560,15 @@ void SettingsDocumentController::updateFocusCopy() const {
     }
 }
 
+/**
+ * @brief Update all visible settings controls and preview/context text to match the controller's working settings and selection.
+ *
+ * Updates display-mode, music/voice percent strings, text-speed CPS, slider element values, preview main value and chip,
+ * preview fill widths (music/voice/text normalized), and contextual labels that reflect the current workingSettings_,
+ * the active selection, and the returnScreen state.
+ *
+ * If no document is bound, the method does nothing.
+ */
 void SettingsDocumentController::syncControlValues() const {
     if (document_ == nullptr) {
         return;
@@ -494,6 +637,15 @@ void SettingsDocumentController::syncControlValues() const {
     }
 }
 
+/**
+ * @brief Change the currently highlighted settings row and refresh related UI.
+ *
+ * Updates internal selection state, reapplies selection styling, updates the focus panel
+ * copy, and synchronizes control values. Optionally queues the selection sound.
+ *
+ * @param selection The settings item to select (which row becomes highlighted).
+ * @param playSound If `true`, enqueue the selection sound effect.
+ */
 void SettingsDocumentController::setSelection(SettingsItem selection, bool playSound) {
     if (selection_ == selection) {
         return;
@@ -508,6 +660,15 @@ void SettingsDocumentController::setSelection(SettingsItem selection, bool playS
     }
 }
 
+/**
+ * @brief Request a change to the display mode and update UI state.
+ *
+ * If the requested fullscreen state differs from the current working setting,
+ * update the working setting, enqueue a pending ApplyDisplayMode command,
+ * refresh bound UI elements, and queue the adjust sound effect.
+ *
+ * @param fullscreen Desired fullscreen state; no action is taken if it equals the current state.
+ */
 void SettingsDocumentController::queueDisplayMode(bool fullscreen) {
     if (workingSettings_.fullscreen == fullscreen) {
         return;
@@ -519,11 +680,26 @@ void SettingsDocumentController::queueDisplayMode(bool fullscreen) {
     queueSound(kAdjustSfxPath, 0.9f);
 }
 
+/**
+ * @brief Request a return from the settings screen.
+ *
+ * Marks that the settings UI should be exited (a return command will be consumed
+ * by the caller) and enqueues the back navigation sound effect.
+ */
 void SettingsDocumentController::queueReturn() {
     pendingCommand_ = Command{CommandType::ReturnFromSettings};
     queueSound(kBackSfxPath, 0.92f);
 }
 
+/**
+ * @brief Set the working music volume, updating UI state and playing an adjustment sound.
+ *
+ * Clamps the provided value to the valid `[0, 1]` range, updates the controller's working
+ * settings when the change is significant, refreshes displayed controls/focus text, and
+ * queues the adjust sound effect.
+ *
+ * @param value Desired music volume (0.0 to 1.0); values outside this range will be clamped.
+ */
 void SettingsDocumentController::setMusicVolume(float value) {
     const float clamped = clampMusic(value);
     if (std::fabs(workingSettings_.musicVolume - clamped) < 0.001f) {
@@ -535,6 +711,13 @@ void SettingsDocumentController::setMusicVolume(float value) {
     queueSound(kAdjustSfxPath, 0.84f);
 }
 
+/**
+ * @brief Update the working voice volume, refresh visible controls and focus copy, and queue an adjustment sound.
+ *
+ * Does nothing if the new clamped volume differs from the current value by less than 0.001.
+ *
+ * @param value Desired voice volume; this value is clamped to the valid voice-volume range before being applied.
+ */
 void SettingsDocumentController::setVoiceVolume(float value) {
     const float clamped = clampVoice(value);
     if (std::fabs(workingSettings_.voiceVolume - clamped) < 0.001f) {
@@ -546,6 +729,15 @@ void SettingsDocumentController::setVoiceVolume(float value) {
     queueSound(kAdjustSfxPath, 0.84f);
 }
 
+/**
+ * @brief Set the text rendering speed used by the settings controller.
+ *
+ * Clamps the provided speed to the allowed range and updates the controller's
+ * working settings if the value changes by at least 0.001. When applied, the
+ * UI is synchronized, focus copy is refreshed, and an adjustment sound is queued.
+ *
+ * @param value Desired text speed in characters per second; will be clamped to [kMinTextSpeed, kMaxTextSpeed].
+ */
 void SettingsDocumentController::setTextSpeed(float value) {
     const float clamped = clampTextSpeed(value);
     if (std::fabs(workingSettings_.textSpeed - clamped) < 0.001f) {
@@ -557,6 +749,16 @@ void SettingsDocumentController::setTextSpeed(float value) {
     queueSound(kAdjustSfxPath, 0.84f);
 }
 
+/**
+ * @brief Enqueue a sound request to be played by the consumer of pending sound requests.
+ *
+ * Adds a SoundRequest with the given sound file path and volume to the controller's internal
+ * pending sound queue; these requests are later retrieved via consumeSoundRequests().
+ *
+ * @param path Filesystem or resource path to the sound effect.
+ * @param volume Playback volume multiplier where `1.0` represents the original volume (values
+ *               below or above 1.0 scale the playback volume accordingly).
+ */
 void SettingsDocumentController::queueSound(const char* path, float volume) {
     pendingSoundRequests_.push_back(SoundRequest{path, volume});
 }

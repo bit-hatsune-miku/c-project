@@ -60,6 +60,17 @@ std::time_t systemClockNow() {
     return std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
 }
 
+/**
+ * @brief Normalize a SaveGame to the current on-disk format and sane defaults.
+ *
+ * Ensures the save uses the current save version, fills a missing timestamp with
+ * an ISO-8601 UTC timestamp, clamps audio volumes to the range 0–100, enforces
+ * a minimum text speed of 1, normalizes player progression using the
+ * StarterRoster fallback policy, and marks the save as containing progression data.
+ *
+ * @param saveGame A copy of the save to normalize.
+ * @return SaveGame The normalized save game object.
+ */
 SaveGame normalizedSaveGame(SaveGame saveGame) {
     saveGame.version = SAVE_VERSION;
     if (saveGame.timestamp.empty()) {
@@ -101,6 +112,19 @@ bool parseProfileProgression(const json& root, battle::PlayerProgression& outPro
     return true;
 }
 
+/**
+ * @brief Construct the default profile JSON used when no profile exists.
+ *
+ * Produces a JSON object containing the profile version, default settings,
+ * basic play statistics, and an initial player progression snapshot.
+ *
+ * @return json JSON object with the following structure:
+ * - "version": integer set to 1
+ * - "settings": object with keys "fullscreen" (bool), "musicVolume" (int, 0–100),
+ *   "voiceVolume" (int, 0–100), and "textSpeed" (int)
+ * - "playStats": object with keys "launches" (int) and "manualSaves" (int)
+ * - "progression": object representing the default player progression
+ */
 json makeDefaultProfileJson() {
     const battle::PlayerProgression defaultProgression = battle::makeDefaultPlayerProgression();
     return json{
@@ -325,6 +349,19 @@ bool deleteManualSave(const fs::path& path) {
     return fs::remove(path, error) && !error;
 }
 
+/**
+ * @brief Load and validate a save file from disk.
+ *
+ * Parses the JSON at the given path into a SaveGame, validates that the save version
+ * matches SAVE_VERSION and that required fields (`chapter` non-empty and `entryIndex`
+ * >= 0) are present, and clamps `musicVolume` and `voiceVolume` to [0, 100] and
+ * ensures `textSpeed` is at least 1 before returning.
+ *
+ * @param path Filesystem path to the save file to read.
+ * @return std::optional<SaveGame> containing the validated save when successful; `std::nullopt`
+ *         if the file cannot be opened, the JSON fails to parse, the saved version mismatches,
+ *         or required fields are invalid.
+ */
 std::optional<SaveGame> load(const fs::path& path) {
     init();
 

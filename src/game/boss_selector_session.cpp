@@ -234,6 +234,14 @@ public:
         return true;
     }
 
+    /**
+     * @brief Cleanly shuts down the session and resets all runtime state.
+     *
+     * Stops audio playback and audio-related state, detaches UI event listeners,
+     * closes and unloads the Rml document/context, shuts down Rml and RmlGL subsystems,
+     * clears cached UI elements, entries, and music-bar visual state, shuts down the
+     * loading overlay, and releases references to the GL context and window.
+     */
     void shutdown() {
         initialized_ = false;
         finished_ = false;
@@ -411,16 +419,34 @@ public:
         renderInterface_->EndFrame();
     }
 
+    /**
+     * @brief Updates the loading overlay state and applies it to the UI.
+     *
+     * Applies the provided loading overlay state (visibility, progress, and message)
+     * to the internal loading overlay instance so the UI reflects the new state.
+     *
+     * @param state The loading overlay state to apply.
+     */
     void setLoadingOverlay(const graphics::RmlUiLoadingOverlayState& state) {
         loadingOverlayState_ = state;
         loadingOverlay_.apply(loadingOverlayState_);
     }
 
+    /**
+     * @brief Update the stored UI music visual state and apply it to the cached music bar strip.
+     *
+     * @param state New visual state to use for the UI music bars.
+     */
     void setUiMusicVisualState(const game::audio::UiMusicVisualState& state) {
         uiMusicVisualState_ = state;
         graphics::applyUiMusicBarStrip(uiMusicBars_, uiMusicVisualState_);
     }
 
+    /**
+     * @brief Indicates whether the session has finished.
+     *
+     * @return `true` if the session has finished, `false` otherwise.
+     */
     bool isFinished() const {
         return finished_;
     }
@@ -587,6 +613,15 @@ private:
         return !entries_.empty();
     }
 
+    /**
+     * @brief Loads and initializes the boss selector RML document and prepares the UI.
+     *
+     * Loads the RML document for the boss selector, shows it, caches the UI music bar strip
+     * and applies the current music visual state, then caches element references, builds
+     * the carousel track, attaches event listeners, and applies the current selection state.
+     *
+     * @return true on success; false if the Rml context is missing or the document failed to load.
+     */
     bool loadDocument() {
         if (context_ == nullptr) {
             return false;
@@ -1098,14 +1133,35 @@ void Session::render() {
     impl_->render();
 }
 
+/**
+ * @brief Update the session's loading overlay display state.
+ *
+ * Stores the provided loading overlay state and applies it to the session's
+ * RmlUi loading overlay (visible progress/blocked UI).
+ *
+ * @param state The loading overlay state to apply.
+ */
 void Session::setLoadingOverlay(const graphics::RmlUiLoadingOverlayState& state) {
     impl_->setLoadingOverlay(state);
 }
 
+/**
+ * @brief Update the UI music visualization state used by the selector's music bars.
+ *
+ * Applies the provided audio UI visual state so the cached music bar strip reflects
+ * the new visualization (e.g., amplitudes, peak/decay settings).
+ *
+ * @param state The new visual state to apply to the UI music bars.
+ */
 void Session::setUiMusicVisualState(const game::audio::UiMusicVisualState& state) {
     impl_->setUiMusicVisualState(state);
 }
 
+/**
+ * @brief Indicates whether the session has completed and should be closed.
+ *
+ * @return `true` if the session is finished and should exit, `false` otherwise.
+ */
 bool Session::isFinished() const {
     return impl_->isFinished();
 }

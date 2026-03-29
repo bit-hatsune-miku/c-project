@@ -84,6 +84,18 @@ constexpr const char* kScrollSfxPath = "assets/ui/sfx/Multiplayer_player-ready-a
 constexpr const char* kConfirmSfxPath = "assets/ui/sfx/UI_dialog-pop-in.wav";
 constexpr const char* kBackSfxPath = "assets/ui/sfx/UI_screen-back.wav";
 
+/**
+ * @brief Bind the controller to an RML document and initialize UI state from the application state.
+ *
+ * Attaches this controller to the provided Rml document, clears existing listeners and pending UI
+ * actions, synchronizes internal state from `state`, attaches event listeners, and updates the
+ * bound document to reflect the current pause UI. If the document contains the pause shell element,
+ * the controller prepares an entry animation and queues the pause-open sound effect.
+ *
+ * @param document Rml document to bind the controller to.
+ * @param state Current application state used to initialize the UI.
+ * @return true if the controller was successfully bound to the document.
+ */
 bool PauseDocumentController::bind(Rml::ElementDocument& document, const AppState& state) {
     document_ = &document;
     detachEventListeners(listeners_);
@@ -114,6 +126,17 @@ void PauseDocumentController::sync(const AppState& state) {
     refreshDocument();
 }
 
+/**
+ * @brief Synchronizes the controller from the given application state and, if pending,
+ *        applies the pause-screen entry animation once.
+ *
+ * This updates internal state from `state`, sets the RML "entered" class on the
+ * `pause-shell` element the first time an entry animation is needed, clears the
+ * pending-entry flag, and refreshes the document to reflect any changes.
+ *
+ * @param state Current application state to synchronize from.
+ * @param deltaSeconds Frame time in seconds (ignored).
+ */
 void PauseDocumentController::update(const AppState& state, float deltaSeconds) {
     (void)deltaSeconds;
     refreshFromState(state);
@@ -128,6 +151,17 @@ void PauseDocumentController::update(const AppState& state, float deltaSeconds) 
     refreshDocument();
 }
 
+/**
+ * @brief Move the current menu selection by a signed offset.
+ *
+ * Updates the pause menu selection or the confirm-dialog selection depending
+ * on which screen is active. If `delta` is zero this is a no-op. When the
+ * main pause selection changes a scroll sound request is queued. The document
+ * is refreshed to reflect the new selection.
+ *
+ * @param delta Signed offset to apply to the current selection; positive
+ * values advance, negative values move backward, zero leaves selection unchanged.
+ */
 void PauseDocumentController::moveSelection(int delta) {
     if (delta == 0) {
         return;
@@ -154,6 +188,14 @@ void PauseDocumentController::adjustSelection(int delta) {
     refreshDocument();
 }
 
+/**
+ * @brief Activate the currently focused pause or confirm selection.
+ *
+ * If a confirm dialog is showing, queues the selected confirm action. Otherwise,
+ * if the current pause selection is Continue, marks the controller to resume
+ * playback and queues the back sound. For any other pause selection, queues
+ * that pause action and queues the confirm/open sound.
+ */
 void PauseDocumentController::activateSelection() {
     if (showingConfirm()) {
         queueConfirmAction(confirmSelection_);
@@ -168,6 +210,12 @@ void PauseDocumentController::activateSelection() {
     }
 }
 
+/**
+ * @brief Requests cancellation of the current pause UI interaction.
+ *
+ * If a confirmation dialog is visible, schedules the dialog to be dismissed.
+ * Otherwise schedules resuming gameplay and queues the back/cancel sound effect.
+ */
 void PauseDocumentController::cancel() {
     if (showingConfirm()) {
         pendingDismissConfirm_ = true;
@@ -251,6 +299,15 @@ std::optional<Command> PauseDocumentController::consumeCommand() {
     return std::nullopt;
 }
 
+/**
+ * @brief Attach UI event listeners for pause and confirm buttons in the bound RML document.
+ *
+ * Attaches mouseover and click handlers to each pause and confirm button element (if present)
+ * so UI selection state is updated, actions are queued or activated, and hover sounds are enqueued.
+ * Listener objects are stored in the controller's internal listener collection.
+ *
+ * If no document is bound (document_ is nullptr), this function does nothing.
+ */
 void PauseDocumentController::attachListeners() {
     if (document_ == nullptr) {
         return;
@@ -340,6 +397,14 @@ void PauseDocumentController::attachListeners() {
     }
 }
 
+/**
+ * @brief Update the controller's UI-related fields from the given application state.
+ *
+ * Copies the current screen, pause-selection, confirm-selection, and notice text (only if the notice timer is positive)
+ * into the controller's corresponding members.
+ *
+ * @param state The source application state to read values from.
+ */
 void PauseDocumentController::refreshFromState(const AppState& state) {
     screen_ = state.screen;
     selection_ = state.pauseSelection;
@@ -347,6 +412,17 @@ void PauseDocumentController::refreshFromState(const AppState& state) {
     noticeText_ = state.noticeTimer > 0.0f ? state.noticeText : std::string();
 }
 
+/**
+ * @brief Update the bound RML document to reflect the controller's current pause UI state.
+ *
+ * Updates element classes, visible text, and selection indicators for:
+ * - pause buttons (sets `is-selected` on matching pause action),
+ * - pause overlay (`fade-in`),
+ * - confirm container (`is-visible`),
+ * - toast (`pause-toast`) inner RML and `is-visible` state based on `noticeText_`,
+ * - confirm dialog title and body text depending on whether the screen is an overwrite-confirm,
+ * - confirm buttons and their separate label elements (selection classes and label text).
+ */
 void PauseDocumentController::refreshDocument() const {
     if (document_ == nullptr) {
         return;
@@ -427,20 +503,53 @@ void PauseDocumentController::queuePauseAction(PauseAction action) {
     pendingPauseAction_ = action;
 }
 
+/**
+ * @brief Schedule a confirm action to be applied on the next call to applyState.
+ *
+ * @param action The confirm action to enqueue (e.g., Cancel, ExitToMainMenu).
+ */
 void PauseDocumentController::queueConfirmAction(ConfirmAction action) {
     pendingConfirmAction_ = action;
 }
 
+/**
+ * @brief Queue a sound request to be played later by the controller.
+ *
+ * Appends a sound request (path and volume) to the controller's pending sound queue.
+ *
+ * @param path Filesystem or resource path to the sound asset.
+ * @param volume Playback volume in the range [0.0, 1.0].
+ */
 void PauseDocumentController::queueSound(const char* path, float volume) {
     pendingSoundRequests_.push_back(SoundRequest{path, volume});
 }
 
+/**
+ * @brief Collects and clears all queued sound requests.
+ *
+ * Moves the controller's pending sound requests into a returned vector and clears the internal queue.
+ *
+ * @return A vector of queued SoundRequest objects; the controller's pending queue is emptied.
+ */
 std::vector<SoundRequest> PauseDocumentController::consumeSoundRequests() {
     std::vector<SoundRequest> requests = std::move(pendingSoundRequests_);
     pendingSoundRequests_.clear();
     return requests;
 }
 
+/**
+ * @brief Prepare application state to exit the current story and return to the main menu.
+ *
+ * Unpauses the engine and mutates the provided AppState to request a story exit to the main menu.
+ * The following fields are set:
+ * - `pauseSelection` -> `PauseAction::Continue`
+ * - `confirmSelection` -> `ConfirmAction::Cancel`
+ * - `settingsReturnScreen` -> `ScreenState::MainMenu`
+ * - `mainSelection` -> `MainMenuAction::Start`
+ * - `requestStoryExitToMainMenu` -> `true`
+ *
+ * @param state AppState to modify to trigger the exit-to-main-menu flow.
+ */
 void PauseDocumentController::exitStoryToMainMenu(AppState& state) const {
     vn::setPaused(false);
     state.pauseSelection = PauseAction::Continue;

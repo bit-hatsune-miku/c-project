@@ -33,6 +33,16 @@ constexpr const char* kScrollSfxPath = "assets/ui/sfx/Multiplayer_player-ready-a
 constexpr const char* kBackSfxPath = "assets/ui/sfx/Menu_back-to-logo.wav";
 constexpr const char* kLoadConfirmSfxPath = "assets/ui/sfx/Menu_button-daily-select.wav";
 
+/**
+ * @brief Escape characters in a string for safe insertion into RmlUi inner RML.
+ *
+ * Replaces the characters `&`, `<`, `>`, and `"` with their corresponding
+ * XML/HTML entities (`&amp;`, `&lt;`, `&gt;`, `&quot;`) and leaves all other
+ * characters unchanged.
+ *
+ * @param text Input text to escape.
+ * @return std::string Input text with `&`, `<`, `>`, and `"` replaced by their entities.
+ */
 std::string escapeRmlText(const std::string& text) {
     std::string escaped;
     escaped.reserve(text.size());
@@ -92,7 +102,18 @@ const std::array<const char*, kVisibleSlotCount> kSlotTimeIds{{
     "load-slot-time-4",
 }};
 
-}  // namespace
+}  /**
+ * @brief Bind the controller to an Rml document and initialize its UI state.
+ *
+ * Clears any existing event listeners and pending sound/command flags, sets
+ * the target document, initializes controller state from `state`, rebuilds
+ * the slot list, attaches new UI event listeners, and refreshes the document
+ * display.
+ *
+ * @param document Rml document to bind the controller to.
+ * @param state Application state used to initialize controller selections and notices.
+ * @return true if the controller successfully bound to the document.
+ */
 
 bool LoadDocumentController::bind(Rml::ElementDocument& document, const AppState& state) {
     document_ = &document;
@@ -111,6 +132,12 @@ bool LoadDocumentController::bind(Rml::ElementDocument& document, const AppState
     return true;
 }
 
+/**
+ * @brief Unbinds the controller from its document and clears transient UI state.
+ *
+ * Detaches any registered event listeners, clears queued sound requests, and
+ * resets the internal document pointer to null.
+ */
 void LoadDocumentController::unbind() {
     detachEventListeners(listeners_);
     pendingSoundRequests_.clear();
@@ -128,6 +155,13 @@ void LoadDocumentController::update(const AppState& state, float deltaSeconds) {
     refreshDocument();
 }
 
+/**
+ * @brief Moves the current selection by a relative offset, handling confirm-panel toggling and wrapping.
+ *
+ * Adjusts the active selection by delta (positive moves forward, negative moves backward) and wraps around the available selectable entries. If the confirm dialog is visible, toggles the confirm choice instead. When the selection or confirm choice changes, a navigation sound is enqueued and the document view is refreshed.
+ *
+ * @param delta Relative step count to move the selection; positive moves forward, negative moves backward. A value of 0 has no effect.
+ */
 void LoadDocumentController::moveSelection(int delta) {
     if (delta == 0) {
         return;
@@ -161,6 +195,22 @@ void LoadDocumentController::moveSelection(int delta) {
     refreshDocument();
 }
 
+/**
+ * @brief Adjusts the current selection by a single step for fine-grained navigation.
+ *
+ * If `delta` is zero this is a no-op. When the confirm panel is visible, toggles the
+ * confirm choice between Cancel and ExitToMainMenu (queues a scroll sound when the
+ * selection actually changes) and refreshes the document. When not confirming:
+ * - If a save slot is focused, moves selection to the delete footer on negative `delta`
+ *   or to the back footer on positive `delta`.
+ * - If the delete footer is focused and `delta > 0`, moves to the back footer.
+ * - If the back footer is focused and `delta < 0`, moves to the delete footer.
+ *
+ * The function always refreshes the document after applying any change.
+ *
+ * @param delta Positive to move forward (toward back), negative to move backward
+ *              (toward delete).
+ */
 void LoadDocumentController::adjustSelection(int delta) {
     if (delta == 0) {
         return;
@@ -188,6 +238,16 @@ void LoadDocumentController::adjustSelection(int delta) {
     refreshDocument();
 }
 
+/**
+ * @brief Handle activation (confirm/click) of the currently focused item.
+ *
+ * Sets the appropriate pending action flag based on the current UI selection and may enqueue a UI sound.
+ *
+ * - If the confirm dialog is visible, requests confirm-delete handling.
+ * - If the "Back" footer is selected, requests navigation back and queues the back SFX.
+ * - If a save-slot entry is selected, requests activation of that slot (load) and queues the load-confirm SFX.
+ * - Otherwise, requests either confirm-delete or activation depending on whether the confirm dialog is visible.
+ */
 void LoadDocumentController::activateSelection() {
     if (showingConfirm()) {
         pendingDeleteConfirm_ = true;
@@ -213,6 +273,14 @@ void LoadDocumentController::activateSelection() {
     }
 }
 
+/**
+ * @brief Handle a user cancel action from the load UI.
+ *
+ * If the confirm-delete panel is visible, schedules dismissal of that panel.
+ * Otherwise schedules a navigation back to the previous screen and queues the back sound effect.
+ *
+ * The method only sets internal pending flags and sound requests; actual screen changes occur when pending actions are applied to the application state.
+ */
 void LoadDocumentController::cancel() {
     if (showingConfirm()) {
         pendingDismissConfirm_ = true;
@@ -222,6 +290,18 @@ void LoadDocumentController::cancel() {
     }
 }
 
+/**
+ * @brief Apply pending controller actions to the application state.
+ *
+ * Copies the controller's current selection and confirm choice into `state` and then
+ * consumes any pending UI actions in priority order: dismissing the confirm panel,
+ * navigating back, processing a delete-confirm result (may delete a manual save and
+ * set a notice), or activating the current selection. When activating a slot this
+ * may set `state.pendingLoadPath`; when processing delete confirmation this will
+ * call the save deletion routine and set `state.noticeText`/`state.noticeTimer`.
+ *
+ * @param state Mutable application state to update with the controller's effects.
+ */
 void LoadDocumentController::applyState(AppState& state) {
     state.loadSelection = selection_;
     state.loadSlotSelection = slotSelection_;
@@ -297,16 +377,45 @@ void LoadDocumentController::applyState(AppState& state) {
     }
 }
 
+/**
+ * @brief Report any pending high-level command produced by this controller (none).
+ *
+ * This implementation never produces a command; the controller does not emit
+ * actionable commands through this API.
+ *
+ * @return std::nullopt Indicates there is no pending command.
+ */
 std::optional<Command> LoadDocumentController::consumeCommand() {
     return std::nullopt;
 }
 
+/**
+ * @brief Drains and returns all pending sound requests queued by the controller.
+ *
+ * The controller's internal pending sound queue is cleared as a result of this call.
+ *
+ * @return std::vector<SoundRequest> Vector containing the pending sound requests that were queued; the controller's pending list is emptied.
+ */
 std::vector<SoundRequest> LoadDocumentController::consumeSoundRequests() {
     std::vector<SoundRequest> requests = std::move(pendingSoundRequests_);
     pendingSoundRequests_.clear();
     return requests;
 }
 
+/**
+ * @brief Attaches UI event listeners for the load screen controls.
+ *
+ * Registers mouseover and click handlers on visible slot buttons, the delete and back footers,
+ * and the confirm dialog buttons so UI interactions update controller selection state,
+ * set pending actions (activate, back, or delete-confirm), and enqueue appropriate sound requests.
+ *
+ * Mouseover on slot buttons syncs the hovered slot into the current selection and refreshes the UI;
+ * click on a slot selects it and marks activation pending. Footer mouseover/select and click
+ * update selection or set pending back/delete actions. Confirm-button hover changes the
+ * confirmation choice and queues a scroll SFX; confirm click sets the pending deletion confirmation.
+ *
+ * Listeners are stored in the controller's listener bindings so they can be detached later.
+ */
 void LoadDocumentController::attachListeners() {
     if (document_ == nullptr) {
         return;
@@ -431,6 +540,17 @@ void LoadDocumentController::attachListeners() {
     }
 }
 
+/**
+ * @brief Update controller state from the given application state and clamp selection indices.
+ *
+ * Copies screen, return-screen, selection, slot-selection, and confirm-selection values
+ * from the provided AppState. Sets the controller notice text only if state.noticeTimer > 0.
+ * If there are no selectable items, forces both selection indices to 0. Otherwise clamps
+ * selection to be at most totalSelectableItems() - 1 and, when cached slots exist, clamps
+ * slotSelection to the last cached slot index.
+ *
+ * @param state Current application state to synchronize from.
+ */
 void LoadDocumentController::refreshFromState(const AppState& state) {
     screen_ = state.screen;
     returnScreen_ = state.loadReturnScreen;
@@ -453,6 +573,18 @@ void LoadDocumentController::refreshFromState(const AppState& state) {
     }
 }
 
+/**
+ * @brief Rebuilds the in-memory list of slot presentations from available save slots.
+ *
+ * Queries available save slots and repopulates `cachedSlots_` with a SlotPresentation
+ * for each slot, attempting to load each save to fill human-readable labels,
+ * summary text, party information, progression-derived fields, and status.
+ *
+ * After rebuilding the list this function updates selection state:
+ * - If no slots are present, forces `selection_ = 1` and `slotSelection_ = 0`.
+ * - Otherwise clamps `slotSelection_` to the last slot index when out of range and
+ *   clamps `selection_` to `totalSelectableItems() - 1` when it exceeds the total.
+ */
 void LoadDocumentController::refreshSlots() {
     cachedSlots_.clear();
     for (const save::SlotInfo& slot : save::listSlots()) {
@@ -502,6 +634,13 @@ void LoadDocumentController::refreshSlots() {
     }
 }
 
+/**
+ * @brief Update the bound UI document to reflect the controller's current state.
+ *
+ * Updates visibility, selection, labels, timestamps, footer states, notice text,
+ * and confirm-button selection for the load screen, and refreshes the detail panel.
+ * If no document is bound, the method performs no action.
+ */
 void LoadDocumentController::refreshDocument() const {
     if (document_ == nullptr) {
         return;
@@ -571,6 +710,11 @@ void LoadDocumentController::refreshDocument() const {
     refreshDetailPanel();
 }
 
+/**
+ * @brief Computes the number of selectable entries in the load screen.
+ *
+ * @return std::size_t Total number of selectable items: the count of cached save slots plus two footer entries (delete and back).
+ */
 std::size_t LoadDocumentController::totalSelectableItems() const {
     return cachedSlots_.size() + 2;
 }
@@ -597,10 +741,25 @@ bool LoadDocumentController::backSelected() const {
     return selection_ == cachedSlots_.size() + 1;
 }
 
+/**
+ * @brief Checks whether the current selection points to the delete footer.
+ *
+ * @return `true` if the delete footer is selected, `false` otherwise.
+ */
 bool LoadDocumentController::deleteSelected() const {
     return selection_ == cachedSlots_.size();
 }
 
+/**
+ * @brief Update the right-hand detail panel to reflect the currently selected save slot.
+ *
+ * Populates UI elements with the selected slot's metadata or with placeholder values when no slot
+ * is selected. Text fields that can contain user or file-derived content are escaped for safe RML
+ * insertion. The following element IDs are written when present:
+ * - load-detail-kind, load-detail-code, load-detail-name, load-detail-sub, load-detail-body,
+ *   load-detail-scene, load-detail-rank, load-detail-party, load-detail-status,
+ *   load-detail-back-hint.
+ */
 void LoadDocumentController::refreshDetailPanel() const {
     const SlotPresentation* slot = selectedSlot();
 
@@ -653,6 +812,13 @@ void LoadDocumentController::refreshDetailPanel() const {
     }
 }
 
+/**
+ * Get the currently selected slot presentation.
+ *
+ * Chooses `selection_` if it indexes into `cachedSlots_`, otherwise uses `slotSelection_`.
+ *
+ * @return Pointer to the selected SlotPresentation, or `nullptr` if `cachedSlots_` is empty or the chosen index is out of range.
+ */
 const LoadDocumentController::SlotPresentation* LoadDocumentController::selectedSlot() const {
     if (cachedSlots_.empty()) {
         return nullptr;
@@ -665,11 +831,27 @@ const LoadDocumentController::SlotPresentation* LoadDocumentController::selected
     return &cachedSlots_[index];
 }
 
+/**
+ * @brief Determines whether the currently selected save slot may be deleted.
+ *
+ * A slot is deletable only when a slot is selected and that slot is not an autosave.
+ *
+ * @return `true` if a slot is selected and it is not an autosave, `false` otherwise.
+ */
 bool LoadDocumentController::selectedSlotCanDelete() const {
     const SlotPresentation* slot = selectedSlot();
     return slot != nullptr && !slot->slot.isAutosave;
 }
 
+/**
+ * @brief Restore or adjust the current selection indices after a deletion.
+ *
+ * If there are no cached slots, both selection indices are set to 0.
+ * If a previously recorded deletion selection (`pendingDeleteSelection_`) is
+ * still within range, both `selection_` and `slotSelection_` are restored to
+ * that value. Otherwise both selections are set to the last available slot
+ * index.
+ */
 void LoadDocumentController::applySelectionAfterDelete() {
     if (cachedSlots_.empty()) {
         selection_ = 0;
@@ -686,6 +868,19 @@ void LoadDocumentController::applySelectionAfterDelete() {
     }
 }
 
+/**
+ * @brief Update the controller's selection index, wrapping it into the valid range.
+ *
+ * Wraps the provided `selection` modulo the number of selectable items and updates
+ * internal selection state. If `syncSlotSelection` is true and the resulting
+ * selection refers to a slot entry, the slot-focused index is synchronized to
+ * the new selection. When the selection actually changes and `playSound` is
+ * true, a scroll sound request is queued.
+ *
+ * @param selection Desired selection index (will be wrapped into the valid range).
+ * @param syncSlotSelection If true, set `slotSelection_` to the selection when it points to a slot.
+ * @param playSound If true, queue the scroll sound when the selection changes.
+ */
 void LoadDocumentController::setSelection(std::size_t selection, bool syncSlotSelection, bool playSound) {
     const std::size_t total = totalSelectableItems();
     if (total == 0) {
@@ -706,6 +901,14 @@ void LoadDocumentController::setSelection(std::size_t selection, bool syncSlotSe
     }
 }
 
+/**
+ * @brief Enqueues a sound request to be played later.
+ *
+ * Adds a sound request (asset path + volume) to the controller's pending sound queue.
+ *
+ * @param path Path to the sound asset.
+ * @param volume Playback volume multiplier (1.0 = full volume).
+ */
 void LoadDocumentController::queueSound(const char* path, float volume) {
     pendingSoundRequests_.push_back(SoundRequest{path, volume});
 }

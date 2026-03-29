@@ -11,6 +11,48 @@
 
 #include "../game/audio/ui_music_types.h"
 
+/**
+ * Cached pointers to the RmlUi elements that comprise the UI music bars strip.
+ */
+ 
+/**
+ * Format a floating-point value with three decimal places.
+ * @param value Value to format.
+ * @returns The value formatted as a decimal string with three digits after the decimal point.
+ */
+
+/**
+ * Format a floating-point value as device-independent pixels with two decimal places.
+ * @param value Value in pixels to format.
+ * @returns The value formatted with two decimal places and the "dp" suffix (e.g. "12.34dp").
+ */
+
+/**
+ * Locate and cache the UI elements for the music-bar strip inside the given document.
+ *
+ * If the track container has no children, this function will populate it with the
+ * expected number of bar <div> elements before resolving and caching their pointers.
+ * If the root or track element cannot be found, the returned UiMusicBarStrip will
+ * contain nullptr for root and an empty bars vector.
+ *
+ * @param document Rml document containing the music-bars elements.
+ * @returns A UiMusicBarStrip with `root` set to the container element (or nullptr)
+ *          and `bars` populated with pointers to each bar element (elements may be nullptr if not found).
+ */
+
+/**
+ * Update the cached music-bar UI to reflect the provided visual state.
+ *
+ * If the strip is invalid (null root or empty bars) this function does nothing.
+ * When `state.visible` is false or `state.opacity` is approximately zero, the strip
+ * is hidden and each bar's height is reset to 10.00dp. Otherwise the strip is shown,
+ * its opacity is set to the clamped `state.opacity` (formatted with three decimals),
+ * and each bar height is set to `10dp + normalized*340dp` where `normalized` is the
+ * per-bar value clamped to [0,1].
+ *
+ * @param strip Cached UI elements to update.
+ * @param state Visual state containing visibility, opacity, and per-bar values.
+ */
 namespace graphics {
 
 struct UiMusicBarStrip {

@@ -227,6 +227,13 @@ void clearPendingBgmTransition() {
     gBgmPauseAfterFadeOut = false;
 }
 
+/**
+ * @brief Update the instance BGM volume and apply it to the player.
+ *
+ * Clamps the provided volume to the range [0.0, 1.0], stores it as the current BGM volume, and if BGM playback is active applies the effective output volume after multiplying by the master music volume.
+ *
+ * @param volume01 Desired instance volume in the range [0.0, 1.0].
+ */
 void applyCurrentBgmVolume(float volume01) {
     gBgmCurrentVolume = std::clamp(volume01, 0.0f, 1.0f);
     if (gBgmPlayer.isPlaying()) {
@@ -234,6 +241,15 @@ void applyCurrentBgmVolume(float volume01) {
     }
 }
 
+/**
+ * @brief Immediately starts playback of the specified BGM WAV and updates internal BGM state.
+ *
+ * The requested volume is clamped to [0,1] and multiplied by the global master music volume before being applied.
+ *
+ * @param wavPath Filesystem path to the WAV file to play.
+ * @param volume01 Desired BGM volume in the range [0,1]; the effective playback volume will be this value times the master music volume.
+ * @return true if playback was started successfully and internal BGM state was updated, false if playback could not be started.
+ */
 bool startImmediateBgmPlayback(const std::string& wavPath, float volume01) {
     const float clampedVolume = std::clamp(volume01, 0.0f, 1.0f);
     if (!gBgmPlayer.play(wavPath, clampedVolume * gBgmMasterVolume)) {
@@ -1181,6 +1197,14 @@ void stopBgmPlayback() {
     clearPendingBgmTransition();
 }
 
+/**
+ * @brief Pause or resume currently playing background music.
+ *
+ * If no BGM is playing this function does nothing. When pausing, the player is paused
+ * and the cached current BGM volume is set to 0.0; when resuming, the player is resumed.
+ *
+ * @param paused `true` to pause playback, `false` to resume.
+ */
 void setBgmPaused(bool paused) {
     if (!gBgmPlayer.isPlaying()) {
         return;
@@ -1193,14 +1217,34 @@ void setBgmPaused(bool paused) {
     }
 }
 
+/**
+ * @brief Query whether background music is currently playing.
+ *
+ * @return `true` if background music is playing, `false` otherwise.
+ */
 bool hasBgmPlayback() {
     return gBgmPlayer.isPlaying();
 }
 
+/**
+ * @brief Checks whether background music playback is currently paused.
+ *
+ * @return `true` if background music playback is paused, `false` otherwise.
+ */
 bool isBgmPlaybackPaused() {
     return gBgmPlayer.isPaused();
 }
 
+/**
+ * @brief Set the preferred font file and base point size for text rendering.
+ *
+ * Stores the provided font path. When TrueType support is enabled, clamps
+ * the base point size to at least 8, closes any currently opened fonts, and
+ * reloads scaled fonts based on the new base size and current viewport.
+ *
+ * @param fontPath Path to the font file to use for Latin text.
+ * @param ptSize Requested base point size; will be set to at least 8 when TTF is enabled.
+ */
 void setFont(const std::string& fontPath, int ptSize) {
     gFontPath = fontPath;
 #ifdef VN_ENABLE_TTF
@@ -1221,10 +1265,27 @@ void setFont(const std::string& fontPath, int ptSize) {
 #endif
 }
 
+/**
+ * @brief Enable or disable automatic line advancement when voice playback ends.
+ *
+ * When enabled, the system will request advancement automatically once the currently
+ * playing voice audio finishes. When disabled, lines must be advanced manually.
+ *
+ * @param enabled True to enable auto-advance on voice end, false to disable.
+ */
 void setAutoAdvanceOnVoiceEnd(bool enabled) {
     gAutoAdvanceOnVoiceEnd = enabled;
 }
 
+/**
+ * @brief Update the typewriter (characters-per-second) rendering speed.
+ *
+ * Clamps the provided value to a minimum of 1.0 and applies it as the new
+ * typewriter speed unless the change from the current speed is ≤ 0.001,
+ * in which case the call is a no-op.
+ *
+ * @param charsPerSecond Desired characters-per-second for typewriter effect (will be clamped to ≥ 1.0).
+ */
 void setTypewriterSpeed(float charsPerSecond) {
     const float clamped = std::max(1.0f, charsPerSecond);
     if (std::fabs(gCharsPerSecond - clamped) <= 0.001f) {
@@ -1233,6 +1294,14 @@ void setTypewriterSpeed(float charsPerSecond) {
     gCharsPerSecond = clamped;
 }
 
+/**
+ * @brief Set the master music volume multiplier for background music playback.
+ *
+ * The provided value is clamped to the range [0.0, 1.0] and immediately reapplied to any currently playing BGM.
+ * Minor adjustments (difference of 0.001 or less) are treated as no-ops.
+ *
+ * @param volume01 Desired master volume in the range 0.0 (silent) to 1.0 (full volume); out-of-range values are clamped.
+ */
 void setMusicVolume(float volume01) {
     const float clamped = std::clamp(volume01, 0.0f, 1.0f);
     if (std::fabs(gBgmMasterVolume - clamped) <= 0.001f) {
@@ -1243,6 +1312,16 @@ void setMusicVolume(float volume01) {
     applyCurrentBgmVolume(gBgmCurrentVolume);
 }
 
+/**
+ * @brief Set the voice playback volume (normalized).
+ *
+ * Clamps the provided value to the range [0, 1], ignores changes smaller than 0.001,
+ * and applies the new volume to any currently loaded/queued voice buffer. If a voice
+ * buffer and audio device are active the function re-queues the buffer so the new
+ * volume takes effect; on re-queue failure the voice buffer is stopped and freed.
+ *
+ * @param volume01 Desired volume in the range [0, 1].
+ */
 void setVoiceVolume(float volume01) {
     const float clamped = std::clamp(volume01, 0.0f, 1.0f);
     if (std::fabs(gVoiceVolume - clamped) <= 0.001f) {
@@ -1264,6 +1343,16 @@ void setVoiceVolume(float volume01) {
     gVoicePlaying = gVoiceVolume > 0.0f;
 }
 
+/**
+ * @brief Set the target background-music volume.
+ *
+ * Clamps the provided value to the range [0, 1] and updates the stored BGM target volume.
+ * If the new clamped value differs from the previous target by more than 0.001, the change
+ * is applied: when BGM is currently playing the player volume is updated, otherwise the
+ * cached current volume is updated for future playback.
+ *
+ * @param volume01 Desired BGM volume where 0.0 is silent and 1.0 is full volume.
+ */
 void setBgmVolume(float volume01) {
     const float clamped = std::clamp(volume01, 0.0f, 1.0f);
     if (std::fabs(gBgmVolume - clamped) <= 0.001f) {
@@ -1277,14 +1366,29 @@ void setBgmVolume(float volume01) {
     }
 }
 
+/**
+ * Get the configured typewriter speed in characters per second.
+ *
+ * @return Current typewriter speed (characters per second).
+ */
 float getTypewriterSpeed() {
     return gCharsPerSecond;
 }
 
+/**
+ * @brief Gets the master music volume.
+ *
+ * @return Current master music volume in the range [0, 1].
+ */
 float getMusicVolume() {
     return gBgmMasterVolume;
 }
 
+/**
+ * @brief Get the current voice playback volume level.
+ *
+ * @return float Current voice volume in the range [0, 1].
+ */
 float getVoiceVolume() {
     return gVoiceVolume;
 }
