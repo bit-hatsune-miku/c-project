@@ -258,6 +258,7 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
     }
 
     syncState(state);
+    playQueuedControllerSounds();
 
     const std::optional<MainMenuAction> selectionAfterEvent = currentMainMenuSelection();
     if (selectionBeforeEvent.has_value() &&
@@ -304,6 +305,27 @@ void Session::render() {
 void Session::setLoadingOverlay(const RmlUiLoadingOverlayState& state) {
     loadingOverlayState_ = state;
     loadingOverlay_.apply(loadingOverlayState_);
+}
+
+void Session::playResolvedSfx(const SoundRequest& request) {
+    if (!audioReady_ || request.relativePath.empty()) {
+        return;
+    }
+
+    const std::string resolvedPath = platform::path::resolvePath(request.relativePath);
+    if (resolvedPath.empty() || !std::filesystem::exists(resolvedPath)) {
+        return;
+    }
+
+    (void)sfxPlayer_.playWavOneShot(resolvedPath, std::clamp(request.volume, 0.0f, 1.0f), true);
+}
+
+void Session::playQueuedControllerSounds() {
+    if (DocumentController* controller = topController()) {
+        for (const SoundRequest& request : controller->consumeSoundRequests()) {
+            playResolvedSfx(request);
+        }
+    }
 }
 
 std::optional<Command> Session::consumeCommand() {
@@ -456,7 +478,7 @@ bool Session::initializeAudio() {
         }
     }
 
-    audioReady_ = !scrollSfxPath_.empty() || !confirmSfxPath_.empty();
+    audioReady_ = true;
     return audioReady_;
 }
 

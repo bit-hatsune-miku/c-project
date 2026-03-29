@@ -52,6 +52,8 @@ private:
     void popScreen();
     DocumentController* topController() const;
     void syncState(AppState& state);
+    void playResolvedSfx(const SoundRequest& request);
+    void playQueuedControllerSounds();
     void updateViewportFromWindow();
     void applyContextScale();
     bool loadFonts() const;

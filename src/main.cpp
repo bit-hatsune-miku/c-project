@@ -789,6 +789,7 @@ bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
     state.story.loaded = true;
     state.story.entryIndex = static_cast<std::size_t>(std::clamp(saveGame.entryIndex, 0, static_cast<int>(state.story.script.entries.size() - 1)));
     state.storyEndReturnScreen = resolveStoryEndReturnScreen(state.story.script, ScreenState::MainMenu);
+    state.requestStoryReturnToBossSelector = false;
 
     vn::reset();
     vn::setVoiceVolume(state.settings.voiceVolume);
@@ -826,6 +827,7 @@ void beginStory(AppState& state, const std::string& scriptRef, ScreenState endRe
 
     state.story.entryIndex = 0;
     state.storyEndReturnScreen = resolveStoryEndReturnScreen(state.story.script, endReturnScreen);
+    state.requestStoryReturnToBossSelector = false;
     state.pauseSelection = PauseAction::Continue;
     state.pauseContext = PauseContext::Story;
     state.confirmSelection = ConfirmAction::Cancel;
@@ -845,6 +847,7 @@ void beginStory(AppState& state, const std::string& scriptRef, ScreenState endRe
 void beginBossSelector(AppState& state) {
 #ifdef RMLUI_SDL_VERSION_MAJOR
     vn::stopBgmPlayback();
+    state.requestStoryReturnToBossSelector = false;
     state.pauseSelection = PauseAction::Continue;
     state.pauseContext = PauseContext::Story;
     state.confirmSelection = ConfirmAction::Cancel;
@@ -1578,6 +1581,7 @@ int main(int argc, char** argv) {
 
     const auto commitStoryExitToMainMenu = [&]() -> bool {
         state.requestStoryExitToMainMenu = false;
+        state.requestStoryReturnToBossSelector = false;
         vn::setPaused(false);
         vn::reset();
         state.story.entryIndex = 0;
@@ -1589,6 +1593,19 @@ int main(int argc, char** argv) {
         state.mainSelection = MainMenuAction::Start;
         state.noticeText = "Current progress was discarded.";
         state.noticeTimer = 2.6f;
+        return true;
+    };
+
+    const auto commitStoryReturnToBossSelector = [&]() -> bool {
+        state.requestStoryReturnToBossSelector = false;
+        vn::setPaused(false);
+        vn::reset();
+        state.story.entryIndex = 0;
+        state.pauseSelection = PauseAction::Continue;
+        state.pauseContext = PauseContext::Story;
+        state.confirmSelection = ConfirmAction::Cancel;
+        state.pauseIntroTime = 0.0f;
+        beginBossSelector(state);
         return true;
     };
 
@@ -1781,6 +1798,14 @@ int main(int argc, char** argv) {
                 commitStoryExitToMainMenu);
         }
 
+        if (!loadingTransition.active && state.requestStoryReturnToBossSelector) {
+            startLoadingTransition(
+                loadingTransition,
+                LoadingTransitionPresentation::RmlUi,
+                std::function<bool()>{},
+                commitStoryReturnToBossSelector);
+        }
+
         if (shouldUseFrontUiScreen(state)) {
             if (!restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state)) {
                 std::cerr << "Failed to restore RmlUi front-ui screen\n";
@@ -1931,24 +1956,38 @@ int main(int argc, char** argv) {
             }
         }
 
-        if (!state.pendingLoadPath.empty()) {
+        if (!state.pendingLoadPath.empty() && !loadingTransition.active) {
             const std::string pendingLoadPath = state.pendingLoadPath;
             state.pendingLoadPath.clear();
 
-            const std::optional<save::SaveGame> saveGame = save::load(pendingLoadPath);
-            if (!saveGame.has_value()) {
-                state.noticeText = "Save file corrupted.";
-                state.noticeTimer = 2.4f;
-            } else {
-                if (restoreStorySave(state, *saveGame)) {
+            const LoadingTransitionPresentation presentation = shouldUseFrontUiScreen(state)
+                ? LoadingTransitionPresentation::RmlUi
+                : LoadingTransitionPresentation::RendererFallback;
+            startLoadingTransition(
+                loadingTransition,
+                presentation,
+                presentation == LoadingTransitionPresentation::RendererFallback
+                    ? std::function<bool()>(prepareRendererLoadingHold)
+                    : std::function<bool()>{},
+                [&, pendingLoadPath]() -> bool {
+                    const std::optional<save::SaveGame> saveGame = save::load(pendingLoadPath);
+                    if (!saveGame.has_value()) {
+                        state.noticeText = "Save file corrupted.";
+                        state.noticeTimer = 2.4f;
+                        return true;
+                    }
+
+                    if (!restoreStorySave(state, *saveGame)) {
+                        state.noticeText = "Load failed.";
+                        state.noticeTimer = 2.4f;
+                        return true;
+                    }
+
                     SettingsMenuController::applyDisplayMode(window, state.settings, saveGame->settings.fullscreen);
                     state.noticeText = "Game loaded.";
                     state.noticeTimer = 2.0f;
-                } else {
-                    state.noticeText = "Load failed.";
-                    state.noticeTimer = 2.4f;
-                }
-            }
+                    return true;
+                });
         }
 
         if (state.screen == ScreenState::BattleDemo && battleSession == nullptr) {
@@ -2176,7 +2215,7 @@ int main(int argc, char** argv) {
                     beginBattle(state, pendingBattleId);
                 } else if (state.story.entryIndex >= state.story.script.entries.size()) {
                     if (state.storyEndReturnScreen == ScreenState::BossSelector) {
-                        beginBossSelector(state);
+                        state.requestStoryReturnToBossSelector = true;
                     } else {
                         state.screen = ScreenState::MainMenu;
                         state.mainSelection = MainMenuAction::Start;

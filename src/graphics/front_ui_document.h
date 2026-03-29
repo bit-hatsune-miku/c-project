@@ -34,6 +34,11 @@ struct Command {
     bool displayModeFullscreen = false;
 };
 
+struct SoundRequest {
+    std::string relativePath;
+    float volume = 0.9f;
+};
+
 struct EventListenerBinding {
     Rml::Element* element = nullptr;
     Rml::EventId eventId = Rml::EventId::Invalid;
@@ -64,6 +69,7 @@ public:
     virtual void cancel() {}
     virtual void applyState(AppState& state) { (void)state; }
     virtual std::optional<Command> consumeCommand() = 0;
+    virtual std::vector<SoundRequest> consumeSoundRequests() { return {}; }
     virtual std::optional<MainMenuAction> selectedMainMenuAction() const { return std::nullopt; }
 };
 

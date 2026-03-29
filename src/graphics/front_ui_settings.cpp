@@ -16,6 +16,9 @@ namespace {
 
 constexpr float kMinTextSpeed = 18.0f;
 constexpr float kMaxTextSpeed = 90.0f;
+constexpr const char* kSelectionSfxPath = "assets/ui/sfx/Keyboard_select-word.wav";
+constexpr const char* kAdjustSfxPath = "assets/ui/sfx/Keyboard_select-all.wav";
+constexpr const char* kBackSfxPath = "assets/ui/sfx/Menu_back-to-top.wav";
 
 class CallbackEventListener final : public Rml::EventListener {
 public:
@@ -137,8 +140,10 @@ bool SettingsDocumentController::bind(Rml::ElementDocument& document, const AppS
     document_ = &document;
     detachEventListeners(listeners_);
     pendingCommand_.reset();
+    pendingSoundRequests_.clear();
     selection_ = state.settingsSelection;
     workingSettings_ = state.settings;
+    returnScreen_ = state.settingsReturnScreen;
 
     applyRowCopy();
     attachListeners();
@@ -150,6 +155,7 @@ bool SettingsDocumentController::bind(Rml::ElementDocument& document, const AppS
 
 void SettingsDocumentController::unbind() {
     detachEventListeners(listeners_);
+    pendingSoundRequests_.clear();
     document_ = nullptr;
 }
 
@@ -166,7 +172,13 @@ void SettingsDocumentController::sync(const AppState& state) {
         needsRefresh = true;
     }
 
+    if (returnScreen_ != state.settingsReturnScreen) {
+        returnScreen_ = state.settingsReturnScreen;
+        needsRefresh = true;
+    }
+
     if (needsRefresh) {
+        applyRowCopy();
         applySelectionStyles();
         syncControlValues();
         updateFocusCopy();
@@ -182,7 +194,7 @@ void SettingsDocumentController::moveSelection(int delta) {
     if (delta == 0) {
         return;
     }
-    setSelection(itemForIndex(itemIndex(selection_) + delta));
+    setSelection(itemForIndex(itemIndex(selection_) + delta), true);
 }
 
 void SettingsDocumentController::adjustSelection(int delta) {
@@ -241,6 +253,12 @@ std::optional<Command> SettingsDocumentController::consumeCommand() {
     return result;
 }
 
+std::vector<SoundRequest> SettingsDocumentController::consumeSoundRequests() {
+    std::vector<SoundRequest> requests = std::move(pendingSoundRequests_);
+    pendingSoundRequests_.clear();
+    return requests;
+}
+
 void SettingsDocumentController::attachListeners() {
     if (document_ == nullptr) {
         return;
@@ -249,7 +267,7 @@ void SettingsDocumentController::attachListeners() {
     for (const SettingsRowDefinition& row : kRows) {
         if (Rml::Element* element = document_->GetElementById(row.rowId)) {
             auto hoverListener = std::make_unique<CallbackEventListener>([this, item = row.item](Rml::Event&) {
-                setSelection(item);
+                setSelection(item, true);
             });
             element->AddEventListener(Rml::EventId::Mouseover, hoverListener.get());
             listeners_.push_back(EventListenerBinding{
@@ -290,7 +308,7 @@ void SettingsDocumentController::attachListeners() {
 
         if (Rml::Element* slider = document_->GetElementById(row.sliderId)) {
             auto hoverListener = std::make_unique<CallbackEventListener>([this, item = row.item](Rml::Event&) {
-                setSelection(item);
+                setSelection(item, true);
             });
             slider->AddEventListener(Rml::EventId::Mouseover, hoverListener.get());
             listeners_.push_back(EventListenerBinding{
@@ -347,8 +365,16 @@ void SettingsDocumentController::applyRowCopy() const {
             element->SetInnerRML(row.code);
         }
         if (Rml::Element* element = document_->GetElementById(row.labelId)) {
-            element->SetInnerRML(row.label);
+            if (row.item == SettingsItem::Back) {
+                element->SetInnerRML(returnScreen_ == ScreenState::MainMenu ? "RETURN TO MAIN MENU" : "BACK");
+            } else {
+                element->SetInnerRML(row.label);
+            }
         }
+    }
+
+    if (Rml::Element* element = document_->GetElementById("settings-back-value")) {
+        element->SetInnerRML(returnScreen_ == ScreenState::MainMenu ? "RETURN" : "BACK");
     }
 }
 
@@ -362,10 +388,18 @@ void SettingsDocumentController::updateFocusCopy() const {
         element->SetInnerRML(row.code);
     }
     if (Rml::Element* element = document_->GetElementById("settings-focus-title")) {
-        element->SetInnerRML(row.focusTitle);
+        if (selection_ == SettingsItem::Back && returnScreen_ == ScreenState::MainMenu) {
+            element->SetInnerRML("RETURN TO MAIN MENU");
+        } else {
+            element->SetInnerRML(row.focusTitle);
+        }
     }
     if (Rml::Element* element = document_->GetElementById("settings-focus-copy")) {
-        element->SetInnerRML(row.focusBody);
+        if (selection_ == SettingsItem::Back && returnScreen_ == ScreenState::MainMenu) {
+            element->SetInnerRML("Leave settings and bring the play menu back into place without a screen fade.");
+        } else {
+            element->SetInnerRML(row.focusBody);
+        }
     }
 }
 
@@ -389,35 +423,94 @@ void SettingsDocumentController::syncControlValues() const {
     if (auto* control = dynamic_cast<Rml::ElementFormControl*>(document_->GetElementById("settings-text-slider"))) {
         control->SetValue(std::to_string(static_cast<int>(std::lround(clampTextSpeed(workingSettings_.textSpeed)))));
     }
+    if (Rml::Element* element = document_->GetElementById("settings-preview-main-value")) {
+        element->SetInnerRML(selection_ == SettingsItem::DisplayMode
+            ? formatDisplayMode(workingSettings_.fullscreen)
+            : (selection_ == SettingsItem::VoiceVolume
+                ? formatPercent(workingSettings_.voiceVolume)
+                : (selection_ == SettingsItem::TextSpeed
+                    ? formatCharsPerSecond(workingSettings_.textSpeed)
+                    : (returnScreen_ == ScreenState::MainMenu ? "MAIN MENU" : "RETURN"))));
+    }
+    if (Rml::Element* element = document_->GetElementById("settings-preview-chip")) {
+        element->SetInnerRML(selection_ == SettingsItem::Back ? "RETURN ROUTE" : "LIVE VALUE");
+    }
+    if (Rml::Element* element = document_->GetElementById("settings-preview-voice-fill")) {
+        element->SetProperty("width", formatPercent(workingSettings_.voiceVolume));
+    }
+    if (Rml::Element* element = document_->GetElementById("settings-preview-text-fill")) {
+        const float normalized = (clampTextSpeed(workingSettings_.textSpeed) - kMinTextSpeed) /
+                                 (kMaxTextSpeed - kMinTextSpeed);
+        element->SetProperty("width", formatPercent(normalized));
+    }
+    if (Rml::Element* element = document_->GetElementById("settings-context-display")) {
+        element->SetInnerRML(formatDisplayMode(workingSettings_.fullscreen));
+    }
+    if (Rml::Element* element = document_->GetElementById("settings-context-voice")) {
+        element->SetInnerRML(formatPercent(workingSettings_.voiceVolume));
+    }
+    if (Rml::Element* element = document_->GetElementById("settings-context-speed")) {
+        element->SetInnerRML(formatCharsPerSecond(workingSettings_.textSpeed));
+    }
+    if (Rml::Element* element = document_->GetElementById("settings-context-return")) {
+        element->SetInnerRML(returnScreen_ == ScreenState::MainMenu ? "Main Menu" : "Previous Screen");
+    }
 }
 
-void SettingsDocumentController::setSelection(SettingsItem selection) {
+void SettingsDocumentController::setSelection(SettingsItem selection, bool playSound) {
+    if (selection_ == selection) {
+        return;
+    }
+
     selection_ = selection;
     applySelectionStyles();
     updateFocusCopy();
+    syncControlValues();
+    if (playSound) {
+        queueSound(kSelectionSfxPath, 0.88f);
+    }
 }
 
 void SettingsDocumentController::queueDisplayMode(bool fullscreen) {
+    if (workingSettings_.fullscreen == fullscreen) {
+        return;
+    }
     workingSettings_.fullscreen = fullscreen;
     pendingCommand_ = Command{CommandType::ApplyDisplayMode, MainMenuAction::Start, fullscreen};
     syncControlValues();
     updateFocusCopy();
+    queueSound(kAdjustSfxPath, 0.9f);
 }
 
 void SettingsDocumentController::queueReturn() {
     pendingCommand_ = Command{CommandType::ReturnFromSettings};
+    queueSound(kBackSfxPath, 0.92f);
 }
 
 void SettingsDocumentController::setVoiceVolume(float value) {
-    workingSettings_.voiceVolume = clampVoice(value);
+    const float clamped = clampVoice(value);
+    if (std::fabs(workingSettings_.voiceVolume - clamped) < 0.001f) {
+        return;
+    }
+    workingSettings_.voiceVolume = clamped;
     syncControlValues();
     updateFocusCopy();
+    queueSound(kAdjustSfxPath, 0.84f);
 }
 
 void SettingsDocumentController::setTextSpeed(float value) {
-    workingSettings_.textSpeed = clampTextSpeed(value);
+    const float clamped = clampTextSpeed(value);
+    if (std::fabs(workingSettings_.textSpeed - clamped) < 0.001f) {
+        return;
+    }
+    workingSettings_.textSpeed = clamped;
     syncControlValues();
     updateFocusCopy();
+    queueSound(kAdjustSfxPath, 0.84f);
+}
+
+void SettingsDocumentController::queueSound(const char* path, float volume) {
+    pendingSoundRequests_.push_back(SoundRequest{path, volume});
 }
 
 }  // namespace graphics::frontui

@@ -21,24 +21,38 @@ public:
     void cancel() override;
     void applyState(AppState& state) override;
     std::optional<Command> consumeCommand() override;
+    std::vector<SoundRequest> consumeSoundRequests() override;
 
 private:
+    struct SlotPresentation {
+        save::SlotInfo slot;
+        std::optional<save::SaveGame> saveGame;
+        std::string chapterLabel;
+        std::string partyLabel;
+        std::string summaryText;
+        std::string statusLabel;
+        int idolRank = 0;
+    };
+
     void attachListeners();
     void refreshFromState(const AppState& state);
     void refreshSlots();
     void refreshDocument() const;
+    void refreshDetailPanel() const;
     std::size_t totalSelectableItems() const;
     std::size_t visibleWindowStart() const;
     bool showingConfirm() const;
     bool backSelected() const;
     bool deleteSelected() const;
-    const save::SlotInfo* selectedSlot() const;
+    const SlotPresentation* selectedSlot() const;
     bool selectedSlotCanDelete() const;
     void applySelectionAfterDelete();
+    void setSelection(std::size_t selection, bool syncSlotSelection, bool playSound);
+    void queueSound(const char* path, float volume = 0.9f);
 
     Rml::ElementDocument* document_ = nullptr;
     std::vector<EventListenerBinding> listeners_;
-    std::vector<save::SlotInfo> cachedSlots_;
+    std::vector<SlotPresentation> cachedSlots_;
     ScreenState screen_ = ScreenState::LoadMenu;
     ScreenState returnScreen_ = ScreenState::MainMenu;
     std::size_t selection_ = 0;
@@ -47,6 +61,7 @@ private:
     std::string noticeText_;
     std::size_t pendingDeleteSelection_ = 0;
     std::string pendingDeletePath_;
+    std::vector<SoundRequest> pendingSoundRequests_;
     bool pendingBack_ = false;
     bool pendingActivateSelection_ = false;
     bool pendingDismissConfirm_ = false;

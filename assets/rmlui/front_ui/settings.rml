@@ -1,58 +1,122 @@
 <rml>
 <head>
     <title>Settings</title>
-    <link type="text/rcss" href="front_ui_shared.rcss"/>
+    <link type="text/rcss" href="submenu_revamp.rcss"/>
 </head>
 <body>
-    <div id="settings-overlay"></div>
+    <div id="settings-screen" class="submenu-screen">
+        <img id="settings-logo" class="submenu-logo" src="../../vn/backgrounds/General_Art/MainMenuTitle.png"/>
 
-    <div id="settings-shell">
-        <div id="settings-title-shell">
-            <div id="settings-kicker">SYSTEM CONFIG / FRONTEND NODE</div>
-            <div id="settings-title">SETTINGS</div>
-        </div>
+        <div id="settings-panel" class="submenu-panel">
+            <div id="settings-shell">
+                <div class="submenu-outline"></div>
+                <div class="submenu-kicker">SYSTEM CONFIG / FRONTEND NODE</div>
+                <div class="submenu-title">SETTINGS</div>
+                <div class="submenu-copy">Tune presentation and readability here, then slip straight back to the menu without triggering the big opening intro again.</div>
 
-        <div id="settings-focus-card" class="front-shell-panel">
-            <div id="settings-focus-code"></div>
-            <div id="settings-focus-copy-group">
-                <div id="settings-focus-title"></div>
-                <div id="settings-focus-copy"></div>
+                <div id="settings-list">
+                    <button id="settings-row-display" class="submenu-row is-selected">
+                        <div class="submenu-row-content">
+                            <div class="submenu-row-accent"></div>
+                            <div id="settings-code-display" class="submenu-row-code"></div>
+                            <div class="submenu-row-main">
+                                <div id="settings-label-display" class="submenu-row-label"></div>
+                                <div class="submenu-row-sub">WINDOW / FULLSCREEN</div>
+                            </div>
+                            <div id="settings-display-value" class="submenu-row-value"></div>
+                            <div class="submenu-row-tail"></div>
+                        </div>
+                    </button>
+
+                    <div id="settings-row-voice" class="submenu-row submenu-row-slider">
+                        <div class="submenu-row-content">
+                            <div class="submenu-row-accent"></div>
+                            <div id="settings-code-voice" class="submenu-row-code"></div>
+                            <div class="submenu-row-main">
+                                <div id="settings-label-voice" class="submenu-row-label"></div>
+                                <div class="submenu-row-sub">DIALOGUE OUTPUT LEVEL</div>
+                            </div>
+                            <div id="settings-voice-value" class="submenu-row-value"></div>
+                            <input class="submenu-slider" id="settings-voice-slider" type="range" min="0" max="100" step="5" value="0" />
+                            <div class="submenu-row-tail"></div>
+                        </div>
+                    </div>
+
+                    <div id="settings-row-text" class="submenu-row submenu-row-slider">
+                        <div class="submenu-row-content">
+                            <div class="submenu-row-accent"></div>
+                            <div id="settings-code-text" class="submenu-row-code"></div>
+                            <div class="submenu-row-main">
+                                <div id="settings-label-text" class="submenu-row-label"></div>
+                                <div class="submenu-row-sub">VN CHARACTERS PER SECOND</div>
+                            </div>
+                            <div id="settings-text-value" class="submenu-row-value"></div>
+                            <input class="submenu-slider" id="settings-text-slider" type="range" min="18" max="90" step="6" value="18" />
+                            <div class="submenu-row-tail"></div>
+                        </div>
+                    </div>
+
+                    <button id="settings-row-back" class="submenu-row">
+                        <div class="submenu-row-content">
+                            <div class="submenu-row-accent"></div>
+                            <div id="settings-code-back" class="submenu-row-code"></div>
+                            <div class="submenu-row-main">
+                                <div id="settings-label-back" class="submenu-row-label"></div>
+                                <div class="submenu-row-sub">NO FADE, JUST EASE BACK</div>
+                            </div>
+                            <div id="settings-back-value" class="submenu-row-value"></div>
+                            <div class="submenu-row-tail"></div>
+                        </div>
+                    </button>
+                </div>
             </div>
-        </div>
 
-        <div id="settings-section-tag">CORE CONTROLS</div>
-        <div id="settings-system-chip">SYS: LINKED</div>
+            <div id="settings-focus-shell">
+                <div class="submenu-outline"></div>
+                <div id="settings-focus-code" class="submenu-detail-kicker"></div>
+                <div id="settings-focus-title" class="submenu-detail-title"></div>
+                <div id="settings-focus-copy" class="submenu-detail-copy"></div>
 
-        <div id="settings-rows">
-            <button id="settings-row-display" class="settings-row selected">
-                <div id="settings-code-display" class="settings-row-code"></div>
-                <div id="settings-label-display" class="settings-row-label"></div>
-                <div id="settings-display-value" class="settings-row-value"></div>
-                <div class="settings-row-beam"></div>
-            </button>
+                <div class="submenu-preview-card">
+                    <div id="settings-preview-chip" class="submenu-preview-chip">LIVE VALUE</div>
+                    <div id="settings-preview-main-value" class="submenu-preview-value">WINDOWED</div>
 
-            <div id="settings-row-voice" class="settings-row settings-row-slider">
-                <div id="settings-code-voice" class="settings-row-code"></div>
-                <div id="settings-label-voice" class="settings-row-label"></div>
-                <div id="settings-voice-value" class="settings-row-value"></div>
-                <input class="settings-slider" id="settings-voice-slider" type="range" min="0" max="100" step="5" value="0" />
-                <div class="settings-row-beam"></div>
+                    <div class="submenu-preview-meter">
+                        <div class="submenu-preview-meter-label">VOICE</div>
+                        <div class="submenu-preview-track">
+                            <div id="settings-preview-voice-fill" class="submenu-preview-fill"></div>
+                        </div>
+                    </div>
+
+                    <div class="submenu-preview-meter">
+                        <div class="submenu-preview-meter-label">TEXT SPEED</div>
+                        <div class="submenu-preview-track">
+                            <div id="settings-preview-text-fill" class="submenu-preview-fill"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="submenu-detail-grid">
+                    <div class="submenu-detail-cell">
+                        <div class="submenu-detail-label">Display</div>
+                        <div id="settings-context-display" class="submenu-detail-value">Windowed</div>
+                    </div>
+                    <div class="submenu-detail-cell">
+                        <div class="submenu-detail-label">Voice</div>
+                        <div id="settings-context-voice" class="submenu-detail-value">82%</div>
+                    </div>
+                    <div class="submenu-detail-cell">
+                        <div class="submenu-detail-label">Text</div>
+                        <div id="settings-context-speed" class="submenu-detail-value">42 CPS</div>
+                    </div>
+                    <div class="submenu-detail-cell">
+                        <div class="submenu-detail-label">Return</div>
+                        <div id="settings-context-return" class="submenu-detail-value">Main Menu</div>
+                    </div>
+                </div>
+
+                <div class="submenu-footer-hint">UP OR DOWN TO FOCUS. LEFT OR RIGHT TO ADJUST. ESC RETURNS.</div>
             </div>
-
-            <div id="settings-row-text" class="settings-row settings-row-slider">
-                <div id="settings-code-text" class="settings-row-code"></div>
-                <div id="settings-label-text" class="settings-row-label"></div>
-                <div id="settings-text-value" class="settings-row-value"></div>
-                <input class="settings-slider" id="settings-text-slider" type="range" min="18" max="90" step="6" value="18" />
-                <div class="settings-row-beam"></div>
-            </div>
-
-            <button id="settings-row-back" class="settings-row settings-row-back">
-                <div id="settings-code-back" class="settings-row-code"></div>
-                <div id="settings-label-back" class="settings-row-label"></div>
-                <div class="settings-row-value settings-row-back-value">RETURN</div>
-                <div class="settings-row-beam"></div>
-            </button>
         </div>
     </div>
 </body>
