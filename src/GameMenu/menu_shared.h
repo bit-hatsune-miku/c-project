@@ -181,6 +181,7 @@ struct AppState {
     bool requestStoryManualSave = false;
     bool requestStoryOverwriteSave = false;
     bool requestStoryExitToMainMenu = false;
+    bool requestStoryReturnToBossSelector = false;
     ScreenState storyEndReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleKey;
     bool pendingBattleLaunchedFromStory = false;

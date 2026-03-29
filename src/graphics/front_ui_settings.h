@@ -22,6 +22,7 @@ public:
     void cancel() override;
     void applyState(AppState& state) override;
     std::optional<Command> consumeCommand() override;
+    std::vector<SoundRequest> consumeSoundRequests() override;
 
 private:
     void attachListeners();
@@ -29,16 +30,19 @@ private:
     void applyRowCopy() const;
     void updateFocusCopy() const;
     void syncControlValues() const;
-    void setSelection(SettingsItem selection);
+    void setSelection(SettingsItem selection, bool playSound);
     void queueDisplayMode(bool fullscreen);
     void queueReturn();
     void setVoiceVolume(float value);
     void setTextSpeed(float value);
+    void queueSound(const char* path, float volume = 0.9f);
 
     Rml::ElementDocument* document_ = nullptr;
+    ScreenState returnScreen_ = ScreenState::MainMenu;
     SettingsItem selection_ = SettingsItem::DisplayMode;
     GameSettings workingSettings_{};
     std::optional<Command> pendingCommand_;
+    std::vector<SoundRequest> pendingSoundRequests_;
     std::vector<EventListenerBinding> listeners_;
 };
 

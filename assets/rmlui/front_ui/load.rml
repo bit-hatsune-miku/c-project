@@ -1,62 +1,166 @@
 <rml>
 <head>
     <title>Load</title>
-    <link type="text/rcss" href="front_ui_shared.rcss"/>
+    <link type="text/rcss" href="submenu_revamp.rcss"/>
 </head>
 <body>
-    <div id="load-overlay"></div>
-    <div id="load-shell">
-        <div id="load-title-shell">
-            <div id="load-kicker">SAVE DATA / THREAD REENTRY</div>
-            <div id="load-title">LOAD GAME</div>
-            <div id="load-subtitle">Resume a route from autosave or manual save slots without leaving the front UI pipeline.</div>
+    <div id="load-screen" class="submenu-screen">
+        <img id="load-logo" class="submenu-logo" src="../../vn/backgrounds/General_Art/MainMenuTitle.png"/>
+
+        <div id="load-panel" class="submenu-panel">
+            <div id="load-shell">
+                <div class="submenu-outline"></div>
+                <div class="submenu-kicker">SAVE DATA / THREAD REENTRY</div>
+                <div class="submenu-title">LOAD GAME</div>
+                <div class="submenu-copy">Pick a save from the left, preview its context on the right, then load straight through the same transition overlay used by story starts.</div>
+
+                <div id="load-slot-list">
+                    <button id="load-slot-button-0" class="load-slot-button">
+                        <div class="load-slot-content">
+                            <div class="load-slot-accent"></div>
+                            <div class="load-slot-code">01</div>
+                            <div class="load-slot-main">
+                                <div id="load-slot-label-0" class="load-slot-label"></div>
+                                <div id="load-slot-kind-0" class="load-slot-kind"></div>
+                            </div>
+                            <div id="load-slot-time-0" class="load-slot-time"></div>
+                            <div class="load-slot-tail"></div>
+                        </div>
+                    </button>
+                    <button id="load-slot-button-1" class="load-slot-button">
+                        <div class="load-slot-content">
+                            <div class="load-slot-accent"></div>
+                            <div class="load-slot-code">02</div>
+                            <div class="load-slot-main">
+                                <div id="load-slot-label-1" class="load-slot-label"></div>
+                                <div id="load-slot-kind-1" class="load-slot-kind"></div>
+                            </div>
+                            <div id="load-slot-time-1" class="load-slot-time"></div>
+                            <div class="load-slot-tail"></div>
+                        </div>
+                    </button>
+                    <button id="load-slot-button-2" class="load-slot-button">
+                        <div class="load-slot-content">
+                            <div class="load-slot-accent"></div>
+                            <div class="load-slot-code">03</div>
+                            <div class="load-slot-main">
+                                <div id="load-slot-label-2" class="load-slot-label"></div>
+                                <div id="load-slot-kind-2" class="load-slot-kind"></div>
+                            </div>
+                            <div id="load-slot-time-2" class="load-slot-time"></div>
+                            <div class="load-slot-tail"></div>
+                        </div>
+                    </button>
+                    <button id="load-slot-button-3" class="load-slot-button">
+                        <div class="load-slot-content">
+                            <div class="load-slot-accent"></div>
+                            <div class="load-slot-code">04</div>
+                            <div class="load-slot-main">
+                                <div id="load-slot-label-3" class="load-slot-label"></div>
+                                <div id="load-slot-kind-3" class="load-slot-kind"></div>
+                            </div>
+                            <div id="load-slot-time-3" class="load-slot-time"></div>
+                            <div class="load-slot-tail"></div>
+                        </div>
+                    </button>
+                    <button id="load-slot-button-4" class="load-slot-button">
+                        <div class="load-slot-content">
+                            <div class="load-slot-accent"></div>
+                            <div class="load-slot-code">05</div>
+                            <div class="load-slot-main">
+                                <div id="load-slot-label-4" class="load-slot-label"></div>
+                                <div id="load-slot-kind-4" class="load-slot-kind"></div>
+                            </div>
+                            <div id="load-slot-time-4" class="load-slot-time"></div>
+                            <div class="load-slot-tail"></div>
+                        </div>
+                    </button>
+                </div>
+
+                <div id="load-empty-state">No save files found yet.</div>
+
+                <div id="load-footer">
+                    <button id="load-footer-delete" class="load-footer-button">
+                        <div class="load-footer-content">
+                            <div class="load-footer-accent"></div>
+                            <div class="load-footer-code">06</div>
+                            <div id="load-footer-delete-label" class="load-footer-label">DELETE SAVE</div>
+                            <div class="load-footer-value">DELETE</div>
+                            <div class="load-footer-tail"></div>
+                        </div>
+                    </button>
+
+                    <button id="load-footer-back" class="load-footer-button">
+                        <div class="load-footer-content">
+                            <div class="load-footer-accent"></div>
+                            <div class="load-footer-code">07</div>
+                            <div id="load-footer-back-label" class="load-footer-label">RETURN TO MAIN MENU</div>
+                            <div id="load-footer-back-value" class="load-footer-value">RETURN</div>
+                            <div class="load-footer-tail"></div>
+                        </div>
+                    </button>
+                </div>
+
+                <div id="load-notice"></div>
+            </div>
+
+            <div id="load-detail-shell">
+                <div class="submenu-outline"></div>
+
+                <div id="load-detail-art">
+                    <div id="load-detail-kind">AUTOSAVE</div>
+                    <div id="load-detail-code">01</div>
+                    <div id="load-detail-name">No Save Selected</div>
+                    <div id="load-detail-sub">Choose a slot</div>
+                </div>
+
+                <div id="load-detail-body">Select a slot on the left to preview its saved chapter, party, and progression context.</div>
+
+                <div class="submenu-detail-grid">
+                    <div class="submenu-detail-cell">
+                        <div class="submenu-detail-label">Scene</div>
+                        <div id="load-detail-scene" class="submenu-detail-value">--</div>
+                    </div>
+                    <div class="submenu-detail-cell">
+                        <div class="submenu-detail-label">Idol Rank</div>
+                        <div id="load-detail-rank" class="submenu-detail-value">--</div>
+                    </div>
+                    <div class="submenu-detail-cell">
+                        <div class="submenu-detail-label">Party</div>
+                        <div id="load-detail-party" class="submenu-detail-value">--</div>
+                    </div>
+                    <div class="submenu-detail-cell">
+                        <div class="submenu-detail-label">Status</div>
+                        <div id="load-detail-status" class="submenu-detail-value">Idle</div>
+                    </div>
+                </div>
+
+                <div id="load-detail-back-hint">ESC or the footer button returns to the play menu without a screen fade.</div>
+            </div>
         </div>
 
-        <div id="load-slot-list">
-            <button id="load-slot-button-0" class="load-slot-button">
-                <div id="load-slot-kind-0" class="load-slot-kind"></div>
-                <div id="load-slot-label-0" class="load-slot-label"></div>
-                <div id="load-slot-time-0" class="load-slot-time"></div>
-            </button>
-            <button id="load-slot-button-1" class="load-slot-button">
-                <div id="load-slot-kind-1" class="load-slot-kind"></div>
-                <div id="load-slot-label-1" class="load-slot-label"></div>
-                <div id="load-slot-time-1" class="load-slot-time"></div>
-            </button>
-            <button id="load-slot-button-2" class="load-slot-button">
-                <div id="load-slot-kind-2" class="load-slot-kind"></div>
-                <div id="load-slot-label-2" class="load-slot-label"></div>
-                <div id="load-slot-time-2" class="load-slot-time"></div>
-            </button>
-            <button id="load-slot-button-3" class="load-slot-button">
-                <div id="load-slot-kind-3" class="load-slot-kind"></div>
-                <div id="load-slot-label-3" class="load-slot-label"></div>
-                <div id="load-slot-time-3" class="load-slot-time"></div>
-            </button>
-            <button id="load-slot-button-4" class="load-slot-button">
-                <div id="load-slot-kind-4" class="load-slot-kind"></div>
-                <div id="load-slot-label-4" class="load-slot-label"></div>
-                <div id="load-slot-time-4" class="load-slot-time"></div>
-            </button>
-        </div>
-
-        <div id="load-empty-state">No save files found yet.</div>
-
-        <div id="load-footer">
-            <button id="load-footer-delete" class="load-footer-button">DELETE</button>
-            <button id="load-footer-back" class="load-footer-button">BACK</button>
-        </div>
-
-        <div id="load-notice"></div>
-    </div>
-
-    <div id="load-confirm">
-        <div id="load-confirm-card">
-            <div id="load-confirm-title">Delete Save?</div>
-            <div id="load-confirm-body">This cannot be undone.</div>
-            <div id="load-confirm-actions">
-                <button id="load-confirm-cancel" class="pause-confirm-button is-selected">Cancel</button>
-                <button id="load-confirm-delete" class="pause-confirm-button">Delete Save</button>
+        <div id="load-confirm">
+            <div id="load-confirm-card">
+                <div id="load-confirm-title">Delete Save?</div>
+                <div id="load-confirm-body">This action removes the selected manual save permanently.</div>
+                <div id="load-confirm-actions">
+                    <button id="load-confirm-cancel" class="submenu-confirm-button is-selected">
+                        <div class="submenu-confirm-content">
+                            <div class="submenu-confirm-accent"></div>
+                            <div class="submenu-confirm-code">08</div>
+                            <div class="submenu-confirm-label">Cancel</div>
+                            <div class="submenu-confirm-tail"></div>
+                        </div>
+                    </button>
+                    <button id="load-confirm-delete" class="submenu-confirm-button">
+                        <div class="submenu-confirm-content">
+                            <div class="submenu-confirm-accent"></div>
+                            <div class="submenu-confirm-code">09</div>
+                            <div class="submenu-confirm-label">Delete Save</div>
+                            <div class="submenu-confirm-tail"></div>
+                        </div>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

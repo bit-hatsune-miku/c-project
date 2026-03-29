@@ -12,6 +12,12 @@
 
 namespace graphics::frontui {
 
+enum class MainMenuOverlayMode {
+    None,
+    Load,
+    Settings,
+};
+
 class MainMenuDocumentController final : public DocumentController {
 public:
     bool bind(Rml::ElementDocument& document, const AppState& state) override;
@@ -25,6 +31,8 @@ public:
     std::optional<MainMenuAction> selectedMainMenuAction() const override;
 
 private:
+    bool isMenuStackActive(const AppState& state) const;
+    MainMenuOverlayMode overlayModeForState(const AppState& state) const;
     void attachListeners();
     void cacheElements();
     void applyButtonCopy() const;
@@ -35,6 +43,7 @@ private:
     void restartIntroAnimation();
     void updateDrift(float deltaSeconds);
     void updateIntro(float deltaSeconds);
+    void updateSubmenu(float deltaSeconds);
     void applyVisualState() const;
 
     Rml::ElementDocument* document_ = nullptr;
@@ -50,9 +59,12 @@ private:
     float driftCurrentY_ = 0.0f;
     float driftTargetX_ = 0.0f;
     float driftTargetY_ = 0.0f;
+    float submenuCurrent_ = 0.0f;
+    float submenuTarget_ = 0.0f;
     float introElapsedSeconds_ = 0.0f;
     bool introActive_ = false;
-    bool mainMenuVisible_ = false;
+    bool menuStackActive_ = false;
+    MainMenuOverlayMode overlayMode_ = MainMenuOverlayMode::None;
 };
 
 }  // namespace graphics::frontui

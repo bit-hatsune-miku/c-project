@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <functional>
+#include <sstream>
 #include <string>
 #include <utility>
 
@@ -28,6 +29,9 @@ private:
 };
 
 constexpr std::size_t kVisibleSlotCount = 5;
+constexpr const char* kScrollSfxPath = "assets/ui/sfx/Multiplayer_player-ready-all.wav";
+constexpr const char* kBackSfxPath = "assets/ui/sfx/Menu_back-to-logo.wav";
+constexpr const char* kLoadConfirmSfxPath = "assets/ui/sfx/Menu_button-daily-select.wav";
 
 std::string escapeRmlText(const std::string& text) {
     std::string escaped;
@@ -93,6 +97,7 @@ const std::array<const char*, kVisibleSlotCount> kSlotTimeIds{{
 bool LoadDocumentController::bind(Rml::ElementDocument& document, const AppState& state) {
     document_ = &document;
     detachEventListeners(listeners_);
+    pendingSoundRequests_.clear();
     pendingBack_ = false;
     pendingActivateSelection_ = false;
     pendingDismissConfirm_ = false;
@@ -108,6 +113,7 @@ bool LoadDocumentController::bind(Rml::ElementDocument& document, const AppState
 
 void LoadDocumentController::unbind() {
     detachEventListeners(listeners_);
+    pendingSoundRequests_.clear();
     document_ = nullptr;
 }
 
@@ -128,9 +134,13 @@ void LoadDocumentController::moveSelection(int delta) {
     }
 
     if (showingConfirm()) {
-        confirmSelection_ = confirmSelection_ == ConfirmAction::Cancel
+        const ConfirmAction nextSelection = confirmSelection_ == ConfirmAction::Cancel
             ? ConfirmAction::ExitToMainMenu
             : ConfirmAction::Cancel;
+        if (confirmSelection_ != nextSelection) {
+            confirmSelection_ = nextSelection;
+            queueSound(kScrollSfxPath, 0.82f);
+        }
         refreshDocument();
         return;
     }
@@ -147,10 +157,7 @@ void LoadDocumentController::moveSelection(int delta) {
     if (next < 0) {
         next += static_cast<int>(total);
     }
-    selection_ = static_cast<std::size_t>(next);
-    if (selection_ < cachedSlots_.size()) {
-        slotSelection_ = selection_;
-    }
+    setSelection(static_cast<std::size_t>(next), true, true);
     refreshDocument();
 }
 
@@ -160,24 +167,45 @@ void LoadDocumentController::adjustSelection(int delta) {
     }
 
     if (showingConfirm()) {
-        confirmSelection_ = confirmSelection_ == ConfirmAction::Cancel
+        const ConfirmAction nextSelection = confirmSelection_ == ConfirmAction::Cancel
             ? ConfirmAction::ExitToMainMenu
             : ConfirmAction::Cancel;
+        if (confirmSelection_ != nextSelection) {
+            confirmSelection_ = nextSelection;
+            queueSound(kScrollSfxPath, 0.82f);
+        }
         refreshDocument();
         return;
     }
 
     if (selection_ < cachedSlots_.size()) {
-        selection_ = delta < 0 ? cachedSlots_.size() : cachedSlots_.size() + 1;
+        setSelection(delta < 0 ? cachedSlots_.size() : cachedSlots_.size() + 1, false, true);
     } else if (deleteSelected() && delta > 0) {
-        selection_ = cachedSlots_.size() + 1;
+        setSelection(cachedSlots_.size() + 1, false, true);
     } else if (backSelected() && delta < 0) {
-        selection_ = cachedSlots_.size();
+        setSelection(cachedSlots_.size(), false, true);
     }
     refreshDocument();
 }
 
 void LoadDocumentController::activateSelection() {
+    if (showingConfirm()) {
+        pendingDeleteConfirm_ = true;
+        return;
+    }
+
+    if (backSelected()) {
+        pendingBack_ = true;
+        queueSound(kBackSfxPath, 0.92f);
+        return;
+    }
+
+    if (selection_ < cachedSlots_.size()) {
+        pendingActivateSelection_ = true;
+        queueSound(kLoadConfirmSfxPath, 0.92f);
+        return;
+    }
+
     if (showingConfirm()) {
         pendingDeleteConfirm_ = true;
     } else {
@@ -190,6 +218,7 @@ void LoadDocumentController::cancel() {
         pendingDismissConfirm_ = true;
     } else {
         pendingBack_ = true;
+        queueSound(kBackSfxPath, 0.92f);
     }
 }
 
@@ -236,19 +265,19 @@ void LoadDocumentController::applyState(AppState& state) {
 
     pendingActivateSelection_ = false;
     if (deleteSelected()) {
-        const save::SlotInfo* slot = selectedSlot();
+        const SlotPresentation* slot = selectedSlot();
         if (slot == nullptr) {
             state.noticeText = "Select a manual save first.";
             state.noticeTimer = 2.0f;
             return;
         }
-        if (slot->isAutosave) {
+        if (slot->slot.isAutosave) {
             state.noticeText = "Autosave cannot be deleted.";
             state.noticeTimer = 2.0f;
             return;
         }
 
-        pendingDeletePath_ = slot->path.string();
+        pendingDeletePath_ = slot->slot.path.string();
         pendingDeleteSelection_ = slotSelection_;
         confirmSelection_ = ConfirmAction::Cancel;
         state.confirmSelection = confirmSelection_;
@@ -264,12 +293,18 @@ void LoadDocumentController::applyState(AppState& state) {
     if (selection_ < cachedSlots_.size()) {
         slotSelection_ = selection_;
         state.loadSlotSelection = slotSelection_;
-        state.pendingLoadPath = cachedSlots_[selection_].path.string();
+        state.pendingLoadPath = cachedSlots_[selection_].slot.path.string();
     }
 }
 
 std::optional<Command> LoadDocumentController::consumeCommand() {
     return std::nullopt;
+}
+
+std::vector<SoundRequest> LoadDocumentController::consumeSoundRequests() {
+    std::vector<SoundRequest> requests = std::move(pendingSoundRequests_);
+    pendingSoundRequests_.clear();
+    return requests;
 }
 
 void LoadDocumentController::attachListeners() {
@@ -282,8 +317,7 @@ void LoadDocumentController::attachListeners() {
             auto hoverListener = std::make_unique<CallbackEventListener>([this, i](Rml::Event&) {
                 const std::size_t index = visibleWindowStart() + i;
                 if (index < cachedSlots_.size()) {
-                    selection_ = index;
-                    slotSelection_ = index;
+                    setSelection(index, true, true);
                     refreshDocument();
                 }
             });
@@ -298,9 +332,9 @@ void LoadDocumentController::attachListeners() {
             auto clickListener = std::make_unique<CallbackEventListener>([this, i](Rml::Event&) {
                 const std::size_t index = visibleWindowStart() + i;
                 if (index < cachedSlots_.size()) {
-                    selection_ = index;
-                    slotSelection_ = index;
+                    setSelection(index, true, false);
                     pendingActivateSelection_ = true;
+                    queueSound(kLoadConfirmSfxPath, 0.92f);
                 }
             });
             element->AddEventListener(Rml::EventId::Click, clickListener.get());
@@ -315,7 +349,7 @@ void LoadDocumentController::attachListeners() {
 
     if (Rml::Element* element = document_->GetElementById("load-footer-delete")) {
         auto hoverListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-            selection_ = cachedSlots_.size();
+            setSelection(cachedSlots_.size(), false, true);
             refreshDocument();
         });
         element->AddEventListener(Rml::EventId::Mouseover, hoverListener.get());
@@ -327,7 +361,7 @@ void LoadDocumentController::attachListeners() {
         });
 
         auto clickListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-            selection_ = cachedSlots_.size();
+            setSelection(cachedSlots_.size(), false, false);
             pendingActivateSelection_ = true;
         });
         element->AddEventListener(Rml::EventId::Click, clickListener.get());
@@ -341,7 +375,7 @@ void LoadDocumentController::attachListeners() {
 
     if (Rml::Element* element = document_->GetElementById("load-footer-back")) {
         auto hoverListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-            selection_ = cachedSlots_.size() + 1;
+            setSelection(cachedSlots_.size() + 1, false, true);
             refreshDocument();
         });
         element->AddEventListener(Rml::EventId::Mouseover, hoverListener.get());
@@ -353,8 +387,9 @@ void LoadDocumentController::attachListeners() {
         });
 
         auto clickListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-            selection_ = cachedSlots_.size() + 1;
+            setSelection(cachedSlots_.size() + 1, false, false);
             pendingBack_ = true;
+            queueSound(kBackSfxPath, 0.92f);
         });
         element->AddEventListener(Rml::EventId::Click, clickListener.get());
         listeners_.push_back(EventListenerBinding{
@@ -370,6 +405,7 @@ void LoadDocumentController::attachListeners() {
         if (Rml::Element* element = document_->GetElementById(id)) {
             auto hoverListener = std::make_unique<CallbackEventListener>([this, action](Rml::Event&) {
                 confirmSelection_ = action;
+                queueSound(kScrollSfxPath, 0.82f);
                 refreshDocument();
             });
             element->AddEventListener(Rml::EventId::Mouseover, hoverListener.get());
@@ -418,7 +454,41 @@ void LoadDocumentController::refreshFromState(const AppState& state) {
 }
 
 void LoadDocumentController::refreshSlots() {
-    cachedSlots_ = save::listSlots();
+    cachedSlots_.clear();
+    for (const save::SlotInfo& slot : save::listSlots()) {
+        SlotPresentation presentation;
+        presentation.slot = slot;
+        presentation.saveGame = save::load(slot.path);
+        if (presentation.saveGame.has_value()) {
+            const save::SaveGame& saveGame = *presentation.saveGame;
+            presentation.chapterLabel = saveGame.chapter.empty() ? "STORY" : saveGame.chapter;
+            presentation.idolRank = static_cast<int>(saveGame.progression.clearedBattleKeys.size());
+
+            if (!saveGame.progression.currentPartyLineup.empty()) {
+                std::ostringstream partyStream;
+                for (std::size_t i = 0; i < saveGame.progression.currentPartyLineup.size(); ++i) {
+                    if (i != 0) {
+                        partyStream << " / ";
+                    }
+                    partyStream << saveGame.progression.currentPartyLineup[i];
+                }
+                presentation.partyLabel = partyStream.str();
+            } else {
+                presentation.partyLabel = "Starter Lineup";
+            }
+
+            presentation.summaryText = "Resume " + saveGame.label + " and continue from chapter " + presentation.chapterLabel + ".";
+            presentation.statusLabel = slot.isAutosave ? "Autosave Ready" : "Manual Save Ready";
+        } else {
+            presentation.chapterLabel = "UNKNOWN";
+            presentation.partyLabel = "Unavailable";
+            presentation.summaryText = "This slot could not be parsed. Loading may fail.";
+            presentation.statusLabel = "Corrupted";
+        }
+
+        cachedSlots_.push_back(std::move(presentation));
+    }
+
     if (cachedSlots_.empty()) {
         selection_ = 1;
         slotSelection_ = 0;
@@ -457,15 +527,15 @@ void LoadDocumentController::refreshDocument() const {
             continue;
         }
 
-        const save::SlotInfo& slot = cachedSlots_[slotIndex];
+        const SlotPresentation& slot = cachedSlots_[slotIndex];
         if (Rml::Element* element = document_->GetElementById(kSlotKindIds[i])) {
-            element->SetInnerRML(slot.isAutosave ? "AUTOSAVE" : "MANUAL");
+            element->SetInnerRML(slot.slot.isAutosave ? "AUTOSAVE" : "MANUAL");
         }
         if (Rml::Element* element = document_->GetElementById(kSlotLabelIds[i])) {
-            element->SetInnerRML(escapeRmlText(slot.label));
+            element->SetInnerRML(escapeRmlText(slot.slot.label));
         }
         if (Rml::Element* element = document_->GetElementById(kSlotTimeIds[i])) {
-            element->SetInnerRML(escapeRmlText(save::formatTimestampForDisplay(slot.timestamp)));
+            element->SetInnerRML(escapeRmlText(save::formatTimestampForDisplay(slot.slot.timestamp)));
         }
     }
 
@@ -475,6 +545,12 @@ void LoadDocumentController::refreshDocument() const {
     }
     if (Rml::Element* element = document_->GetElementById("load-footer-back")) {
         element->SetClass("is-selected", backSelected());
+    }
+    if (Rml::Element* element = document_->GetElementById("load-footer-back-label")) {
+        element->SetInnerRML(returnScreen_ == ScreenState::MainMenu ? "RETURN TO MAIN MENU" : "BACK");
+    }
+    if (Rml::Element* element = document_->GetElementById("load-footer-back-value")) {
+        element->SetInnerRML(returnScreen_ == ScreenState::MainMenu ? "RETURN" : "BACK");
     }
     if (Rml::Element* element = document_->GetElementById("load-notice")) {
         element->SetInnerRML(noticeText_.empty() ? "" : escapeRmlText(noticeText_));
@@ -486,6 +562,8 @@ void LoadDocumentController::refreshDocument() const {
     if (Rml::Element* element = document_->GetElementById("load-confirm-delete")) {
         element->SetClass("is-selected", confirmSelection_ == ConfirmAction::ExitToMainMenu);
     }
+
+    refreshDetailPanel();
 }
 
 std::size_t LoadDocumentController::totalSelectableItems() const {
@@ -518,7 +596,59 @@ bool LoadDocumentController::deleteSelected() const {
     return selection_ == cachedSlots_.size();
 }
 
-const save::SlotInfo* LoadDocumentController::selectedSlot() const {
+void LoadDocumentController::refreshDetailPanel() const {
+    const SlotPresentation* slot = selectedSlot();
+
+    const std::string kind = slot == nullptr ? "NO SAVE" : (slot->slot.isAutosave ? "AUTOSAVE" : "MANUAL SAVE");
+    const std::string code = slot == nullptr ? "--" : (selection_ < 9 ? "0" : "") + std::to_string(selection_ + 1);
+    const std::string title = slot == nullptr ? "No Save Selected" : slot->slot.label;
+    const std::string subtitle = slot == nullptr
+        ? "Choose a save slot"
+        : save::formatTimestampForDisplay(slot->slot.timestamp) + " / " + slot->chapterLabel;
+    const std::string body = slot == nullptr
+        ? "Select a slot on the left to preview its stored chapter and progression context."
+        : slot->summaryText;
+    const std::string scene = slot == nullptr ? "--" : slot->chapterLabel;
+    const std::string rank = slot == nullptr ? "--" : std::to_string(slot->idolRank);
+    const std::string party = slot == nullptr ? "--" : slot->partyLabel;
+    const std::string status = slot == nullptr ? "Idle" : slot->statusLabel;
+    const std::string returnHint = returnScreen_ == ScreenState::MainMenu
+        ? "ESC or the footer button returns to the play menu without a screen fade."
+        : "ESC or the footer button returns to the previous screen.";
+
+    if (Rml::Element* element = document_->GetElementById("load-detail-kind")) {
+        element->SetInnerRML(kind);
+    }
+    if (Rml::Element* element = document_->GetElementById("load-detail-code")) {
+        element->SetInnerRML(code);
+    }
+    if (Rml::Element* element = document_->GetElementById("load-detail-name")) {
+        element->SetInnerRML(escapeRmlText(title));
+    }
+    if (Rml::Element* element = document_->GetElementById("load-detail-sub")) {
+        element->SetInnerRML(escapeRmlText(subtitle));
+    }
+    if (Rml::Element* element = document_->GetElementById("load-detail-body")) {
+        element->SetInnerRML(escapeRmlText(body));
+    }
+    if (Rml::Element* element = document_->GetElementById("load-detail-scene")) {
+        element->SetInnerRML(escapeRmlText(scene));
+    }
+    if (Rml::Element* element = document_->GetElementById("load-detail-rank")) {
+        element->SetInnerRML(rank);
+    }
+    if (Rml::Element* element = document_->GetElementById("load-detail-party")) {
+        element->SetInnerRML(escapeRmlText(party));
+    }
+    if (Rml::Element* element = document_->GetElementById("load-detail-status")) {
+        element->SetInnerRML(escapeRmlText(status));
+    }
+    if (Rml::Element* element = document_->GetElementById("load-detail-back-hint")) {
+        element->SetInnerRML(escapeRmlText(returnHint));
+    }
+}
+
+const LoadDocumentController::SlotPresentation* LoadDocumentController::selectedSlot() const {
     if (cachedSlots_.empty()) {
         return nullptr;
     }
@@ -531,8 +661,8 @@ const save::SlotInfo* LoadDocumentController::selectedSlot() const {
 }
 
 bool LoadDocumentController::selectedSlotCanDelete() const {
-    const save::SlotInfo* slot = selectedSlot();
-    return slot != nullptr && !slot->isAutosave;
+    const SlotPresentation* slot = selectedSlot();
+    return slot != nullptr && !slot->slot.isAutosave;
 }
 
 void LoadDocumentController::applySelectionAfterDelete() {
@@ -549,6 +679,30 @@ void LoadDocumentController::applySelectionAfterDelete() {
         selection_ = cachedSlots_.size() - 1;
         slotSelection_ = cachedSlots_.size() - 1;
     }
+}
+
+void LoadDocumentController::setSelection(std::size_t selection, bool syncSlotSelection, bool playSound) {
+    const std::size_t total = totalSelectableItems();
+    if (total == 0) {
+        selection_ = 0;
+        slotSelection_ = 0;
+        return;
+    }
+
+    selection %= total;
+    const bool changed = selection_ != selection;
+    selection_ = selection;
+    if (syncSlotSelection && selection_ < cachedSlots_.size()) {
+        slotSelection_ = selection_;
+    }
+
+    if (changed && playSound) {
+        queueSound(kScrollSfxPath, 0.82f);
+    }
+}
+
+void LoadDocumentController::queueSound(const char* path, float volume) {
+    pendingSoundRequests_.push_back(SoundRequest{path, volume});
 }
 
 }  // namespace graphics::frontui
