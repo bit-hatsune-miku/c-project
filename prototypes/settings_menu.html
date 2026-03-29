@@ -1,0 +1,882 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Settings Menu Prototype</title>
+  <style>
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+
+    :root {
+      --ink: #17141f;
+      --ink-soft: rgba(23, 20, 31, 0.54);
+      --ink-faint: rgba(23, 20, 31, 0.14);
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-line: rgba(23, 20, 31, 0.18);
+      --pink: #ff63b0;
+      --pink-shadow: rgba(255, 99, 176, 0.2);
+      --pink-soft: rgba(255, 99, 176, 0.12);
+      --ui-font: "Space Mono", "Noto Sans CJK SC", "Noto Sans CJK JP", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 78% 16%, rgba(255, 99, 176, 0.08), transparent 22%),
+        radial-gradient(circle at 10% 82%, rgba(255, 99, 176, 0.05), transparent 18%),
+        linear-gradient(180deg, #ffffff 0%, #fff9fc 100%);
+      color: var(--ink);
+      font-family: var(--ui-font);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          -18deg,
+          rgba(23, 20, 31, 0.02) 0,
+          rgba(23, 20, 31, 0.02) 1px,
+          transparent 1px,
+          transparent 78px
+        );
+      pointer-events: none;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .screen {
+      position: relative;
+      min-height: 100vh;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .disc {
+      position: absolute;
+      right: -10rem;
+      top: 50%;
+      width: min(62vw, 60rem);
+      aspect-ratio: 1;
+      transform: translateY(-50%);
+      border-radius: 50%;
+      background:
+        radial-gradient(circle at center, rgba(255, 99, 176, 0.07) 0 7%, transparent 7.4% 100%),
+        radial-gradient(circle at center, transparent 0 21%, rgba(23, 20, 31, 0.044) 21.2% 21.5%, transparent 21.7% 33%, rgba(255, 99, 176, 0.06) 33.2% 33.45%, transparent 33.6% 46%, rgba(23, 20, 31, 0.03) 46.2% 46.45%, transparent 46.6% 100%);
+      border: 1px solid rgba(23, 20, 31, 0.09);
+      box-shadow:
+        inset 0 0 0 4.3rem rgba(255, 255, 255, 0.22),
+        0 1.6rem 4rem rgba(23, 20, 31, 0.05);
+      z-index: 0;
+    }
+
+    .disc::before,
+    .disc::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .disc::before {
+      inset: 10%;
+    }
+
+    .disc::after {
+      inset: 24%;
+      border-color: rgba(255, 99, 176, 0.16);
+    }
+
+    .disc-core {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 7rem;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 99, 176, 0.12);
+      border: 1px solid rgba(255, 99, 176, 0.35);
+    }
+
+    .disc-core::after {
+      content: "";
+      position: absolute;
+      inset: 36%;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1px solid rgba(23, 20, 31, 0.2);
+    }
+
+    .logo {
+      position: absolute;
+      top: clamp(1.9rem, 3.6vh, 2.8rem);
+      right: clamp(1.6rem, 4vw, 3rem);
+      width: min(17rem, 24vw);
+      object-fit: contain;
+      z-index: 4;
+    }
+
+    .transition-rail {
+      position: absolute;
+      left: clamp(1.6rem, 4vw, 3rem);
+      top: clamp(6.2rem, 15vh, 8rem);
+      width: min(24rem, 30vw);
+      display: grid;
+      gap: 0.9rem;
+      z-index: 1;
+      transition:
+        transform 680ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 420ms ease;
+    }
+
+    .transition-rail.is-leaving {
+      transform: translateX(-136%);
+      opacity: 0;
+    }
+
+    .ghost-button,
+    .settings-row,
+    .back-button {
+      --bg: var(--panel);
+      --line: var(--panel-line);
+      --fg: var(--ink);
+      --shadow: transparent;
+      position: relative;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      transition:
+        transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+        filter 260ms ease;
+    }
+
+    .ghost-button {
+      width: 100%;
+      height: 4.2rem;
+      opacity: 0.72;
+    }
+
+    .ghost-button::before,
+    .settings-row::before,
+    .back-button::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 1.32rem;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.34) inset,
+        0 1.2rem 2.8rem var(--shadow);
+      transform: skewX(-18deg);
+      transition:
+        background-color 260ms ease,
+        border-color 260ms ease,
+        box-shadow 260ms ease;
+    }
+
+    .ghost-button.is-current,
+    .settings-row.is-selected,
+    .back-button.is-selected {
+      --bg: var(--pink);
+      --line: rgba(255, 99, 176, 0.92);
+      --fg: #ffffff;
+      --shadow: var(--pink-shadow);
+      z-index: 2;
+    }
+
+    .button-inner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0 1.5rem 0 1.9rem;
+      transform: skewX(-18deg);
+    }
+
+    .button-inner > * {
+      transform: skewX(18deg);
+    }
+
+    .button-accent {
+      width: 0.68rem;
+      height: 2rem;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.18);
+    }
+
+    .ghost-button.is-current .button-accent,
+    .settings-row.is-selected .button-accent,
+    .back-button.is-selected .button-accent {
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .button-code {
+      min-width: 2.2rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.2rem;
+      color: rgba(23, 20, 31, 0.54);
+    }
+
+    .ghost-button.is-current .button-code,
+    .settings-row.is-selected .button-code,
+    .back-button.is-selected .button-code {
+      color: rgba(255, 255, 255, 0.84);
+    }
+
+    .button-label {
+      flex: 1 1 auto;
+      font-size: 1.08rem;
+      font-weight: 700;
+      letter-spacing: 0.08rem;
+      text-transform: uppercase;
+      color: var(--fg);
+    }
+
+    .button-tail {
+      width: 4.6rem;
+      height: 1.45rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.22);
+      opacity: 0;
+      transition: opacity 260ms ease;
+    }
+
+    .ghost-button.is-current .button-tail,
+    .settings-row.is-selected .button-tail,
+    .back-button.is-selected .button-tail {
+      opacity: 1;
+    }
+
+    .settings-panel {
+      position: absolute;
+      left: clamp(4.6rem, 10vw, 8.5rem);
+      right: clamp(2.4rem, 5vw, 4rem);
+      top: clamp(6.7rem, 14vh, 8.2rem);
+      bottom: clamp(2.2rem, 5vh, 3rem);
+      display: grid;
+      grid-template-columns: minmax(23rem, 1.06fr) minmax(18rem, 0.94fr);
+      gap: clamp(1rem, 2vw, 1.8rem);
+      opacity: 0;
+      transform: translateX(7.5rem);
+      transition:
+        opacity 720ms ease,
+        transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 3;
+    }
+
+    .settings-panel.is-entered {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .panel-shell,
+    .focus-shell {
+      position: relative;
+      border-radius: 2rem;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(23, 20, 31, 0.1);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.46),
+        0 1.2rem 3rem rgba(23, 20, 31, 0.08);
+      overflow: hidden;
+    }
+
+    .panel-shell::before,
+    .focus-shell::before {
+      content: "";
+      position: absolute;
+      inset: 1rem;
+      border: 1px solid rgba(23, 20, 31, 0.05);
+      border-radius: 1.4rem;
+      pointer-events: none;
+    }
+
+    .panel-shell {
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      padding: 1.7rem;
+    }
+
+    .focus-shell {
+      display: grid;
+      grid-template-rows: auto auto auto auto 1fr auto;
+      padding: 1.7rem;
+    }
+
+    .eyebrow {
+      margin: 0;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.32rem;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .panel-title {
+      margin: 0.8rem 0 0;
+      font-size: clamp(2rem, 2.2vw, 2.7rem);
+      font-weight: 700;
+      letter-spacing: 0.05rem;
+      text-transform: uppercase;
+    }
+
+    .panel-copy {
+      margin: 0.7rem 0 0;
+      max-width: 34rem;
+      font-size: 0.88rem;
+      line-height: 1.7;
+      color: rgba(23, 20, 31, 0.64);
+    }
+
+    .settings-list {
+      display: grid;
+      gap: 1rem;
+      align-content: start;
+      padding-top: 1.5rem;
+      padding-bottom: 1.3rem;
+    }
+
+    .settings-row {
+      height: 5.2rem;
+      width: 100%;
+    }
+
+    .row-main {
+      display: flex;
+      flex-direction: column;
+      gap: 0.32rem;
+      min-width: 0;
+    }
+
+    .row-sub {
+      font-size: 0.7rem;
+      letter-spacing: 0.14rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.48);
+    }
+
+    .settings-row.is-selected .row-sub {
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    .row-value {
+      min-width: 6.8rem;
+      text-align: right;
+      font-size: 0.92rem;
+      font-weight: 700;
+      color: var(--fg);
+    }
+
+    .settings-row.is-selected .row-value {
+      color: rgba(255, 255, 255, 0.94);
+    }
+
+    .back-button {
+      height: 4.1rem;
+      margin-top: 0.6rem;
+    }
+
+    .focus-kicker {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.24rem;
+      text-transform: uppercase;
+      color: rgba(255, 99, 176, 0.9);
+    }
+
+    .focus-title {
+      margin-top: 0.45rem;
+      font-size: clamp(1.55rem, 1.4vw, 2rem);
+      font-weight: 700;
+      line-height: 1.18;
+    }
+
+    .focus-copy {
+      margin-top: 0.9rem;
+      font-size: 0.9rem;
+      line-height: 1.8;
+      color: rgba(23, 20, 31, 0.66);
+    }
+
+    .preview-card {
+      position: relative;
+      min-height: 12.4rem;
+      margin-top: 1.2rem;
+      padding: 1.2rem;
+      border-radius: 1.5rem;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 22% 28%, rgba(255, 99, 176, 0.17), transparent 32%),
+        linear-gradient(150deg, rgba(255, 255, 255, 0.94), rgba(255, 245, 250, 0.74));
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .preview-card::before,
+    .preview-card::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.06);
+    }
+
+    .preview-card::before {
+      width: 10rem;
+      height: 10rem;
+      right: -1.4rem;
+      top: 0.7rem;
+    }
+
+    .preview-card::after {
+      width: 4.8rem;
+      height: 4.8rem;
+      left: 1.1rem;
+      bottom: 1rem;
+      background: rgba(255, 99, 176, 0.14);
+    }
+
+    .preview-chip {
+      display: inline-flex;
+      padding: 0.42rem 0.68rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.8);
+      font-size: 0.64rem;
+      font-weight: 700;
+      letter-spacing: 0.16rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.68);
+    }
+
+    .preview-value {
+      margin-top: 1.2rem;
+      font-size: 2.2rem;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .preview-meter {
+      display: grid;
+      gap: 0.5rem;
+      margin-top: 1.4rem;
+    }
+
+    .preview-track {
+      position: relative;
+      height: 0.75rem;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.08);
+      overflow: hidden;
+    }
+
+    .preview-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 50%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, rgba(255, 99, 176, 0.74), rgba(255, 154, 209, 0.86));
+      box-shadow: 0 0 1.4rem rgba(255, 99, 176, 0.18);
+    }
+
+    .focus-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin-top: 1rem;
+    }
+
+    .focus-cell {
+      padding: 0.9rem 1rem;
+      border-radius: 1.1rem;
+      background: rgba(23, 20, 31, 0.05);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .focus-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.22rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.44);
+    }
+
+    .focus-cell strong {
+      display: block;
+      margin-top: 0.38rem;
+      font-size: 0.96rem;
+      color: var(--ink);
+    }
+
+    .focus-footer {
+      margin-top: auto;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(23, 20, 31, 0.08);
+      font-size: 0.72rem;
+      letter-spacing: 0.18rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+    }
+
+    .hud-hint {
+      position: absolute;
+      right: clamp(1.5rem, 4vw, 3rem);
+      bottom: clamp(1rem, 2.6vh, 1.6rem);
+      font-size: 0.72rem;
+      letter-spacing: 0.22rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.38);
+      z-index: 5;
+    }
+
+    @media (max-width: 1050px) {
+      .settings-panel {
+        left: 1.2rem;
+        right: 1.2rem;
+        top: 7rem;
+        bottom: 1.2rem;
+        grid-template-columns: 1fr;
+      }
+
+      .transition-rail {
+        width: min(19rem, 42vw);
+      }
+
+      .logo {
+        width: min(12rem, 34vw);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="screen">
+    <div class="disc" aria-hidden="true">
+      <div class="disc-core"></div>
+    </div>
+
+    <img class="logo" src="../assets/vn/backgrounds/General_Art/MainMenuTitle.png" alt="Game logo">
+
+    <aside class="transition-rail is-leaving" id="transition-rail" aria-hidden="true">
+      <button class="ghost-button" type="button">
+        <span class="button-inner">
+          <span class="button-accent"></span>
+          <span class="button-code">01</span>
+          <span class="button-label">Play</span>
+          <span class="button-tail"></span>
+        </span>
+      </button>
+      <button class="ghost-button" type="button">
+        <span class="button-inner">
+          <span class="button-accent"></span>
+          <span class="button-code">02</span>
+          <span class="button-label">Load</span>
+          <span class="button-tail"></span>
+        </span>
+      </button>
+      <button class="ghost-button is-current" type="button">
+        <span class="button-inner">
+          <span class="button-accent"></span>
+          <span class="button-code">04</span>
+          <span class="button-label">Settings</span>
+          <span class="button-tail"></span>
+        </span>
+      </button>
+    </aside>
+
+    <section class="settings-panel is-entered" id="settings-panel">
+      <div class="panel-shell">
+        <header>
+          <p class="eyebrow">System Config / Frontend Node</p>
+          <h1 class="panel-title">Settings</h1>
+          <p class="panel-copy">This version keeps the new menu language but turns it into a calmer control room. The old main-menu buttons are meant to slide left away, while these rows and the return button arrive as a replacement stack, not a full scene cut.</p>
+        </header>
+
+        <div class="settings-list" id="settings-list"></div>
+
+        <button class="back-button" id="back-button" type="button">
+          <span class="button-inner">
+            <span class="button-accent"></span>
+            <span class="button-code">05</span>
+            <span class="button-label">Return To Main Menu</span>
+            <span class="button-tail"></span>
+          </span>
+        </button>
+      </div>
+
+      <aside class="focus-shell">
+        <div class="focus-kicker" id="focus-kicker">01</div>
+        <div class="focus-title" id="focus-title">Display Mode</div>
+        <div class="focus-copy" id="focus-copy">Toggle between a restrained windowed layout and fullscreen presentation without leaving the shared UI family.</div>
+
+        <div class="preview-card">
+          <span class="preview-chip" id="preview-chip">Windowed</span>
+          <div class="preview-value" id="preview-value">Windowed</div>
+          <div class="preview-meter">
+            <div class="preview-track"><div class="preview-fill" id="preview-fill"></div></div>
+          </div>
+        </div>
+
+        <div class="focus-grid">
+          <div class="focus-cell">
+            <div class="focus-label">Current Value</div>
+            <strong id="focus-current">Windowed</strong>
+          </div>
+          <div class="focus-cell">
+            <div class="focus-label">Adjustment</div>
+            <strong id="focus-adjust">Left / Right</strong>
+          </div>
+        </div>
+
+        <div class="focus-grid">
+          <div class="focus-cell">
+            <div class="focus-label">Theme</div>
+            <strong>White / Pink / Mono</strong>
+          </div>
+          <div class="focus-cell">
+            <div class="focus-label">Return Route</div>
+            <strong>Back Button</strong>
+          </div>
+        </div>
+
+        <div class="focus-footer">Up / Down moves between rows. Left / Right adjusts the selected control. Escape previews the reverse slide back to the main menu.</div>
+      </aside>
+    </section>
+
+    <div class="hud-hint">Browser prototype only. Enter toggles or confirms the focused row.</div>
+  </main>
+
+  <script>
+    const rows = [
+      {
+        code: "01",
+        label: "Display Mode",
+        sub: "Window / Fullscreen",
+        type: "toggle",
+        options: ["Windowed", "Fullscreen"],
+        valueIndex: 0,
+        copy: "Toggle between a restrained windowed layout and fullscreen presentation without leaving the shared UI family.",
+      },
+      {
+        code: "02",
+        label: "Voice Volume",
+        sub: "Dialogue / Character Voices",
+        type: "range",
+        min: 0,
+        max: 100,
+        step: 5,
+        value: 82,
+        copy: "This row should feel like tuning a broadcast channel, not editing a spreadsheet. The selected control owns the right-side preview card.",
+      },
+      {
+        code: "03",
+        label: "Text Speed",
+        sub: "Characters Per Second",
+        type: "range",
+        min: 18,
+        max: 90,
+        step: 6,
+        value: 42,
+        copy: "A slightly sharper control that still belongs to the same world. The final RmlUi version can reuse this layout but with more deliberate transition choreography.",
+      },
+      {
+        code: "04",
+        label: "Back",
+        sub: "Return Route",
+        type: "action",
+        valueLabel: "Leave Settings",
+        copy: "The return action should feel like the closing plank of the settings stack, not a tiny utility link floating somewhere else on the screen.",
+      },
+    ];
+
+    const settingsList = document.getElementById("settings-list");
+    const backButton = document.getElementById("back-button");
+    const focusKicker = document.getElementById("focus-kicker");
+    const focusTitle = document.getElementById("focus-title");
+    const focusCopy = document.getElementById("focus-copy");
+    const previewChip = document.getElementById("preview-chip");
+    const previewValue = document.getElementById("preview-value");
+    const previewFill = document.getElementById("preview-fill");
+    const focusCurrent = document.getElementById("focus-current");
+    const focusAdjust = document.getElementById("focus-adjust");
+
+    let selectedIndex = 0;
+    let backSelected = false;
+
+    function rowValue(row) {
+      if (row.type === "toggle") {
+        return row.options[row.valueIndex];
+      }
+      if (row.type === "range") {
+        return row.label === "Text Speed" ? `${row.value} CPS` : `${row.value}%`;
+      }
+      return row.valueLabel;
+    }
+
+    function previewRatio(row) {
+      if (row.type === "toggle") {
+        return row.valueIndex === 0 ? 0.35 : 1;
+      }
+      if (row.type === "range") {
+        return (row.value - row.min) / (row.max - row.min);
+      }
+      return 0.2;
+    }
+
+    function syncFocus() {
+      if (backSelected) {
+        focusKicker.textContent = "05";
+        focusTitle.textContent = "Return To Main Menu";
+        focusCopy.textContent = "Instead of a loading screen, the settings layout should be able to slide away and let the main-menu buttons reclaim the space.";
+        previewChip.textContent = "Return";
+        previewValue.textContent = "Main Menu";
+        previewFill.style.width = "24%";
+        focusCurrent.textContent = "Back Route";
+        focusAdjust.textContent = "Enter / Escape";
+        return;
+      }
+
+      const row = rows[selectedIndex];
+      focusKicker.textContent = row.code;
+      focusTitle.textContent = row.label;
+      focusCopy.textContent = row.copy;
+      previewChip.textContent = row.sub;
+      previewValue.textContent = rowValue(row);
+      previewFill.style.width = `${Math.max(12, previewRatio(row) * 100)}%`;
+      focusCurrent.textContent = rowValue(row);
+      focusAdjust.textContent = row.type === "range" || row.type === "toggle" ? "Left / Right" : "Enter";
+    }
+
+    function renderRows() {
+      settingsList.innerHTML = "";
+      rows.forEach((row, index) => {
+        const button = document.createElement("button");
+        button.className = "settings-row" + (!backSelected && index === selectedIndex ? " is-selected" : "");
+        button.type = "button";
+        button.innerHTML = `
+          <span class="button-inner">
+            <span class="button-accent"></span>
+            <span class="button-code">${row.code}</span>
+            <span class="row-main">
+              <span class="button-label">${row.label}</span>
+              <span class="row-sub">${row.sub}</span>
+            </span>
+            <span class="row-value">${rowValue(row)}</span>
+            <span class="button-tail"></span>
+          </span>
+        `;
+        button.addEventListener("click", () => {
+          backSelected = false;
+          selectedIndex = index;
+          if (row.type === "toggle") {
+            row.valueIndex = row.valueIndex === 0 ? 1 : 0;
+          }
+          sync();
+        });
+        settingsList.appendChild(button);
+      });
+    }
+
+    function previewBackMotion() {
+      const rail = document.getElementById("transition-rail");
+      const panel = document.getElementById("settings-panel");
+      rail.classList.remove("is-leaving");
+      panel.classList.remove("is-entered");
+      setTimeout(() => {
+        rail.classList.add("is-leaving");
+        panel.classList.add("is-entered");
+      }, 650);
+    }
+
+    function adjustRow(direction) {
+      const row = rows[selectedIndex];
+      if (row.type === "toggle") {
+        row.valueIndex = direction > 0 ? 1 : 0;
+      } else if (row.type === "range") {
+        row.value = Math.max(row.min, Math.min(row.max, row.value + row.step * direction));
+      }
+    }
+
+    function sync() {
+      renderRows();
+      backButton.classList.toggle("is-selected", backSelected);
+      syncFocus();
+    }
+
+    backButton.addEventListener("click", previewBackMotion);
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        if (backSelected) {
+          backSelected = false;
+        } else {
+          selectedIndex = (selectedIndex + rows.length - 1) % rows.length;
+        }
+        sync();
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        if (selectedIndex === rows.length - 1) {
+          backSelected = true;
+        } else if (backSelected) {
+          backSelected = false;
+          selectedIndex = 0;
+        } else {
+          selectedIndex = (selectedIndex + 1) % rows.length;
+        }
+        sync();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        if (!backSelected) {
+          adjustRow(-1);
+          sync();
+        }
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        if (!backSelected) {
+          adjustRow(1);
+          sync();
+        }
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        if (backSelected || rows[selectedIndex].type === "action") {
+          previewBackMotion();
+        } else if (rows[selectedIndex].type === "toggle") {
+          rows[selectedIndex].valueIndex = rows[selectedIndex].valueIndex === 0 ? 1 : 0;
+          sync();
+        }
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        previewBackMotion();
+      }
+    });
+
+    sync();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1098 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Battle Selector Prototype</title>
+  <style>
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+
+    :root {
+      --paper: #fffdfd;
+      --paper-soft: #fff6fb;
+      --ink: #17141f;
+      --ink-soft: rgba(23, 20, 31, 0.58);
+      --ink-faint: rgba(23, 20, 31, 0.18);
+      --pink: #ff67b6;
+      --pink-soft: rgba(255, 103, 182, 0.16);
+      --pink-shadow: rgba(255, 103, 182, 0.22);
+      --panel: rgba(255, 255, 255, 0.9);
+      --line: rgba(23, 20, 31, 0.14);
+      --ui-font: "Space Mono", "Noto Sans CJK SC", "Noto Sans CJK JP", "PingFang SC", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 16% 18%, rgba(255, 103, 182, 0.12), transparent 28%),
+        radial-gradient(circle at 88% 76%, rgba(255, 103, 182, 0.06), transparent 24%),
+        linear-gradient(180deg, #ffffff 0%, var(--paper-soft) 100%);
+      color: var(--ink);
+      font-family: var(--ui-font);
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          -18deg,
+          rgba(23, 20, 31, 0.02) 0,
+          rgba(23, 20, 31, 0.02) 1px,
+          transparent 1px,
+          transparent 74px
+        );
+      pointer-events: none;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+    }
+
+    .selector-screen {
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      padding: 2rem clamp(1.2rem, 2.8vw, 2.6rem) clamp(2.6rem, 4.6vh, 3.5rem);
+      isolation: isolate;
+    }
+
+    .topbar {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .idol-rank {
+      margin: 0;
+      font-size: clamp(0.94rem, 0.38vw + 0.9rem, 1.1rem);
+      font-weight: 700;
+      letter-spacing: 0.14rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.88);
+    }
+
+    .idol-rank strong {
+      color: var(--pink);
+    }
+
+    .menu-logo {
+      width: min(18rem, 26vw);
+      min-width: 10rem;
+      object-fit: contain;
+      filter: contrast(1.04);
+    }
+
+    .selector-layout {
+      position: relative;
+      z-index: 2;
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) 1px minmax(18rem, 0.96fr);
+      gap: clamp(1rem, 2.2vw, 2rem);
+      height: calc(100vh - 9.6rem);
+      min-height: 35rem;
+    }
+
+    .battle-stage {
+      position: relative;
+      min-width: 0;
+      min-height: 0;
+      border-radius: 2rem;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.46), rgba(255, 255, 255, 0.24)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
+      border: 1px solid rgba(23, 20, 31, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.46);
+    }
+
+    .battle-stage::before {
+      content: "";
+      position: absolute;
+      inset: 1rem;
+      border-radius: 1.55rem;
+      border: 1px solid rgba(23, 20, 31, 0.05);
+      pointer-events: none;
+    }
+
+    .stage-header {
+      position: absolute;
+      top: 1.6rem;
+      left: clamp(1.1rem, 2.2vw, 1.8rem);
+      right: clamp(1.1rem, 2.2vw, 1.8rem);
+      z-index: 3;
+    }
+
+    .stage-kicker {
+      margin: 0;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.32rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+    }
+
+    .stage-title {
+      margin: 0.8rem 0 0;
+      font-size: clamp(2rem, 2.4vw, 2.65rem);
+      font-weight: 700;
+      letter-spacing: 0.06rem;
+      text-transform: uppercase;
+    }
+
+    .cards-viewport {
+      position: absolute;
+      top: 7.6rem;
+      left: 0;
+      right: 0;
+      bottom: 8.9rem;
+      overflow: hidden;
+      padding: 0 0.65rem;
+    }
+
+    .cards-track {
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    .boss-card {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 10rem;
+      height: 17rem;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      transform-origin: center bottom;
+      transition:
+        transform 280ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 280ms cubic-bezier(0.22, 1, 0.36, 1),
+        filter 280ms ease;
+      text-align: left;
+    }
+
+    .boss-card:focus-visible {
+      outline: none;
+      filter: brightness(1.03);
+    }
+
+    .boss-card-shell {
+      position: absolute;
+      inset: 0;
+      border-radius: 1.65rem;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow:
+        0 1.2rem 2.8rem rgba(23, 20, 31, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+      transform: skewX(-12deg);
+      transition:
+        background-color 280ms cubic-bezier(0.22, 1, 0.36, 1),
+        border-color 280ms cubic-bezier(0.22, 1, 0.36, 1),
+        box-shadow 280ms cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .boss-card-inner {
+      position: absolute;
+      inset: 0;
+      padding: 1rem 1rem 1rem 1.1rem;
+      transform: skewX(12deg);
+      display: grid;
+      grid-template-rows: auto auto 1fr auto auto;
+      gap: 0.7rem;
+    }
+
+    .boss-card-topline {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.55rem;
+      padding-left: 0.85rem;
+      padding-right: 0.15rem;
+    }
+
+    .boss-card-code {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.2rem;
+      color: rgba(23, 20, 31, 0.5);
+    }
+
+    .boss-card-state {
+      padding: 0.25rem 0.56rem;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.07);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.12rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.66);
+    }
+
+    .boss-card-state.is-cleared {
+      background: rgba(255, 103, 182, 0.16);
+      color: rgba(255, 103, 182, 0.92);
+    }
+
+    .boss-card-portrait {
+      position: relative;
+      overflow: hidden;
+      border-radius: 1.15rem;
+      background:
+        radial-gradient(circle at 50% 26%, rgba(255, 103, 182, 0.12), transparent 48%),
+        rgba(23, 20, 31, 0.045);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .boss-card-portrait img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      padding: 0.7rem;
+    }
+
+    .boss-card-tag {
+      margin: 0;
+      font-size: 0.64rem;
+      font-weight: 700;
+      letter-spacing: 0.18rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.4);
+    }
+
+    .boss-card-name {
+      margin: 0;
+      font-size: clamp(1.05rem, 1vw, 1.26rem);
+      font-weight: 700;
+      line-height: 1.18;
+      color: var(--ink);
+    }
+
+    .boss-card-battle {
+      margin: 0.15rem 0 0;
+      font-size: 0.75rem;
+      line-height: 1.45;
+      color: rgba(23, 20, 31, 0.56);
+    }
+
+    .boss-card-copy {
+      margin-left: -0.55rem;
+      padding-right: 0.55rem;
+    }
+
+    .boss-card.is-selected .boss-card-shell {
+      background: var(--pink);
+      border-color: rgba(255, 103, 182, 0.92);
+      box-shadow:
+        0 1.7rem 3.6rem var(--pink-shadow),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+    }
+
+    .boss-card.is-selected .boss-card-code,
+    .boss-card.is-selected .boss-card-tag,
+    .boss-card.is-selected .boss-card-battle {
+      color: rgba(255, 255, 255, 0.82);
+    }
+
+    .boss-card.is-selected .boss-card-state {
+      background: rgba(255, 255, 255, 0.18);
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .boss-card.is-selected .boss-card-name {
+      color: #ffffff;
+    }
+
+    .boss-card.is-confirmed {
+      animation: card-confirm 460ms cubic-bezier(0.18, 1, 0.32, 1);
+    }
+
+    @keyframes card-confirm {
+      0% {
+        filter: brightness(1);
+      }
+      45% {
+        filter: brightness(1.06);
+      }
+      100% {
+        filter: brightness(1);
+      }
+    }
+
+    .stage-action {
+      position: absolute;
+      left: 50%;
+      bottom: 2.25rem;
+      z-index: 3;
+      width: min(26rem, calc(100% - 4rem));
+      height: 4.2rem;
+      border: 0;
+      padding: 0;
+      transform: translateX(-50%);
+      background: transparent;
+      cursor: pointer;
+      font-style: normal;
+    }
+
+    .stage-action-shell {
+      position: absolute;
+      inset: 0;
+      border-radius: 1.5rem;
+      background: rgba(255, 255, 255, 0.84);
+      border: 1px solid rgba(23, 20, 31, 0.14);
+      box-shadow:
+        0 1rem 2.2rem rgba(23, 20, 31, 0.06),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.36);
+      transform: skewX(-14deg);
+      transition:
+        background-color 240ms ease,
+        border-color 240ms ease,
+        box-shadow 240ms ease,
+        transform 240ms ease;
+    }
+
+    .stage-action-inner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.9rem;
+      padding: 0 1.3rem;
+      transform: skewX(14deg);
+      text-transform: uppercase;
+      font-weight: 700;
+      letter-spacing: 0.16rem;
+      font-style: normal;
+    }
+
+    .stage-action-accent {
+      width: 0.65rem;
+      height: 2rem;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.15);
+      transition: background-color 240ms ease;
+    }
+
+    .stage-action:hover .stage-action-shell,
+    .stage-action:focus-visible .stage-action-shell {
+      background: rgba(255, 255, 255, 0.98);
+      border-color: rgba(255, 103, 182, 0.34);
+      box-shadow:
+        0 1.2rem 2.4rem rgba(255, 103, 182, 0.12),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.48);
+      transform: skewX(-14deg) translateY(-2px);
+    }
+
+    .stage-action:hover .stage-action-accent,
+    .stage-action:focus-visible .stage-action-accent {
+      background: rgba(255, 103, 182, 0.38);
+    }
+
+    .stage-action:focus-visible {
+      outline: none;
+    }
+
+    .separator {
+      position: relative;
+      width: 1px;
+      background:
+        linear-gradient(
+          180deg,
+          rgba(23, 20, 31, 0),
+          rgba(23, 20, 31, 0.18) 12%,
+          rgba(255, 103, 182, 0.26) 50%,
+          rgba(23, 20, 31, 0.18) 88%,
+          rgba(23, 20, 31, 0)
+        );
+      box-shadow: 0 0 1.4rem rgba(255, 103, 182, 0.1);
+    }
+
+    .info-panel {
+      position: relative;
+      min-width: 0;
+      padding: 1.55rem 1.45rem 1.35rem;
+      border-radius: 2rem;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.8)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0));
+      border: 1px solid rgba(23, 20, 31, 0.1);
+      box-shadow:
+        0 1.4rem 2.8rem rgba(23, 20, 31, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.34);
+      overflow: hidden;
+    }
+
+    .info-kicker {
+      margin: 0;
+      font-size: 0.74rem;
+      font-weight: 700;
+      letter-spacing: 0.3rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+    }
+
+    .info-portrait {
+      margin-top: 1rem;
+      height: min(18rem, 34vh);
+      border-radius: 1.55rem;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(255, 103, 182, 0.18), transparent 44%),
+        rgba(23, 20, 31, 0.045);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .info-portrait img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      padding: 1.1rem;
+    }
+
+    .info-name {
+      margin: 1.05rem 0 0;
+      font-size: clamp(1.45rem, 1.3vw + 1rem, 2rem);
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .info-battle {
+      margin: 0.35rem 0 0;
+      font-size: 0.94rem;
+      letter-spacing: 0.08rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.52);
+    }
+
+    .info-copy {
+      margin: 1rem 0 0;
+      font-size: 0.9rem;
+      line-height: 1.72;
+      color: rgba(23, 20, 31, 0.72);
+    }
+
+    .info-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin-top: 1.15rem;
+    }
+
+    .info-stat {
+      padding: 0.8rem 0.75rem;
+      border-radius: 1.05rem;
+      background: rgba(23, 20, 31, 0.035);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .info-stat-label {
+      margin: 0;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.18rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.4);
+    }
+
+    .info-stat-value {
+      margin: 0.35rem 0 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    .info-divider {
+      height: 1px;
+      margin: 1.2rem 0 1rem;
+      background: linear-gradient(90deg, rgba(23, 20, 31, 0), rgba(23, 20, 31, 0.12), rgba(255, 103, 182, 0.24), rgba(23, 20, 31, 0.12), rgba(23, 20, 31, 0));
+    }
+
+    .info-meta {
+      display: grid;
+      gap: 0.8rem;
+    }
+
+    .info-row {
+      display: grid;
+      gap: 0.28rem;
+    }
+
+    .info-row-label {
+      margin: 0;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.18rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+    }
+
+    .info-row-value {
+      margin: 0;
+      font-size: 0.88rem;
+      line-height: 1.58;
+      color: rgba(23, 20, 31, 0.76);
+    }
+
+    .helper {
+      position: absolute;
+      right: clamp(1.35rem, 2.8vw, 2.6rem);
+      bottom: 1.6rem;
+      z-index: 4;
+      margin: 0;
+      font-size: 0.72rem;
+      letter-spacing: 0.22rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+    }
+
+    .preview-toast {
+      position: absolute;
+      left: 50%;
+      bottom: 1.15rem;
+      z-index: 5;
+      min-width: 14rem;
+      padding: 0.82rem 1.1rem;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.88);
+      color: #ffffff;
+      font-size: 0.76rem;
+      font-weight: 700;
+      letter-spacing: 0.12rem;
+      text-transform: uppercase;
+      text-align: center;
+      transform: translate(-50%, 1rem);
+      opacity: 0;
+      transition:
+        transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 220ms cubic-bezier(0.22, 1, 0.36, 1);
+      pointer-events: none;
+    }
+
+    .preview-toast.is-visible {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+
+    @media (max-width: 1100px) {
+      .selector-layout {
+        grid-template-columns: minmax(0, 1fr);
+        height: auto;
+        min-height: 0;
+      }
+
+      .separator {
+        display: none;
+      }
+
+      .battle-stage {
+        height: 40rem;
+      }
+
+      .info-panel {
+        min-height: 28rem;
+      }
+
+      .helper {
+        position: static;
+        margin-top: 0.95rem;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .selector-screen {
+        padding-top: 1.2rem;
+        padding-bottom: 2.4rem;
+        overflow-y: auto;
+      }
+
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .menu-logo {
+        width: min(15rem, 68vw);
+      }
+
+      .battle-stage {
+        height: 35rem;
+      }
+
+      .stage-title {
+        font-size: 1.55rem;
+      }
+
+      .info-stats {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="selector-screen">
+    <header class="topbar">
+      <p class="idol-rank">Idol Rank: <strong id="idol-rank-value">2</strong></p>
+      <img class="menu-logo" src="../assets/vn/backgrounds/General_Art/MainMenuTitle.png" alt="Game logo">
+    </header>
+
+    <section class="selector-layout">
+      <div class="battle-stage">
+        <div class="stage-header">
+          <p class="stage-kicker">Battle Selector</p>
+          <h1 class="stage-title">Select A Rival</h1>
+        </div>
+
+        <div class="cards-viewport" id="cards-viewport">
+          <div class="cards-track" id="cards-track" aria-label="Boss cards"></div>
+        </div>
+
+        <button class="stage-action" id="finale-button" type="button">
+          <span class="stage-action-shell" aria-hidden="true"></span>
+          <span class="stage-action-inner">
+            <span class="stage-action-accent" aria-hidden="true"></span>
+            <span>Become an Idol</span>
+          </span>
+        </button>
+      </div>
+
+      <div class="separator" aria-hidden="true"></div>
+
+      <aside class="info-panel">
+        <p class="info-kicker">Boss File</p>
+        <div class="info-portrait">
+          <img id="info-portrait" src="../assets/combat/sprites/lyooBoss.png" alt="">
+        </div>
+        <h2 class="info-name" id="info-name">Host | Lyoo</h2>
+        <p class="info-battle" id="info-battle">Prologue &amp; Tutorial</p>
+        <p class="info-copy" id="info-copy">The first trial. Lyoo challenges Miku to prove she is worthy of entering the BIT Underground Idol Competition.</p>
+
+        <div class="info-stats">
+          <div class="info-stat">
+            <p class="info-stat-label">HP</p>
+            <p class="info-stat-value" id="info-hp">300</p>
+          </div>
+          <div class="info-stat">
+            <p class="info-stat-label">ATK</p>
+            <p class="info-stat-value" id="info-atk">7</p>
+          </div>
+          <div class="info-stat">
+            <p class="info-stat-label">SPD</p>
+            <p class="info-stat-value" id="info-spd">220</p>
+          </div>
+        </div>
+
+        <div class="info-divider" aria-hidden="true"></div>
+
+        <div class="info-meta">
+          <div class="info-row">
+            <p class="info-row-label">Technique</p>
+            <p class="info-row-value" id="info-skill">Moon Spiral Heart Attack!</p>
+          </div>
+          <div class="info-row">
+            <p class="info-row-label">Interaction Hint</p>
+            <p class="info-row-value" id="info-hint">Press SPACE as each pulse reaches the party to parry and reduce damage.</p>
+          </div>
+          <div class="info-row">
+            <p class="info-row-label">Launch Mode</p>
+            <p class="info-row-value" id="info-lineup">Fixed lineup</p>
+          </div>
+          <div class="info-row">
+            <p class="info-row-label">Preview Track</p>
+            <p class="info-row-value" id="info-bgm">lyooBoss</p>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <p class="helper">Left / Right to cycle. Hold to keep scrolling. Enter or Space to preview confirm.</p>
+    <div class="preview-toast" id="preview-toast" aria-live="polite"></div>
+  </main>
+
+  <script>
+    const entries = [
+      {
+        code: "01",
+        bossName: "Host | Lyoo",
+        battleName: "Prologue & Tutorial",
+        tag: "Tutorial",
+        state: "Cleared",
+        cleared: true,
+        sprite: "../assets/combat/sprites/lyooBoss.png",
+        copy: "The first trial. Lyoo challenges Miku to prove she is worthy of entering the BIT Underground Idol Competition.",
+        hp: 300,
+        atk: 7,
+        spd: 220,
+        skill: "Moon Spiral Heart Attack!",
+        hint: "Press SPACE as each pulse reaches the party to parry and reduce damage.",
+        lineup: "Fixed lineup",
+        bgm: "lyooBoss"
+      },
+      {
+        code: "02",
+        bossName: "Jiafei",
+        battleName: "野花香",
+        tag: "Story Boss",
+        state: "Cleared",
+        cleared: true,
+        sprite: "../assets/combat/sprites/jiafei.png",
+        copy: "A style-heavy duel built around directional dodges and a customizable lineup before the curtain rises.",
+        hp: 420,
+        atk: 85,
+        spd: 185,
+        skill: "Aesthetic Warning",
+        hint: "Press LEFT or RIGHT to dodge each wave in that screen direction.",
+        lineup: "Custom lineup",
+        bgm: "yehuaxiang"
+      },
+      {
+        code: "03",
+        bossName: "微信姐 & 支付宝姐",
+        battleName: "Scan To Pay",
+        tag: "Story Boss",
+        state: "Open",
+        cleared: false,
+        sprite: "../assets/combat/sprites/wechatalipayBoss.png",
+        copy: "A dual-idol pressure test where phone movement and crowd control matter as much as raw damage.",
+        hp: 480,
+        atk: 17,
+        spd: 200,
+        skill: "QR Code Attack",
+        hint: "Use ARROW KEYS to move the phone and keep its center cursor away from the QR code.",
+        lineup: "Custom lineup",
+        bgm: "weizhi"
+      },
+      {
+        code: "04",
+        bossName: "Ariana Grande",
+        battleName: "Whistle Note",
+        tag: "Story Boss",
+        state: "Open",
+        cleared: false,
+        sprite: "../assets/combat/sprites/ariBoss.png",
+        copy: "A precise timing battle that turns every whistle-note hit into a confidence check for the whole party.",
+        hp: 430,
+        atk: 34,
+        spd: 250,
+        skill: "Whistle Note",
+        hint: "Press SPACE right after each attack starts to reduce damage.",
+        lineup: "Custom lineup",
+        bgm: "ari"
+      },
+      {
+        code: "05",
+        bossName: "洛天依",
+        battleName: "音龙",
+        tag: "Story Boss",
+        state: "Open",
+        cleared: false,
+        sprite: "../assets/combat/sprites/luotianyi.png",
+        copy: "A listening-exam showdown where memory, rhythm, and quick recovery all pull equal weight.",
+        hp: 520,
+        atk: 60,
+        spd: 170,
+        skill: "听力考试，现在开始",
+        hint: "Listen to the 4 tones, then press 1 2 3 4 in the same order within 5 seconds.",
+        lineup: "Custom lineup",
+        bgm: "sunquantianxia"
+      }
+    ];
+
+    const cardsTrack = document.getElementById("cards-track");
+    const cardsViewport = document.getElementById("cards-viewport");
+    const idolRankValue = document.getElementById("idol-rank-value");
+    const infoPortrait = document.getElementById("info-portrait");
+    const infoName = document.getElementById("info-name");
+    const infoBattle = document.getElementById("info-battle");
+    const infoCopy = document.getElementById("info-copy");
+    const infoHp = document.getElementById("info-hp");
+    const infoAtk = document.getElementById("info-atk");
+    const infoSpd = document.getElementById("info-spd");
+    const infoSkill = document.getElementById("info-skill");
+    const infoHint = document.getElementById("info-hint");
+    const infoLineup = document.getElementById("info-lineup");
+    const infoBgm = document.getElementById("info-bgm");
+    const previewToast = document.getElementById("preview-toast");
+    const finaleButton = document.getElementById("finale-button");
+
+    const scrollTemplate = new Audio("../assets/ui/sfx/UI_notification-done.wav");
+    const confirmTemplate = new Audio("../assets/ui/sfx/Selection_roulette-result.wav");
+    scrollTemplate.preload = "auto";
+    confirmTemplate.preload = "auto";
+
+    const cardElements = [];
+    const activeTimers = new Map();
+    let selectedIndex = 0;
+    let toastTimeoutId = 0;
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function normalizeIndex(index) {
+      const count = entries.length;
+      return (index % count + count) % count;
+    }
+
+    function circularOffset(index, activeIndex, count) {
+      let offset = index - activeIndex;
+      const half = Math.floor(count / 2);
+      if (offset > half) {
+        offset -= count;
+      } else if (offset < -half) {
+        offset += count;
+      }
+      return offset;
+    }
+
+    function playSound(template, volume) {
+      const sound = template.cloneNode();
+      sound.volume = volume;
+      sound.play().catch(() => {});
+    }
+
+    function showToast(message) {
+      previewToast.textContent = message;
+      previewToast.classList.add("is-visible");
+      window.clearTimeout(toastTimeoutId);
+      toastTimeoutId = window.setTimeout(() => {
+        previewToast.classList.remove("is-visible");
+      }, 980);
+    }
+
+    function buildCards() {
+      cardsTrack.innerHTML = "";
+
+      entries.forEach((entry, index) => {
+        const button = document.createElement("button");
+        button.className = "boss-card";
+        button.type = "button";
+        button.setAttribute("aria-label", `${entry.bossName} - ${entry.battleName}`);
+        button.innerHTML = `
+          <span class="boss-card-shell" aria-hidden="true"></span>
+          <span class="boss-card-inner">
+            <span class="boss-card-topline">
+              <span class="boss-card-code">${entry.code}</span>
+              <span class="boss-card-state ${entry.cleared ? "is-cleared" : ""}">${entry.state}</span>
+            </span>
+            <p class="boss-card-tag">${entry.tag}</p>
+            <span class="boss-card-portrait">
+              <img src="${entry.sprite}" alt="">
+            </span>
+            <div class="boss-card-copy">
+              <p class="boss-card-name">${entry.bossName}</p>
+              <p class="boss-card-battle">${entry.battleName}</p>
+            </div>
+          </span>
+        `;
+
+        button.addEventListener("mouseenter", () => {
+          if (selectedIndex !== index) {
+            selectedIndex = index;
+            render();
+          }
+        });
+
+        button.addEventListener("focus", () => {
+          if (selectedIndex !== index) {
+            selectedIndex = index;
+            render();
+          }
+        });
+
+        button.addEventListener("click", () => {
+          if (selectedIndex !== index) {
+            selectedIndex = index;
+            render();
+            playSound(scrollTemplate, 0.5);
+            return;
+          }
+          confirmSelection();
+        });
+
+        cardsTrack.appendChild(button);
+        cardElements.push(button);
+      });
+    }
+
+    function layoutCards() {
+      const viewportWidth = cardsViewport.clientWidth;
+      const viewportHeight = cardsViewport.clientHeight;
+      const cardWidth = clamp(viewportWidth * 0.19, 140, 184);
+      const cardHeight = Math.round(cardWidth * 1.7);
+      const xStep = cardWidth * 0.72;
+      const yStep = cardHeight * 0.085;
+      const totalSpan = cardWidth + xStep * (entries.length - 1);
+      const leftEdge = Math.max(12, (viewportWidth - totalSpan) * 0.5);
+      const selectedSlot = Math.floor(entries.length / 2);
+      const selectedBaseY = Math.max(18, (viewportHeight - cardHeight) * 0.48);
+
+      cardElements.forEach((card, index) => {
+        const offset = circularOffset(index, selectedIndex, entries.length);
+        const slot = offset + selectedSlot;
+        const x = leftEdge + slot * xStep;
+        const y = selectedBaseY - offset * yStep + Math.abs(offset) * 5;
+        const scale = offset === 0 ? 1.08 : 1 - Math.abs(offset) * 0.04;
+        const opacity = offset === 0 ? 1 : 0.92 - Math.abs(offset) * 0.1;
+
+        card.style.width = `${cardWidth}px`;
+        card.style.height = `${cardHeight}px`;
+        card.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+        card.style.opacity = `${opacity}`;
+        card.style.zIndex = `${100 - Math.abs(offset)}`;
+        card.classList.toggle("is-selected", offset === 0);
+        card.setAttribute("aria-current", offset === 0 ? "true" : "false");
+      });
+    }
+
+    function updateInfoPanel() {
+      const entry = entries[selectedIndex];
+      infoPortrait.src = entry.sprite;
+      infoPortrait.alt = `${entry.bossName} portrait`;
+      infoName.textContent = entry.bossName;
+      infoBattle.textContent = entry.battleName;
+      infoCopy.textContent = entry.copy;
+      infoHp.textContent = entry.hp;
+      infoAtk.textContent = entry.atk;
+      infoSpd.textContent = entry.spd;
+      infoSkill.textContent = entry.skill;
+      infoHint.textContent = entry.hint;
+      infoLineup.textContent = entry.lineup;
+      infoBgm.textContent = entry.bgm;
+    }
+
+    function render() {
+      idolRankValue.textContent = entries.filter((entry) => entry.cleared).length;
+      layoutCards();
+      updateInfoPanel();
+    }
+
+    function moveSelection(delta) {
+      selectedIndex = normalizeIndex(selectedIndex + delta);
+      render();
+      playSound(scrollTemplate, 0.48);
+    }
+
+    function confirmSelection() {
+      playSound(confirmTemplate, 0.62);
+      showToast(`Preview Confirm: ${entries[selectedIndex].battleName}`);
+      const card = cardElements[selectedIndex];
+      card.classList.remove("is-confirmed");
+      void card.offsetWidth;
+      card.classList.add("is-confirmed");
+    }
+
+    function startHeldScroll(key, delta) {
+      if (activeTimers.has(key)) {
+        return;
+      }
+
+      moveSelection(delta);
+
+      const repeatTimeout = window.setTimeout(() => {
+        const repeatInterval = window.setInterval(() => {
+          moveSelection(delta);
+        }, 105);
+
+        activeTimers.set(key, { repeatInterval });
+      }, 210);
+
+      activeTimers.set(key, { repeatTimeout });
+    }
+
+    function stopHeldScroll(key) {
+      const timers = activeTimers.get(key);
+      if (!timers) {
+        return;
+      }
+
+      if (timers.repeatTimeout) {
+        window.clearTimeout(timers.repeatTimeout);
+      }
+
+      if (timers.repeatInterval) {
+        window.clearInterval(timers.repeatInterval);
+      }
+
+      activeTimers.delete(key);
+    }
+
+    window.addEventListener("keydown", (event) => {
+      if (["ArrowLeft", "ArrowRight", "Space", "Enter", " "].includes(event.key)) {
+        event.preventDefault();
+      }
+
+      if (event.repeat) {
+        return;
+      }
+
+      if (event.key === "ArrowLeft") {
+        startHeldScroll(event.key, -1);
+      } else if (event.key === "ArrowRight") {
+        startHeldScroll(event.key, 1);
+      } else if (event.key === "Enter" || event.key === " " || event.key === "Space") {
+        confirmSelection();
+      }
+    });
+
+    window.addEventListener("keyup", (event) => {
+      stopHeldScroll(event.key);
+    });
+
+    window.addEventListener("blur", () => {
+      Array.from(activeTimers.keys()).forEach((key) => {
+        stopHeldScroll(key);
+      });
+    });
+
+    window.addEventListener("resize", render);
+
+    finaleButton.addEventListener("click", () => {
+      playSound(confirmTemplate, 0.62);
+      showToast("Preview Confirm: Become an Idol");
+    });
+
+    buildCards();
+    render();
+  </script>
+</body>
+</html>

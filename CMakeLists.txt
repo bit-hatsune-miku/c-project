@@ -157,6 +157,8 @@ set(RMLUI_SELECTOR_SOURCES
 )
 
 set(FRONT_UI_SOURCES
+    src/graphics/rmlui_loading_overlay.cpp
+    src/graphics/rmlui_loading_overlay.h
     src/graphics/rmlui_sdl_gl_renderer.cpp
     src/graphics/rmlui_sdl_gl_renderer.h
     src/graphics/front_ui_document.h
@@ -340,6 +342,8 @@ if (ENABLE_RMLUI)
         src/boss_selector_main.cpp
         src/window.cpp
         src/window.h
+        src/graphics/rmlui_loading_overlay.cpp
+        src/graphics/rmlui_loading_overlay.h
         src/game/boss_selector_session.cpp
         src/game/boss_selector_session.h
         src/game/save/save.cpp
@@ -350,6 +354,38 @@ if (ENABLE_RMLUI)
         src/game/core/player_progression.h
         src/game/core/easing.cpp
         src/game/core/easing.h
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
+    )
+    add_executable(menu_preview
+        src/menu_preview_main.cpp
+        src/window.cpp
+        src/window.h
+        src/graphics/rmlui_loading_overlay.cpp
+        src/graphics/rmlui_loading_overlay.h
+        src/graphics/menu_preview_session.cpp
+        src/graphics/menu_preview_session.h
+        src/graphics/rmlui_sdl_gl_renderer.cpp
+        src/graphics/rmlui_sdl_gl_renderer.h
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
+    )
+    add_executable(battle_selector_preview
+        src/battle_selector_preview_main.cpp
+        src/window.cpp
+        src/window.h
+        src/graphics/rmlui_loading_overlay.cpp
+        src/graphics/rmlui_loading_overlay.h
+        src/graphics/battle_selector_preview_session.cpp
+        src/graphics/battle_selector_preview_session.h
+        src/graphics/rmlui_sdl_gl_renderer.cpp
+        src/graphics/rmlui_sdl_gl_renderer.h
+        src/game/save/save.cpp
+        src/game/core/battle_loader.cpp
+        src/game/core/battle_loader.h
+        src/game/core/battle_manager.h
+        src/game/core/player_progression.cpp
+        src/game/core/player_progression.h
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
     )
@@ -405,6 +441,28 @@ if (ENABLE_RMLUI)
         nlohmann_json::nlohmann_json
         RmlUi::RmlUi
     )
+    target_include_directories(menu_preview PRIVATE
+        ${SDL2_INCLUDE_DIRS}
+        ${rmlui_SOURCE_DIR}/Backends
+    )
+    target_include_directories(battle_selector_preview PRIVATE
+        ${SDL2_INCLUDE_DIRS}
+        ${rmlui_SOURCE_DIR}/Backends
+    )
+    target_compile_definitions(menu_preview PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_compile_definitions(battle_selector_preview PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_link_libraries(menu_preview PRIVATE
+        ${SDL2_LIBRARIES}
+        OpenGL::GL
+        nlohmann_json::nlohmann_json
+        RmlUi::RmlUi
+    )
+    target_link_libraries(battle_selector_preview PRIVATE
+        ${SDL2_LIBRARIES}
+        OpenGL::GL
+        nlohmann_json::nlohmann_json
+        RmlUi::RmlUi
+    )
     add_custom_command(TARGET battle_testing POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
             $<TARGET_FILE:battle_testing>
@@ -417,6 +475,12 @@ if (ENABLE_RMLUI)
         target_include_directories(boss_selector PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
         target_compile_definitions(boss_selector PRIVATE BATTLE_ENABLE_TTF=1)
         target_link_libraries(boss_selector PRIVATE ${SDL2_TTF_LIBRARIES})
+        target_include_directories(menu_preview PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
+        target_compile_definitions(menu_preview PRIVATE BATTLE_ENABLE_TTF=1)
+        target_link_libraries(menu_preview PRIVATE ${SDL2_TTF_LIBRARIES})
+        target_include_directories(battle_selector_preview PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
+        target_compile_definitions(battle_selector_preview PRIVATE BATTLE_ENABLE_TTF=1)
+        target_link_libraries(battle_selector_preview PRIVATE ${SDL2_TTF_LIBRARIES})
     endif()
     if (SDL2_IMAGE_FOUND)
         target_include_directories(battle_testing PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
@@ -425,6 +489,12 @@ if (ENABLE_RMLUI)
         target_include_directories(boss_selector PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
         target_compile_definitions(boss_selector PRIVATE BATTLE_ENABLE_IMAGE=1)
         target_link_libraries(boss_selector PRIVATE ${SDL2_IMAGE_LIBRARIES})
+        target_include_directories(menu_preview PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+        target_compile_definitions(menu_preview PRIVATE BATTLE_ENABLE_IMAGE=1)
+        target_link_libraries(menu_preview PRIVATE ${SDL2_IMAGE_LIBRARIES})
+        target_include_directories(battle_selector_preview PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+        target_compile_definitions(battle_selector_preview PRIVATE BATTLE_ENABLE_IMAGE=1)
+        target_link_libraries(battle_selector_preview PRIVATE ${SDL2_IMAGE_LIBRARIES})
     endif()
     add_executable(battle_testing_legacy
         src/battle_main.cpp
@@ -476,12 +546,18 @@ target_include_directories(demo_luotianyi PRIVATE ${SDL2_INCLUDE_DIRS})
 if (TARGET boss_selector)
     target_include_directories(boss_selector PRIVATE ${SDL2_INCLUDE_DIRS})
 endif()
+if (TARGET menu_preview)
+    target_include_directories(menu_preview PRIVATE ${SDL2_INCLUDE_DIRS})
+endif()
 if (ENABLE_RMLUI)
     target_include_directories(OurUndergroundBITIdol PRIVATE ${rmlui_SOURCE_DIR}/Backends)
     target_include_directories(finale PRIVATE ${rmlui_SOURCE_DIR}/Backends)
     target_include_directories(ch0 PRIVATE ${rmlui_SOURCE_DIR}/Backends)
     if (TARGET boss_selector)
         target_include_directories(boss_selector PRIVATE ${rmlui_SOURCE_DIR}/Backends)
+    endif()
+    if (TARGET menu_preview)
+        target_include_directories(menu_preview PRIVATE ${rmlui_SOURCE_DIR}/Backends)
     endif()
 endif()
 if (TARGET battle_testing_legacy)
@@ -513,6 +589,10 @@ if (SDL2_TTF_FOUND)
     if (TARGET boss_selector)
         target_include_directories(boss_selector PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
         target_compile_definitions(boss_selector PRIVATE BATTLE_ENABLE_TTF=1)
+    endif()
+    if (TARGET menu_preview)
+        target_include_directories(menu_preview PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
+        target_compile_definitions(menu_preview PRIVATE BATTLE_ENABLE_TTF=1)
     endif()
     if (TARGET battle_testing_legacy)
         target_include_directories(battle_testing_legacy PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
@@ -546,6 +626,10 @@ if (SDL2_IMAGE_FOUND)
         target_include_directories(boss_selector PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
         target_compile_definitions(boss_selector PRIVATE BATTLE_ENABLE_IMAGE=1)
     endif()
+    if (TARGET menu_preview)
+        target_include_directories(menu_preview PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+        target_compile_definitions(menu_preview PRIVATE BATTLE_ENABLE_IMAGE=1)
+    endif()
     if (TARGET battle_testing_legacy)
         target_include_directories(battle_testing_legacy PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
         target_compile_definitions(battle_testing_legacy PRIVATE BATTLE_ENABLE_IMAGE=1)
@@ -573,6 +657,10 @@ if (ENABLE_RMLUI)
         target_compile_definitions(boss_selector PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
         target_link_libraries(boss_selector PRIVATE OpenGL::GL RmlUi::RmlUi)
     endif()
+    if (TARGET menu_preview)
+        target_compile_definitions(menu_preview PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+        target_link_libraries(menu_preview PRIVATE OpenGL::GL RmlUi::RmlUi)
+    endif()
 endif()
 if (NOT ENABLE_RMLUI)
     target_link_libraries(battle_testing PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
@@ -596,6 +684,9 @@ if (SDL2_TTF_FOUND)
     if (TARGET boss_selector)
         target_link_libraries(boss_selector PRIVATE ${SDL2_TTF_LIBRARIES})
     endif()
+    if (TARGET menu_preview)
+        target_link_libraries(menu_preview PRIVATE ${SDL2_TTF_LIBRARIES})
+    endif()
     if (NOT ENABLE_RMLUI)
         target_link_libraries(battle_testing PRIVATE ${SDL2_TTF_LIBRARIES})
     endif()
@@ -616,6 +707,9 @@ if (SDL2_IMAGE_FOUND)
     target_link_libraries(battle_testing_jiafei PRIVATE ${SDL2_IMAGE_LIBRARIES})
     if (TARGET boss_selector)
         target_link_libraries(boss_selector PRIVATE ${SDL2_IMAGE_LIBRARIES})
+    endif()
+    if (TARGET menu_preview)
+        target_link_libraries(menu_preview PRIVATE ${SDL2_IMAGE_LIBRARIES})
     endif()
     if (NOT ENABLE_RMLUI)
         target_link_libraries(battle_testing PRIVATE ${SDL2_IMAGE_LIBRARIES})
@@ -678,6 +772,11 @@ set_target_properties(demo_luotianyi PROPERTIES
 
 if (TARGET boss_selector)
     set_target_properties(boss_selector PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+endif()
+if (TARGET menu_preview)
+    set_target_properties(menu_preview PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
 endif()

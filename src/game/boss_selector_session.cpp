@@ -6,16 +6,16 @@
 #include <cmath>
 #include <filesystem>
 #include <functional>
+#include <iomanip>
 #include <iostream>
-#include <memory>
 #include <optional>
+#include <set>
 #include <sstream>
 #include <string>
 #include <unordered_set>
 #include <utility>
 #include <vector>
 
-#include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
 
 #include <RmlUi/Core/Context.h>
@@ -24,62 +24,34 @@
 #include <RmlUi/Core/ElementDocument.h>
 #include <RmlUi/Core/Event.h>
 #include <RmlUi/Core/EventListener.h>
-#include <RmlUi/Core/FileInterface.h>
-#include <RmlUi/Core/Log.h>
 
-#ifdef BATTLE_ENABLE_IMAGE
-#include <SDL2/SDL_image.h>
-#endif
+#include <nlohmann/json.hpp>
 
 #include "RmlUi_Platform_SDL.h"
 #include "RmlUi_Renderer_GL3.h"
-#include "audio/bgm_player.h"
+#include "audio/wav_one_shot.h"
 #include "core/battle_loader.h"
-#include "core/easing.h"
-#include "core/player_progression.h"
 #include "save/save.h"
+#include "../graphics/rmlui_loading_overlay.h"
+#include "../graphics/rmlui_sdl_gl_renderer.h"
 #include "../platform/path_resolution.h"
 #include "../window.h"
 
+namespace battle::selector {
 namespace {
 
-constexpr int kDefaultWindowWidth = 1280;
-constexpr int kDefaultWindowHeight = 720;
+using json = nlohmann::json;
 
-constexpr float kCardWidth = 248.0f;
-constexpr float kCardBaseY = 158.0f;
-constexpr float kCardSpacing = 252.0f;
-constexpr float kCardDepthY = 22.0f;
-constexpr float kCardIntroStaggerSeconds = 0.08f;
-constexpr float kCardIntroDurationSeconds = 0.48f;
-constexpr float kCarouselLerpSpeed = 10.0f;
-constexpr float kDetailIntroDurationSeconds = 0.55f;
-constexpr float kToastDurationSeconds = 1.8f;
-constexpr float kPreviewFadeInPerSecond = 3.8f;
-constexpr float kPreviewFadeOutPerSecond = 7.0f;
-
-struct SelectorEntry {
-    battle::BattleDefinition battle;
-    battle::BossDefinition boss;
-    std::string spritePath;
-    std::string previewBgmPath;
-    std::vector<std::string> lineupTitles;
-    bool defeated = false;
-};
-
-enum class FocusZone {
-    Carousel,
-    Finale
-};
-
-struct PreviewChannel {
-    game::audio::BgmPlayer player;
-    std::string path;
-    float volume = 0.0f;
-    float targetVolume = 0.0f;
-    float maxVolume = 0.0f;
-    bool active = false;
-};
+constexpr int kReferenceWidth = 1280;
+constexpr int kReferenceHeight = 720;
+constexpr float kHoldInitialDelaySeconds = 0.21f;
+constexpr float kHoldRepeatIntervalSeconds = 0.105f;
+constexpr float kSelectionLerpSpeed = 9.0f;
+constexpr const char* kDocumentPath = "assets/rmlui/previews/battle_selector_preview.rml";
+constexpr const char* kLoadingOverlayDocumentPath = "assets/rmlui/shared/loading_overlay.rml";
+constexpr const char* kScrollSfxRelativePath = "assets/ui/sfx/Selection_roulette-3.wav";
+constexpr const char* kConfirmSfxRelativePath = "assets/ui/sfx/SongSelect_confirm-selection.wav";
+constexpr const char* kFinaleBattleKey = "lyoo_plot_twist";
 
 class CallbackEventListener final : public Rml::EventListener {
 public:
@@ -96,148 +68,39 @@ private:
     std::function<void(Rml::Event&)> callback_;
 };
 
-class RenderInterfaceGL3SDL final : public RenderInterface_GL3 {
-public:
-    Rml::TextureHandle LoadTexture(Rml::Vector2i& textureDimensions, const Rml::String& source) override {
-#ifdef BATTLE_ENABLE_IMAGE
-        Rml::FileInterface* fileInterface = Rml::GetFileInterface();
-        Rml::FileHandle fileHandle = fileInterface->Open(source);
-        if (!fileHandle) {
-            return {};
-        }
-
-        fileInterface->Seek(fileHandle, 0, SEEK_END);
-        const size_t bufferSize = fileInterface->Tell(fileHandle);
-        fileInterface->Seek(fileHandle, 0, SEEK_SET);
-
-        using Rml::byte;
-        Rml::UniquePtr<byte[]> buffer(new byte[bufferSize]);
-        fileInterface->Read(buffer.get(), bufferSize, fileHandle);
-        fileInterface->Close(fileHandle);
-
-        const size_t extIndex = source.rfind('.');
-        const Rml::String extension = (extIndex == Rml::String::npos ? Rml::String() : source.substr(extIndex + 1));
-
-        SDL_Surface* surface = IMG_LoadTyped_RW(SDL_RWFromMem(buffer.get(), static_cast<int>(bufferSize)), 1, extension.c_str());
-        if (surface == nullptr) {
-            Rml::Log::Message(Rml::Log::LT_ERROR, "Could not load texture: %s", source.c_str());
-            return {};
-        }
-
-        if (surface->format->format != SDL_PIXELFORMAT_RGBA32) {
-            SDL_Surface* convertedSurface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_RGBA32, 0);
-            SDL_FreeSurface(surface);
-            if (convertedSurface == nullptr) {
-                return {};
-            }
-            surface = convertedSurface;
-        }
-
-        textureDimensions = {surface->w, surface->h};
-
-        byte* pixels = static_cast<byte*>(surface->pixels);
-        const size_t pixelBytes = static_cast<size_t>(surface->w) * static_cast<size_t>(surface->h) * 4;
-        for (size_t i = 0; i < pixelBytes; i += 4) {
-            const byte alpha = pixels[i + 3];
-            pixels[i + 0] = byte((int(pixels[i + 0]) * int(alpha)) / 255);
-            pixels[i + 1] = byte((int(pixels[i + 1]) * int(alpha)) / 255);
-            pixels[i + 2] = byte((int(pixels[i + 2]) * int(alpha)) / 255);
-        }
-
-        const Rml::TextureHandle textureHandle = GenerateTexture({pixels, pixelBytes}, textureDimensions);
-        SDL_FreeSurface(surface);
-        return textureHandle;
-#else
-        return RenderInterface_GL3::LoadTexture(textureDimensions, source);
-#endif
-    }
-};
-
-bool isWindowResizeEvent(const SDL_Event& event) {
-    return event.type == SDL_WINDOWEVENT &&
-           (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
-            event.window.event == SDL_WINDOWEVENT_RESIZED);
+float clamp01(float value) {
+    return std::clamp(value, 0.0f, 1.0f);
 }
 
-std::string normalizeRmlAssetPath(const std::string& path) {
-    if (path.empty()) {
-        return {};
-    }
-
-    std::error_code ec;
-    const std::filesystem::path absolutePath = std::filesystem::absolute(std::filesystem::path(path), ec);
-    if (!ec && !absolutePath.empty()) {
-        return absolutePath.lexically_normal().generic_string();
-    }
-    return std::filesystem::path(path).lexically_normal().generic_string();
+std::string formatNumber(float value) {
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(3) << value;
+    return stream.str();
 }
 
-std::string resolveBattleSpritePath(const std::string& assetName) {
-    if (assetName.empty()) {
-        return {};
-    }
-    return platform::path::findCombatImagePath("sprites", assetName);
+std::string formatDp(float value) {
+    std::ostringstream stream;
+    stream << std::fixed << std::setprecision(2) << value << "dp";
+    return stream.str();
+}
+
+std::string translateScale(float x, float y, float scale) {
+    return "translate(" + formatDp(x) + ", " + formatDp(y) + ") scale(" + formatNumber(scale) + ")";
 }
 
 std::string escapeRml(const std::string& text) {
     std::string escaped;
     escaped.reserve(text.size() + 8);
-    for (const char c : text) {
-        switch (c) {
+    for (const char ch : text) {
+        switch (ch) {
             case '&': escaped += "&amp;"; break;
             case '<': escaped += "&lt;"; break;
             case '>': escaped += "&gt;"; break;
             case '"': escaped += "&quot;"; break;
-            default: escaped.push_back(c); break;
+            default: escaped.push_back(ch); break;
         }
     }
     return escaped;
-}
-
-std::string formatFloat(float value) {
-    std::ostringstream stream;
-    stream.setf(std::ios::fixed);
-    stream.precision(3);
-    stream << value;
-    return stream.str();
-}
-
-std::string formatPx(float value) {
-    return formatFloat(value) + "px";
-}
-
-std::string escapeRcssString(const std::string& text) {
-    std::string escaped;
-    escaped.reserve(text.size() + 8);
-    for (const char c : text) {
-        if (c == '\\' || c == '"') {
-            escaped.push_back('\\');
-        }
-        escaped.push_back(c);
-    }
-    return escaped;
-}
-
-std::string makeImageDecorator(const std::string& path) {
-    if (path.empty()) {
-        return "none";
-    }
-    return "image(\"" + escapeRcssString(path) + "\" contain)";
-}
-
-std::string joinStrings(const std::vector<std::string>& values, const std::string& separator) {
-    std::ostringstream stream;
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        if (i != 0) {
-            stream << separator;
-        }
-        stream << values[i];
-    }
-    return stream.str();
-}
-
-bool containsKey(const std::vector<std::string>& values, const std::string& key) {
-    return std::find(values.begin(), values.end(), key) != values.end();
 }
 
 bool loadRmlFontIfPresent(const std::string& path, bool fallback = false) {
@@ -245,12 +108,11 @@ bool loadRmlFontIfPresent(const std::string& path, bool fallback = false) {
         return false;
     }
 
-    const std::string normalizedPath = normalizeRmlAssetPath(path);
-    const std::string extension = std::filesystem::path(normalizedPath).extension().string();
+    const std::string extension = std::filesystem::path(path).extension().string();
     if (extension == ".ttc" || extension == ".otc") {
         bool anyLoaded = false;
         for (int faceIndex = 0; faceIndex < 6; ++faceIndex) {
-            if (!Rml::LoadFontFace(normalizedPath, fallback, Rml::Style::FontWeight::Auto, faceIndex)) {
+            if (!Rml::LoadFontFace(path, fallback, Rml::Style::FontWeight::Auto, faceIndex)) {
                 if (faceIndex == 0 && !anyLoaded) {
                     return false;
                 }
@@ -261,43 +123,52 @@ bool loadRmlFontIfPresent(const std::string& path, bool fallback = false) {
         return anyLoaded;
     }
 
-    return Rml::LoadFontFace(normalizedPath, fallback);
+    return Rml::LoadFontFace(path, fallback);
 }
 
-} // namespace
+std::string resolveSelectorSpritePath(const std::string& assetName) {
+    if (assetName.empty()) {
+        return {};
+    }
 
-namespace battle::selector {
+    for (const char* extension : {"png", "webp"}) {
+        const std::string candidate =
+            platform::path::resolvePath("assets/combat/sprites/" + assetName + "." + extension);
+        if (std::filesystem::exists(candidate)) {
+            return "../../combat/sprites/" + assetName + "." + extension;
+        }
+    }
+
+    return {};
+}
+
+std::string battleTag(const battle::BattleDefinition& battle) {
+    if (battle.type == "tutorial") {
+        return "Tutorial";
+    }
+    return "Story Boss";
+}
+
+}  // namespace
 
 class SessionImpl {
 public:
-    bool initialize(Window& hostWindow) {
+    bool initialize(Window& window) {
         shutdown();
 
-        windowHost_ = &hostWindow;
-        window_ = hostWindow.getNativeWindow();
-        glContext_ = hostWindow.getGlContext();
+        windowHost_ = &window;
+        window_ = window.getNativeWindow();
+        glContext_ = window.getGlContext();
         if (window_ == nullptr || glContext_ == nullptr) {
             std::cerr << "[BossSelector] Window is not in OpenGL mode.\n";
             return false;
         }
 
-        if (SDL_InitSubSystem(SDL_INIT_AUDIO | SDL_INIT_TIMER) != 0) {
-            std::cerr << "[BossSelector] SDL subsystem init failed: " << SDL_GetError() << "\n";
-            return false;
-        }
+        initializeAudio();
 
         SDL_GL_MakeCurrent(window_, glContext_);
         SDL_GL_SetSwapInterval(1);
         SDL_StopTextInput();
-
-#ifdef BATTLE_ENABLE_IMAGE
-        const int requiredImageFlags = IMG_INIT_PNG | IMG_INIT_WEBP;
-        if ((IMG_Init(requiredImageFlags) & requiredImageFlags) == requiredImageFlags) {
-            imageInitialized_ = true;
-        } else {
-            std::cerr << "[BossSelector] SDL_image init failed: " << IMG_GetError() << "\n";
-        }
-#endif
 
         Rml::String glInitMessage;
         if (!RmlGL3::Initialize(&glInitMessage)) {
@@ -308,9 +179,9 @@ public:
         rmlGlInitialized_ = true;
 
         systemInterface_.SetWindow(window_);
-        renderInterface_ = std::make_unique<RenderInterfaceGL3SDL>();
+        renderInterface_ = std::make_unique<graphics::RmlUiSdlGlRenderInterface>();
         if (!(*renderInterface_)) {
-            std::cerr << "[BossSelector] Failed to create render interface\n";
+            std::cerr << "[BossSelector] Failed to construct GL render interface.\n";
             shutdown();
             return false;
         }
@@ -318,51 +189,45 @@ public:
         Rml::SetSystemInterface(&systemInterface_);
         Rml::SetRenderInterface(renderInterface_.get());
         if (!Rml::Initialise()) {
-            std::cerr << "[BossSelector] RmlUi core initialization failed\n";
+            std::cerr << "[BossSelector] RmlUi core initialization failed.\n";
             shutdown();
             return false;
         }
         rmlInitialized_ = true;
 
-        const std::string fontPath = platform::path::findFontPath();
-        (void)loadRmlFontIfPresent(fontPath, false);
-        const std::string boldFontPath = platform::path::resolvePath("assets/rmlui/DejaVuSans-Bold.ttf");
-        (void)loadRmlFontIfPresent(boldFontPath, false);
-
-        const std::string cjkFontPath = platform::path::findCjkFontPath();
-        if (!loadRmlFontIfPresent(cjkFontPath, true)) {
-            std::cerr << "[BossSelector] Warning: no CJK fallback font found; Chinese text may be missing.\n";
+        if (!loadFonts()) {
+            std::cerr << "[BossSelector] No usable fonts were loaded.\n";
+            shutdown();
+            return false;
         }
 
-        windowWidth_ = windowHost_->getWidth();
-        windowHeight_ = windowHost_->getHeight();
-        renderInterface_->SetViewport(windowWidth_, windowHeight_);
+        updateViewportFromWindow();
+        renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
         context_ = Rml::CreateContext("boss-selector", Rml::Vector2i(windowWidth_, windowHeight_));
         if (context_ == nullptr) {
-            std::cerr << "[BossSelector] Failed to create RmlUi context\n";
+            std::cerr << "[BossSelector] Failed to create RmlUi context.\n";
             shutdown();
             return false;
         }
-
-        const std::string documentPath = platform::path::resolvePath("assets/rmlui/boss_selector.rml");
-        document_ = context_->LoadDocument(documentPath);
-        if (document_ == nullptr) {
-            std::cerr << "[BossSelector] Failed to load document: " << documentPath << "\n";
-            shutdown();
-            return false;
-        }
-        document_->Show();
+        applyContextScale();
 
         if (!loadEntries()) {
+            std::cerr << "[BossSelector] Failed to load battle entries.\n";
             shutdown();
             return false;
         }
 
-        bindDocument();
-        rebuildTrack();
-        refreshProgressState();
-        refreshSelection(true);
-        updateAnimatedLayout(0.0f);
+        if (!loadDocument()) {
+            shutdown();
+            return false;
+        }
+
+        if (!loadingOverlay_.initialize(*context_, platform::path::resolvePath(kLoadingOverlayDocumentPath))) {
+            std::cerr << "[BossSelector] Failed to load loading overlay document.\n";
+            shutdown();
+            return false;
+        }
+        loadingOverlayState_ = graphics::RmlUiLoadingOverlayState{};
 
         initialized_ = true;
         return true;
@@ -370,76 +235,68 @@ public:
 
     void shutdown() {
         initialized_ = false;
-        stopPreviewAudio();
+        finished_ = false;
+        negativeHeld_ = false;
+        positiveHeld_ = false;
+        holdNegativeElapsed_ = 0.0f;
+        holdPositiveElapsed_ = 0.0f;
+        toastTimer_ = 0.0f;
+        visualSelectionIndex_ = 0.0f;
+        targetVisualSelectionIndex_ = 0.0f;
+        focusZone_ = FocusZone::Carousel;
+        launchRequest_.reset();
+        finaleBattle_.reset();
+
+        sfxPlayer_.shutdown();
+        scrollSfxPath_.clear();
+        confirmSfxPath_.clear();
+        audioReady_ = false;
+
+        detachEventListeners();
 
         if (document_ != nullptr) {
             document_->Close();
             document_ = nullptr;
         }
+
+        trackElement_ = nullptr;
+        rankValueElement_ = nullptr;
+        infoPortraitImageElement_ = nullptr;
+        infoNameElement_ = nullptr;
+        infoBattleElement_ = nullptr;
+        infoCopyElement_ = nullptr;
+        infoHpElement_ = nullptr;
+        infoAtkElement_ = nullptr;
+        infoSpdElement_ = nullptr;
+        infoHintElement_ = nullptr;
+        finaleButtonElement_ = nullptr;
+        toastElement_ = nullptr;
+        cardElements_.clear();
+        cardPortraitImageElements_.clear();
+        entries_.clear();
+        loadingOverlay_.shutdown();
+        loadingOverlayState_ = graphics::RmlUiLoadingOverlayState{};
+
         if (context_ != nullptr) {
-            const Rml::String contextName = context_->GetName();
-            Rml::RemoveContext(contextName);
+            context_->UnloadAllDocuments();
+            Rml::RemoveContext("boss-selector");
             context_ = nullptr;
         }
+
         if (rmlInitialized_) {
             Rml::Shutdown();
             rmlInitialized_ = false;
         }
+
         if (rmlGlInitialized_) {
             RmlGL3::Shutdown();
             rmlGlInitialized_ = false;
         }
 
-        Rml::SetRenderInterface(nullptr);
-        Rml::SetSystemInterface(nullptr);
-
-        uiListeners_.clear();
         renderInterface_.reset();
-        window_ = nullptr;
         glContext_ = nullptr;
+        window_ = nullptr;
         windowHost_ = nullptr;
-
-#ifdef BATTLE_ENABLE_IMAGE
-        if (imageInitialized_) {
-            IMG_Quit();
-            imageInitialized_ = false;
-        }
-#endif
-
-        launchRequest_.reset();
-        entries_.clear();
-        cardShells_.clear();
-        cardBodies_.clear();
-        cardStatuses_.clear();
-        cardPortraits_.clear();
-        previewActivePath_.clear();
-        selectedIndex_ = 0;
-        visualIndex_ = 0.0f;
-        introElapsed_ = 0.0f;
-        toastTimer_ = 0.0f;
-        toastText_.clear();
-        clearedVisibleCount_ = 0;
-        idolRank_ = 0;
-        finaleUnlocked_ = false;
-        focusZone_ = FocusZone::Carousel;
-        trackElement_ = nullptr;
-        detailPanelElement_ = nullptr;
-        selectorStageElement_ = nullptr;
-        selectorHeadingElement_ = nullptr;
-        selectorFooterElement_ = nullptr;
-        finaleButtonElement_ = nullptr;
-        toastElement_ = nullptr;
-        detailPortraitElement_ = nullptr;
-        detailBossNameElement_ = nullptr;
-        detailBattleNameElement_ = nullptr;
-        detailDescriptionElement_ = nullptr;
-        detailStatusElement_ = nullptr;
-        detailLaunchModeElement_ = nullptr;
-        detailProgressElement_ = nullptr;
-        rankValueElement_ = nullptr;
-        rankCaptionElement_ = nullptr;
-        finaleSubtitleElement_ = nullptr;
-        finished_ = false;
     }
 
     void handleEvent(const SDL_Event& event) {
@@ -447,88 +304,113 @@ public:
             return;
         }
 
-        if (isWindowResizeEvent(event)) {
-            windowWidth_ = windowHost_->getWidth();
-            windowHeight_ = windowHost_->getHeight();
-            renderInterface_->SetViewport(windowWidth_, windowHeight_);
+        if (event.type == SDL_WINDOWEVENT &&
+            (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
+             event.window.event == SDL_WINDOWEVENT_RESIZED)) {
+            updateViewportFromWindow();
+            renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
             context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
-            updateAnimatedLayout(0.0f);
+            applyContextScale();
+            applySelection();
         }
 
         SDL_Event mutableEvent = event;
         RmlSDL::InputEventHandler(context_, window_, mutableEvent);
 
-        if (event.type != SDL_KEYDOWN || event.key.repeat != 0) {
-            return;
+        if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
+            switch (event.key.keysym.sym) {
+                case SDLK_ESCAPE:
+                    finished_ = true;
+                    break;
+
+                case SDLK_LEFT:
+                    if (focusZone_ == FocusZone::Carousel) {
+                        negativeHeld_ = true;
+                        holdNegativeElapsed_ = 0.0f;
+                        moveSelection(-1, true);
+                    }
+                    break;
+
+                case SDLK_RIGHT:
+                    if (focusZone_ == FocusZone::Carousel) {
+                        positiveHeld_ = true;
+                        holdPositiveElapsed_ = 0.0f;
+                        moveSelection(1, true);
+                    }
+                    break;
+
+                case SDLK_UP:
+                    setFocusZone(FocusZone::Carousel, true);
+                    break;
+
+                case SDLK_DOWN:
+                    setFocusZone(FocusZone::Finale, true);
+                    break;
+
+                case SDLK_RETURN:
+                case SDLK_KP_ENTER:
+                case SDLK_SPACE:
+                    if (focusZone_ == FocusZone::Finale) {
+                        activateFinale();
+                    } else {
+                        activateSelected();
+                    }
+                    break;
+
+                default:
+                    break;
+            }
         }
 
-        switch (event.key.keysym.sym) {
-            case SDLK_ESCAPE:
-                finished_ = true;
-                break;
-            case SDLK_LEFT:
-                focusZone_ = FocusZone::Carousel;
-                moveSelection(-1);
-                break;
-            case SDLK_RIGHT:
-                focusZone_ = FocusZone::Carousel;
-                moveSelection(1);
-                break;
-            case SDLK_UP:
-            case SDLK_DOWN:
-                focusZone_ = (focusZone_ == FocusZone::Carousel) ? FocusZone::Finale : FocusZone::Carousel;
-                refreshFinaleButtonClass();
-                updateAnimatedLayout(0.0f);
-                break;
-            case SDLK_RETURN:
-            case SDLK_KP_ENTER:
-            case SDLK_SPACE:
-                if (focusZone_ == FocusZone::Finale) {
-                    activateFinale();
-                } else {
-                    activateSelected();
-                }
-                break;
-            default:
-                break;
+        if (event.type == SDL_KEYUP) {
+            switch (event.key.keysym.sym) {
+                case SDLK_LEFT:
+                    negativeHeld_ = false;
+                    holdNegativeElapsed_ = 0.0f;
+                    break;
+
+                case SDLK_RIGHT:
+                    positiveHeld_ = false;
+                    holdPositiveElapsed_ = 0.0f;
+                    break;
+
+                default:
+                    break;
+            }
         }
     }
 
     void update(float deltaSeconds) {
-        if (!initialized_ || finished_) {
-            return;
-        }
-
-        introElapsed_ += deltaSeconds;
-        visualIndex_ = easing::lerp(visualIndex_, static_cast<float>(selectedIndex_),
-                                    easing::clamp01(deltaSeconds * kCarouselLerpSpeed));
-
-        if (std::fabs(visualIndex_ - static_cast<float>(selectedIndex_)) < 0.001f) {
-            visualIndex_ = static_cast<float>(selectedIndex_);
-        }
-
-        if (toastTimer_ > 0.0f) {
-            toastTimer_ = std::max(0.0f, toastTimer_ - deltaSeconds);
-            updateToastElement();
-        }
-
-        updatePreviewAudio(deltaSeconds);
-        updateAnimatedLayout(deltaSeconds);
-    }
-
-    void render() {
         if (!initialized_ || finished_ || context_ == nullptr) {
             return;
         }
 
-        glViewport(0, 0, windowWidth_, windowHeight_);
-        glClearColor(0.024f, 0.067f, 0.090f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
-
-        renderInterface_->BeginFrame();
+        updateHeldInput(deltaSeconds);
+        updateVisualSelection(deltaSeconds);
+        updateToast(deltaSeconds);
+        sfxPlayer_.cleanupFinishedPlayback();
         context_->Update();
+    }
+
+    void render() {
+        if (!initialized_ || finished_ || context_ == nullptr || renderInterface_ == nullptr || window_ == nullptr) {
+            return;
+        }
+
+        SDL_GL_MakeCurrent(window_, glContext_);
+        glViewport(0, 0, drawableWidth_, drawableHeight_);
+        glClearColor(1.0f, 0.992f, 0.995f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        loadingOverlay_.apply(loadingOverlayState_);
+        context_->Update();
+        renderInterface_->BeginFrame();
         context_->Render();
         renderInterface_->EndFrame();
+    }
+
+    void setLoadingOverlay(const graphics::RmlUiLoadingOverlayState& state) {
+        loadingOverlayState_ = state;
+        loadingOverlay_.apply(loadingOverlayState_);
     }
 
     bool isFinished() const {
@@ -542,19 +424,116 @@ public:
     }
 
 private:
+    enum class FocusZone {
+        Carousel,
+        Finale,
+    };
+
+    struct EventListenerBinding {
+        Rml::Element* element = nullptr;
+        Rml::EventId eventId = Rml::EventId::Invalid;
+        bool capturePhase = false;
+        std::unique_ptr<Rml::EventListener> listener;
+    };
+
+    struct Entry {
+        battle::BattleDefinition battle;
+        battle::BossDefinition boss;
+        std::string spritePath;
+        std::string tag;
+        std::string instructionHint;
+        bool defeated = false;
+    };
+
+    void detachEventListeners() {
+        for (EventListenerBinding& binding : listeners_) {
+            if (binding.element != nullptr && binding.listener != nullptr) {
+                binding.element->RemoveEventListener(binding.eventId, binding.listener.get(), binding.capturePhase);
+            }
+        }
+        listeners_.clear();
+    }
+
+    bool loadFonts() const {
+        bool loadedLatin = false;
+        for (const std::string& path : platform::path::preferredLatinFontPaths()) {
+            loadedLatin = loadRmlFontIfPresent(path, false) || loadedLatin;
+        }
+
+        bool loadedFallback = false;
+        const std::string cjkPath = platform::path::findCjkFontPath();
+        if (!cjkPath.empty()) {
+            loadedFallback = loadRmlFontIfPresent(cjkPath, true);
+        }
+
+        return loadedLatin || loadedFallback;
+    }
+
+    bool initializeAudio() {
+        scrollSfxPath_ = platform::path::resolvePath(kScrollSfxRelativePath);
+        confirmSfxPath_ = platform::path::resolvePath(kConfirmSfxRelativePath);
+
+        if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
+            if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
+                std::cerr << "[BossSelector] Audio init failed: " << SDL_GetError() << "\n";
+                scrollSfxPath_.clear();
+                confirmSfxPath_.clear();
+                audioReady_ = false;
+                return false;
+            }
+        }
+
+        audioReady_ = !scrollSfxPath_.empty() || !confirmSfxPath_.empty();
+        return audioReady_;
+    }
+
+    void updateViewportFromWindow() {
+        if (windowHost_ == nullptr) {
+            return;
+        }
+
+        windowWidth_ = std::max(1, windowHost_->getWindowWidth());
+        windowHeight_ = std::max(1, windowHost_->getWindowHeight());
+        drawableWidth_ = std::max(1, windowHost_->getDrawableWidth());
+        drawableHeight_ = std::max(1, windowHost_->getDrawableHeight());
+        glViewport(0, 0, drawableWidth_, drawableHeight_);
+    }
+
+    void applyContextScale() {
+        if (context_ == nullptr) {
+            return;
+        }
+
+        const float widthScale = static_cast<float>(windowWidth_) / static_cast<float>(kReferenceWidth);
+        const float heightScale = static_cast<float>(windowHeight_) / static_cast<float>(kReferenceHeight);
+        const float scale = std::min(widthScale, heightScale);
+        context_->SetDensityIndependentPixelRatio(std::max(scale, 0.01f));
+    }
+
     bool loadEntries() {
+        entries_.clear();
         progression_ = save::loadCurrentProgression();
-        std::vector<BattleDefinition> loadedBattles;
-        if (!loader::loadAllBattleDefinitions(loadedBattles)) {
-            std::cerr << "[BossSelector] Failed to load battle definitions\n";
+
+        std::vector<battle::BattleDefinition> battles;
+        if (!battle::loader::loadAllBattleDefinitions(battles)) {
             return false;
         }
 
-        entries_.clear();
-        finaleBattle_.reset();
+        json bossRoot;
+        const std::string bossPath = battle::loader::resolveAssetPath("assets/combat/boss.json");
+        const bool loadedBossMeta = battle::loader::readJsonRoot(bossPath, bossRoot, "boss");
 
-        for (const BattleDefinition& battle : loadedBattles) {
-            if (battle.key == "lyoo_plot_twist") {
+        std::sort(battles.begin(), battles.end(), [](const battle::BattleDefinition& lhs,
+                                                     const battle::BattleDefinition& rhs) {
+            return lhs.id < rhs.id;
+        });
+
+        const std::unordered_set<std::string> clearedKeys(
+            progression_.clearedBattleKeys.begin(),
+            progression_.clearedBattleKeys.end());
+
+        for (const battle::BattleDefinition& battle : battles) {
+            if (battle.key == kFinaleBattleKey) {
                 finaleBattle_ = battle;
             }
 
@@ -562,488 +541,348 @@ private:
                 continue;
             }
 
-            BossDefinition boss;
-            if (!loader::loadBossDefinition(battle.bossKey, boss)) {
-                std::cerr << "[BossSelector] Failed to load boss: " << battle.bossKey << "\n";
-                return false;
+            battle::BossDefinition boss;
+            if (!battle::loader::loadBossDefinition(battle.bossKey, boss)) {
+                continue;
             }
 
-            SelectorEntry entry;
+            Entry entry;
             entry.battle = battle;
             entry.boss = boss;
-            entry.spritePath = resolveBattleSpritePath(boss.assets);
-            if (const auto bgmPath = platform::path::resolveCombatBgmPath(boss.bgm); bgmPath.has_value()) {
-                entry.previewBgmPath = *bgmPath;
+            entry.spritePath = resolveSelectorSpritePath(boss.assets);
+            entry.tag = battleTag(battle);
+            entry.defeated = clearedKeys.find(battle.key) != clearedKeys.end();
+            entry.instructionHint = "Preview interaction hint not available yet.";
+
+            if (loadedBossMeta && bossRoot.is_object()) {
+                const auto bossIt = bossRoot.find(battle.bossKey);
+                if (bossIt != bossRoot.end() && bossIt->is_object()) {
+                    const json& bossJson = *bossIt;
+                    if (bossJson.contains("abilities") && bossJson.at("abilities").is_object()) {
+                        const json& abilitiesJson = bossJson.at("abilities");
+                        const auto skillIt = abilitiesJson.find("skill");
+                        if (skillIt != abilitiesJson.end() && skillIt->is_object()) {
+                            entry.instructionHint =
+                                skillIt->value("instructionHint", entry.instructionHint);
+                        }
+                    }
+                }
             }
-            entry.lineupTitles = resolveLineupTitles(battle);
-            entry.defeated = containsKey(progression_.clearedBattleKeys, battle.key);
+
             entries_.push_back(std::move(entry));
         }
 
-        if (entries_.empty()) {
-            std::cerr << "[BossSelector] No selector-visible battles are configured.\n";
+        selectedIndex_ = 0;
+        visualSelectionIndex_ = 0.0f;
+        targetVisualSelectionIndex_ = 0.0f;
+        focusZone_ = FocusZone::Carousel;
+        return !entries_.empty();
+    }
+
+    bool loadDocument() {
+        if (context_ == nullptr) {
             return false;
         }
 
-        if (!finaleBattle_.has_value()) {
-            std::cerr << "[BossSelector] Missing hidden finale battle: lyoo_plot_twist\n";
+        const std::string documentPath = platform::path::resolvePath(kDocumentPath);
+        document_ = context_->LoadDocument(documentPath);
+        if (document_ == nullptr) {
+            std::cerr << "[BossSelector] Failed to load document: " << documentPath << "\n";
+            return false;
         }
 
-        selectedIndex_ = std::min<std::size_t>(selectedIndex_, entries_.size() - 1);
-        visualIndex_ = static_cast<float>(selectedIndex_);
+        document_->Show();
+        cacheElements();
+        buildTrack();
+        attachListeners();
+        applySelection();
         return true;
     }
 
-    std::vector<std::string> resolveLineupTitles(const BattleDefinition& battle) {
-        std::vector<std::string> titles;
-        std::unordered_set<std::string> seen;
-        const auto appendTitle = [&](const std::string& key) {
-            if (key.empty() || !seen.insert(key).second) {
-                return;
-            }
-
-            CharacterDefinition definition;
-            if (loader::loadCharacterDefinition(key, definition)) {
-                titles.push_back(definition.title);
-            } else {
-                titles.push_back(key);
-            }
-        };
-
-        for (const std::string& key : battle.lockedLineup) {
-            appendTitle(key);
-        }
-        for (const std::string& key : battle.lineup) {
-            appendTitle(key);
-        }
-        return titles;
-    }
-
-    void bindDocument() {
-        trackElement_ = document_->GetElementById("boss-track");
-        detailPanelElement_ = document_->GetElementById("detail-panel");
-        selectorStageElement_ = document_->GetElementById("selector-stage");
-        selectorHeadingElement_ = document_->GetElementById("selector-heading");
-        selectorFooterElement_ = document_->GetElementById("selector-footer");
-        finaleButtonElement_ = document_->GetElementById("finale-button");
-        toastElement_ = document_->GetElementById("selector-toast");
-        detailPortraitElement_ = document_->GetElementById("detail-portrait");
-        detailBossNameElement_ = document_->GetElementById("detail-boss-name");
-        detailBattleNameElement_ = document_->GetElementById("detail-battle-name");
-        detailDescriptionElement_ = document_->GetElementById("detail-description");
-        detailStatusElement_ = document_->GetElementById("detail-status");
-        detailLaunchModeElement_ = document_->GetElementById("detail-launch-mode");
-        detailProgressElement_ = document_->GetElementById("detail-progress");
-        rankValueElement_ = document_->GetElementById("idol-rank-value");
-        rankCaptionElement_ = document_->GetElementById("idol-rank-caption");
-        finaleSubtitleElement_ = document_->GetElementById("finale-subtitle");
-    }
-
-    void attachListener(const std::string& id,
-                        Rml::EventId eventId,
-                        std::function<void(Rml::Event&)> callback) {
+    void cacheElements() {
         if (document_ == nullptr) {
             return;
         }
 
-        Rml::Element* element = document_->GetElementById(id);
-        if (element == nullptr) {
-            return;
-        }
-
-        auto listener = std::make_unique<CallbackEventListener>(std::move(callback));
-        element->AddEventListener(eventId, listener.get());
-        uiListeners_.push_back(std::move(listener));
+        trackElement_ = document_->GetElementById("boss-track");
+        rankValueElement_ = document_->GetElementById("idol-rank-value");
+        infoPortraitImageElement_ = document_->GetElementById("info-portrait-image");
+        infoNameElement_ = document_->GetElementById("info-name");
+        infoBattleElement_ = document_->GetElementById("info-battle");
+        infoCopyElement_ = document_->GetElementById("info-copy");
+        infoHpElement_ = document_->GetElementById("info-hp");
+        infoAtkElement_ = document_->GetElementById("info-atk");
+        infoSpdElement_ = document_->GetElementById("info-spd");
+        infoHintElement_ = document_->GetElementById("info-hint");
+        finaleButtonElement_ = document_->GetElementById("finale-button");
+        toastElement_ = document_->GetElementById("selector-toast");
     }
 
-    void rebuildTrack() {
+    void buildTrack() {
         if (trackElement_ == nullptr) {
             return;
         }
 
         std::ostringstream markup;
         for (std::size_t i = 0; i < entries_.size(); ++i) {
-            const SelectorEntry& entry = entries_[i];
-            markup << "<div class=\"boss-card-shell\" id=\"boss-card-shell-" << i << "\">"
+            const Entry& entry = entries_[i];
+            markup << "<button class=\"boss-card\" id=\"boss-card-" << i << "\">"
                    << "<div class=\"boss-card-frame\">"
-                   << "<div class=\"boss-card-cap-left\"></div>"
-                   << "<div class=\"boss-card-cap-right\"></div>"
-                   << "<div class=\"boss-card-body\" id=\"boss-card-body-" << i << "\">"
-                   << "<div class=\"boss-card-status\" id=\"boss-card-status-" << i << "\">"
-                   << (entry.defeated ? "Defeated" : "Not defeated")
+                   << "<div class=\"boss-card-topline\">"
+                   << "<div class=\"boss-card-code\">" << escapeRml((i + 1 < 10 ? "0" : "") + std::to_string(i + 1)) << "</div>"
+                   << "<div class=\"boss-card-state";
+            if (entry.defeated) {
+                markup << " is-cleared";
+            }
+            markup << "\">" << escapeRml(entry.defeated ? "Cleared" : "Open") << "</div>"
                    << "</div>"
-                   << "<div class=\"boss-card-portrait\" id=\"boss-card-portrait-" << i << "\"></div>"
+                   << "<div class=\"boss-card-tag\">" << escapeRml(entry.tag) << "</div>"
+                   << "<div class=\"boss-card-portrait\">"
+                   << "<img class=\"boss-card-portrait-image\" id=\"boss-card-portrait-image-" << i << "\"/>"
+                   << "</div>"
+                   << "<div class=\"boss-card-copy\">"
                    << "<div class=\"boss-card-name\">" << escapeRml(entry.boss.title) << "</div>"
-                   << "<div class=\"boss-card-subtitle\">" << escapeRml(entry.battle.name) << "</div>"
-                   << "</div></div></div>";
+                   << "<div class=\"boss-card-battle\">" << escapeRml(entry.battle.name) << "</div>"
+                   << "</div>"
+                   << "</div>"
+                   << "</button>";
         }
 
         trackElement_->SetInnerRML(markup.str());
-
-        cardShells_.clear();
-        cardBodies_.clear();
-        cardStatuses_.clear();
-        cardPortraits_.clear();
-        cardShells_.reserve(entries_.size());
-        cardBodies_.reserve(entries_.size());
-        cardStatuses_.reserve(entries_.size());
-        cardPortraits_.reserve(entries_.size());
+        cardElements_.clear();
+        cardPortraitImageElements_.clear();
+        cardElements_.reserve(entries_.size());
+        cardPortraitImageElements_.reserve(entries_.size());
 
         for (std::size_t i = 0; i < entries_.size(); ++i) {
-            cardShells_.push_back(document_->GetElementById("boss-card-shell-" + std::to_string(i)));
-            cardBodies_.push_back(document_->GetElementById("boss-card-body-" + std::to_string(i)));
-            cardStatuses_.push_back(document_->GetElementById("boss-card-status-" + std::to_string(i)));
-            cardPortraits_.push_back(document_->GetElementById("boss-card-portrait-" + std::to_string(i)));
+            cardElements_.push_back(document_->GetElementById("boss-card-" + std::to_string(i)));
+            cardPortraitImageElements_.push_back(
+                document_->GetElementById("boss-card-portrait-image-" + std::to_string(i)));
 
-            if (cardPortraits_.back() != nullptr && !entries_[i].spritePath.empty()) {
-                cardPortraits_.back()->SetProperty("decorator", makeImageDecorator(entries_[i].spritePath));
+            if (cardPortraitImageElements_.back() != nullptr && !entries_[i].spritePath.empty()) {
+                cardPortraitImageElements_.back()->SetAttribute("src", entries_[i].spritePath);
             }
+        }
+    }
 
-            attachListener("boss-card-shell-" + std::to_string(i), Rml::EventId::Click, [this, i](Rml::Event&) {
-                focusZone_ = FocusZone::Carousel;
-                setSelectedIndex(i, true);
-                activateSelected();
+    void attachListeners() {
+        if (document_ == nullptr) {
+            return;
+        }
+
+        for (std::size_t i = 0; i < cardElements_.size(); ++i) {
+            if (Rml::Element* element = cardElements_[i]) {
+                auto clickListener = std::make_unique<CallbackEventListener>([this, i](Rml::Event&) {
+                    focusZone_ = FocusZone::Carousel;
+                    setSelectedIndex(i, false);
+                    activateSelected();
+                });
+                element->AddEventListener(Rml::EventId::Click, clickListener.get());
+                listeners_.push_back(EventListenerBinding{
+                    element,
+                    Rml::EventId::Click,
+                    false,
+                    std::move(clickListener),
+                });
+            }
+        }
+
+        if (Rml::Element* finaleElement = finaleButtonElement_) {
+            auto clickListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
+                focusZone_ = FocusZone::Finale;
+                applySelection();
+                activateFinale();
+            });
+            finaleElement->AddEventListener(Rml::EventId::Click, clickListener.get());
+            listeners_.push_back(EventListenerBinding{
+                finaleElement,
+                Rml::EventId::Click,
+                false,
+                std::move(clickListener),
             });
         }
-
-        attachListener("finale-button", Rml::EventId::Click, [this](Rml::Event&) {
-            focusZone_ = FocusZone::Finale;
-            refreshFinaleButtonClass();
-            activateFinale();
-        });
     }
 
-    void refreshProgressState() {
-        clearedVisibleCount_ = 0;
-        for (const SelectorEntry& entry : entries_) {
-            if (entry.defeated) {
-                ++clearedVisibleCount_;
-            }
-        }
-        finaleUnlocked_ = !entries_.empty() && clearedVisibleCount_ == static_cast<int>(entries_.size());
-
-        std::unordered_set<std::string> rankEligibleKeys;
-        for (const SelectorEntry& entry : entries_) {
-            rankEligibleKeys.insert(entry.battle.key);
-        }
-        if (finaleBattle_.has_value()) {
-            rankEligibleKeys.insert(finaleBattle_->key);
-        }
-
-        idolRank_ = 0;
-        for (const std::string& clearedKey : progression_.clearedBattleKeys) {
-            if (rankEligibleKeys.find(clearedKey) != rankEligibleKeys.end()) {
-                ++idolRank_;
-            }
-        }
-
-        if (rankValueElement_ != nullptr) {
-            rankValueElement_->SetInnerRML(std::to_string(idolRank_));
-        }
-        if (rankCaptionElement_ != nullptr) {
-            rankCaptionElement_->SetInnerRML("Bosses defeated");
-        }
-        if (finaleSubtitleElement_ != nullptr) {
-            if (finaleUnlocked_) {
-                finaleSubtitleElement_->SetInnerRML("Unlocked. Press ENTER to launch the finale.");
-            } else {
-                finaleSubtitleElement_->SetInnerRML("Defeat every boss to unlock the finale.");
-            }
-        }
-
-        refreshFinaleButtonClass();
+    bool isFinaleUnlocked() const {
+        const std::size_t clearedVisibleCount = static_cast<std::size_t>(std::count_if(
+            entries_.begin(), entries_.end(), [](const Entry& entry) { return entry.defeated; }));
+        return !entries_.empty() && clearedVisibleCount == entries_.size();
     }
 
-    void refreshSelection(bool playPreview) {
+    void applySelection() {
         if (entries_.empty()) {
             return;
         }
 
-        const SelectorEntry& entry = entries_[selectedIndex_];
-        if (detailPortraitElement_ != nullptr) {
-            detailPortraitElement_->SetProperty("decorator", makeImageDecorator(entry.spritePath));
-        }
-        if (detailBossNameElement_ != nullptr) {
-            detailBossNameElement_->SetInnerRML(escapeRml(entry.boss.title));
-        }
-        if (detailBattleNameElement_ != nullptr) {
-            detailBattleNameElement_->SetInnerRML(escapeRml(entry.battle.name));
-        }
-        if (detailDescriptionElement_ != nullptr) {
-            const std::string battleDescription = entry.battle.description;
-            if (!entry.lineupTitles.empty()) {
-                std::string markup;
-                if (!battleDescription.empty()) {
-                    markup += escapeRml(battleDescription);
-                    markup += "<br/><br/>";
-                }
-                markup += escapeRml("Party: " + joinStrings(entry.lineupTitles, " / "));
-                detailDescriptionElement_->SetInnerRML(markup);
-            } else if (!battleDescription.empty()) {
-                detailDescriptionElement_->SetInnerRML(escapeRml(battleDescription));
-            } else {
-                detailDescriptionElement_->SetInnerRML(escapeRml("Challenge " + entry.boss.title + "."));
-            }
-        }
-        if (detailStatusElement_ != nullptr) {
-            detailStatusElement_->SetInnerRML(entry.defeated ? "Defeated" : "Not defeated");
-        }
-        if (detailLaunchModeElement_ != nullptr) {
-            detailLaunchModeElement_->SetInnerRML(entry.battle.storyScript.empty() ? "Direct battle" : "Story scene");
-        }
-        if (detailProgressElement_ != nullptr) {
-            detailProgressElement_->SetInnerRML(
-                std::to_string(clearedVisibleCount_) + " / " + std::to_string(entries_.size()) + " cleared");
-        }
+        updateAnimatedLayout();
 
-        if (playPreview) {
-            requestPreview(entry.previewBgmPath, entry.boss.bgmVolume);
-        }
-
-        refreshFinaleButtonClass();
-    }
-
-    void moveSelection(int direction) {
-        if (entries_.empty() || direction == 0) {
-            return;
-        }
-
-        const int newIndex = std::clamp(static_cast<int>(selectedIndex_) + direction, 0,
-                                        static_cast<int>(entries_.size()) - 1);
-        if (newIndex == static_cast<int>(selectedIndex_)) {
-            return;
-        }
-
-        setSelectedIndex(static_cast<std::size_t>(newIndex), true);
-    }
-
-    void setSelectedIndex(std::size_t index, bool playPreview) {
-        if (entries_.empty()) {
-            return;
-        }
-
-        selectedIndex_ = std::min(index, entries_.size() - 1);
-        refreshSelection(playPreview);
-        updateAnimatedLayout(0.0f);
-    }
-
-    void requestPreview(const std::string& path, float baseVolume) {
-        const float previewVolume = std::clamp(std::max(baseVolume, 0.16f), 0.0f, 0.45f);
-
-        if (path.empty()) {
-            previewActivePath_.clear();
-            if (activePreviewChannel_ >= 0) {
-                previewChannels_[activePreviewChannel_].targetVolume = 0.0f;
-            }
-            return;
-        }
-
-        if (path == previewActivePath_ && activePreviewChannel_ >= 0) {
-            previewChannels_[activePreviewChannel_].maxVolume = previewVolume;
-            previewChannels_[activePreviewChannel_].targetVolume = previewVolume;
-            return;
-        }
-
-        const int newChannel = activePreviewChannel_ == 0 ? 1 : 0;
-        PreviewChannel& channel = previewChannels_[newChannel];
-        channel.player.stop();
-        channel.path.clear();
-        channel.volume = 0.0f;
-        channel.targetVolume = 0.0f;
-        channel.maxVolume = previewVolume;
-        channel.active = false;
-
-        if (!channel.player.play(path, 0.0f)) {
-            std::cerr << "[BossSelector] Failed to preview BGM: " << path << "\n";
-            return;
-        }
-
-        channel.path = path;
-        channel.volume = 0.0f;
-        channel.targetVolume = previewVolume;
-        channel.maxVolume = previewVolume;
-        channel.active = true;
-
-        if (activePreviewChannel_ >= 0) {
-            previewChannels_[activePreviewChannel_].targetVolume = 0.0f;
-        }
-
-        activePreviewChannel_ = newChannel;
-        previewActivePath_ = path;
-    }
-
-    void updatePreviewAudio(float deltaSeconds) {
-        const auto approach = [deltaSeconds](float value, float target, float rate) {
-            const float step = rate * deltaSeconds;
-            if (value < target) {
-                return std::min(target, value + step);
-            }
-            return std::max(target, value - step);
-        };
-
-        for (int i = 0; i < 2; ++i) {
-            PreviewChannel& channel = previewChannels_[i];
-            if (!channel.active && !channel.player.isPlaying()) {
-                continue;
-            }
-
-            const float rate = channel.targetVolume > channel.volume
-                ? kPreviewFadeInPerSecond
-                : kPreviewFadeOutPerSecond;
-            channel.volume = approach(channel.volume, channel.targetVolume, rate);
-            channel.player.setVolume(channel.volume);
-
-            if (channel.targetVolume <= 0.0f && channel.volume <= 0.001f) {
-                channel.player.stop();
-                channel.path.clear();
-                channel.volume = 0.0f;
-                channel.targetVolume = 0.0f;
-                channel.maxVolume = 0.0f;
-                channel.active = false;
-            }
-        }
-    }
-
-    void stopPreviewAudio() {
-        for (PreviewChannel& channel : previewChannels_) {
-            channel.player.stop();
-            channel.path.clear();
-            channel.volume = 0.0f;
-            channel.targetVolume = 0.0f;
-            channel.maxVolume = 0.0f;
-            channel.active = false;
-        }
-        activePreviewChannel_ = -1;
-        previewActivePath_.clear();
-    }
-
-    void updateAnimatedLayout(float) {
-        const float panelWidth = 332.0f;
-        const float panelMargin = 28.0f;
-        const float stageLeft = std::max(40.0f, windowWidth_ * 0.04f);
-        const float stageGap = 42.0f;
-        const float detailLeft = std::max(stageLeft + 320.0f,
-                                          windowWidth_ - panelMargin - panelWidth);
-        const float stageRight = std::max(stageLeft + 360.0f, detailLeft - stageGap);
-        const float stageWidth = std::max(320.0f, stageRight - stageLeft);
-        const float centerX = stageLeft + stageWidth * 0.5f;
-        const float cardSpacing = std::clamp(stageWidth * 0.31f, 224.0f, 286.0f);
-        const float baseY = std::clamp(windowHeight_ * 0.20f, 138.0f, 188.0f);
-
-        const float detailProgress = easing::easeOutCubic(
-            easing::clamp01(introElapsed_ / kDetailIntroDurationSeconds));
-        if (detailPanelElement_ != nullptr) {
-            detailPanelElement_->SetProperty("left", "auto");
-            detailPanelElement_->SetProperty("right", formatPx(panelMargin));
-            detailPanelElement_->SetProperty("opacity", formatFloat(detailProgress));
-            detailPanelElement_->SetProperty(
-                "transform",
-                "translate(" + formatPx((1.0f - detailProgress) * 36.0f) + ", 0px)");
-        }
-        if (selectorStageElement_ != nullptr) {
-            selectorStageElement_->SetProperty(
-                "transform",
-                "translate(" + formatPx((1.0f - detailProgress) * -20.0f) + ", 0px)");
-        }
-        if (selectorHeadingElement_ != nullptr) {
-            selectorHeadingElement_->SetProperty("left", formatPx(stageLeft + 8.0f));
-            selectorHeadingElement_->SetProperty("width", formatPx(std::max(280.0f, stageWidth - 16.0f)));
-        }
-        if (selectorFooterElement_ != nullptr) {
-            selectorFooterElement_->SetProperty("left", formatPx(stageLeft + 8.0f));
-            selectorFooterElement_->SetProperty("width", formatPx(std::max(280.0f, stageWidth - 16.0f)));
-        }
         if (finaleButtonElement_ != nullptr) {
-            finaleButtonElement_->SetProperty("left", formatPx(centerX - 218.0f));
-            finaleButtonElement_->SetProperty("margin-left", "0px");
+            finaleButtonElement_->SetClass("is-focused", focusZone_ == FocusZone::Finale);
+            finaleButtonElement_->SetClass("is-locked", !isFinaleUnlocked());
         }
 
-        for (std::size_t i = 0; i < cardShells_.size(); ++i) {
-            Rml::Element* shell = cardShells_[i];
-            Rml::Element* body = cardBodies_[i];
-            Rml::Element* status = cardStatuses_[i];
-            if (shell == nullptr || body == nullptr || status == nullptr) {
+        for (std::size_t i = 0; i < cardElements_.size(); ++i) {
+            if (cardElements_[i] != nullptr) {
+                cardElements_[i]->SetClass("is-selected", i == selectedIndex_ && focusZone_ == FocusZone::Carousel);
+            }
+        }
+
+        const std::set<std::string> clearedKeys(
+            progression_.clearedBattleKeys.begin(),
+            progression_.clearedBattleKeys.end());
+        int idolRank = 0;
+        for (const Entry& entry : entries_) {
+            if (clearedKeys.find(entry.battle.key) != clearedKeys.end()) {
+                ++idolRank;
+            }
+        }
+        if (finaleBattle_.has_value() &&
+            clearedKeys.find(finaleBattle_->key) != clearedKeys.end()) {
+            ++idolRank;
+        }
+        if (rankValueElement_ != nullptr) {
+            rankValueElement_->SetInnerRML(std::to_string(idolRank));
+        }
+
+        updateInfoPanel();
+    }
+
+    void updateAnimatedLayout() {
+        if (entries_.empty()) {
+            return;
+        }
+
+        const float cardWidth = 164.0f;
+        const float xStep = 118.0f;
+        const float baseLeft = 58.0f;
+        const float baseTop = 150.0f;
+        const float stairStep = 18.0f;
+        const int selectedSlot = static_cast<int>(entries_.size() / 2);
+
+        for (std::size_t i = 0; i < cardElements_.size(); ++i) {
+            Rml::Element* element = cardElements_[i];
+            if (element == nullptr) {
                 continue;
             }
 
-            const float introT = easing::clamp01(
-                (introElapsed_ - static_cast<float>(i) * kCardIntroStaggerSeconds) / kCardIntroDurationSeconds);
-            const float introEase = easing::easeOutBack(introT);
-            const float relativeIndex = static_cast<float>(i) - visualIndex_;
-            const float absIndex = std::fabs(relativeIndex);
-
-            const float x = centerX + (relativeIndex * cardSpacing);
-            const float y = baseY + (absIndex * kCardDepthY) + ((1.0f - introEase) * 80.0f);
-            const float scale = std::max(0.70f, 1.0f - absIndex * 0.11f) * std::max(0.82f, introEase);
-            const float opacity = std::clamp(1.12f - absIndex * 0.24f, 0.22f, 1.0f) * introT;
-            const int zIndex = 1000 - static_cast<int>(absIndex * 10.0f);
-
-            shell->SetProperty("left", formatPx(x - kCardWidth * 0.5f));
-            shell->SetProperty("top", formatPx(y));
-            shell->SetProperty("opacity", formatFloat(opacity));
-            shell->SetProperty("transform", "scale(" + formatFloat(scale) + ")");
-            shell->SetProperty("z-index", std::to_string(zIndex));
-
-            std::string bodyClass = "boss-card-body";
-            if (i == selectedIndex_) {
-                bodyClass += " selected";
+            float offset = static_cast<float>(i) - visualSelectionIndex_;
+            const float count = static_cast<float>(entries_.size());
+            const float half = count * 0.5f;
+            while (offset > half) {
+                offset -= count;
             }
-            body->SetAttribute("class", bodyClass);
-
-            std::string statusClass = "boss-card-status";
-            if (entries_[i].defeated) {
-                statusClass += " defeated";
+            while (offset < -half) {
+                offset += count;
             }
-            status->SetAttribute("class", statusClass);
-        }
 
-        refreshFinaleButtonClass();
-        updateToastElement();
-    }
+            const float slot = offset + static_cast<float>(selectedSlot);
+            const float x = baseLeft + slot * xStep;
+            const float absOffset = std::fabs(offset);
+            const float y = baseTop - offset * stairStep + absOffset * 6.0f;
+            const float scale = absOffset < 0.05f ? 1.08f : std::max(0.88f, 1.0f - absOffset * 0.04f);
+            const float opacity = absOffset < 0.05f ? 1.0f : std::max(0.50f, 0.92f - absOffset * 0.10f);
 
-    void refreshFinaleButtonClass() {
-        if (finaleButtonElement_ == nullptr) {
-            return;
-        }
-
-        std::string classNames = "focused";
-        if (focusZone_ != FocusZone::Finale) {
-            classNames.clear();
-        }
-        if (!finaleUnlocked_) {
-            if (!classNames.empty()) {
-                classNames += " ";
-            }
-            classNames += "locked";
-        }
-
-        if (classNames.empty()) {
-            finaleButtonElement_->SetAttribute("class", "");
-        } else {
-            finaleButtonElement_->SetAttribute("class", classNames);
+            element->SetProperty("width", formatDp(cardWidth));
+            element->SetProperty("height", formatDp(280.0f));
+            element->SetProperty("transform", translateScale(x, y, scale));
+            element->SetProperty("opacity", formatNumber(opacity));
+            element->SetProperty("z-index", std::to_string(static_cast<int>(100.0f - absOffset * 10.0f)));
         }
     }
 
-    void updateToastElement() {
-        if (toastElement_ == nullptr) {
+    void updateInfoPanel() const {
+        if (entries_.empty()) {
             return;
         }
 
-        if (toastTimer_ <= 0.0f || toastText_.empty()) {
-            toastElement_->SetProperty("opacity", "0");
-            toastElement_->SetInnerRML("");
-            return;
+        const Entry& entry = entries_[selectedIndex_];
+        if (infoPortraitImageElement_ != nullptr) {
+            if (!entry.spritePath.empty()) {
+                infoPortraitImageElement_->SetAttribute("src", entry.spritePath);
+            } else {
+                infoPortraitImageElement_->RemoveAttribute("src");
+            }
         }
-
-        const float opacity = std::min(1.0f, toastTimer_ / 0.18f);
-        toastElement_->SetProperty("opacity", formatFloat(opacity));
-        toastElement_->SetInnerRML(escapeRml(toastText_));
+        if (infoNameElement_ != nullptr) {
+            infoNameElement_->SetInnerRML(escapeRml(entry.boss.title));
+        }
+        if (infoBattleElement_ != nullptr) {
+            infoBattleElement_->SetInnerRML(escapeRml(entry.battle.name));
+        }
+        if (infoCopyElement_ != nullptr) {
+            const std::string copy = entry.battle.description.empty()
+                ? "Challenge " + entry.boss.title + "."
+                : entry.battle.description;
+            infoCopyElement_->SetInnerRML(escapeRml(copy));
+        }
+        if (infoHpElement_ != nullptr) {
+            infoHpElement_->SetInnerRML(std::to_string(entry.boss.hp));
+        }
+        if (infoAtkElement_ != nullptr) {
+            infoAtkElement_->SetInnerRML(std::to_string(entry.boss.atk));
+        }
+        if (infoSpdElement_ != nullptr) {
+            infoSpdElement_->SetInnerRML(std::to_string(entry.boss.spd));
+        }
+        if (infoHintElement_ != nullptr) {
+            infoHintElement_->SetInnerRML(escapeRml(entry.instructionHint));
+        }
     }
 
-    void showToast(std::string message, float durationSeconds = kToastDurationSeconds) {
-        toastText_ = std::move(message);
-        toastTimer_ = std::max(0.2f, durationSeconds);
-        updateToastElement();
+    void setSelectedIndex(std::size_t index, bool shouldPlayScrollSfx) {
+        if (entries_.empty()) {
+            return;
+        }
+
+        index %= entries_.size();
+        if (index == selectedIndex_) {
+            return;
+        }
+
+        const int count = static_cast<int>(entries_.size());
+        const int current = static_cast<int>(selectedIndex_);
+        const int destination = static_cast<int>(index);
+        const int forwardDistance = (destination - current + count) % count;
+        const int backwardDistance = (current - destination + count) % count;
+        targetVisualSelectionIndex_ += forwardDistance <= backwardDistance ? 1.0f * static_cast<float>(forwardDistance)
+                                                                           : -1.0f * static_cast<float>(backwardDistance);
+
+        selectedIndex_ = index;
+        applySelection();
+        if (shouldPlayScrollSfx) {
+            playScrollSfx();
+        }
+    }
+
+    void moveSelection(int delta, bool shouldPlayScrollSfx) {
+        if (entries_.empty() || delta == 0) {
+            return;
+        }
+
+        const int count = static_cast<int>(entries_.size());
+        int nextIndex = (static_cast<int>(selectedIndex_) + delta) % count;
+        if (nextIndex < 0) {
+            nextIndex += count;
+        }
+
+        selectedIndex_ = static_cast<std::size_t>(nextIndex);
+        targetVisualSelectionIndex_ += delta > 0 ? 1.0f : -1.0f;
+        applySelection();
+        if (shouldPlayScrollSfx) {
+            playScrollSfx();
+        }
+    }
+
+    void setFocusZone(FocusZone zone, bool shouldPlayScrollSfx) {
+        if (focusZone_ == zone) {
+            return;
+        }
+
+        focusZone_ = zone;
+        applySelection();
+        if (shouldPlayScrollSfx) {
+            playScrollSfx();
+        }
     }
 
     void activateSelected() {
@@ -1051,17 +890,17 @@ private:
             return;
         }
 
-        const SelectorEntry& entry = entries_[selectedIndex_];
+        const Entry& entry = entries_[selectedIndex_];
+        playConfirmSfx();
         launchRequest_ = LaunchRequest{
             entry.battle.storyScript.empty() ? LaunchRequest::Type::Battle : LaunchRequest::Type::Story,
-            entry.battle.storyScript.empty() ? entry.battle.key : entry.battle.storyScript
+            entry.battle.storyScript.empty() ? entry.battle.key : entry.battle.storyScript,
         };
-        finished_ = true;
     }
 
     void activateFinale() {
-        if (!finaleUnlocked_) {
-            showToast("Defeat every rival first.");
+        if (!isFinaleUnlocked()) {
+            showToast("Defeat every rival before becoming an idol.");
             return;
         }
         if (!finaleBattle_.has_value()) {
@@ -1069,11 +908,105 @@ private:
             return;
         }
 
+        playConfirmSfx();
         launchRequest_ = LaunchRequest{
             finaleBattle_->storyScript.empty() ? LaunchRequest::Type::Battle : LaunchRequest::Type::Story,
-            finaleBattle_->storyScript.empty() ? finaleBattle_->key : finaleBattle_->storyScript
+            finaleBattle_->storyScript.empty() ? finaleBattle_->key : finaleBattle_->storyScript,
         };
-        finished_ = true;
+    }
+
+    void updateHeldInput(float deltaSeconds) {
+        const auto updateDirection = [deltaSeconds](bool held, float& elapsed) -> bool {
+            if (!held) {
+                elapsed = 0.0f;
+                return false;
+            }
+
+            elapsed += deltaSeconds;
+            if (elapsed < kHoldInitialDelaySeconds) {
+                return false;
+            }
+
+            if (elapsed >= kHoldInitialDelaySeconds + kHoldRepeatIntervalSeconds) {
+                elapsed -= kHoldRepeatIntervalSeconds;
+                return true;
+            }
+
+            return false;
+        };
+
+        if (updateDirection(negativeHeld_, holdNegativeElapsed_)) {
+            moveSelection(-1, true);
+        }
+        if (updateDirection(positiveHeld_, holdPositiveElapsed_)) {
+            moveSelection(1, true);
+        }
+    }
+
+    void updateVisualSelection(float deltaSeconds) {
+        if (entries_.empty()) {
+            return;
+        }
+
+        const float blend = deltaSeconds > 0.0f
+            ? clamp01(1.0f - std::exp(-deltaSeconds * kSelectionLerpSpeed))
+            : 1.0f;
+
+        visualSelectionIndex_ += (targetVisualSelectionIndex_ - visualSelectionIndex_) * blend;
+
+        if (std::fabs(visualSelectionIndex_ - targetVisualSelectionIndex_) < 0.001f) {
+            visualSelectionIndex_ = targetVisualSelectionIndex_;
+        }
+
+        const float count = static_cast<float>(entries_.size());
+        if (visualSelectionIndex_ < 0.0f && targetVisualSelectionIndex_ < 0.0f &&
+            std::fabs(visualSelectionIndex_ - targetVisualSelectionIndex_) < 0.02f) {
+            visualSelectionIndex_ += count;
+            targetVisualSelectionIndex_ += count;
+        } else if (visualSelectionIndex_ >= count && targetVisualSelectionIndex_ >= count &&
+                   std::fabs(visualSelectionIndex_ - targetVisualSelectionIndex_) < 0.02f) {
+            visualSelectionIndex_ -= count;
+            targetVisualSelectionIndex_ -= count;
+        }
+
+        updateAnimatedLayout();
+    }
+
+    void updateToast(float deltaSeconds) {
+        if (toastElement_ == nullptr) {
+            return;
+        }
+
+        if (toastTimer_ > 0.0f) {
+            toastTimer_ = std::max(0.0f, toastTimer_ - std::max(deltaSeconds, 0.0f));
+            if (toastTimer_ <= 0.0f) {
+                toastElement_->SetClass("is-visible", false);
+            }
+        }
+    }
+
+    void playScrollSfx() {
+        if (!audioReady_ || scrollSfxPath_.empty()) {
+            return;
+        }
+        (void)sfxPlayer_.playWavOneShot(scrollSfxPath_, 0.78f, true);
+    }
+
+    void playConfirmSfx() {
+        if (!audioReady_ || confirmSfxPath_.empty()) {
+            return;
+        }
+        (void)sfxPlayer_.playWavOneShot(confirmSfxPath_, 0.92f, true);
+    }
+
+    void showToast(const std::string& message) {
+        if (toastElement_ == nullptr) {
+            return;
+        }
+
+        toastElement_->SetInnerRML(escapeRml(message));
+        toastElement_->SetClass("is-visible", true);
+        toastTimer_ = 1.12f;
     }
 
     Window* windowHost_ = nullptr;
@@ -1081,56 +1014,56 @@ private:
     SDL_GLContext glContext_ = nullptr;
     bool initialized_ = false;
     bool finished_ = false;
+    bool audioReady_ = false;
     bool rmlInitialized_ = false;
     bool rmlGlInitialized_ = false;
-    bool imageInitialized_ = false;
-    int windowWidth_ = kDefaultWindowWidth;
-    int windowHeight_ = kDefaultWindowHeight;
-    battle::PlayerProgression progression_;
-    std::vector<SelectorEntry> entries_;
-    std::optional<BattleDefinition> finaleBattle_;
-    std::optional<LaunchRequest> launchRequest_;
-    std::vector<std::unique_ptr<Rml::EventListener>> uiListeners_;
-    std::vector<Rml::Element*> cardShells_;
-    std::vector<Rml::Element*> cardBodies_;
-    std::vector<Rml::Element*> cardStatuses_;
-    std::vector<Rml::Element*> cardPortraits_;
-    float visualIndex_ = 0.0f;
-    std::size_t selectedIndex_ = 0;
-    float introElapsed_ = 0.0f;
-    float toastTimer_ = 0.0f;
-    std::string toastText_;
-    int clearedVisibleCount_ = 0;
-    int idolRank_ = 0;
-    bool finaleUnlocked_ = false;
-    FocusZone focusZone_ = FocusZone::Carousel;
-    PreviewChannel previewChannels_[2];
-    int activePreviewChannel_ = -1;
-    std::string previewActivePath_;
+    int windowWidth_ = 1280;
+    int windowHeight_ = 720;
+    int drawableWidth_ = 1280;
+    int drawableHeight_ = 720;
     SystemInterface_SDL systemInterface_;
-    std::unique_ptr<RenderInterfaceGL3SDL> renderInterface_;
+    std::unique_ptr<graphics::RmlUiSdlGlRenderInterface> renderInterface_;
     Rml::Context* context_ = nullptr;
     Rml::ElementDocument* document_ = nullptr;
+    std::vector<EventListenerBinding> listeners_;
+    game::audio::WavOneShotPlayer sfxPlayer_;
+    std::vector<Entry> entries_;
+    battle::PlayerProgression progression_;
+    std::optional<battle::BattleDefinition> finaleBattle_;
+    std::optional<LaunchRequest> launchRequest_;
+    std::size_t selectedIndex_ = 0;
+    float visualSelectionIndex_ = 0.0f;
+    float targetVisualSelectionIndex_ = 0.0f;
+    FocusZone focusZone_ = FocusZone::Carousel;
+    bool negativeHeld_ = false;
+    bool positiveHeld_ = false;
+    float holdNegativeElapsed_ = 0.0f;
+    float holdPositiveElapsed_ = 0.0f;
+    float toastTimer_ = 0.0f;
+    std::string scrollSfxPath_;
+    std::string confirmSfxPath_;
+    graphics::RmlUiLoadingOverlay loadingOverlay_;
+    graphics::RmlUiLoadingOverlayState loadingOverlayState_;
+
     Rml::Element* trackElement_ = nullptr;
-    Rml::Element* detailPanelElement_ = nullptr;
-    Rml::Element* selectorStageElement_ = nullptr;
-    Rml::Element* selectorHeadingElement_ = nullptr;
-    Rml::Element* selectorFooterElement_ = nullptr;
+    Rml::Element* rankValueElement_ = nullptr;
+    Rml::Element* infoPortraitImageElement_ = nullptr;
+    Rml::Element* infoNameElement_ = nullptr;
+    Rml::Element* infoBattleElement_ = nullptr;
+    Rml::Element* infoCopyElement_ = nullptr;
+    Rml::Element* infoHpElement_ = nullptr;
+    Rml::Element* infoAtkElement_ = nullptr;
+    Rml::Element* infoSpdElement_ = nullptr;
+    Rml::Element* infoHintElement_ = nullptr;
     Rml::Element* finaleButtonElement_ = nullptr;
     Rml::Element* toastElement_ = nullptr;
-    Rml::Element* detailPortraitElement_ = nullptr;
-    Rml::Element* detailBossNameElement_ = nullptr;
-    Rml::Element* detailBattleNameElement_ = nullptr;
-    Rml::Element* detailDescriptionElement_ = nullptr;
-    Rml::Element* detailStatusElement_ = nullptr;
-    Rml::Element* detailLaunchModeElement_ = nullptr;
-    Rml::Element* detailProgressElement_ = nullptr;
-    Rml::Element* rankValueElement_ = nullptr;
-    Rml::Element* rankCaptionElement_ = nullptr;
-    Rml::Element* finaleSubtitleElement_ = nullptr;
+    std::vector<Rml::Element*> cardElements_;
+    std::vector<Rml::Element*> cardPortraitImageElements_;
 };
 
-Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
+Session::Session()
+    : impl_(std::make_unique<SessionImpl>()) {}
+
 Session::~Session() = default;
 
 bool Session::initialize(Window& window) {
@@ -1153,6 +1086,10 @@ void Session::render() {
     impl_->render();
 }
 
+void Session::setLoadingOverlay(const graphics::RmlUiLoadingOverlayState& state) {
+    impl_->setLoadingOverlay(state);
+}
+
 bool Session::isFinished() const {
     return impl_->isFinished();
 }
@@ -1161,4 +1098,4 @@ std::optional<LaunchRequest> Session::consumeLaunchRequest() {
     return impl_->consumeLaunchRequest();
 }
 
-} // namespace battle::selector
+}  // namespace battle::selector

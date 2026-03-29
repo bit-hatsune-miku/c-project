@@ -23,6 +23,9 @@ namespace {
 
 constexpr int kReferenceWidth = 1280;
 constexpr int kReferenceHeight = 720;
+constexpr const char* kScrollSfxRelativePath = "assets/ui/sfx/UI_notification-done.wav";
+constexpr const char* kConfirmSfxRelativePath = "assets/ui/sfx/Selection_roulette-result.wav";
+constexpr const char* kLoadingOverlayDocumentPath = "assets/rmlui/shared/loading_overlay.rml";
 
 std::vector<ScreenId> stackForAppState(const AppState& state) {
     switch (state.screen) {
@@ -85,6 +88,8 @@ bool Session::initialize(Window& window, const AppState& state) {
         return false;
     }
 
+    initializeAudio();
+
     SDL_GL_MakeCurrent(window_, glContext_);
     SDL_GL_SetSwapInterval(1);
     SDL_StartTextInput();
@@ -136,6 +141,13 @@ bool Session::initialize(Window& window, const AppState& state) {
         return false;
     }
 
+    if (!loadingOverlay_.initialize(*context_, platform::path::resolvePath(kLoadingOverlayDocumentPath))) {
+        std::cerr << "[FrontUi] Failed to load loading overlay document.\n";
+        shutdown();
+        return false;
+    }
+    loadingOverlayState_ = RmlUiLoadingOverlayState{};
+
     initialized_ = true;
     return true;
 }
@@ -143,10 +155,17 @@ bool Session::initialize(Window& window, const AppState& state) {
 void Session::shutdown() {
     initialized_ = false;
     SDL_StopTextInput();
+    sfxPlayer_.shutdown();
+    scrollSfxPath_.clear();
+    confirmSfxPath_.clear();
+    audioReady_ = false;
 
     while (!documents_.empty()) {
         popScreen();
     }
+
+    loadingOverlay_.shutdown();
+    loadingOverlayState_ = RmlUiLoadingOverlayState{};
 
     if (rmlInitialized_) {
         Rml::Shutdown();
@@ -173,6 +192,8 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
     if (!initialized_ || context_ == nullptr || window_ == nullptr) {
         return;
     }
+
+    const std::optional<MainMenuAction> selectionBeforeEvent = currentMainMenuSelection();
 
     if (event.type == SDL_WINDOWEVENT &&
         (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
@@ -237,6 +258,13 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
     }
 
     syncState(state);
+
+    const std::optional<MainMenuAction> selectionAfterEvent = currentMainMenuSelection();
+    if (selectionBeforeEvent.has_value() &&
+        selectionAfterEvent.has_value() &&
+        selectionBeforeEvent != selectionAfterEvent) {
+        playScrollSfx();
+    }
 }
 
 void Session::update(const AppState& state, float deltaSeconds) {
@@ -252,6 +280,8 @@ void Session::update(const AppState& state, float deltaSeconds) {
             entry.controller->update(state, deltaSeconds);
         }
     }
+
+    sfxPlayer_.cleanupFinishedPlayback();
 }
 
 void Session::render() {
@@ -264,15 +294,25 @@ void Session::render() {
     glClearColor(0.015f, 0.025f, 0.055f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
+    loadingOverlay_.apply(loadingOverlayState_);
     context_->Update();
     renderInterface_->BeginFrame();
     context_->Render();
     renderInterface_->EndFrame();
 }
 
+void Session::setLoadingOverlay(const RmlUiLoadingOverlayState& state) {
+    loadingOverlayState_ = state;
+    loadingOverlay_.apply(loadingOverlayState_);
+}
+
 std::optional<Command> Session::consumeCommand() {
     if (DocumentController* controller = topController()) {
-        return controller->consumeCommand();
+        std::optional<Command> command = controller->consumeCommand();
+        if (command.has_value() && command->type == CommandType::ActivateMainMenuAction) {
+            playConfirmSfx();
+        }
+        return command;
     }
     return std::nullopt;
 }
@@ -400,6 +440,45 @@ bool Session::loadFonts() const {
     }
 
     return loadedLatin || loadedFallback;
+}
+
+bool Session::initializeAudio() {
+    scrollSfxPath_ = platform::path::resolvePath(kScrollSfxRelativePath);
+    confirmSfxPath_ = platform::path::resolvePath(kConfirmSfxRelativePath);
+
+    if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
+        if (SDL_InitSubSystem(SDL_INIT_AUDIO) != 0) {
+            std::cerr << "[FrontUi] Audio init failed: " << SDL_GetError() << "\n";
+            scrollSfxPath_.clear();
+            confirmSfxPath_.clear();
+            audioReady_ = false;
+            return false;
+        }
+    }
+
+    audioReady_ = !scrollSfxPath_.empty() || !confirmSfxPath_.empty();
+    return audioReady_;
+}
+
+std::optional<MainMenuAction> Session::currentMainMenuSelection() const {
+    if (DocumentController* controller = topController()) {
+        return controller->selectedMainMenuAction();
+    }
+    return std::nullopt;
+}
+
+void Session::playScrollSfx() {
+    if (!audioReady_ || scrollSfxPath_.empty()) {
+        return;
+    }
+    (void)sfxPlayer_.playWavOneShot(scrollSfxPath_, 0.78f, true);
+}
+
+void Session::playConfirmSfx() {
+    if (!audioReady_ || confirmSfxPath_.empty()) {
+        return;
+    }
+    (void)sfxPlayer_.playWavOneShot(confirmSfxPath_, 0.92f, true);
 }
 
 }  // namespace graphics::frontui

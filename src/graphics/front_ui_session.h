@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <optional>
+#include <string>
 #include <vector>
 
 #include <SDL2/SDL.h>
@@ -12,7 +13,9 @@
 #include "RmlUi_Platform_SDL.h"
 
 #include "../GameMenu/menu_shared.h"
+#include "../game/audio/wav_one_shot.h"
 #include "front_ui_document.h"
+#include "rmlui_loading_overlay.h"
 #include "rmlui_sdl_gl_renderer.h"
 
 class Window;
@@ -32,6 +35,7 @@ public:
     void handleEvent(const SDL_Event& event, AppState& state);
     void update(const AppState& state, float deltaSeconds);
     void render();
+    void setLoadingOverlay(const RmlUiLoadingOverlayState& state);
 
     std::optional<Command> consumeCommand();
     bool isInitialized() const { return initialized_; }
@@ -51,11 +55,16 @@ private:
     void updateViewportFromWindow();
     void applyContextScale();
     bool loadFonts() const;
+    bool initializeAudio();
+    std::optional<MainMenuAction> currentMainMenuSelection() const;
+    void playScrollSfx();
+    void playConfirmSfx();
 
     Window* windowHost_ = nullptr;
     SDL_Window* window_ = nullptr;
     SDL_GLContext glContext_ = nullptr;
     bool initialized_ = false;
+    bool audioReady_ = false;
     bool rmlInitialized_ = false;
     bool rmlGlInitialized_ = false;
     int windowWidth_ = 1280;
@@ -66,6 +75,11 @@ private:
     std::unique_ptr<RmlUiSdlGlRenderInterface> renderInterface_;
     Rml::Context* context_ = nullptr;
     std::vector<ActiveDocument> documents_;
+    RmlUiLoadingOverlay loadingOverlay_;
+    RmlUiLoadingOverlayState loadingOverlayState_;
+    game::audio::WavOneShotPlayer sfxPlayer_;
+    std::string scrollSfxPath_;
+    std::string confirmSfxPath_;
 };
 
 }  // namespace frontui

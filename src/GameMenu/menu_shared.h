@@ -180,6 +180,7 @@ struct AppState {
     float noticeTimer = 0.0f;
     bool requestStoryManualSave = false;
     bool requestStoryOverwriteSave = false;
+    bool requestStoryExitToMainMenu = false;
     ScreenState storyEndReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleKey;
     bool pendingBattleLaunchedFromStory = false;

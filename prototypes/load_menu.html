@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Load Menu Prototype</title>
+  <style>
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+
+    :root {
+      --ink: #17141f;
+      --ink-soft: rgba(23, 20, 31, 0.54);
+      --ink-faint: rgba(23, 20, 31, 0.16);
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-line: rgba(23, 20, 31, 0.18);
+      --pink: #ff63b0;
+      --pink-soft: rgba(255, 99, 176, 0.12);
+      --pink-shadow: rgba(255, 99, 176, 0.22);
+      --ui-font: "Space Mono", "Noto Sans CJK SC", "Noto Sans CJK JP", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 82% 24%, rgba(255, 99, 176, 0.08), transparent 20%),
+        radial-gradient(circle at 14% 74%, rgba(255, 99, 176, 0.06), transparent 18%),
+        linear-gradient(180deg, #ffffff 0%, #fff8fc 100%);
+      color: var(--ink);
+      font-family: var(--ui-font);
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          -18deg,
+          rgba(23, 20, 31, 0.02) 0,
+          rgba(23, 20, 31, 0.02) 1px,
+          transparent 1px,
+          transparent 78px
+        );
+      pointer-events: none;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    .screen {
+      position: relative;
+      min-height: 100vh;
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .disc {
+      position: absolute;
+      right: -12rem;
+      top: 50%;
+      width: min(66vw, 64rem);
+      aspect-ratio: 1;
+      border-radius: 50%;
+      transform: translateY(-50%);
+      background:
+        radial-gradient(circle at center, rgba(255, 99, 176, 0.07) 0 7%, transparent 7.4% 100%),
+        radial-gradient(circle at center, transparent 0 21%, rgba(23, 20, 31, 0.046) 21.2% 21.5%, transparent 21.7% 33%, rgba(255, 99, 176, 0.06) 33.2% 33.45%, transparent 33.6% 46%, rgba(23, 20, 31, 0.032) 46.2% 46.45%, transparent 46.6% 60%, rgba(23, 20, 31, 0.024) 60.2% 60.45%, transparent 60.6% 100%);
+      border: 1px solid rgba(23, 20, 31, 0.09);
+      box-shadow:
+        inset 0 0 0 4.7rem rgba(255, 255, 255, 0.2),
+        0 1.8rem 4.6rem rgba(23, 20, 31, 0.05);
+      z-index: 0;
+    }
+
+    .disc::before,
+    .disc::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .disc::before {
+      inset: 10%;
+    }
+
+    .disc::after {
+      inset: 24%;
+      border-color: rgba(255, 99, 176, 0.16);
+    }
+
+    .disc-core {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 7rem;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(255, 99, 176, 0.12);
+      border: 1px solid rgba(255, 99, 176, 0.35);
+    }
+
+    .disc-core::after {
+      content: "";
+      position: absolute;
+      inset: 36%;
+      border-radius: 50%;
+      background: #ffffff;
+      border: 1px solid rgba(23, 20, 31, 0.2);
+    }
+
+    .logo {
+      position: absolute;
+      top: clamp(1.9rem, 3.4vh, 2.8rem);
+      right: clamp(1.6rem, 4vw, 3rem);
+      width: min(17rem, 24vw);
+      object-fit: contain;
+      z-index: 4;
+    }
+
+    .transition-rail {
+      position: absolute;
+      left: clamp(1.6rem, 4vw, 3rem);
+      top: clamp(6.2rem, 15vh, 8rem);
+      width: min(24rem, 30vw);
+      display: grid;
+      gap: 0.9rem;
+      z-index: 1;
+      transition:
+        transform 680ms cubic-bezier(0.22, 1, 0.36, 1),
+        opacity 420ms ease;
+    }
+
+    .transition-rail.is-leaving {
+      transform: translateX(-136%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .ghost-button,
+    .slot-button,
+    .footer-button {
+      --bg: var(--panel);
+      --line: var(--panel-line);
+      --fg: var(--ink);
+      --shadow: transparent;
+      position: relative;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      text-align: left;
+      cursor: pointer;
+      transform-origin: left center;
+      transition:
+        transform 260ms cubic-bezier(0.22, 1, 0.36, 1),
+        filter 260ms ease;
+    }
+
+    .ghost-button {
+      width: 100%;
+      height: 4.3rem;
+      opacity: 0.7;
+    }
+
+    .ghost-button::before,
+    .slot-button::before,
+    .footer-button::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: 1.32rem;
+      background: var(--bg);
+      border: 1px solid var(--line);
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.34) inset,
+        0 1.2rem 2.8rem var(--shadow);
+      transform: skewX(-18deg);
+      transition:
+        background-color 260ms ease,
+        border-color 260ms ease,
+        box-shadow 260ms ease;
+    }
+
+    .ghost-button.is-current,
+    .slot-button.is-selected,
+    .footer-button.is-selected {
+      --bg: var(--pink);
+      --line: rgba(255, 99, 176, 0.92);
+      --fg: #ffffff;
+      --shadow: var(--pink-shadow);
+      z-index: 2;
+    }
+
+    .button-inner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0 1.5rem 0 1.9rem;
+      transform: skewX(-18deg);
+    }
+
+    .button-inner > * {
+      transform: skewX(18deg);
+    }
+
+    .button-accent {
+      width: 0.68rem;
+      height: 2rem;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.18);
+    }
+
+    .ghost-button.is-current .button-accent,
+    .slot-button.is-selected .button-accent,
+    .footer-button.is-selected .button-accent {
+      background: rgba(255, 255, 255, 0.78);
+    }
+
+    .button-code {
+      min-width: 2.2rem;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.2rem;
+      color: rgba(23, 20, 31, 0.54);
+    }
+
+    .ghost-button.is-current .button-code,
+    .slot-button.is-selected .button-code,
+    .footer-button.is-selected .button-code {
+      color: rgba(255, 255, 255, 0.84);
+    }
+
+    .button-label {
+      flex: 1 1 auto;
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.08rem;
+      text-transform: uppercase;
+      color: var(--fg);
+    }
+
+    .button-tail {
+      width: 4.6rem;
+      height: 1.45rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.22);
+      opacity: 0;
+      transition: opacity 260ms ease;
+    }
+
+    .ghost-button.is-current .button-tail,
+    .slot-button.is-selected .button-tail,
+    .footer-button.is-selected .button-tail {
+      opacity: 1;
+    }
+
+    .load-panel {
+      position: absolute;
+      left: clamp(4.6rem, 10vw, 8.5rem);
+      right: clamp(2.4rem, 5vw, 4rem);
+      top: clamp(6.7rem, 14vh, 8.2rem);
+      bottom: clamp(2.2rem, 5vh, 3rem);
+      display: grid;
+      grid-template-columns: minmax(22rem, 1.2fr) minmax(17rem, 0.8fr);
+      gap: clamp(1rem, 2vw, 1.8rem);
+      opacity: 0;
+      transform: translateX(7.5rem);
+      transition:
+        opacity 720ms ease,
+        transform 720ms cubic-bezier(0.22, 1, 0.36, 1);
+      z-index: 3;
+    }
+
+    .load-panel.is-entered {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .panel-shell,
+    .detail-shell {
+      position: relative;
+      border-radius: 2rem;
+      background: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(23, 20, 31, 0.1);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.46),
+        0 1.2rem 3rem rgba(23, 20, 31, 0.08);
+      overflow: hidden;
+    }
+
+    .panel-shell::before,
+    .detail-shell::before {
+      content: "";
+      position: absolute;
+      inset: 1rem;
+      border: 1px solid rgba(23, 20, 31, 0.05);
+      border-radius: 1.4rem;
+      pointer-events: none;
+    }
+
+    .panel-shell {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      padding: 1.7rem 1.7rem 1.4rem;
+    }
+
+    .detail-shell {
+      padding: 1.7rem;
+    }
+
+    .eyebrow {
+      margin: 0;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.32rem;
+      text-transform: uppercase;
+      color: var(--ink-soft);
+    }
+
+    .panel-title {
+      margin: 0.8rem 0 0;
+      font-size: clamp(2rem, 2.2vw, 2.7rem);
+      font-weight: 700;
+      letter-spacing: 0.05rem;
+      text-transform: uppercase;
+    }
+
+    .panel-copy {
+      margin: 0.7rem 0 0;
+      max-width: 34rem;
+      font-size: 0.88rem;
+      line-height: 1.7;
+      color: rgba(23, 20, 31, 0.64);
+    }
+
+    .slot-list {
+      display: grid;
+      gap: 0.95rem;
+      align-content: start;
+      padding-top: 1.5rem;
+      padding-bottom: 1.3rem;
+    }
+
+    .slot-button {
+      height: 5.55rem;
+      width: 100%;
+    }
+
+    .slot-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      min-width: 0;
+    }
+
+    .slot-kind {
+      font-size: 0.64rem;
+      font-weight: 700;
+      letter-spacing: 0.18rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.48);
+    }
+
+    .slot-button.is-selected .slot-kind {
+      color: rgba(255, 255, 255, 0.8);
+    }
+
+    .slot-label {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--fg);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .slot-time {
+      font-size: 0.72rem;
+      letter-spacing: 0.08rem;
+      color: rgba(23, 20, 31, 0.56);
+    }
+
+    .slot-button.is-selected .slot-time {
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    .footer-actions {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+      padding-top: 0.7rem;
+    }
+
+    .footer-button {
+      height: 4.1rem;
+    }
+
+    .detail-shell {
+      display: grid;
+      grid-template-rows: auto auto auto auto auto 1fr auto;
+      gap: 0.8rem;
+    }
+
+    .detail-art {
+      position: relative;
+      height: 12rem;
+      border-radius: 1.55rem;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 24% 26%, rgba(255, 99, 176, 0.18), transparent 34%),
+        linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(255, 244, 249, 0.72));
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .detail-art::before,
+    .detail-art::after {
+      content: "";
+      position: absolute;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.06);
+    }
+
+    .detail-art::before {
+      width: 11rem;
+      height: 11rem;
+      right: -2rem;
+      top: 0.4rem;
+    }
+
+    .detail-art::after {
+      width: 6rem;
+      height: 6rem;
+      left: 1.2rem;
+      bottom: 1.3rem;
+      background: rgba(255, 99, 176, 0.14);
+    }
+
+    .detail-chip {
+      position: absolute;
+      left: 1rem;
+      top: 1rem;
+      padding: 0.45rem 0.72rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.78);
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.16rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.7);
+    }
+
+    .detail-art-copy {
+      position: absolute;
+      left: 1rem;
+      bottom: 1rem;
+      right: 1rem;
+    }
+
+    .detail-code {
+      margin: 0;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.22rem;
+      color: rgba(255, 99, 176, 0.88);
+      text-transform: uppercase;
+    }
+
+    .detail-name {
+      margin: 0.45rem 0 0;
+      font-size: 1.55rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .detail-sub {
+      margin: 0.2rem 0 0;
+      font-size: 0.78rem;
+      letter-spacing: 0.16rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.54);
+    }
+
+    .detail-label {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.24rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.44);
+    }
+
+    .detail-body {
+      font-size: 0.88rem;
+      line-height: 1.72;
+      color: rgba(23, 20, 31, 0.68);
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.8rem;
+      margin-top: 0.2rem;
+    }
+
+    .detail-card {
+      padding: 0.9rem 1rem;
+      border-radius: 1.1rem;
+      background: rgba(23, 20, 31, 0.05);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .detail-card strong {
+      display: block;
+      margin-top: 0.35rem;
+      font-size: 0.96rem;
+      color: var(--ink);
+    }
+
+    .detail-back {
+      margin-top: auto;
+      padding-top: 1rem;
+      border-top: 1px solid rgba(23, 20, 31, 0.08);
+      font-size: 0.72rem;
+      letter-spacing: 0.18rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+    }
+
+    .hud-hint {
+      position: absolute;
+      right: clamp(1.5rem, 4vw, 3rem);
+      bottom: clamp(1rem, 2.6vh, 1.6rem);
+      font-size: 0.72rem;
+      letter-spacing: 0.22rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.38);
+      z-index: 5;
+    }
+
+    @media (max-width: 1050px) {
+      .transition-rail {
+        width: min(19rem, 42vw);
+      }
+
+      .load-panel {
+        left: 1.2rem;
+        right: 1.2rem;
+        top: 7rem;
+        bottom: 1.2rem;
+        grid-template-columns: 1fr;
+      }
+
+      .detail-shell {
+        min-height: 24rem;
+      }
+
+      .logo {
+        width: min(12rem, 34vw);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="screen">
+    <div class="disc" aria-hidden="true">
+      <div class="disc-core"></div>
+    </div>
+
+    <img class="logo" src="../assets/vn/backgrounds/General_Art/MainMenuTitle.png" alt="Game logo">
+
+    <aside class="transition-rail is-leaving" id="transition-rail" aria-hidden="true">
+      <button class="ghost-button" type="button">
+        <span class="button-inner">
+          <span class="button-accent"></span>
+          <span class="button-code">01</span>
+          <span class="button-label">Play</span>
+          <span class="button-tail"></span>
+        </span>
+      </button>
+      <button class="ghost-button is-current" type="button">
+        <span class="button-inner">
+          <span class="button-accent"></span>
+          <span class="button-code">02</span>
+          <span class="button-label">Load</span>
+          <span class="button-tail"></span>
+        </span>
+      </button>
+      <button class="ghost-button" type="button">
+        <span class="button-inner">
+          <span class="button-accent"></span>
+          <span class="button-code">04</span>
+          <span class="button-label">Settings</span>
+          <span class="button-tail"></span>
+        </span>
+      </button>
+    </aside>
+
+    <section class="load-panel is-entered" id="load-panel">
+      <div class="panel-shell">
+        <header>
+          <p class="eyebrow">Save Data / Thread Reentry</p>
+          <h1 class="panel-title">Load Game</h1>
+          <p class="panel-copy">The main-menu stack is meant to slip left out of view while this screen climbs in. This prototype focuses on the replacement state: clean save-slot browsing, one anchored back route, and the same rounded parallelogram signature.</p>
+        </header>
+
+        <div class="slot-list" id="slot-list"></div>
+
+        <div class="footer-actions">
+          <button class="footer-button" id="delete-button" type="button">
+            <span class="button-inner">
+              <span class="button-accent"></span>
+              <span class="button-code">06</span>
+              <span class="button-label">Delete Save</span>
+              <span class="button-tail"></span>
+            </span>
+          </button>
+          <button class="footer-button" id="back-button" type="button">
+            <span class="button-inner">
+              <span class="button-accent"></span>
+              <span class="button-code">07</span>
+              <span class="button-label">Return To Main Menu</span>
+              <span class="button-tail"></span>
+            </span>
+          </button>
+        </div>
+      </div>
+
+      <aside class="detail-shell">
+        <div class="detail-art">
+          <div class="detail-chip" id="detail-chip">AUTOSAVE</div>
+          <div class="detail-art-copy">
+            <p class="detail-code" id="detail-code">01</p>
+            <h2 class="detail-name" id="detail-name">Chapter 0 Opening Pulse</h2>
+            <p class="detail-sub" id="detail-sub">Friday 21:46 / Main Route</p>
+          </div>
+        </div>
+
+        <div class="detail-label">Snapshot</div>
+        <div class="detail-body" id="detail-body">The selected save should feel like a record sleeve pulled from an organized stack: enough context to re-enter instantly, but still airy and elegant instead of debug-heavy.</div>
+
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-label">Scene</div>
+            <strong id="detail-scene">Before Battle Selector</strong>
+          </div>
+          <div class="detail-card">
+            <div class="detail-label">Idol Rank</div>
+            <strong id="detail-rank">3</strong>
+          </div>
+        </div>
+
+        <div class="detail-grid">
+          <div class="detail-card">
+            <div class="detail-label">Party</div>
+            <strong id="detail-party">Miku / Jiafei / Ari</strong>
+          </div>
+          <div class="detail-card">
+            <div class="detail-label">Status</div>
+            <strong id="detail-status">Ready To Resume</strong>
+          </div>
+        </div>
+
+        <div class="detail-back">Up / Down moves through slots. Right jumps to footer actions. Escape or the back button previews the reverse slide to the main menu.</div>
+      </aside>
+    </section>
+
+    <div class="hud-hint">Browser prototype only. Enter previews the focused action.</div>
+  </main>
+
+  <script>
+    const saves = [
+      {
+        kind: "AUTOSAVE",
+        label: "Chapter 0 Opening Pulse",
+        time: "Friday 21:46",
+        scene: "Before Battle Selector",
+        rank: "3",
+        party: "Miku / Jiafei / Ari",
+        status: "Ready To Resume",
+        copy: "A clean re-entry point just before the selector opens. This is where the load screen should feel immediate, curated, and slightly ceremonial.",
+        route: "Main Route",
+      },
+      {
+        kind: "MANUAL",
+        label: "Jiafei Rehearsal",
+        time: "Friday 21:18",
+        scene: "After Practice Banter",
+        rank: "2",
+        party: "Miku / Lyoo",
+        status: "Manual Bookmark",
+        copy: "A player-made bookmark right before the tone shifts. The slot treatment is intentionally calm so the selected record does the talking.",
+        route: "Rehearsal Route",
+      },
+      {
+        kind: "MANUAL",
+        label: "Signal Tower Rooftop",
+        time: "Thursday 19:59",
+        scene: "Late Evening VN Segment",
+        rank: "4",
+        party: "Miku / Jiafei / Luotianyi",
+        status: "Manual Bookmark",
+        copy: "A slower emotional checkpoint. The right-side file should support a little more text, but still feel clipped and deliberate rather than sprawling.",
+        route: "Tower Route",
+      },
+      {
+        kind: "AUTOSAVE",
+        label: "Wild Scent Flowers",
+        time: "Thursday 19:44",
+        scene: "Boss Intro",
+        rank: "4",
+        party: "Miku / Jiafei / WeChat",
+        status: "Boss Ready",
+        copy: "A combat-side autosave that keeps the same layout language, so the player never feels like they fell into a completely different UI family.",
+        route: "Boss Entry",
+      },
+      {
+        kind: "MANUAL",
+        label: "Underground Broadcast",
+        time: "Wednesday 23:07",
+        scene: "Main Menu Return",
+        rank: "1",
+        party: "Miku",
+        status: "Manual Bookmark",
+        copy: "A very early save. Empty-feeling slots can still be elegant if the typography and spacing feel intentional.",
+        route: "Opening Route",
+      },
+    ];
+
+    const slotList = document.getElementById("slot-list");
+    const deleteButton = document.getElementById("delete-button");
+    const backButton = document.getElementById("back-button");
+
+    const detailChip = document.getElementById("detail-chip");
+    const detailCode = document.getElementById("detail-code");
+    const detailName = document.getElementById("detail-name");
+    const detailSub = document.getElementById("detail-sub");
+    const detailBody = document.getElementById("detail-body");
+    const detailScene = document.getElementById("detail-scene");
+    const detailRank = document.getElementById("detail-rank");
+    const detailParty = document.getElementById("detail-party");
+    const detailStatus = document.getElementById("detail-status");
+
+    let slotIndex = 0;
+    let footerIndex = -1;
+
+    function currentEntry() {
+      return saves[slotIndex];
+    }
+
+    function renderSlots() {
+      slotList.innerHTML = "";
+      saves.forEach((entry, index) => {
+        const button = document.createElement("button");
+        button.className = "slot-button" + (footerIndex === -1 && index === slotIndex ? " is-selected" : "");
+        button.type = "button";
+        button.innerHTML = `
+          <span class="button-inner">
+            <span class="button-accent"></span>
+            <span class="button-code">${String(index + 1).padStart(2, "0")}</span>
+            <span class="slot-meta">
+              <span class="slot-kind">${entry.kind}</span>
+              <span class="slot-label">${entry.label}</span>
+              <span class="slot-time">${entry.time}</span>
+            </span>
+            <span class="button-tail"></span>
+          </span>
+        `;
+        button.addEventListener("click", () => {
+          slotIndex = index;
+          footerIndex = -1;
+          sync();
+        });
+        slotList.appendChild(button);
+      });
+    }
+
+    function renderDetail() {
+      const entry = currentEntry();
+      detailChip.textContent = entry.kind;
+      detailCode.textContent = String(slotIndex + 1).padStart(2, "0");
+      detailName.textContent = entry.label;
+      detailSub.textContent = `${entry.time} / ${entry.route}`;
+      detailBody.textContent = entry.copy;
+      detailScene.textContent = entry.scene;
+      detailRank.textContent = entry.rank;
+      detailParty.textContent = entry.party;
+      detailStatus.textContent = entry.status;
+    }
+
+    function renderFooter() {
+      deleteButton.classList.toggle("is-selected", footerIndex === 0);
+      backButton.classList.toggle("is-selected", footerIndex === 1);
+    }
+
+    function sync() {
+      renderSlots();
+      renderDetail();
+      renderFooter();
+    }
+
+    function previewBackMotion() {
+      const rail = document.getElementById("transition-rail");
+      const panel = document.getElementById("load-panel");
+      rail.classList.remove("is-leaving");
+      panel.classList.remove("is-entered");
+      setTimeout(() => {
+        rail.classList.add("is-leaving");
+        panel.classList.add("is-entered");
+      }, 650);
+    }
+
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "ArrowUp") {
+        event.preventDefault();
+        if (footerIndex !== -1) {
+          footerIndex = -1;
+        } else {
+          slotIndex = (slotIndex + saves.length - 1) % saves.length;
+        }
+        sync();
+      } else if (event.key === "ArrowDown") {
+        event.preventDefault();
+        if (footerIndex === -1) {
+          slotIndex = (slotIndex + 1) % saves.length;
+        } else {
+          footerIndex = -1;
+        }
+        sync();
+      } else if (event.key === "ArrowRight") {
+        event.preventDefault();
+        footerIndex = footerIndex === -1 ? 0 : 1;
+        sync();
+      } else if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        footerIndex = footerIndex === -1 ? -1 : 0;
+        sync();
+      } else if (event.key === "Enter") {
+        event.preventDefault();
+        if (footerIndex === 1) {
+          previewBackMotion();
+        } else if (footerIndex === 0) {
+          detailStatus.textContent = "Delete Confirm";
+        } else {
+          detailStatus.textContent = "Resume Preview";
+        }
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        previewBackMotion();
+      }
+    });
+
+    backButton.addEventListener("click", previewBackMotion);
+    deleteButton.addEventListener("click", () => {
+      footerIndex = 0;
+      detailStatus.textContent = "Delete Confirm";
+      sync();
+    });
+
+    sync();
+  </script>
+</body>
+</html>

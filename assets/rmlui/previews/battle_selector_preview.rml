@@ -1,0 +1,551 @@
+<rml>
+<head>
+    <title>Battle Selector Preview</title>
+    <style>
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #fffdfd;
+            color: #17141f;
+            font-family: "Space Mono";
+        }
+
+        button {
+            display: block;
+            cursor: default;
+            background-color: transparent;
+            border: 0dp rgba(0, 0, 0, 0);
+            padding: 0;
+        }
+
+        #page-artboard {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #fffdfd;
+        }
+
+        #topbar-rank {
+            position: absolute;
+            left: 42dp;
+            top: 30dp;
+            font-size: 16dp;
+            font-weight: bold;
+            letter-spacing: 1.4dp;
+            color: rgba(23, 20, 31, 224);
+        }
+
+        #idol-rank-value {
+            color: #ff67b6;
+        }
+
+        #menu-logo {
+            position: absolute;
+            right: 36dp;
+            top: 24dp;
+            width: 262dp;
+            height: 82dp;
+        }
+
+        #selector-stage {
+            position: absolute;
+            left: 34dp;
+            top: 82dp;
+            width: 790dp;
+            height: 600dp;
+            background-color: rgba(255, 255, 255, 214);
+            border: 1dp rgba(23, 20, 31, 18);
+            border-radius: 30dp;
+        }
+
+        #selector-stage-outline {
+            position: absolute;
+            left: 14dp;
+            top: 14dp;
+            width: 760dp;
+            height: 570dp;
+            border: 1dp rgba(23, 20, 31, 10);
+            border-radius: 22dp;
+        }
+
+        #stage-kicker {
+            position: absolute;
+            left: 34dp;
+            top: 28dp;
+            font-size: 12dp;
+            font-weight: bold;
+            letter-spacing: 4dp;
+            color: rgba(23, 20, 31, 106);
+        }
+
+        #stage-title {
+            position: absolute;
+            left: 34dp;
+            top: 48dp;
+            font-size: 38dp;
+            font-weight: bold;
+            letter-spacing: 1.4dp;
+            color: #17141f;
+        }
+
+        #boss-track {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .boss-card {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 164dp;
+            height: 280dp;
+            transform-origin: center bottom;
+            transition: transform 0.34s cubic-out, opacity 0.34s cubic-out;
+        }
+
+        .boss-card-frame {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 236);
+            border: 1dp rgba(23, 20, 31, 26);
+            border-radius: 22dp;
+            box-shadow: 0 14dp 30dp rgba(23, 20, 31, 20);
+            transform: skewX(-12deg);
+            transition: background-color 0.28s cubic-out, border-color 0.28s cubic-out, box-shadow 0.28s cubic-out;
+        }
+
+        .boss-card-topline {
+            position: absolute;
+            left: 30dp;
+            right: 18dp;
+            top: 18dp;
+            height: 18dp;
+        }
+
+        .boss-card-code {
+            position: absolute;
+            left: 0;
+            top: 0;
+            font-size: 11dp;
+            font-weight: bold;
+            letter-spacing: 2dp;
+            color: rgba(23, 20, 31, 132);
+        }
+
+        .boss-card-state {
+            position: absolute;
+            right: 0;
+            top: -2dp;
+            padding: 4dp 9dp 4dp 9dp;
+            background-color: rgba(23, 20, 31, 18);
+            border-radius: 999dp;
+            font-size: 10dp;
+            font-weight: bold;
+            letter-spacing: 1dp;
+            color: rgba(23, 20, 31, 160);
+        }
+
+        .boss-card-state.is-cleared {
+            background-color: rgba(255, 103, 182, 28);
+            color: rgba(255, 103, 182, 226);
+        }
+
+        .boss-card-tag {
+            position: absolute;
+            left: 30dp;
+            top: 50dp;
+            font-size: 10dp;
+            font-weight: bold;
+            letter-spacing: 2dp;
+            color: rgba(23, 20, 31, 110);
+        }
+
+        .boss-card-portrait {
+            position: absolute;
+            left: 14dp;
+            top: 74dp;
+            width: 132dp;
+            height: 138dp;
+            background-color: rgba(23, 20, 31, 14);
+            border: 1dp rgba(23, 20, 31, 18);
+            border-radius: 18dp;
+            overflow: hidden;
+        }
+
+        .boss-card-portrait-image {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .boss-card-copy {
+            position: absolute;
+            left: 18dp;
+            right: 24dp;
+            bottom: 24dp;
+        }
+
+        .boss-card-name {
+            font-size: 20dp;
+            font-weight: bold;
+            line-height: 23dp;
+            color: #17141f;
+        }
+
+        .boss-card-battle {
+            margin-top: 6dp;
+            font-size: 12dp;
+            line-height: 17dp;
+            color: rgba(23, 20, 31, 144);
+        }
+
+        .boss-card.is-selected .boss-card-frame {
+            background-color: #ff67b6;
+            border: 2dp #ff67b6;
+            box-shadow: 0 20dp 36dp rgba(255, 103, 182, 42);
+        }
+
+        .boss-card.is-selected .boss-card-code,
+        .boss-card.is-selected .boss-card-tag,
+        .boss-card.is-selected .boss-card-battle {
+            color: rgba(255, 255, 255, 220);
+        }
+
+        .boss-card.is-selected .boss-card-state {
+            background-color: rgba(255, 255, 255, 36);
+            color: rgba(255, 255, 255, 230);
+        }
+
+        .boss-card.is-selected .boss-card-name {
+            color: #ffffff;
+        }
+
+        #finale-button {
+            position: absolute;
+            left: 199dp;
+            bottom: 30dp;
+            width: 392dp;
+            height: 68dp;
+            cursor: pointer;
+        }
+
+        #finale-button-frame {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 228);
+            border: 1dp rgba(23, 20, 31, 28);
+            border-radius: 20dp;
+            box-shadow: 0 12dp 24dp rgba(23, 20, 31, 12);
+            transform: skewX(-14deg);
+        }
+
+        #finale-button-inner {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            transform: skewX(14deg);
+        }
+
+        #finale-button-accent {
+            position: absolute;
+            left: 58dp;
+            top: 18dp;
+            width: 10dp;
+            height: 32dp;
+            background-color: rgba(23, 20, 31, 36);
+            border-radius: 999dp;
+        }
+
+        #finale-button-label {
+            position: absolute;
+            left: 86dp;
+            top: 22dp;
+            font-size: 20dp;
+            font-style: normal;
+            font-weight: bold;
+            letter-spacing: 2dp;
+            text-transform: uppercase;
+            color: #17141f;
+        }
+
+        #finale-button.is-focused #finale-button-frame {
+            background-color: #ff67b6;
+            border: 2dp #ff67b6;
+            box-shadow: 0 20dp 36dp rgba(255, 103, 182, 42);
+        }
+
+        #finale-button.is-focused #finale-button-accent {
+            background-color: rgba(255, 255, 255, 82);
+        }
+
+        #finale-button.is-focused #finale-button-label {
+            color: #ffffff;
+        }
+
+        #finale-button.is-locked {
+            opacity: 0.58;
+        }
+
+        #selector-divider {
+            position: absolute;
+            left: 856dp;
+            top: 98dp;
+            width: 1dp;
+            height: 546dp;
+            background-color: rgba(255, 103, 182, 54);
+        }
+
+        #detail-panel {
+            position: absolute;
+            right: 34dp;
+            top: 82dp;
+            width: 390dp;
+            height: 600dp;
+            background-color: rgba(255, 255, 255, 238);
+            border: 1dp rgba(23, 20, 31, 22);
+            border-radius: 30dp;
+            box-shadow: 0 18dp 34dp rgba(23, 20, 31, 14);
+        }
+
+        #detail-kicker {
+            position: absolute;
+            left: 28dp;
+            top: 28dp;
+            font-size: 12dp;
+            font-weight: bold;
+            letter-spacing: 4dp;
+            color: rgba(23, 20, 31, 106);
+        }
+
+        #info-portrait {
+            position: absolute;
+            left: 28dp;
+            top: 56dp;
+            width: 334dp;
+            height: 198dp;
+            background-color: rgba(23, 20, 31, 14);
+            border: 1dp rgba(23, 20, 31, 18);
+            border-radius: 24dp;
+            overflow: hidden;
+        }
+
+        #info-portrait-image {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        #info-name {
+            position: absolute;
+            left: 28dp;
+            top: 274dp;
+            width: 334dp;
+            font-size: 28dp;
+            font-weight: bold;
+            line-height: 31dp;
+            color: #17141f;
+        }
+
+        #info-battle {
+            position: absolute;
+            left: 28dp;
+            top: 322dp;
+            width: 334dp;
+            font-size: 14dp;
+            font-weight: bold;
+            letter-spacing: 1.4dp;
+            text-transform: uppercase;
+            color: rgba(23, 20, 31, 126);
+        }
+
+        #info-copy {
+            position: absolute;
+            left: 28dp;
+            top: 346dp;
+            width: 334dp;
+            height: 56dp;
+            font-size: 13dp;
+            line-height: 17dp;
+            color: rgba(23, 20, 31, 170);
+        }
+
+        .info-stat-shell {
+            position: absolute;
+            top: 420dp;
+            width: 100dp;
+            height: 58dp;
+            background-color: rgba(23, 20, 31, 10);
+            border: 1dp rgba(23, 20, 31, 14);
+            border-radius: 16dp;
+        }
+
+        #info-stat-hp {
+            left: 28dp;
+        }
+
+        #info-stat-atk {
+            left: 144dp;
+        }
+
+        #info-stat-spd {
+            left: 260dp;
+        }
+
+        .info-stat-label {
+            position: absolute;
+            left: 12dp;
+            top: 10dp;
+            font-size: 10dp;
+            font-weight: bold;
+            letter-spacing: 2dp;
+            color: rgba(23, 20, 31, 112);
+        }
+
+        .info-stat-value {
+            position: absolute;
+            left: 12dp;
+            top: 27dp;
+            font-size: 18dp;
+            font-weight: bold;
+            color: #17141f;
+        }
+
+        .info-row-label {
+            position: absolute;
+            font-size: 10dp;
+            font-weight: bold;
+            letter-spacing: 2dp;
+            color: rgba(23, 20, 31, 112);
+        }
+
+        .info-row-value {
+            position: absolute;
+            font-size: 12dp;
+            line-height: 17dp;
+            color: rgba(23, 20, 31, 166);
+        }
+
+        #info-hint-label {
+            left: 28dp;
+            top: 494dp;
+        }
+
+        #info-hint {
+            left: 28dp;
+            top: 510dp;
+            width: 334dp;
+            height: 48dp;
+        }
+
+        #helper-copy {
+            position: absolute;
+            right: 34dp;
+            bottom: 10dp;
+            font-size: 11dp;
+            font-weight: bold;
+            letter-spacing: 2dp;
+            color: rgba(23, 20, 31, 96);
+        }
+
+        #selector-toast {
+            position: absolute;
+            left: 50%;
+            bottom: 10dp;
+            width: 320dp;
+            height: 34dp;
+            margin-left: -160dp;
+            padding-top: 10dp;
+            background-color: rgba(23, 20, 31, 224);
+            border-radius: 999dp;
+            font-size: 11dp;
+            font-weight: bold;
+            letter-spacing: 1dp;
+            text-align: center;
+            color: #ffffff;
+            opacity: 0;
+            transform: translate(0dp, 10dp);
+            transition: opacity 0.22s cubic-out, transform 0.22s cubic-out;
+        }
+
+        #selector-toast.is-visible {
+            opacity: 1;
+            transform: translate(0dp, 0dp);
+        }
+    </style>
+</head>
+<body>
+    <div id="page-artboard">
+        <div id="topbar-rank">IDOL RANK: <span id="idol-rank-value">0</span></div>
+        <img id="menu-logo" src="../../vn/backgrounds/General_Art/MainMenuTitle.png"/>
+
+        <div id="selector-stage">
+            <div id="selector-stage-outline"></div>
+            <div id="stage-kicker">BATTLE SELECTOR</div>
+            <div id="stage-title">SELECT A RIVAL</div>
+            <div id="boss-track"></div>
+
+            <button id="finale-button">
+                <div id="finale-button-frame"></div>
+                <div id="finale-button-inner">
+                    <div id="finale-button-accent"></div>
+                    <div id="finale-button-label">Become an Idol</div>
+                </div>
+            </button>
+        </div>
+
+        <div id="selector-divider"></div>
+
+        <div id="detail-panel">
+            <div id="detail-kicker">BOSS FILE</div>
+            <div id="info-portrait">
+                <img id="info-portrait-image"/>
+            </div>
+            <div id="info-name"></div>
+            <div id="info-battle"></div>
+            <div id="info-copy"></div>
+
+            <div class="info-stat-shell" id="info-stat-hp">
+                <div class="info-stat-label">HP</div>
+                <div class="info-stat-value" id="info-hp"></div>
+            </div>
+
+            <div class="info-stat-shell" id="info-stat-atk">
+                <div class="info-stat-label">ATK</div>
+                <div class="info-stat-value" id="info-atk"></div>
+            </div>
+
+            <div class="info-stat-shell" id="info-stat-spd">
+                <div class="info-stat-label">SPD</div>
+                <div class="info-stat-value" id="info-spd"></div>
+            </div>
+
+            <div class="info-row-label" id="info-hint-label">INTERACTION HINT</div>
+            <div class="info-row-value" id="info-hint"></div>
+        </div>
+
+        <div id="helper-copy">LEFT / RIGHT TO CYCLE. HOLD TO KEEP SCROLLING. UP / DOWN TO REACH BECOME AN IDOL.</div>
+        <div id="selector-toast"></div>
+    </div>
+</body>
+</rml>
