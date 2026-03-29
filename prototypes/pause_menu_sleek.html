@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Pause - Sleek Prototype</title>
+  <style>
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+
+    :root{
+      --ink:#17141f;
+      --panel: rgba(255,255,255,0.92);
+      --line: rgba(23,20,31,0.12);
+      --pink: #ff63b0;
+      --pink-shadow: rgba(255,99,176,0.22);
+      --muted: rgba(23,20,31,0.54);
+      --glass: rgba(255,255,255,0.04);
+      --radius:20px;
+      --maxw:720px;
+    }
+
+    html,body{height:100%;margin:0;font-family:"Space Mono", "Noto Sans CJK SC", monospace;background:linear-gradient(180deg,#ffffff 0%, #fff8fc 100%);color:var(--ink);-webkit-font-smoothing:antialiased}
+
+    /* background blur overlay */
+    .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:32px;background:rgba(2,8,10,0.28);backdrop-filter:blur(8px) saturate(120%)}
+
+    .panel{width:100%;max-width:var(--maxw);background:var(--panel);border-radius:1.6rem;border:1px solid var(--line);box-shadow:0 12px 36px rgba(23,20,31,0.06);overflow:hidden;transform:translateY(-8vh);opacity:0}
+    .panel-inner{padding:2rem}
+
+    /* entry animation */
+    .panel.panel-enter{transition:transform 520ms cubic-bezier(.22,1,.36,1),opacity 420ms ease;transform:translateY(0);opacity:1}
+
+    .kicker{text-align:center;margin:0;font-size:0.72rem;font-weight:700;letter-spacing:0.32rem;text-transform:uppercase;color:var(--muted)}
+    .title{text-align:center;margin:0;font-size:clamp(1.9rem,2.4vw,2.6rem);font-weight:700;letter-spacing:0.06rem;text-transform:uppercase;color:var(--ink);margin-top:0.6rem;margin-bottom:1rem}
+
+    .buttons{display:flex;flex-direction:column;gap:0.9rem;max-width:36rem;margin:0 auto;padding:0 0.2rem}
+
+    .btn{--bg:var(--panel);--line:var(--line);--fg:var(--ink);--shadow:transparent;position:relative;border:0;padding:0;background:transparent;text-align:left;cursor:pointer;transform-origin:left center}
+    .btn::before{content:"";position:absolute;inset:0;border-radius:1.2rem;background:var(--bg);border:1px solid var(--line);box-shadow:0 1.2rem 2.8rem var(--shadow);transform:skewX(-18deg);transition:all 260ms ease}
+    .btn .inner{position:relative;display:flex;align-items:center;gap:1rem;padding:0.9rem 1.2rem;transform:skewX(-18deg)}
+    .btn .inner > *{transform:skewX(18deg)}
+    .btn .accent{width:0.68rem;height:2rem;border-radius:999px;background:rgba(23,20,31,0.18)}
+    .btn .code{min-width:2.2rem;font-size:0.72rem;font-weight:700;letter-spacing:0.2rem;color:rgba(23,20,31,0.54)}
+    .btn .label{flex:1;font-size:1.05rem;font-weight:700;letter-spacing:0.06rem;text-transform:uppercase;color:var(--ink)}
+    .btn .tail{width:4.6rem;height:1.45rem;border-radius:999px;background:rgba(255,255,255,0.22);opacity:0;transition:opacity 260ms}
+
+    .btn.is-selected{--bg:var(--pink);--line:rgba(255,99,176,0.92);--fg:#fff;--shadow:var(--pink-shadow);z-index:2}
+    .btn.is-selected::before{background:var(--pink);border-color:var(--line)}
+    .btn.is-selected .accent{background:rgba(255,255,255,0.8)}
+    .btn.is-selected .code{color:rgba(255,255,255,0.86)}
+    .btn.is-selected .label{color:#fff}
+    .btn.is-selected .tail{opacity:1}
+
+    .notice{text-align:center;color:rgba(23,20,31,0.48);font-size:0.88rem;margin-top:0.9rem}
+
+    /* toast like battle_selector */
+    .preview-toast{position:fixed;left:50%;bottom:3.2rem;transform:translateX(-50%);background:rgba(23,20,31,0.9);color:#fff;padding:0.8rem 1rem;border-radius:10px;font-weight:700;opacity:0;pointer-events:none;transition:opacity 240ms,transform 240ms}
+    .preview-toast.is-visible{opacity:1;transform:translateX(-50%) translateY(-6px)}
+
+    .logo{display:block;margin:0 auto 6px auto;width:min(22rem,40%);object-fit:contain}
+
+    .confirm{position:fixed;left:50%;top:52%;transform:translate(-50%,-50%);min-width:320px;background:var(--panel);border:1px solid var(--line);padding:1rem;border-radius:12px;display:none;z-index:60;box-shadow:0 8px 30px rgba(23,20,31,0.06)}
+    .confirm h3{margin:0 0 8px 0;color:var(--ink)}
+    .confirm .body{color:var(--muted);font-size:0.95rem;margin-bottom:12px}
+    .confirm .actions{display:flex;gap:10px;justify-content:flex-end}
+    .confirm .actions button{padding:8px 12px;border-radius:8px;border:0;background:transparent;color:var(--ink)}
+    .confirm .actions button.primary{background:linear-gradient(90deg,var(--pink),#ff8bbd);color:#fff}
+
+    @media (max-width:520px){.panel{padding:1rem}.title{font-size:1.3rem}}
+  </style>
+</head>
+<body>
+  <div class="overlay" role="dialog" aria-modal="true">
+    <div class="panel" id="pause-panel">
+      <div class="panel-inner">
+        <img class="logo" src="../assets/vn/backgrounds/General_Art/MainMenuTitle.png" alt="Game logo">
+        <div class="kicker">STORY CONTROL / SESSION HOLD</div>
+        <div class="title">PAUSE</div>
+
+        <div class="buttons" id="buttons">
+          <button class="btn is-selected" data-action="continue">
+            <div class="inner"><div class="accent"></div><div class="code">01</div><div class="label">Continue</div><div class="tail"></div></div>
+          </button>
+          <button class="btn" data-action="save">
+            <div class="inner"><div class="accent"></div><div class="code">02</div><div class="label">Save</div><div class="tail"></div></div>
+          </button>
+          <button class="btn" data-action="load">
+            <div class="inner"><div class="accent"></div><div class="code">03</div><div class="label">Load</div><div class="tail"></div></div>
+          </button>
+          <button class="btn" data-action="settings">
+            <div class="inner"><div class="accent"></div><div class="code">04</div><div class="label">Settings</div><div class="tail"></div></div>
+          </button>
+          <button class="btn" data-action="exit">
+            <div class="inner"><div class="accent"></div><div class="code">05</div><div class="label">Exit To Menu</div><div class="tail"></div></div>
+          </button>
+        </div>
+
+        <div class="notice" id="notice">Press ESC to close. Use ↑/↓ and Enter to interact.</div>
+      </div>
+    </div>
+
+    <div class="confirm" id="confirm">
+      <h3 id="confirm-title">Confirm action</h3>
+      <div class="body" id="confirm-body">Are you sure?</div>
+      <div class="actions">
+        <button id="confirm-cancel">Cancel</button>
+        <button id="confirm-ok" class="primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="preview-toast" class="preview-toast" aria-live="polite"></div>
+
+  <script>
+    (function(){
+      const buttons = Array.from(document.querySelectorAll('.btn'));
+      let idx = buttons.findIndex(b => b.classList.contains('is-selected'));
+      if (idx === -1) idx = 0;
+      const confirm = document.getElementById('confirm');
+      const confirmTitle = document.getElementById('confirm-title');
+      const confirmBody = document.getElementById('confirm-body');
+      const previewToast = document.getElementById('preview-toast');
+
+      // sound effects (same as battle_selector prototype)
+      const scrollSfx = new Audio('../assets/ui/sfx/UI_notification-done.wav');
+      const confirmSfx = new Audio('../assets/ui/sfx/Selection_roulette-result.wav');
+      scrollSfx.preload = 'auto';
+      confirmSfx.preload = 'auto';
+
+      function playSound(sfx, vol = 1){
+        try{ sfx.pause(); sfx.currentTime = 0; sfx.volume = vol; sfx.play(); }catch(e){}
+      }
+
+      function showToast(message, time = 1600){
+        if(!previewToast) return;
+        previewToast.textContent = message;
+        previewToast.classList.add('is-visible');
+        clearTimeout(previewToast._t);
+        previewToast._t = setTimeout(()=> previewToast.classList.remove('is-visible'), time);
+      }
+
+      // trigger entry animation
+      requestAnimationFrame(()=>{
+        const panel = document.getElementById('pause-panel');
+        panel.classList.add('panel-enter');
+      });
+
+      function updateSelection(){
+        buttons.forEach((b,i)=>b.classList.toggle('is-selected', i===idx));
+        buttons[idx]?.scrollIntoView({block:'nearest',behavior:'smooth'});
+        playSound(scrollSfx, 0.52);
+      }
+
+      document.addEventListener('keydown', e=>{
+        if(confirm.style.display==='block'){
+          if(e.key==='Escape') confirm.style.display='none';
+          return;
+        }
+        if(e.key==='ArrowDown'){ idx = (idx + 1) % buttons.length; updateSelection(); e.preventDefault(); }
+        if(e.key==='ArrowUp'){ idx = (idx - 1 + buttons.length) % buttons.length; updateSelection(); e.preventDefault(); }
+        if(e.key==='Enter'){ playSound(confirmSfx, 0.9); buttons[idx].click(); }
+        if(e.key==='Escape'){ closePanel(); }
+      });
+
+      buttons.forEach((b,i)=>{
+        b.addEventListener('click', ()=>{
+          const action = b.dataset.action;
+          if(action==='exit'){
+            confirmTitle.textContent = 'Exit to Menu?';
+            confirmBody.textContent = 'This will return you to the main menu. Unsaved progress will be lost.';
+            confirm.style.display='block';
+            document.getElementById('confirm-ok').onclick = ()=>{ playSound(confirmSfx,0.9); alert('Exiting to menu (prototype)'); confirm.style.display='none'};
+            document.getElementById('confirm-cancel').onclick = ()=>{ confirm.style.display='none' };
+            return;
+          }
+          // simple prototype actions
+          if(action==='continue') closePanel();
+          else if(action==='save'){
+            // show toast like battle_selector does visually
+            showToast('Save preview: Save not implemented in prototype');
+          } else alert('Prototype action: '+action);
+        });
+        b.addEventListener('mouseenter', ()=>{ idx=i; updateSelection(); });
+      });
+
+      function closePanel(){ document.querySelector('.overlay').style.display='none'; }
+    })();
+  </script>
+</body>
+</html>
