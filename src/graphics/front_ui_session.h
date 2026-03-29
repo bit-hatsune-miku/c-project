@@ -14,9 +14,11 @@
 
 #include "../GameMenu/menu_shared.h"
 #include "../game/audio/wav_one_shot.h"
+#include "../game/audio/ui_music_types.h"
 #include "front_ui_document.h"
 #include "rmlui_loading_overlay.h"
 #include "rmlui_sdl_gl_renderer.h"
+#include "ui_music_bars.h"
 
 class Window;
 
@@ -36,6 +38,7 @@ public:
     void update(const AppState& state, float deltaSeconds);
     void render();
     void setLoadingOverlay(const RmlUiLoadingOverlayState& state);
+    void setUiMusicVisualState(const game::audio::UiMusicVisualState& state);
 
     std::optional<Command> consumeCommand();
     bool isInitialized() const { return initialized_; }
@@ -45,6 +48,7 @@ private:
         ScreenId screen = ScreenId::MainMenu;
         Rml::ElementDocument* document = nullptr;
         std::unique_ptr<DocumentController> controller;
+        UiMusicBarStrip uiMusicBars;
     };
 
     bool syncStackForState(const AppState& state);
@@ -52,6 +56,7 @@ private:
     void popScreen();
     DocumentController* topController() const;
     void syncState(AppState& state);
+    void applyUiMusicVisualState();
     void playResolvedSfx(const SoundRequest& request);
     void playQueuedControllerSounds();
     void updateViewportFromWindow();
@@ -79,6 +84,7 @@ private:
     std::vector<ActiveDocument> documents_;
     RmlUiLoadingOverlay loadingOverlay_;
     RmlUiLoadingOverlayState loadingOverlayState_;
+    game::audio::UiMusicVisualState uiMusicVisualState_;
     game::audio::WavOneShotPlayer sfxPlayer_;
     std::string scrollSfxPath_;
     std::string confirmSfxPath_;

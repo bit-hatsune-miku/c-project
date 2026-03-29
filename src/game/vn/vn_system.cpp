@@ -1192,6 +1192,14 @@ void setBgmPaused(bool paused) {
     }
 }
 
+bool hasBgmPlayback() {
+    return gBgmPlayer.isPlaying();
+}
+
+bool isBgmPlaybackPaused() {
+    return gBgmPlayer.isPaused();
+}
+
 void setFont(const std::string& fontPath, int ptSize) {
     gFontPath = fontPath;
 #ifdef VN_ENABLE_TTF

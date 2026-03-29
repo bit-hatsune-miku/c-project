@@ -34,6 +34,7 @@
 #include "save/save.h"
 #include "../graphics/rmlui_loading_overlay.h"
 #include "../graphics/rmlui_sdl_gl_renderer.h"
+#include "../graphics/ui_music_bars.h"
 #include "../platform/path_resolution.h"
 #include "../window.h"
 
@@ -274,6 +275,8 @@ public:
         cardElements_.clear();
         cardPortraitImageElements_.clear();
         entries_.clear();
+        uiMusicBars_ = graphics::UiMusicBarStrip{};
+        uiMusicVisualState_ = game::audio::UiMusicVisualState{};
         loadingOverlay_.shutdown();
         loadingOverlayState_ = graphics::RmlUiLoadingOverlayState{};
 
@@ -411,6 +414,11 @@ public:
     void setLoadingOverlay(const graphics::RmlUiLoadingOverlayState& state) {
         loadingOverlayState_ = state;
         loadingOverlay_.apply(loadingOverlayState_);
+    }
+
+    void setUiMusicVisualState(const game::audio::UiMusicVisualState& state) {
+        uiMusicVisualState_ = state;
+        graphics::applyUiMusicBarStrip(uiMusicBars_, uiMusicVisualState_);
     }
 
     bool isFinished() const {
@@ -592,6 +600,8 @@ private:
         }
 
         document_->Show();
+        uiMusicBars_ = graphics::cacheUiMusicBarStrip(*document_);
+        graphics::applyUiMusicBarStrip(uiMusicBars_, uiMusicVisualState_);
         cacheElements();
         buildTrack();
         attachListeners();
@@ -1044,6 +1054,8 @@ private:
     std::string confirmSfxPath_;
     graphics::RmlUiLoadingOverlay loadingOverlay_;
     graphics::RmlUiLoadingOverlayState loadingOverlayState_;
+    graphics::UiMusicBarStrip uiMusicBars_;
+    game::audio::UiMusicVisualState uiMusicVisualState_;
 
     Rml::Element* trackElement_ = nullptr;
     Rml::Element* rankValueElement_ = nullptr;
@@ -1088,6 +1100,10 @@ void Session::render() {
 
 void Session::setLoadingOverlay(const graphics::RmlUiLoadingOverlayState& state) {
     impl_->setLoadingOverlay(state);
+}
+
+void Session::setUiMusicVisualState(const game::audio::UiMusicVisualState& state) {
+    impl_->setUiMusicVisualState(state);
 }
 
 bool Session::isFinished() const {

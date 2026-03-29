@@ -3,10 +3,14 @@
     <title>Pause (Sleek)</title>
     <link type="text/rcss" href="submenu_revamp.rcss"/>
     <link type="text/rcss" href="pause_sleek.rcss"/>
+    <link type="text/rcss" href="../shared/ui_music_bars.rcss"/>
 </head>
 
 <body>
     <div id="pause-overlay"></div>
+    <div id="ui-music-bars-root" class="ui-music-bars-root">
+        <div id="ui-music-bars-track" class="ui-music-bars-track"></div>
+    </div>
 
     <div id="pause-shell">
         <img id="pause-logo" src="../../vn/backgrounds/General_Art/MainMenuTitle.png"/>

@@ -27,6 +27,7 @@
 #ifdef RMLUI_SDL_VERSION_MAJOR
 #include "game/boss_selector_session.h"
 #endif
+#include "game/audio/ui_music_controller.h"
 #include "game/demo_battle_session.h"
 #include "game/save/save.h"
 #include "game/vn/vn_system.h"
@@ -1498,12 +1499,14 @@ int main(int argc, char** argv) {
 
     MenuResources menuResources;
     SettingsMenuController settingsMenu;
+    game::audio::UiMusicController uiMusic;
     std::unique_ptr<battle::demo::Session> battleSession;
 #ifdef RMLUI_SDL_VERSION_MAJOR
     std::unique_ptr<battle::selector::Session> bossSelectorSession;
 #endif
 
     bool rendererUiReady = false;
+    (void)uiMusic.initialize();
 #ifdef APP_ENABLE_RMLUI
     graphics::frontui::Session frontUi;
     if (!restoreFrontMenuUi(window, frontUi, menuResources, rendererUiReady, state)) {
@@ -2249,15 +2252,20 @@ int main(int argc, char** argv) {
             vn::stopBgmPlayback();
         }
 
+        uiMusic.update(state, loadingTransition.active, deltaSeconds);
+
 #if defined(APP_ENABLE_RMLUI) || defined(RMLUI_SDL_VERSION_MAJOR)
+        const game::audio::UiMusicVisualState& uiMusicVisualState = uiMusic.visualState();
         const graphics::RmlUiLoadingOverlayState hiddenRmlLoadingOverlay;
 #ifdef APP_ENABLE_RMLUI
         if (frontUi.isInitialized()) {
+            frontUi.setUiMusicVisualState(uiMusicVisualState);
             frontUi.setLoadingOverlay(hiddenRmlLoadingOverlay);
         }
 #endif
 #ifdef RMLUI_SDL_VERSION_MAJOR
         if (bossSelectorSession != nullptr) {
+            bossSelectorSession->setUiMusicVisualState(uiMusicVisualState);
             bossSelectorSession->setLoadingOverlay(hiddenRmlLoadingOverlay);
         }
 #endif
@@ -2386,6 +2394,7 @@ int main(int argc, char** argv) {
     destroyLoadingLogoTexture();
     destroyLoadingOverlayGlState(loadingOverlayGl);
     destroyMenuResources(menuResources);
+    uiMusic.shutdown();
     vn::shutdown();
     return 0;
 }

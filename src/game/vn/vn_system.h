@@ -29,6 +29,8 @@ void setVoice(const std::string& wavPath);
 void setBgm(const std::string& wavPath, float volume01 = 1.0f);
 void stopBgmPlayback();
 void setBgmPaused(bool paused);
+bool hasBgmPlayback();
+bool isBgmPlaybackPaused();
 void setFont(const std::string& fontPath, int ptSize = 28);
 void setAutoAdvanceOnVoiceEnd(bool enabled = false);
 void setTypewriterSpeed(float charsPerSecond);
