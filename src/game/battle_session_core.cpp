@@ -371,59 +371,11 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
     }
 
     if (entities_.empty()) return;
-
-    camera_.screenCenterX = screenWidth  * 0.5f;
-    camera_.screenCenterY = screenHeight * 0.5f;
-
-    int focusedEntityIndex = static_cast<int>(entities_.size() - 1);
-    const TurnState& liveTurnState = manager_.getTurnState();
-    const int nextActorIndex = manager_.getPreviewNextActorIndex();
-
-    if (presentationPlaybackActive_) {
-        int presentationFocusedPartyIndex = -1;
-        if (activePresentation_) {
-            presentationFocusedPartyIndex = activePresentation_->getFocusedPartyIndex();
-        }
-
-        if (presentationFocusedPartyIndex >= 0) {
-            for (size_t i = 0; i < entities_.size(); ++i) {
-                const WorldEntity& e = entities_[i];
-                if (!e.isBoss && e.partyIndex == presentationFocusedPartyIndex) {
-                    focusedEntityIndex = static_cast<int>(i);
-                    break;
-                }
-            }
-        } else {
-            for (size_t i = 0; i < entities_.size(); ++i) {
-                const WorldEntity& e = entities_[i];
-                if (presentationCasterIsBoss_ && e.isBoss) {
-                    focusedEntityIndex = static_cast<int>(i);
-                    break;
-                }
-                if (!presentationCasterIsBoss_ && !e.isBoss && e.partyIndex == presentationCasterPartyIndex_) {
-                    focusedEntityIndex = static_cast<int>(i);
-                    break;
-                }
-            }
-        }
-    } else if (nextActorIndex >= 0 && nextActorIndex < static_cast<int>(liveTurnState.actors.size())) {
-        const TurnActor& nextActor = liveTurnState.actors[static_cast<size_t>(nextActorIndex)];
-        for (size_t i = 0; i < entities_.size(); ++i) {
-            const WorldEntity& e = entities_[i];
-            if (nextActor.type == ParticipantType::Boss && e.isBoss) {
-                focusedEntityIndex = static_cast<int>(i); break;
-            }
-            if (nextActor.type == ParticipantType::Character && !e.isBoss && e.partyIndex == nextActor.partyIndex) {
-                focusedEntityIndex = static_cast<int>(i); break;
-            }
-        }
-    }
-
-    const bool blackoutWorld = activePresentation_ != nullptr && activePresentation_->shouldBlackoutWorld();
+    BattleFrameSnapshot snapshot = buildFrameSnapshot(screenWidth, screenHeight);
     SDL_SetRenderDrawColor(renderer,
-                           blackoutWorld ? 0 : 20,
-                           blackoutWorld ? 0 : 20,
-                           blackoutWorld ? 0 : 25,
+                           snapshot.blackoutWorld ? 0 : 20,
+                           snapshot.blackoutWorld ? 0 : 20,
+                           snapshot.blackoutWorld ? 0 : 25,
                            255);
     SDL_RenderClear(renderer);
 
@@ -431,58 +383,114 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
         renderer,
         screenWidth,
         screenHeight,
-        camera_,
-        blackoutWorld ? nullptr : floorTileTexture_
+        snapshot.camera,
+        snapshot.renderFloor ? floorTileTexture_ : nullptr
     );
-
-    if (activePresentation_ != nullptr) {
-        activePresentation_->renderBelowWorld(renderer, screenWidth, screenHeight, camera_);
-    }
+    renderCompatibilityBelowWorld(renderer, screenWidth, screenHeight);
 
     render::renderBattleEntities(
         renderer,
         screenWidth,
         screenHeight,
-        camera_,
-        entities_,
-        focusedEntityIndex,
+        snapshot.camera,
+        snapshot.entities,
+        snapshot.focusedEntityIndex,
         textureByAsset_,
-        frameAccumulator_,
+        snapshot.frameAccumulator,
         [&](const WorldEntity& entity) {
-            return feedback_.getShakeOffsetX(entity.isBoss, entity.partyIndex);
+            const auto it = std::find_if(snapshot.entities.begin(), snapshot.entities.end(), [&](const WorldEntity& candidate) {
+                return candidate.isBoss == entity.isBoss &&
+                       candidate.partyIndex == entity.partyIndex &&
+                       candidate.assetName == entity.assetName;
+            });
+            if (it == snapshot.entities.end()) {
+                return 0.0f;
+            }
+            const size_t index = static_cast<size_t>(std::distance(snapshot.entities.begin(), it));
+            return index < snapshot.shakeOffsetsX.size() ? snapshot.shakeOffsetsX[index] : 0.0f;
         }
     );
 
-    if (activePresentation_ != nullptr && !activePresentation_->shouldRenderAboveHud()) {
-        activePresentation_->render(renderer, screenWidth, screenHeight, camera_);
-    }
+    renderCompatibilityMidWorld(renderer, screenWidth, screenHeight);
 
     hud_.syncFromManager(manager_);
     hud_.draw(renderer, screenWidth, screenHeight, iconByAsset_);
 
+    renderCompatibilityOverlay(renderer, screenWidth, screenHeight);
+
+    if (hooks_.onPostRender) hooks_.onPostRender();
+}
+
+BattleSessionCore::BattleFrameSnapshot BattleSessionCore::buildFrameSnapshot(int screenWidth, int screenHeight) const {
+    BattleFrameSnapshot snapshot;
+    snapshot.camera = camera_;
+    snapshot.camera.screenCenterX = screenWidth * 0.5f;
+    snapshot.camera.screenCenterY = screenHeight * 0.5f;
+    snapshot.entities = entities_;
+    snapshot.feedbackAnchors = buildFeedbackAnchors();
+    snapshot.focusedEntityIndex = computeFocusedEntityIndex();
+    snapshot.frameAccumulator = frameAccumulator_;
+    snapshot.blackoutWorld = activePresentation_ != nullptr && activePresentation_->shouldBlackoutWorld();
+    snapshot.renderFloor = activePresentation_ == nullptr || activePresentation_->shouldRenderFloor();
+    snapshot.presentationPlaybackActive = presentationPlaybackActive_;
+    snapshot.presentationCasterIsBoss = presentationCasterIsBoss_;
+    snapshot.presentationCasterPartyIndex = presentationCasterPartyIndex_;
+    snapshot.activePresentation = activePresentation_;
+    snapshot.activeUltimateTurnSplash = activeUltimateTurnSplash_.get();
+    snapshot.shakeOffsetsX.reserve(snapshot.entities.size());
+    for (const WorldEntity& entity : snapshot.entities) {
+        snapshot.shakeOffsetsX.push_back(feedback_.getShakeOffsetX(entity.isBoss, entity.partyIndex));
+    }
+    return snapshot;
+}
+
+void BattleSessionCore::renderCompatibilityBelowWorld(SDL_Renderer* renderer, int screenWidth, int screenHeight) {
+    if (activePresentation_ == nullptr) {
+        return;
+    }
+
+    Camera3D renderCamera = camera_;
+    renderCamera.screenCenterX = screenWidth * 0.5f;
+    renderCamera.screenCenterY = screenHeight * 0.5f;
+    activePresentation_->renderBelowWorld(renderer, screenWidth, screenHeight, renderCamera);
+}
+
+void BattleSessionCore::renderCompatibilityMidWorld(SDL_Renderer* renderer, int screenWidth, int screenHeight) {
+    Camera3D renderCamera = camera_;
+    renderCamera.screenCenterX = screenWidth * 0.5f;
+    renderCamera.screenCenterY = screenHeight * 0.5f;
+
+    if (activePresentation_ != nullptr && !activePresentation_->shouldRenderAboveHud()) {
+        activePresentation_->render(renderer, screenWidth, screenHeight, renderCamera);
+    }
+
+    feedback_.render(renderer, renderCamera, buildFeedbackAnchors());
+}
+
+void BattleSessionCore::renderCompatibilityOverlay(SDL_Renderer* renderer, int screenWidth, int screenHeight) {
+    Camera3D renderCamera = camera_;
+    renderCamera.screenCenterX = screenWidth * 0.5f;
+    renderCamera.screenCenterY = screenHeight * 0.5f;
+
     if (activePresentation_ != nullptr && activePresentation_->shouldRenderAboveHud()) {
-        activePresentation_->render(renderer, screenWidth, screenHeight, camera_);
+        activePresentation_->render(renderer, screenWidth, screenHeight, renderCamera);
     }
-
-    std::vector<render::FeedbackEntityAnchor> anchors;
-    anchors.reserve(entities_.size());
-    for (const WorldEntity& entity : entities_) {
-        render::FeedbackEntityAnchor anchor;
-        anchor.isBoss     = entity.isBoss;
-        anchor.partyIndex = entity.partyIndex;
-        anchor.worldX     = entity.worldX;
-        anchor.worldY     = entity.worldY;
-        anchor.worldZ     = entity.worldZ;
-        anchor.visible    = entity.visible;
-        anchors.push_back(anchor);
-    }
-    feedback_.render(renderer, camera_, anchors);
-
     if (activeUltimateTurnSplash_) {
         activeUltimateTurnSplash_->renderOverlay(renderer, screenWidth, screenHeight);
     }
+    if (activeOverlay_) {
+        activeOverlay_(renderer, screenWidth, screenHeight);
+    }
+}
 
-    if (hooks_.onPostRender) hooks_.onPostRender();
+bool BattleSessionCore::hasCompatibilityOverlay() const {
+    return (activePresentation_ != nullptr && activePresentation_->shouldRenderAboveHud()) ||
+           activeUltimateTurnSplash_ != nullptr ||
+           static_cast<bool>(activeOverlay_);
+}
+
+bool BattleSessionCore::hasVisibleFeedbackPopups() const {
+    return feedback_.hasVisiblePopups();
 }
 
 // ---------------------------------------------------------------------------
@@ -494,6 +502,74 @@ bool BattleSessionCore::isCombatBeginAnimationActive() const { return combatBegi
 
 BattleManager& BattleSessionCore::getBattleManager() { return manager_; }
 const BattleManager& BattleSessionCore::getBattleManager() const { return manager_; }
+
+int BattleSessionCore::computeFocusedEntityIndex() const {
+    if (entities_.empty()) {
+        return -1;
+    }
+
+    int focusedEntityIndex = static_cast<int>(entities_.size() - 1);
+    const TurnState& liveTurnState = manager_.getTurnState();
+    const int nextActorIndex = manager_.getPreviewNextActorIndex();
+
+    if (presentationPlaybackActive_) {
+        int presentationFocusedPartyIndex = -1;
+        if (activePresentation_ != nullptr) {
+            presentationFocusedPartyIndex = activePresentation_->getFocusedPartyIndex();
+        }
+
+        if (presentationFocusedPartyIndex >= 0) {
+            for (size_t i = 0; i < entities_.size(); ++i) {
+                const WorldEntity& e = entities_[i];
+                if (!e.isBoss && e.partyIndex == presentationFocusedPartyIndex) {
+                    return static_cast<int>(i);
+                }
+            }
+        } else {
+            for (size_t i = 0; i < entities_.size(); ++i) {
+                const WorldEntity& e = entities_[i];
+                if (presentationCasterIsBoss_ && e.isBoss) {
+                    return static_cast<int>(i);
+                }
+                if (!presentationCasterIsBoss_ && !e.isBoss && e.partyIndex == presentationCasterPartyIndex_) {
+                    return static_cast<int>(i);
+                }
+            }
+        }
+        return focusedEntityIndex;
+    }
+
+    if (nextActorIndex >= 0 && nextActorIndex < static_cast<int>(liveTurnState.actors.size())) {
+        const TurnActor& nextActor = liveTurnState.actors[static_cast<size_t>(nextActorIndex)];
+        for (size_t i = 0; i < entities_.size(); ++i) {
+            const WorldEntity& e = entities_[i];
+            if (nextActor.type == ParticipantType::Boss && e.isBoss) {
+                return static_cast<int>(i);
+            }
+            if (nextActor.type == ParticipantType::Character && !e.isBoss && e.partyIndex == nextActor.partyIndex) {
+                return static_cast<int>(i);
+            }
+        }
+    }
+
+    return focusedEntityIndex;
+}
+
+std::vector<render::FeedbackEntityAnchor> BattleSessionCore::buildFeedbackAnchors() const {
+    std::vector<render::FeedbackEntityAnchor> anchors;
+    anchors.reserve(entities_.size());
+    for (const WorldEntity& entity : entities_) {
+        anchors.push_back(render::FeedbackEntityAnchor{
+            entity.isBoss,
+            entity.partyIndex,
+            entity.worldX,
+            entity.worldY,
+            entity.worldZ,
+            entity.visible
+        });
+    }
+    return anchors;
+}
 
 // ---------------------------------------------------------------------------
 // private helpers
@@ -788,11 +864,15 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         activeOverlay_ = nullptr;
     };
     callbacks.renderAndPresentFrame = [&]() {
+        if (hooks_.onRenderAndPresentFrame) {
+            hooks_.onRenderAndPresentFrame();
+            return;
+        }
+
         int screenWidth  = 1280;
         int screenHeight = 720;
         SDL_GetRendererOutputSize(renderer_, &screenWidth, &screenHeight);
         render(renderer_, screenWidth, screenHeight);
-        if (activeOverlay_) activeOverlay_(renderer_, screenWidth, screenHeight);
         SDL_RenderPresent(renderer_);
     };
     callbacks.onSplashArtStart = [this, casterAssets, &context]() {

@@ -252,7 +252,7 @@ bool LyooBossPresentation::shouldRenderAboveHud() const {
 }
 
 bool LyooBossPresentation::shouldRenderFloor() const {
-    return false;
+    return true;
 }
 
 std::string LyooBossPresentation::resolvePath(const std::string& relativePath) {
@@ -573,6 +573,48 @@ std::optional<SplashArtConfig> LyooBossPresentation::getSplashConfig(SDL_Texture
     cfg.exitDuration  = 0.40f;
     cfg.maxDimAlpha   = 0.68f;
     return cfg;
+}
+
+LyooBossPresentation::NativeState LyooBossPresentation::buildNativeState() const {
+    NativeState state;
+    switch (phase_) {
+        case Phase::IntroFrames:
+            state.phase = NativePhase::IntroFrames;
+            break;
+        case Phase::AccelLoop:
+            state.phase = NativePhase::AccelLoop;
+            break;
+        case Phase::HoldFrame13Ui:
+            state.phase = NativePhase::HoldFrame13Ui;
+            break;
+        case Phase::ZoomOut:
+            state.phase = NativePhase::ZoomOut;
+            break;
+        case Phase::Complete:
+        default:
+            state.phase = NativePhase::Complete;
+            break;
+    }
+    state.uiFrameIndex = uiFrameIndex_;
+    state.worldSpriteHeightUnits = worldSpriteHeightUnits_;
+    state.casterX = casterX_;
+    state.casterY = casterY_;
+    state.casterZ = casterZ_;
+    state.pulses.reserve(pulses_.size());
+    for (const RedPulse& pulse : pulses_) {
+        state.pulses.push_back(NativePulseState{
+            pulse.startX,
+            pulse.startY,
+            pulse.startZ,
+            pulse.targetX,
+            pulse.targetY,
+            pulse.targetZ,
+            pulse.elapsed,
+            pulse.duration,
+            pulse.active
+        });
+    }
+    return state;
 }
 
 } // namespace battle

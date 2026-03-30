@@ -10,6 +10,36 @@ namespace battle {
 
 class LyooBossPresentation : public AbilityPresentation {
 public:
+    enum class NativePhase {
+        IntroFrames,
+        AccelLoop,
+        HoldFrame13Ui,
+        ZoomOut,
+        Complete
+    };
+
+    struct NativePulseState {
+        float startX = 0.0f;
+        float startY = 0.0f;
+        float startZ = 0.0f;
+        float targetX = 0.0f;
+        float targetY = 0.0f;
+        float targetZ = 0.0f;
+        float elapsed = 0.0f;
+        float duration = 0.55f;
+        bool active = true;
+    };
+
+    struct NativeState {
+        NativePhase phase = NativePhase::IntroFrames;
+        int uiFrameIndex = 0;
+        float worldSpriteHeightUnits = 0.0f;
+        float casterX = 0.0f;
+        float casterY = 0.0f;
+        float casterZ = 0.0f;
+        std::vector<NativePulseState> pulses;
+    };
+
     LyooBossPresentation(
         float casterWorldX, float casterWorldY, float casterWorldZ,
         float targetWorldX, float targetWorldY, float targetWorldZ
@@ -36,6 +66,7 @@ public:
     int consumeHitEvents() override;
     int getDamageLabelHitCount() const override;
     std::optional<SplashArtConfig> getSplashConfig(SDL_Texture* sprite) const override;
+    NativeState buildNativeState() const;
 
 private:
     enum class Phase {

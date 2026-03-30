@@ -155,6 +155,8 @@ set(BATTLE_DEMO_SOURCES
 set(RMLUI_APP_BATTLE_SOURCES
     src/game/app_battle_session.cpp
     src/game/app_battle_session.h
+    src/game/render/gl_battle_scene_renderer.cpp
+    src/game/render/gl_battle_scene_renderer.h
 )
 
 set(RMLUI_SELECTOR_SOURCES

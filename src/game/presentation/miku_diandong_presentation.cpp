@@ -244,7 +244,7 @@ bool MikuDiandongPresentation::shouldRenderAboveHud() const {
 }
 
 bool MikuDiandongPresentation::shouldRenderFloor() const {
-    return false;
+    return true;
 }
 
 void MikuDiandongPresentation::setExternalTextures(SDL_Texture* casterSprite, SDL_Texture* targetSprite) {
@@ -266,6 +266,32 @@ std::optional<SplashArtConfig> MikuDiandongPresentation::getSplashConfig(SDL_Tex
     cfg.exitDuration = 0.35f;
     cfg.maxDimAlpha = 0.65f;
     return cfg;
+}
+
+MikuDiandongPresentation::NativeState MikuDiandongPresentation::buildNativeState() const {
+    NativeState state;
+    switch (phase_) {
+        case Phase::Chase:
+            state.phase = NativePhase::Chase;
+            break;
+        case Phase::ImpactFreeze:
+            state.phase = NativePhase::ImpactFreeze;
+            break;
+        case Phase::EaseOut:
+            state.phase = NativePhase::EaseOut;
+            break;
+        case Phase::Complete:
+        default:
+            state.phase = NativePhase::Complete;
+            break;
+    }
+    state.mikuWorldX = mikuWorldX_;
+    state.mikuWorldY = mikuWorldY_;
+    state.mikuWorldZ = mikuWorldZ_;
+    state.targetWorldX = targetX_;
+    state.targetWorldY = targetY_;
+    state.targetWorldZ = targetZ_;
+    return state;
 }
 
 void MikuDiandongPresentation::updateMikuPosition(float progress) {

@@ -9,6 +9,40 @@ namespace battle {
 
 class LyooPlotTwistPresentation : public AbilityPresentation {
 public:
+    enum class NativePhase {
+        IntroFrames,
+        TransitionToVoid,
+        RingStars,
+        SkyStars,
+        ApproachAllies,
+        MassiveStar,
+        FullBlackout,
+        FinalShake,
+        Complete
+    };
+
+    struct NativeStarState {
+        float spawnTime = 0.0f;
+        float lifetime = 0.6f;
+        float orbitAngleDegrees = 0.0f;
+        float orbitRadius = 0.0f;
+        float baseSize = 42.0f;
+        float rotationSpeed = 180.0f;
+        float normalizedX = 0.5f;
+        float normalizedY = 0.5f;
+        float endNormalizedX = 0.5f;
+        float endNormalizedY = 0.5f;
+    };
+
+    struct NativeState {
+        NativePhase phase = NativePhase::IntroFrames;
+        int introFrameIndex = 0;
+        float elapsedTime = 0.0f;
+        std::vector<NativeStarState> ringStars;
+        std::vector<NativeStarState> skyStars;
+        std::vector<NativeStarState> scatterStars;
+    };
+
     LyooPlotTwistPresentation(
         float casterWorldX, float casterWorldY, float casterWorldZ,
         float targetWorldX, float targetWorldY, float targetWorldZ
@@ -34,6 +68,8 @@ public:
     int consumeHitEvents() override;
     int getDamageLabelHitCount() const override;
     std::vector<PresentationAudioCommand> consumeAudioCommands() override;
+    NativeState buildNativeState() const;
+    float computeNativeStarScale(float progress) const;
 
 private:
     enum class Phase {
