@@ -117,22 +117,22 @@ void AriBossPresentation::render(SDL_Renderer* renderer,
                                  int screenW,
                                  int screenH,
                                  const Camera3D& camera) {
-    (void)renderer;
-    (void)screenW;
-    (void)screenH;
-    (void)camera;
-}
-
-void AriBossPresentation::renderBelowWorld(SDL_Renderer* renderer,
-                                           int screenW,
-                                           int screenH,
-                                           const Camera3D& camera) {
     if (phase_ != Phase::Attacking && phase_ != Phase::Waiting) {
         return;
     }
 
     ensureFramesLoaded(renderer);
     renderAnimatedBoss(renderer, screenW, screenH, camera);
+}
+
+void AriBossPresentation::renderBelowWorld(SDL_Renderer* renderer,
+                                           int screenW,
+                                           int screenH,
+                                           const Camera3D& camera) {
+    (void)renderer;
+    (void)screenW;
+    (void)screenH;
+    (void)camera;
 }
 
 bool AriBossPresentation::isComplete() const {

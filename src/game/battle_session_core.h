@@ -122,8 +122,14 @@ public:
     void render(SDL_Renderer* renderer, int screenWidth, int screenHeight);
     BattleFrameSnapshot buildFrameSnapshot(int screenWidth, int screenHeight) const;
     void renderCompatibilityBelowWorld(SDL_Renderer* renderer, int screenWidth, int screenHeight);
-    void renderCompatibilityMidWorld(SDL_Renderer* renderer, int screenWidth, int screenHeight);
-    void renderCompatibilityOverlay(SDL_Renderer* renderer, int screenWidth, int screenHeight);
+    void renderCompatibilityMidWorld(SDL_Renderer* renderer,
+                                     int screenWidth,
+                                     int screenHeight,
+                                     bool includeFeedback = true);
+    void renderCompatibilityOverlay(SDL_Renderer* renderer,
+                                    int screenWidth,
+                                    int screenHeight,
+                                    bool includeFeedback = false);
     bool hasCompatibilityOverlay() const;
     bool hasVisibleFeedbackPopups() const;
 
