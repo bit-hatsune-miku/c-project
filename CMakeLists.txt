@@ -160,6 +160,8 @@ set(RMLUI_APP_BATTLE_SOURCES
 set(RMLUI_SELECTOR_SOURCES
     src/game/boss_selector_session.cpp
     src/game/boss_selector_session.h
+    src/game/party_loader_session.cpp
+    src/game/party_loader_session.h
 )
 
 set(FRONT_UI_SOURCES
@@ -397,6 +399,20 @@ if (ENABLE_RMLUI)
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
         ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
     )
+    add_executable(party_loader_preview
+        src/party_loader_preview_main.cpp
+        src/window.cpp
+        src/window.h
+        src/graphics/party_loader_preview_session.cpp
+        src/graphics/party_loader_preview_session.h
+        src/graphics/rmlui_sdl_gl_renderer.cpp
+        src/graphics/rmlui_sdl_gl_renderer.h
+        src/game/core/battle_loader.cpp
+        src/game/core/battle_loader.h
+        src/game/core/battle_manager.h
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Platform_SDL.cpp
+        ${rmlui_SOURCE_DIR}/Backends/RmlUi_Renderer_GL3.cpp
+    )
     target_sources(OurUndergroundBITIdol PRIVATE
         ${FRONT_UI_SOURCES}
         ${RMLUI_APP_BATTLE_SOURCES}
@@ -457,8 +473,13 @@ if (ENABLE_RMLUI)
         ${SDL2_INCLUDE_DIRS}
         ${rmlui_SOURCE_DIR}/Backends
     )
+    target_include_directories(party_loader_preview PRIVATE
+        ${SDL2_INCLUDE_DIRS}
+        ${rmlui_SOURCE_DIR}/Backends
+    )
     target_compile_definitions(menu_preview PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
     target_compile_definitions(battle_selector_preview PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+    target_compile_definitions(party_loader_preview PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
     target_link_libraries(menu_preview PRIVATE
         ${SDL2_LIBRARIES}
         OpenGL::GL
@@ -466,6 +487,12 @@ if (ENABLE_RMLUI)
         RmlUi::RmlUi
     )
     target_link_libraries(battle_selector_preview PRIVATE
+        ${SDL2_LIBRARIES}
+        OpenGL::GL
+        nlohmann_json::nlohmann_json
+        RmlUi::RmlUi
+    )
+    target_link_libraries(party_loader_preview PRIVATE
         ${SDL2_LIBRARIES}
         OpenGL::GL
         nlohmann_json::nlohmann_json
@@ -489,6 +516,9 @@ if (ENABLE_RMLUI)
         target_include_directories(battle_selector_preview PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
         target_compile_definitions(battle_selector_preview PRIVATE BATTLE_ENABLE_TTF=1)
         target_link_libraries(battle_selector_preview PRIVATE ${SDL2_TTF_LIBRARIES})
+        target_include_directories(party_loader_preview PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
+        target_compile_definitions(party_loader_preview PRIVATE BATTLE_ENABLE_TTF=1)
+        target_link_libraries(party_loader_preview PRIVATE ${SDL2_TTF_LIBRARIES})
     endif()
     if (SDL2_IMAGE_FOUND)
         target_include_directories(battle_testing PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
@@ -503,6 +533,9 @@ if (ENABLE_RMLUI)
         target_include_directories(battle_selector_preview PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
         target_compile_definitions(battle_selector_preview PRIVATE BATTLE_ENABLE_IMAGE=1)
         target_link_libraries(battle_selector_preview PRIVATE ${SDL2_IMAGE_LIBRARIES})
+        target_include_directories(party_loader_preview PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+        target_compile_definitions(party_loader_preview PRIVATE BATTLE_ENABLE_IMAGE=1)
+        target_link_libraries(party_loader_preview PRIVATE ${SDL2_IMAGE_LIBRARIES})
     endif()
     add_executable(battle_testing_legacy
         src/battle_main.cpp
@@ -557,6 +590,9 @@ endif()
 if (TARGET menu_preview)
     target_include_directories(menu_preview PRIVATE ${SDL2_INCLUDE_DIRS})
 endif()
+if (TARGET party_loader_preview)
+    target_include_directories(party_loader_preview PRIVATE ${SDL2_INCLUDE_DIRS})
+endif()
 if (ENABLE_RMLUI)
     target_include_directories(OurUndergroundBITIdol PRIVATE ${rmlui_SOURCE_DIR}/Backends)
     target_include_directories(finale PRIVATE ${rmlui_SOURCE_DIR}/Backends)
@@ -566,6 +602,9 @@ if (ENABLE_RMLUI)
     endif()
     if (TARGET menu_preview)
         target_include_directories(menu_preview PRIVATE ${rmlui_SOURCE_DIR}/Backends)
+    endif()
+    if (TARGET party_loader_preview)
+        target_include_directories(party_loader_preview PRIVATE ${rmlui_SOURCE_DIR}/Backends)
     endif()
 endif()
 if (TARGET battle_testing_legacy)
@@ -601,6 +640,10 @@ if (SDL2_TTF_FOUND)
     if (TARGET menu_preview)
         target_include_directories(menu_preview PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
         target_compile_definitions(menu_preview PRIVATE BATTLE_ENABLE_TTF=1)
+    endif()
+    if (TARGET party_loader_preview)
+        target_include_directories(party_loader_preview PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
+        target_compile_definitions(party_loader_preview PRIVATE BATTLE_ENABLE_TTF=1)
     endif()
     if (TARGET battle_testing_legacy)
         target_include_directories(battle_testing_legacy PRIVATE ${SDL2_TTF_INCLUDE_DIRS})
@@ -638,6 +681,10 @@ if (SDL2_IMAGE_FOUND)
         target_include_directories(menu_preview PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
         target_compile_definitions(menu_preview PRIVATE BATTLE_ENABLE_IMAGE=1)
     endif()
+    if (TARGET party_loader_preview)
+        target_include_directories(party_loader_preview PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
+        target_compile_definitions(party_loader_preview PRIVATE BATTLE_ENABLE_IMAGE=1)
+    endif()
     if (TARGET battle_testing_legacy)
         target_include_directories(battle_testing_legacy PRIVATE ${SDL2_IMAGE_INCLUDE_DIRS})
         target_compile_definitions(battle_testing_legacy PRIVATE BATTLE_ENABLE_IMAGE=1)
@@ -669,6 +716,10 @@ if (ENABLE_RMLUI)
         target_compile_definitions(menu_preview PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
         target_link_libraries(menu_preview PRIVATE OpenGL::GL RmlUi::RmlUi)
     endif()
+    if (TARGET party_loader_preview)
+        target_compile_definitions(party_loader_preview PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
+        target_link_libraries(party_loader_preview PRIVATE OpenGL::GL RmlUi::RmlUi)
+    endif()
 endif()
 if (NOT ENABLE_RMLUI)
     target_link_libraries(battle_testing PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
@@ -695,6 +746,9 @@ if (SDL2_TTF_FOUND)
     if (TARGET menu_preview)
         target_link_libraries(menu_preview PRIVATE ${SDL2_TTF_LIBRARIES})
     endif()
+    if (TARGET party_loader_preview)
+        target_link_libraries(party_loader_preview PRIVATE ${SDL2_TTF_LIBRARIES})
+    endif()
     if (NOT ENABLE_RMLUI)
         target_link_libraries(battle_testing PRIVATE ${SDL2_TTF_LIBRARIES})
     endif()
@@ -718,6 +772,9 @@ if (SDL2_IMAGE_FOUND)
     endif()
     if (TARGET menu_preview)
         target_link_libraries(menu_preview PRIVATE ${SDL2_IMAGE_LIBRARIES})
+    endif()
+    if (TARGET party_loader_preview)
+        target_link_libraries(party_loader_preview PRIVATE ${SDL2_IMAGE_LIBRARIES})
     endif()
     if (NOT ENABLE_RMLUI)
         target_link_libraries(battle_testing PRIVATE ${SDL2_IMAGE_LIBRARIES})
@@ -785,6 +842,11 @@ if (TARGET boss_selector)
 endif()
 if (TARGET menu_preview)
     set_target_properties(menu_preview PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
+    )
+endif()
+if (TARGET party_loader_preview)
+    set_target_properties(party_loader_preview PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
 endif()

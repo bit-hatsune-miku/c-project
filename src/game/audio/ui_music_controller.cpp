@@ -250,6 +250,10 @@ UiMusicSurface UiMusicController::resolveSurface(const AppState& state) const {
         return UiMusicSurface::BattleSelector;
     }
 
+    if (state.screen == ScreenState::PartyLoader) {
+        return UiMusicSurface::PartyLoader;
+    }
+
     if (isPauseStoryScreen(state) || isPauseChildScreen(state)) {
         if (!isPauseSurfaceReadyForMusic(state)) {
             return UiMusicSurface::None;

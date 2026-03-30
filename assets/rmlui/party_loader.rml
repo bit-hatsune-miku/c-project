@@ -1,0 +1,950 @@
+<rml>
+<head>
+    <title>Party Loader</title>
+    <link type="text/rcss" href="shared/ui_music_bars.rcss"/>
+    <style>
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #fffdfd;
+            color: #17141f;
+            font-family: "Space Mono";
+        }
+
+        button {
+            display: block;
+            cursor: default;
+            background-color: transparent;
+            border: 0dp rgba(0, 0, 0, 0);
+            padding: 0;
+        }
+
+        div {
+            display: block;
+        }
+
+        img {
+            display: block;
+        }
+
+        #page-artboard {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #fffdfd;
+        }
+
+        #ambient-orb {
+            position: absolute;
+            right: -94dp;
+            top: 84dp;
+            width: 360dp;
+            height: 360dp;
+            border: 1dp rgba(23, 20, 31, 20);
+            border-radius: 180dp;
+            background-color: rgba(255, 255, 255, 56);
+        }
+
+        #ambient-orb-ring-1,
+        #ambient-orb-ring-2 {
+            position: absolute;
+            border: 1dp rgba(23, 20, 31, 18);
+            border-radius: 180dp;
+        }
+
+        #ambient-orb-ring-1 {
+            left: 44dp;
+            top: 44dp;
+            width: 272dp;
+            height: 272dp;
+        }
+
+        #ambient-orb-ring-2 {
+            left: 102dp;
+            top: 102dp;
+            width: 156dp;
+            height: 156dp;
+            border-color: rgba(255, 103, 182, 40);
+        }
+
+        #menu-logo {
+            position: absolute;
+            right: 30dp;
+            top: 22dp;
+            width: 188dp;
+            height: 58dp;
+        }
+
+        .panel {
+            background-color: rgba(255, 255, 255, 230);
+            border: 1dp rgba(23, 20, 31, 20);
+            border-radius: 26dp;
+            box-shadow: 0 18dp 38dp rgba(23, 20, 31, 18);
+        }
+
+        .panel-outline {
+            position: absolute;
+            border: 1dp rgba(23, 20, 31, 10);
+            border-radius: 19dp;
+        }
+
+        #roster-panel {
+            position: absolute;
+            left: 28dp;
+            top: 78dp;
+            width: 374dp;
+            height: 626dp;
+            overflow: hidden;
+        }
+
+        #roster-panel-outline {
+            left: 12dp;
+            top: 12dp;
+            width: 348dp;
+            height: 600dp;
+        }
+
+        #stage-panel {
+            position: absolute;
+            left: 420dp;
+            top: 78dp;
+            width: 832dp;
+            height: 626dp;
+            overflow: hidden;
+            transition: transform 0.36s cubic-out;
+        }
+
+        #stage-panel.is-confirming {
+            animation: stage-confirm 0.42s cubic-out;
+        }
+
+        @keyframes stage-confirm {
+            0% { transform: translate(0dp, 0dp); }
+            28% { transform: translate(0dp, -2dp); }
+            100% { transform: translate(0dp, 0dp); }
+        }
+
+        #stage-panel-outline {
+            left: 12dp;
+            top: 12dp;
+            width: 806dp;
+            height: 600dp;
+        }
+
+        .panel-kicker {
+            position: absolute;
+            font-size: 11dp;
+            font-weight: bold;
+            letter-spacing: 3dp;
+            color: rgba(23, 20, 31, 112);
+        }
+
+        .panel-title {
+            position: absolute;
+            font-size: 24dp;
+            font-weight: bold;
+            letter-spacing: 1.4dp;
+            color: #17141f;
+        }
+
+        .panel-copy {
+            position: absolute;
+            font-size: 11dp;
+            line-height: 17dp;
+            color: rgba(23, 20, 31, 172);
+        }
+
+        #roster-kicker {
+            left: 18dp;
+            top: 20dp;
+        }
+
+        #roster-title {
+            left: 18dp;
+            top: 40dp;
+        }
+
+        #roster-copy {
+            left: 18dp;
+            top: 78dp;
+            width: 318dp;
+            height: 0dp;
+            overflow: hidden;
+        }
+
+        #roster-viewport {
+            position: absolute;
+            left: 18dp;
+            top: 82dp;
+            width: 312dp;
+            height: 430dp;
+            overflow: hidden;
+        }
+
+        #roster-track {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            transition: transform 0.26s cubic-out;
+        }
+
+        .roster-row {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 80dp;
+            transform-origin: left center;
+            transition: transform 0.22s cubic-out, opacity 0.22s cubic-out;
+        }
+
+        .roster-row.is-focused {
+            transform: translate(4dp, 0dp);
+        }
+
+        .roster-row.is-animated-up {
+            animation: focus-slide-up 0.30s cubic-out;
+        }
+
+        .roster-row.is-animated-down {
+            animation: focus-slide-down 0.30s cubic-out;
+        }
+
+        @keyframes focus-slide-up {
+            0% { transform: translate(0dp, 10dp); opacity: 0.82; }
+            100% { transform: translate(4dp, 0dp); opacity: 1; }
+        }
+
+        @keyframes focus-slide-down {
+            0% { transform: translate(0dp, -10dp); opacity: 0.82; }
+            100% { transform: translate(4dp, 0dp); opacity: 1; }
+        }
+
+        .roster-row-shell {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 250);
+            border: 1dp rgba(23, 20, 31, 30);
+            border-radius: 18dp;
+            box-shadow: 0 14dp 24dp rgba(23, 20, 31, 14);
+            transform: skewX(14deg);
+            transition: background-color 0.22s cubic-out, border-color 0.22s cubic-out, box-shadow 0.22s cubic-out;
+        }
+
+        .roster-row:hover .roster-row-shell,
+        .roster-row.is-focused .roster-row-shell {
+            border-color: rgba(240, 196, 112, 220);
+            box-shadow: 0 18dp 28dp rgba(23, 20, 31, 18);
+        }
+
+        .roster-row.is-selected .roster-row-shell {
+            background-color: #ff67b6;
+            border-color: rgba(255, 103, 182, 236);
+            box-shadow: 0 20dp 34dp rgba(255, 103, 182, 42);
+        }
+
+        .roster-row-inner {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            transform: skewX(-14deg);
+        }
+
+        .roster-row-accent {
+            position: absolute;
+            left: 16dp;
+            top: 22dp;
+            width: 8dp;
+            height: 36dp;
+            background-color: rgba(23, 20, 31, 36);
+            border-radius: 999dp;
+        }
+
+        .roster-row.is-selected .roster-row-accent {
+            background-color: rgba(255, 255, 255, 186);
+        }
+
+        .art-thumb,
+        .card-art {
+            position: absolute;
+            overflow: hidden;
+            background-color: rgba(23, 20, 31, 12);
+            border: 1dp rgba(23, 20, 31, 18);
+            border-radius: 16dp;
+        }
+
+        .art-thumb {
+            left: 32dp;
+            top: 12dp;
+            width: 56dp;
+            height: 56dp;
+        }
+
+        .card-art {
+            left: 0;
+            top: 0;
+            width: 92dp;
+            height: 92dp;
+            border-radius: 18dp;
+        }
+
+        .art-thumb-inner,
+        .card-art-inner {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .art-image {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .art-fallback {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            font-size: 17dp;
+            font-weight: bold;
+            line-height: 56dp;
+            text-align: center;
+            color: rgba(23, 20, 31, 132);
+        }
+
+        .card-art .art-fallback {
+            line-height: 92dp;
+        }
+
+        .roster-row-copy {
+            position: absolute;
+            left: 104dp;
+            top: 10dp;
+            width: 126dp;
+        }
+
+        .roster-row-name {
+            display: block;
+            font-size: 14dp;
+            font-weight: bold;
+            line-height: 16dp;
+            color: #17141f;
+        }
+
+        .roster-row-stat-list {
+            display: block;
+            margin-top: 6dp;
+        }
+
+        .roster-row-stat {
+            display: block;
+            font-size: 9dp;
+            line-height: 12dp;
+            letter-spacing: 1dp;
+            color: rgba(23, 20, 31, 150);
+        }
+
+        .roster-row.is-selected .roster-row-name,
+        .roster-row.is-selected .roster-row-stat {
+            color: rgba(255, 255, 255, 232);
+        }
+
+        .roster-row-side {
+            position: absolute;
+            right: 16dp;
+            top: 12dp;
+            width: 54dp;
+        }
+
+        .slot-badge,
+        .lock-badge,
+        .slot-pill,
+        .meta-pill {
+            min-width: 22dp;
+            min-height: 22dp;
+            padding: 3dp 9dp 3dp 9dp;
+            border-radius: 999dp;
+            font-size: 9dp;
+            font-weight: bold;
+            letter-spacing: 1.2dp;
+            text-align: center;
+        }
+
+        .slot-badge {
+            background-color: rgba(255, 103, 182, 28);
+            border: 1dp rgba(255, 103, 182, 46);
+            color: rgba(255, 103, 182, 232);
+        }
+
+        .lock-badge,
+        .slot-pill.is-locked {
+            margin-top: 6dp;
+            background-color: rgba(23, 20, 31, 18);
+            border: 1dp rgba(23, 20, 31, 22);
+            color: rgba(23, 20, 31, 170);
+        }
+
+        .roster-row.is-selected .slot-badge,
+        .stage-card.is-filled .slot-pill {
+            background-color: rgba(255, 255, 255, 36);
+            border-color: rgba(255, 255, 255, 42);
+            color: rgba(255, 255, 255, 234);
+        }
+
+        #scrollbar-track {
+            position: absolute;
+            left: 338dp;
+            top: 82dp;
+            width: 12dp;
+            height: 430dp;
+            overflow: hidden;
+            background-color: rgba(23, 20, 31, 18);
+            border: 1dp rgba(23, 20, 31, 20);
+            border-radius: 999dp;
+        }
+
+        #scrollbar-thumb {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 12dp;
+            height: 76dp;
+            background-color: #ff67b6;
+            border-radius: 999dp;
+            box-shadow: 0 10dp 18dp rgba(255, 103, 182, 28);
+            transition: top 0.18s linear;
+        }
+
+        #scrollbar-track.is-dragging #scrollbar-thumb {
+            transition: none;
+        }
+
+        #stage-kicker {
+            left: 18dp;
+            top: 20dp;
+        }
+
+        #stage-title {
+            position: absolute;
+            left: 18dp;
+            top: 40dp;
+            font-size: 28dp;
+            font-weight: bold;
+            letter-spacing: 1.4dp;
+            color: #17141f;
+        }
+
+        #stage-description {
+            position: absolute;
+            left: 18dp;
+            top: 82dp;
+            width: 796dp;
+            font-size: 12dp;
+            line-height: 18dp;
+            color: rgba(23, 20, 31, 172);
+        }
+
+        #stage-divider {
+            position: absolute;
+            left: 18dp;
+            top: 136dp;
+            width: 796dp;
+            height: 1dp;
+            background-color: rgba(23, 20, 31, 16);
+        }
+
+        #stage-meta {
+            position: absolute;
+            left: 18dp;
+            top: 148dp;
+            width: 796dp;
+            height: 0dp;
+            overflow: hidden;
+        }
+
+        #stage-capacity {
+            position: absolute;
+            left: 0;
+            top: 0;
+        }
+
+        #stage-mode {
+            position: absolute;
+            left: 164dp;
+            top: 0;
+        }
+
+        .meta-pill {
+            background-color: rgba(255, 103, 182, 22);
+            border: 1dp rgba(255, 103, 182, 36);
+            color: rgba(255, 103, 182, 228);
+        }
+
+        #slot-grid {
+            position: absolute;
+            left: 18dp;
+            top: 156dp;
+            width: 796dp;
+            height: 328dp;
+        }
+
+        #slot-grid.is-settling .stage-card {
+            animation: card-settle 0.34s cubic-out;
+        }
+
+        @keyframes card-settle {
+            0% { transform: translate(0dp, 10dp); opacity: 0.8; }
+            100% { transform: translate(0dp, 0dp); opacity: 1; }
+        }
+
+        .stage-card {
+            position: absolute;
+            width: 390dp;
+            height: 156dp;
+        }
+
+        .stage-card:nth-child(1) { left: 0; top: 0; }
+        .stage-card:nth-child(2) { left: 406dp; top: 0; }
+        .stage-card:nth-child(3) { left: 0; top: 170dp; }
+        .stage-card:nth-child(4) { left: 406dp; top: 170dp; }
+
+        .stage-card-shell {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 236);
+            border: 1dp rgba(23, 20, 31, 22);
+            border-radius: 18dp;
+            box-shadow: 0 16dp 28dp rgba(23, 20, 31, 14);
+            transform: skewX(12deg);
+            transition: background-color 0.22s cubic-out, border-color 0.22s cubic-out, box-shadow 0.22s cubic-out;
+        }
+
+        .stage-card.is-hoverable:hover .stage-card-shell {
+            border-color: rgba(240, 196, 112, 220);
+            box-shadow: 0 18dp 30dp rgba(23, 20, 31, 18);
+        }
+
+        .stage-card.is-filled .stage-card-shell {
+            background-color: #ff67b6;
+            border-color: rgba(255, 103, 182, 236);
+            box-shadow: 0 20dp 34dp rgba(255, 103, 182, 42);
+        }
+
+        .stage-card.is-empty .stage-card-shell {
+            border-style: dashed;
+            background-color: rgba(255, 255, 255, 194);
+        }
+
+        .stage-card-inner {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            transform: skewX(-12deg);
+        }
+
+        .stage-card-topline {
+            position: absolute;
+            left: 24dp;
+            right: 18dp;
+            top: 12dp;
+            height: 22dp;
+        }
+
+        .slot-index {
+            position: absolute;
+            left: 8dp;
+            top: 2dp;
+            font-size: 10dp;
+            font-weight: bold;
+            letter-spacing: 2dp;
+            color: rgba(23, 20, 31, 126);
+        }
+
+        .slot-pill {
+            position: absolute;
+            right: 0;
+            top: 0;
+            background-color: rgba(23, 20, 31, 18);
+            border: 1dp rgba(23, 20, 31, 22);
+            color: rgba(23, 20, 31, 170);
+        }
+
+        .stage-card-main {
+            position: absolute;
+            left: 14dp;
+            top: 44dp;
+            width: 362dp;
+            height: 96dp;
+        }
+
+        .card-copy {
+            position: absolute;
+            left: 108dp;
+            top: 0;
+            width: 252dp;
+        }
+
+        .card-name {
+            display: block;
+            font-size: 15dp;
+            font-weight: bold;
+            line-height: 18dp;
+            color: #17141f;
+        }
+
+        .card-class {
+            display: block;
+            margin-top: 4dp;
+            font-size: 9dp;
+            font-weight: bold;
+            letter-spacing: 1.6dp;
+            color: rgba(23, 20, 31, 126);
+        }
+
+        .stage-card.is-filled .slot-index,
+        .stage-card.is-filled .card-name,
+        .stage-card.is-filled .card-class,
+        .stage-card.is-filled .stat-row-label,
+        .stage-card.is-filled .stat-value {
+            color: rgba(255, 255, 255, 234);
+        }
+
+        .stat-list {
+            display: block;
+            position: absolute;
+            left: 0;
+            top: 34dp;
+            width: 252dp;
+        }
+
+        .stat-row {
+            display: block;
+            position: relative;
+            width: 252dp;
+            height: 22dp;
+            margin-bottom: 5dp;
+        }
+
+        .stat-icon {
+            position: absolute;
+            left: 0;
+            top: 3dp;
+            width: 16dp;
+            height: 16dp;
+        }
+
+        .stat-row-label {
+            position: absolute;
+            left: 22dp;
+            top: 5dp;
+            width: 22dp;
+            font-size: 9dp;
+            font-weight: bold;
+            color: rgba(23, 20, 31, 126);
+        }
+
+        .stat-track {
+            position: absolute;
+            left: 48dp;
+            top: 7dp;
+            width: 160dp;
+            height: 8dp;
+            background-color: rgba(23, 20, 31, 18);
+            border: 1dp rgba(23, 20, 31, 16);
+            border-radius: 999dp;
+            overflow: hidden;
+        }
+
+        .stage-card.is-filled .stat-track {
+            background-color: rgba(255, 255, 255, 26);
+            border-color: rgba(255, 255, 255, 18);
+        }
+
+        .stat-fill {
+            display: block;
+            height: 100%;
+            border-radius: 999dp;
+        }
+
+        .stat-fill.hp { background-color: #53c979; }
+        .stat-fill.atk { background-color: #ff9546; }
+        .stat-fill.spd { background-color: #45bcff; }
+
+        .stat-value {
+            position: absolute;
+            right: 0;
+            top: 4dp;
+            width: 34dp;
+            font-size: 10dp;
+            text-align: right;
+            color: rgba(23, 20, 31, 190);
+        }
+
+        .empty-layout {
+            position: absolute;
+            left: 20dp;
+            top: 42dp;
+            width: 330dp;
+            height: 88dp;
+        }
+
+        .empty-icon {
+            position: absolute;
+            left: 146dp;
+            top: 0;
+            width: 36dp;
+            height: 36dp;
+            opacity: 0.55;
+        }
+
+        .empty-title {
+            position: absolute;
+            left: 0;
+            top: 40dp;
+            width: 330dp;
+            font-size: 14dp;
+            font-weight: bold;
+            text-align: center;
+            color: rgba(23, 20, 31, 138);
+        }
+
+        .empty-copy {
+            position: absolute;
+            left: 32dp;
+            top: 62dp;
+            width: 266dp;
+            font-size: 10dp;
+            line-height: 14dp;
+            text-align: center;
+            color: rgba(23, 20, 31, 126);
+        }
+
+        #stage-footer-divider {
+            position: absolute;
+            left: 18dp;
+            top: 530dp;
+            width: 796dp;
+            height: 1dp;
+            background-color: rgba(23, 20, 31, 16);
+        }
+
+        #status-code {
+            position: absolute;
+            left: 18dp;
+            top: 544dp;
+            font-size: 11dp;
+            font-weight: bold;
+            letter-spacing: 3dp;
+            color: rgba(255, 103, 182, 232);
+        }
+
+        #status-title {
+            position: absolute;
+            left: 18dp;
+            top: 564dp;
+            font-size: 18dp;
+            font-weight: bold;
+            letter-spacing: 1dp;
+            color: #17141f;
+        }
+
+        #status-copy {
+            position: absolute;
+            left: 18dp;
+            top: 590dp;
+            width: 470dp;
+            font-size: 11dp;
+            line-height: 16dp;
+            color: rgba(23, 20, 31, 168);
+        }
+
+        #start-button {
+            position: absolute;
+            right: 18dp;
+            top: 540dp;
+            width: 280dp;
+            height: 64dp;
+            cursor: pointer;
+        }
+
+        #start-button.is-firing {
+            animation: button-launch 0.38s cubic-out;
+        }
+
+        @keyframes button-launch {
+            0% { transform: scale(1); }
+            35% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+
+        #start-button-frame {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 228);
+            border: 1dp rgba(23, 20, 31, 28);
+            border-radius: 18dp;
+            box-shadow: 0 18dp 30dp rgba(23, 20, 31, 16);
+            transform: skewX(-14deg);
+            transition: background-color 0.22s cubic-out, border-color 0.22s cubic-out, box-shadow 0.22s cubic-out, transform 0.22s cubic-out;
+        }
+
+        #start-button:hover #start-button-frame {
+            background-color: rgba(255, 255, 255, 250);
+            border-color: rgba(255, 103, 182, 88);
+            box-shadow: 0 20dp 34dp rgba(255, 103, 182, 28);
+        }
+
+        #start-button.is-disabled #start-button-frame {
+            background-color: rgba(255, 255, 255, 188);
+            border-color: rgba(23, 20, 31, 18);
+            box-shadow: 0 12dp 20dp rgba(23, 20, 31, 10);
+        }
+
+        #start-button-inner {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            transform: skewX(14deg);
+        }
+
+        #start-button-accent {
+            position: absolute;
+            left: 68dp;
+            top: 18dp;
+            width: 8dp;
+            height: 28dp;
+            background-color: rgba(23, 20, 31, 36);
+            border-radius: 999dp;
+        }
+
+        #start-button-label {
+            position: absolute;
+            left: 0;
+            top: 20dp;
+            width: 280dp;
+            font-size: 15dp;
+            font-weight: bold;
+            letter-spacing: 2.4dp;
+            text-align: center;
+            color: #17141f;
+        }
+
+        #start-button.is-disabled #start-button-accent {
+            background-color: rgba(23, 20, 31, 18);
+        }
+
+        #start-button.is-disabled #start-button-label {
+            color: rgba(23, 20, 31, 96);
+        }
+
+        #page-helper {
+            position: absolute;
+            right: 24dp;
+            bottom: 16dp;
+            font-size: 10dp;
+            letter-spacing: 1.8dp;
+            color: rgba(23, 20, 31, 122);
+        }
+
+        #preview-toast {
+            position: absolute;
+            left: 50%;
+            margin-left: -240dp;
+            bottom: 14dp;
+            width: 480dp;
+            height: 40dp;
+            background-color: rgba(23, 20, 31, 230);
+            border-radius: 999dp;
+            color: rgba(255, 255, 255, 232);
+            font-size: 12dp;
+            font-weight: bold;
+            letter-spacing: 1dp;
+            line-height: 40dp;
+            text-align: center;
+            opacity: 0;
+            transform: translate(0dp, 12dp);
+            transition: opacity 0.22s cubic-out, transform 0.22s cubic-out;
+        }
+
+        #preview-toast.is-visible {
+            opacity: 1;
+            transform: translate(0dp, 0dp);
+        }
+    </style>
+</head>
+<body>
+    <div id="page-artboard">
+        <div id="ui-music-bars-root" class="ui-music-bars-root">
+            <div id="ui-music-bars-track" class="ui-music-bars-track"></div>
+        </div>
+
+        <div id="ambient-orb">
+            <div id="ambient-orb-ring-1"></div>
+            <div id="ambient-orb-ring-2"></div>
+        </div>
+
+        <img id="menu-logo" src="../vn/backgrounds/General_Art/MainMenuTitle.png"/>
+
+        <div id="roster-panel" class="panel">
+            <div id="roster-panel-outline" class="panel-outline"></div>
+            <div id="roster-kicker" class="panel-kicker">AVAILABLE MEMBERS</div>
+            <div id="roster-title" class="panel-title">ROSTER</div>
+            <div id="roster-viewport">
+                <div id="roster-track"></div>
+            </div>
+            <div id="scrollbar-track">
+                <div id="scrollbar-thumb"></div>
+            </div>
+        </div>
+
+        <div id="stage-panel" class="panel">
+            <div id="stage-panel-outline" class="panel-outline"></div>
+            <div id="stage-kicker" class="panel-kicker"></div>
+            <div id="stage-title"></div>
+            <div id="stage-description"></div>
+            <div id="stage-divider"></div>
+            <div id="slot-grid"></div>
+            <div id="stage-footer-divider"></div>
+            <div id="status-code"></div>
+            <div id="status-title"></div>
+            <div id="status-copy"></div>
+            <button id="start-button">
+                <div id="start-button-frame"></div>
+                <div id="start-button-inner">
+                    <div id="start-button-accent"></div>
+                    <div id="start-button-label">START BATTLE</div>
+                </div>
+            </button>
+        </div>
+
+        <div id="page-helper">Mouse or keyboard both work. ENTER launches the battle.</div>
+        <div id="preview-toast"></div>
+    </div>
+</body>
+</rml>
