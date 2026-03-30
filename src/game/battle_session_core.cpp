@@ -411,12 +411,24 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
         }
     );
 
-    renderCompatibilityMidWorld(renderer, screenWidth, screenHeight);
+    if (snapshot.blackoutWorld) {
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        const SDL_Rect full{0, 0, screenWidth, screenHeight};
+        SDL_RenderFillRect(renderer, &full);
+    }
+
+    const bool renderFeedbackInOverlay =
+        hasVisibleFeedbackPopups() &&
+        activePresentation_ != nullptr &&
+        activePresentation_->shouldRenderAboveHud();
+
+    renderCompatibilityMidWorld(renderer, screenWidth, screenHeight, !renderFeedbackInOverlay);
 
     hud_.syncFromManager(manager_);
     hud_.draw(renderer, screenWidth, screenHeight, iconByAsset_);
 
-    renderCompatibilityOverlay(renderer, screenWidth, screenHeight);
+    renderCompatibilityOverlay(renderer, screenWidth, screenHeight, renderFeedbackInOverlay);
 
     if (hooks_.onPostRender) hooks_.onPostRender();
 }
@@ -455,7 +467,10 @@ void BattleSessionCore::renderCompatibilityBelowWorld(SDL_Renderer* renderer, in
     activePresentation_->renderBelowWorld(renderer, screenWidth, screenHeight, renderCamera);
 }
 
-void BattleSessionCore::renderCompatibilityMidWorld(SDL_Renderer* renderer, int screenWidth, int screenHeight) {
+void BattleSessionCore::renderCompatibilityMidWorld(SDL_Renderer* renderer,
+                                                    int screenWidth,
+                                                    int screenHeight,
+                                                    bool includeFeedback) {
     Camera3D renderCamera = camera_;
     renderCamera.screenCenterX = screenWidth * 0.5f;
     renderCamera.screenCenterY = screenHeight * 0.5f;
@@ -464,10 +479,15 @@ void BattleSessionCore::renderCompatibilityMidWorld(SDL_Renderer* renderer, int 
         activePresentation_->render(renderer, screenWidth, screenHeight, renderCamera);
     }
 
-    feedback_.render(renderer, renderCamera, buildFeedbackAnchors());
+    if (includeFeedback) {
+        feedback_.render(renderer, renderCamera, buildFeedbackAnchors());
+    }
 }
 
-void BattleSessionCore::renderCompatibilityOverlay(SDL_Renderer* renderer, int screenWidth, int screenHeight) {
+void BattleSessionCore::renderCompatibilityOverlay(SDL_Renderer* renderer,
+                                                   int screenWidth,
+                                                   int screenHeight,
+                                                   bool includeFeedback) {
     Camera3D renderCamera = camera_;
     renderCamera.screenCenterX = screenWidth * 0.5f;
     renderCamera.screenCenterY = screenHeight * 0.5f;
@@ -480,6 +500,9 @@ void BattleSessionCore::renderCompatibilityOverlay(SDL_Renderer* renderer, int s
     }
     if (activeOverlay_) {
         activeOverlay_(renderer, screenWidth, screenHeight);
+    }
+    if (includeFeedback) {
+        feedback_.render(renderer, renderCamera, buildFeedbackAnchors());
     }
 }
 

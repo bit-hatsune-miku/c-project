@@ -40,6 +40,9 @@ public:
     bool renderNativeAboveHud(const battle::BattleSessionCore::BattleFrameSnapshot& snapshot,
                               int screenWidth,
                               int screenHeight);
+    void renderFullscreenFade(int screenWidth,
+                              int screenHeight,
+                              SDL_Color color);
 
 private:
     struct Vertex {

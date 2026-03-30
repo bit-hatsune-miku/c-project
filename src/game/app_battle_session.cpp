@@ -1439,10 +1439,22 @@ public:
 
         glSceneRenderer_.renderWorld(snapshot, windowWidth_, windowHeight_);
 
+        if (snapshot.blackoutWorld) {
+            glSceneRenderer_.renderFullscreenFade(
+                windowWidth_,
+                windowHeight_,
+                SDL_Color{0, 0, 0, 255}
+            );
+        }
+
         const bool drewNativeMidWorld =
             nativePresentation && glSceneRenderer_.renderNativeMidWorld(snapshot, windowWidth_, windowHeight_);
         const bool hasFeedbackPopups = feedback_.hasVisiblePopups();
-        if (!drewNativeMidWorld || hasFeedbackPopups) {
+        const bool renderFeedbackInOverlay =
+            hasFeedbackPopups &&
+            activePresentation_ != nullptr &&
+            activePresentation_->shouldRenderAboveHud();
+        if (!drewNativeMidWorld || (hasFeedbackPopups && !renderFeedbackInOverlay)) {
             SDL_SetRenderDrawBlendMode(sceneRenderer_.renderer, SDL_BLENDMODE_BLEND);
             SDL_SetRenderDrawColor(sceneRenderer_.renderer, 0, 0, 0, 0);
             SDL_RenderClear(sceneRenderer_.renderer);
@@ -1454,7 +1466,7 @@ public:
                 activePresentation_->render(sceneRenderer_.renderer, windowWidth_, windowHeight_, snapshot.camera);
                 hasSceneCompatibilityPass = true;
             }
-            if (hasFeedbackPopups) {
+            if (hasFeedbackPopups && !renderFeedbackInOverlay) {
                 feedback_.render(sceneRenderer_.renderer, snapshot.camera, snapshot.feedbackAnchors);
                 hasSceneCompatibilityPass = true;
             }
@@ -1485,8 +1497,7 @@ public:
 
         const bool hasSceneOverlayPass =
             (activePresentation_ != nullptr && activePresentation_->shouldRenderAboveHud() && !drewNativeAboveHud) ||
-            activeUltimateTurnSplash_ != nullptr ||
-            static_cast<bool>(activeOverlay_);
+            renderFeedbackInOverlay;
         if (hasSceneOverlayPass && sceneRenderer_.renderer != nullptr && sceneRenderer_.surface != nullptr) {
             SDL_SetRenderDrawBlendMode(sceneRenderer_.renderer, SDL_BLENDMODE_BLEND);
             SDL_SetRenderDrawColor(sceneRenderer_.renderer, 0, 0, 0, 0);
@@ -1499,16 +1510,9 @@ public:
                     windowHeight_,
                     snapshot.camera);
             }
-            if (activeUltimateTurnSplash_ != nullptr) {
-                activeUltimateTurnSplash_->renderOverlay(
-                    sceneRenderer_.renderer,
-                    windowWidth_,
-                    windowHeight_);
+            if (renderFeedbackInOverlay) {
+                feedback_.render(sceneRenderer_.renderer, snapshot.camera, snapshot.feedbackAnchors);
             }
-            if (activeOverlay_) {
-                activeOverlay_(sceneRenderer_.renderer, windowWidth_, windowHeight_);
-            }
-
             const Uint64 compatibilityStartCounter = frameTimingEnabled_ ? SDL_GetPerformanceCounter() : 0;
             drawCompatibilitySurface(sceneRenderer_, screenBlitter_, true);
             if (frameTimingEnabled_) {
@@ -1516,13 +1520,30 @@ public:
             }
         }
 
-        if (isDialogueInProgress() &&
+        const bool hasPresentationOverlayPass =
+            activeUltimateTurnSplash_ != nullptr ||
+            static_cast<bool>(activeOverlay_) ||
+            isDialogueInProgress();
+        if (hasPresentationOverlayPass &&
             presentationOverlayRenderer_.renderer != nullptr &&
             presentationOverlayRenderer_.surface != nullptr) {
             SDL_SetRenderDrawBlendMode(presentationOverlayRenderer_.renderer, SDL_BLENDMODE_BLEND);
             SDL_SetRenderDrawColor(presentationOverlayRenderer_.renderer, 0, 0, 0, 0);
             SDL_RenderClear(presentationOverlayRenderer_.renderer);
-            vn::render();
+
+            if (activeUltimateTurnSplash_ != nullptr) {
+                activeUltimateTurnSplash_->renderOverlay(
+                    presentationOverlayRenderer_.renderer,
+                    windowWidth_,
+                    windowHeight_);
+            }
+            if (activeOverlay_) {
+                activeOverlay_(presentationOverlayRenderer_.renderer, windowWidth_, windowHeight_);
+            }
+            if (isDialogueInProgress()) {
+                vn::render();
+            }
+
             const Uint64 compatibilityStartCounter = frameTimingEnabled_ ? SDL_GetPerformanceCounter() : 0;
             drawCompatibilitySurface(presentationOverlayRenderer_, presentationOverlayBlitter_, true);
             if (frameTimingEnabled_) {

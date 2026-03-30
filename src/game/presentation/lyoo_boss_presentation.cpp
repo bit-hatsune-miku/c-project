@@ -155,22 +155,16 @@ void LyooBossPresentation::render(SDL_Renderer* renderer, int screenW, int scree
         if (!zoomInitialized_) {
             enterZoomOutPhase(camera, screenW, screenH);
         }
+        renderWorldBossFrame(renderer, screenW, screenH, camera);
         renderPulses(renderer, camera);
     }
 }
 
 void LyooBossPresentation::renderBelowWorld(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) {
-    ensureFramesLoaded(renderer);
-
-    if (phase_ != Phase::ZoomOut && phase_ != Phase::Complete) {
-        return;
-    }
-
-    if (!zoomInitialized_) {
-        enterZoomOutPhase(camera, screenW, screenH);
-    }
-
-    renderWorldBossFrame(renderer, screenW, screenH, camera);
+    (void)renderer;
+    (void)screenW;
+    (void)screenH;
+    (void)camera;
 }
 
 bool LyooBossPresentation::isComplete() const {

@@ -55,7 +55,8 @@ struct FloorVertex {
     float v = 0.0f;
 };
 
-GlBattleSceneRenderer::TextureInfo makeTextureFromSurface(SDL_Surface* surface) {
+GlBattleSceneRenderer::TextureInfo makeTextureFromSurface(SDL_Surface* surface,
+                                                          GLint filter) {
     GlBattleSceneRenderer::TextureInfo texture;
     if (surface == nullptr) {
         return texture;
@@ -72,8 +73,8 @@ GlBattleSceneRenderer::TextureInfo makeTextureFromSurface(SDL_Surface* surface) 
 
     glGenTextures(1, &texture.id);
     glBindTexture(GL_TEXTURE_2D, texture.id);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -100,7 +101,7 @@ GlBattleSceneRenderer::TextureInfo loadTextureFromPath(const std::string& resolv
 
 #ifdef BATTLE_ENABLE_IMAGE
     SDL_Surface* surface = IMG_Load(resolvedPath.c_str());
-    return makeTextureFromSurface(surface);
+    return makeTextureFromSurface(surface, GL_NEAREST);
 #else
     (void)resolvedPath;
     return {};
@@ -408,7 +409,7 @@ GlBattleSceneRenderer::TextureInfo GlBattleSceneRenderer::ensureGeneratedFloorTe
         }
     }
 
-    floorTexture_ = makeTextureFromSurface(surface);
+    floorTexture_ = makeTextureFromSurface(surface, GL_LINEAR);
     return floorTexture_;
 }
 
@@ -423,7 +424,7 @@ GlBattleSceneRenderer::TextureInfo GlBattleSceneRenderer::ensureSolidWhiteTextur
     }
 
     SDL_FillRect(surface, nullptr, SDL_MapRGBA(surface->format, 255, 255, 255, 255));
-    whiteTexture_ = makeTextureFromSurface(surface);
+    whiteTexture_ = makeTextureFromSurface(surface, GL_NEAREST);
     return whiteTexture_;
 }
 
@@ -451,6 +452,27 @@ void GlBattleSceneRenderer::drawTexturedTriangles(GLuint textureId,
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glUseProgram(0);
+}
+
+void GlBattleSceneRenderer::renderFullscreenFade(int screenWidth,
+                                                 int screenHeight,
+                                                 SDL_Color color) {
+    if (program_ == 0) {
+        return;
+    }
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    std::vector<Vertex> vertices;
+    vertices.reserve(6);
+    appendFilledRect(vertices,
+                     0.0f,
+                     0.0f,
+                     static_cast<float>(screenWidth),
+                     static_cast<float>(screenHeight),
+                     color);
+    drawTexturedTriangles(ensureSolidWhiteTexture().id, vertices, screenWidth, screenHeight);
 }
 
 void GlBattleSceneRenderer::appendQuad(std::vector<Vertex>& vertices,
@@ -731,46 +753,10 @@ bool GlBattleSceneRenderer::rendersPresentationNatively(const battle::AbilityPre
 bool GlBattleSceneRenderer::renderNativeBelowWorld(const battle::BattleSessionCore::BattleFrameSnapshot& snapshot,
                                                    int screenWidth,
                                                    int screenHeight) {
-    const auto* lyooBoss = dynamic_cast<const battle::LyooBossPresentation*>(snapshot.activePresentation);
-    if (lyooBoss == nullptr) {
-        return false;
-    }
-
-    const auto state = lyooBoss->buildNativeState();
-    if (state.phase != battle::LyooBossPresentation::NativePhase::ZoomOut &&
-        state.phase != battle::LyooBossPresentation::NativePhase::Complete) {
-        return false;
-    }
-
-    const TextureInfo frame13 = ensureSpecialTexture(makeLyooBossFrameKey(13), makeLyooBossFramePath(13));
-    float aspect = 1.0f;
-    if (frame13.id != 0 && frame13.height > 0) {
-        aspect = static_cast<float>(std::max(1, frame13.width)) / static_cast<float>(std::max(1, frame13.height));
-    }
-
-    const float depth = snapshot.camera.getDepth(state.casterX, state.casterY, state.casterZ);
-    if (depth <= 1.0f) {
-        return true;
-    }
-
-    const SDL_FPoint center = snapshot.camera.worldToScreen(state.casterX, state.casterY, state.casterZ);
-    const float scale = snapshot.camera.getPerspectiveScale(state.casterX, state.casterY, state.casterZ);
-    const float drawHeight = std::max(24.0f, state.worldSpriteHeightUnits * scale);
-    const float drawWidth = drawHeight * aspect;
-    std::vector<Vertex> vertices;
-    vertices.reserve(6);
-    appendQuad(vertices,
-               center.x - drawWidth * 0.5f,
-               center.y - drawHeight,
-               center.x + drawWidth * 0.5f,
-               center.y,
-               0.0f,
-               0.0f,
-               1.0f,
-               1.0f,
-               SDL_Color{255, 255, 255, 255});
-    drawTexturedTriangles(frame13.id != 0 ? frame13.id : ensureSolidWhiteTexture().id, vertices, screenWidth, screenHeight);
-    return true;
+    (void)snapshot;
+    (void)screenWidth;
+    (void)screenHeight;
+    return false;
 }
 
 bool GlBattleSceneRenderer::renderNativeMidWorld(const battle::BattleSessionCore::BattleFrameSnapshot& snapshot,
@@ -794,6 +780,35 @@ bool GlBattleSceneRenderer::renderNativeMidWorld(const battle::BattleSessionCore
 
         if (state.phase == battle::LyooBossPresentation::NativePhase::ZoomOut ||
             state.phase == battle::LyooBossPresentation::NativePhase::Complete) {
+            const TextureInfo frame13 = ensureSpecialTexture(makeLyooBossFrameKey(13), makeLyooBossFramePath(13));
+            float aspect = 1.0f;
+            if (frame13.id != 0 && frame13.height > 0) {
+                aspect = static_cast<float>(std::max(1, frame13.width)) / static_cast<float>(std::max(1, frame13.height));
+            }
+
+            if (snapshot.camera.getDepth(state.casterX, state.casterY, state.casterZ) > 1.0f) {
+                const SDL_FPoint center = snapshot.camera.worldToScreen(state.casterX, state.casterY, state.casterZ);
+                const float scale = snapshot.camera.getPerspectiveScale(state.casterX, state.casterY, state.casterZ);
+                const float drawHeight = std::max(24.0f, state.worldSpriteHeightUnits * scale);
+                const float drawWidth = drawHeight * aspect;
+                std::vector<Vertex> bossVertices;
+                bossVertices.reserve(6);
+                appendQuad(bossVertices,
+                           center.x - drawWidth * 0.5f,
+                           center.y - drawHeight,
+                           center.x + drawWidth * 0.5f,
+                           center.y,
+                           0.0f,
+                           0.0f,
+                           1.0f,
+                           1.0f,
+                           SDL_Color{255, 255, 255, 255});
+                drawTexturedTriangles(frame13.id != 0 ? frame13.id : ensureSolidWhiteTexture().id,
+                                      bossVertices,
+                                      screenWidth,
+                                      screenHeight);
+            }
+
             std::vector<Vertex> pulseVertices;
             pulseVertices.reserve(state.pulses.size() * 12);
             for (const auto& pulse : state.pulses) {
