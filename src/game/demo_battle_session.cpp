@@ -1239,7 +1239,8 @@ class SessionImpl {
 public:
     bool initialize(SDL_Renderer* renderer,
                     const std::string& battleKey,
-                    const PlayerProgression& progression) {
+                    const PlayerProgression& progression,
+                    std::optional<std::vector<std::string>> initialPartyLineup) {
         shutdown();
         renderer_ = renderer;
 
@@ -1260,11 +1261,21 @@ public:
                 : battle::ProgressionFallbackPolicy::StarterRoster
         );
 
-        if (!partySetup_.initialize(renderer, battleDefinition_, effectiveProgression)) {
-            return false;
-        }
+        if (initialPartyLineup.has_value()) {
+            if (!startBattleWithParty(renderer, *initialPartyLineup)) {
+                shutdown();
+                return false;
+            }
+        } else {
+            if (!partySetup_.initialize(renderer, battleDefinition_, effectiveProgression)) {
+                return false;
+            }
 
-        if (partySetup_.shouldSkipSetup()) {
+            if (!partySetup_.shouldSkipSetup()) {
+                initialized_ = true;
+                return true;
+            }
+
             PartySetupResult startupSelection;
             if (!partySetup_.consumeStartRequest(startupSelection)) {
                 shutdown();
@@ -1770,8 +1781,9 @@ Session::~Session() = default;
 
 bool Session::initialize(SDL_Renderer* renderer,
                          const std::string& battleKey,
-                         const PlayerProgression& progression) {
-    return impl_->initialize(renderer, battleKey, progression);
+                         const PlayerProgression& progression,
+                         std::optional<std::vector<std::string>> initialPartyLineup) {
+    return impl_->initialize(renderer, battleKey, progression, std::move(initialPartyLineup));
 }
 
 void Session::shutdown() {

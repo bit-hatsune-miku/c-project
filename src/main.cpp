@@ -26,6 +26,7 @@
 #include "game/core/battle_loader.h"
 #ifdef RMLUI_SDL_VERSION_MAJOR
 #include "game/boss_selector_session.h"
+#include "game/party_loader_session.h"
 #endif
 #include "game/audio/ui_music_controller.h"
 #include "game/demo_battle_session.h"
@@ -866,6 +867,16 @@ bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
  * @param scriptRef Reference to the script to load; empty means use the default chapter script.
  * @param endReturnScreen Screen to use if the script does not specify its own end-return target.
  */
+void clearPendingBattleState(AppState& state,
+                             ScreenState returnScreen = ScreenState::MainMenu) {
+    state.pendingBattleKey.clear();
+    state.pendingBattlePartyLineup.clear();
+    state.pendingBattleLaunchedFromStory = false;
+    state.pendingBattleReturnScreen = returnScreen;
+    state.pendingBattleWinScript.clear();
+    state.pendingBattleLoseScript.clear();
+}
+
 void beginStory(AppState& state, const std::string& scriptRef, ScreenState endReturnScreen) {
     const bool loaded = scriptRef.empty()
         ? ensureStoryLoaded(state.story)
@@ -894,10 +905,7 @@ void beginStory(AppState& state, const std::string& scriptRef, ScreenState endRe
     state.confirmSelection = ConfirmAction::Cancel;
     state.pauseIntroTime = 0.0f;
     state.screen = ScreenState::Playing;
-    state.pendingBattleKey.clear();
-    state.pendingBattleLaunchedFromStory = false;
-    state.pendingBattleWinScript.clear();
-    state.pendingBattleLoseScript.clear();
+    clearPendingBattleState(state);
     vn::reset();
     vn::setMusicVolume(state.settings.musicVolume);
     vn::setVoiceVolume(state.settings.voiceVolume);
@@ -925,11 +933,7 @@ void beginBossSelector(AppState& state) {
     state.confirmSelection = ConfirmAction::Cancel;
     state.pauseIntroTime = 0.0f;
     state.screen = ScreenState::BossSelector;
-    state.pendingBattleKey.clear();
-    state.pendingBattleLaunchedFromStory = false;
-    state.pendingBattleReturnScreen = ScreenState::BossSelector;
-    state.pendingBattleWinScript.clear();
-    state.pendingBattleLoseScript.clear();
+    clearPendingBattleState(state, ScreenState::BossSelector);
 #else
     state.noticeText = "Boss selector requires RmlUi-enabled build.";
     state.noticeTimer = 2.6f;
@@ -947,11 +951,7 @@ void beginBattleDemo(AppState& state) {
 
 void beginBattle(AppState& state, const std::string& battleKey) {
     if (battleKey.empty()) {
-        state.pendingBattleKey.clear();
-        state.pendingBattleLaunchedFromStory = false;
-        state.pendingBattleReturnScreen = ScreenState::MainMenu;
-        state.pendingBattleWinScript.clear();
-        state.pendingBattleLoseScript.clear();
+        clearPendingBattleState(state);
         state.noticeText = "Battle key missing.";
         state.noticeTimer = 2.6f;
         state.screen = ScreenState::MainMenu;
@@ -962,11 +962,7 @@ void beginBattle(AppState& state, const std::string& battleKey) {
     vn::setBackground("");
     battle::BattleDefinition battleDefinition;
     if (!battle::loader::loadBattleDefinition(battleKey, battleDefinition)) {
-        state.pendingBattleKey.clear();
-        state.pendingBattleLaunchedFromStory = false;
-        state.pendingBattleReturnScreen = ScreenState::MainMenu;
-        state.pendingBattleWinScript.clear();
-        state.pendingBattleLoseScript.clear();
+        clearPendingBattleState(state);
         state.noticeText = "Battle not found: " + battleKey;
         state.noticeTimer = 2.6f;
         state.screen = ScreenState::MainMenu;
@@ -974,12 +970,25 @@ void beginBattle(AppState& state, const std::string& battleKey) {
     }
 
     state.pendingBattleKey = battleDefinition.key;
+    state.pendingBattlePartyLineup.clear();
     if (state.pendingBattleWinScript.empty()) {
         state.pendingBattleWinScript = battleDefinition.victoryStoryScript;
     }
     if (state.pendingBattleLoseScript.empty()) {
         state.pendingBattleLoseScript = battleDefinition.defeatStoryScript;
     }
+
+#ifdef RMLUI_SDL_VERSION_MAJOR
+    if (!battleDefinition.isLineupFixed) {
+        state.pauseSelection = PauseAction::Continue;
+        state.pauseContext = PauseContext::Story;
+        state.confirmSelection = ConfirmAction::Cancel;
+        state.pauseIntroTime = 0.0f;
+        state.screen = ScreenState::PartyLoader;
+        return;
+    }
+#endif
+
     beginBattleDemo(state);
 }
 
@@ -987,11 +996,7 @@ void beginBattle(AppState& state, const std::string& battleKey) {
 void beginBattle(AppState& state, int battleId) {
     battle::BattleDefinition battleDefinition;
     if (!battle::loader::loadBattleDefinitionById(battleId, battleDefinition)) {
-        state.pendingBattleKey.clear();
-        state.pendingBattleLaunchedFromStory = false;
-        state.pendingBattleReturnScreen = ScreenState::MainMenu;
-        state.pendingBattleWinScript.clear();
-        state.pendingBattleLoseScript.clear();
+        clearPendingBattleState(state);
         state.noticeText = "Battle not found: " + std::to_string(battleId);
         state.noticeTimer = 2.6f;
         state.screen = ScreenState::MainMenu;
@@ -1447,7 +1452,8 @@ bool shouldUseFrontUiScreen(const AppState& state) {
 }
 
 bool shouldDeferBackendRestore(const AppState& state) {
-    return state.screen == ScreenState::BossSelector;
+    return state.screen == ScreenState::BossSelector ||
+           state.screen == ScreenState::PartyLoader;
 }
 
 bool shouldKeepStoryBgmPlaying(const AppState& state) {
@@ -1599,6 +1605,7 @@ int main(int argc, char** argv) {
     std::unique_ptr<battle::demo::Session> battleSession;
 #ifdef RMLUI_SDL_VERSION_MAJOR
     std::unique_ptr<battle::selector::Session> bossSelectorSession;
+    std::unique_ptr<battle::partyloader::Session> partyLoaderSession;
 #endif
 
     bool rendererUiReady = false;
@@ -1665,6 +1672,10 @@ int main(int argc, char** argv) {
             bossSelectorSession->shutdown();
             bossSelectorSession.reset();
         }
+        if (partyLoaderSession != nullptr) {
+            partyLoaderSession->shutdown();
+            partyLoaderSession.reset();
+        }
 #endif
 #ifdef APP_ENABLE_RMLUI
         if (frontUi.isInitialized()) {
@@ -1706,6 +1717,7 @@ int main(int argc, char** argv) {
         state.settingsReturnScreen = ScreenState::MainMenu;
         state.screen = ScreenState::MainMenu;
         state.mainSelection = MainMenuAction::Start;
+        clearPendingBattleState(state);
         state.noticeText = "Current progress was discarded.";
         state.noticeTimer = 2.6f;
         return true;
@@ -1758,6 +1770,14 @@ int main(int argc, char** argv) {
 #ifdef RMLUI_SDL_VERSION_MAJOR
                     if (bossSelectorSession != nullptr) {
                         bossSelectorSession->handleEvent(event);
+                    }
+#endif
+                    break;
+
+                case ScreenState::PartyLoader:
+#ifdef RMLUI_SDL_VERSION_MAJOR
+                    if (partyLoaderSession != nullptr) {
+                        partyLoaderSession->handleEvent(event);
                     }
 #endif
                     break;
@@ -1935,18 +1955,82 @@ int main(int argc, char** argv) {
 
 #ifdef RMLUI_SDL_VERSION_MAJOR
         if (!loadingTransition.active &&
+            state.screen == ScreenState::PartyLoader &&
+            partyLoaderSession != nullptr) {
+            if (const auto request = partyLoaderSession->consumeRequest(); request.has_value()) {
+                const battle::partyloader::Request partyLoaderRequest = *request;
+                if (partyLoaderRequest.type == battle::partyloader::Request::Type::ConfirmBattle) {
+                    startLoadingTransition(
+                        loadingTransition,
+                        LoadingTransitionPresentation::RmlUi,
+                        std::function<bool()>{},
+                        [&, partyLoaderRequest]() -> bool {
+                            if (partyLoaderSession != nullptr) {
+                                partyLoaderSession->shutdown();
+                                partyLoaderSession.reset();
+                            }
+                            if (!restoreRendererUi(window, menuResources, state.settings)) {
+                                state.noticeText = "Battle failed to load.";
+                                state.noticeTimer = 2.6f;
+                                return false;
+                            }
+                            rendererUiReady = true;
+                            state.pendingBattlePartyLineup = partyLoaderRequest.partyKeys;
+                            beginBattleDemo(state);
+                            // Keep the pre-battle fade-out on the renderer after the RmlUi hold completes.
+                            loadingTransition.presentation = LoadingTransitionPresentation::RendererFallback;
+                            return true;
+                        });
+                } else {
+                    startLoadingTransition(
+                        loadingTransition,
+                        LoadingTransitionPresentation::RmlUi,
+                        std::function<bool()>{},
+                        [&]() -> bool {
+                            clearPendingBattleState(state);
+                            state.requestStoryExitToMainMenu = false;
+                            state.requestStoryReturnToBossSelector = false;
+                            vn::setPaused(false);
+                            vn::reset();
+                            state.story.entryIndex = 0;
+                            state.pauseSelection = PauseAction::Continue;
+                            state.pauseContext = PauseContext::Story;
+                            state.confirmSelection = ConfirmAction::Cancel;
+                            state.screen = ScreenState::MainMenu;
+                            state.mainSelection = MainMenuAction::Start;
+                            return true;
+                        });
+                }
+            }
+        }
+
+        if (!loadingTransition.active &&
             state.screen == ScreenState::BossSelector &&
             bossSelectorSession != nullptr) {
             if (const auto request = bossSelectorSession->consumeLaunchRequest(); request.has_value()) {
                 const battle::selector::LaunchRequest launchRequest = *request;
+                LoadingTransitionPresentation presentation = LoadingTransitionPresentation::RmlUi;
+                std::function<bool()> prepareHold;
+                if (launchRequest.type == battle::selector::LaunchRequest::Type::Battle) {
+                    battle::BattleDefinition battleDefinition;
+                    if (!battle::loader::loadBattleDefinition(launchRequest.reference, battleDefinition)) {
+                        state.noticeText = "Battle not found: " + launchRequest.reference;
+                        state.noticeTimer = 2.6f;
+                        continue;
+                    }
+
+                    if (battleDefinition.isLineupFixed) {
+                        presentation = LoadingTransitionPresentation::RendererFallback;
+                        prepareHold = prepareRendererLoadingHold;
+                    } else {
+                        presentation = LoadingTransitionPresentation::RmlUi;
+                    }
+                }
+
                 startLoadingTransition(
                     loadingTransition,
-                    launchRequest.type == battle::selector::LaunchRequest::Type::Story
-                        ? LoadingTransitionPresentation::RmlUi
-                        : LoadingTransitionPresentation::RendererFallback,
-                    launchRequest.type == battle::selector::LaunchRequest::Type::Story
-                        ? std::function<bool()>{}
-                        : std::function<bool()>(prepareRendererLoadingHold),
+                    presentation,
+                    std::move(prepareHold),
                     [&, launchRequest]() -> bool {
                         if (launchRequest.type == battle::selector::LaunchRequest::Type::Story) {
 #ifdef APP_ENABLE_RMLUI
@@ -1971,16 +2055,23 @@ int main(int argc, char** argv) {
                         }
 
                         destroyLoadingLogoTexture();
-                        if (!restoreRendererUi(window, menuResources, state.settings)) {
+                        clearPendingBattleState(state, ScreenState::BossSelector);
+                        battle::BattleDefinition battleDefinition;
+                        if (!battle::loader::loadBattleDefinition(launchRequest.reference, battleDefinition)) {
+                            clearPendingBattleState(state);
                             state.noticeText = "Battle failed to load.";
                             state.noticeTimer = 2.6f;
                             return false;
                         }
-                        rendererUiReady = true;
-                        state.pendingBattleReturnScreen = ScreenState::BossSelector;
-                        state.pendingBattleLaunchedFromStory = false;
-                        state.pendingBattleWinScript.clear();
-                        state.pendingBattleLoseScript.clear();
+
+                        if (battleDefinition.isLineupFixed) {
+                            if (!restoreRendererUi(window, menuResources, state.settings)) {
+                                state.noticeText = "Battle failed to load.";
+                                state.noticeTimer = 2.6f;
+                                return false;
+                            }
+                            rendererUiReady = true;
+                        }
                         beginBattle(state, launchRequest.reference);
                         return true;
                     });
@@ -2110,15 +2201,18 @@ int main(int argc, char** argv) {
             vn::stopVoicePlayback();  // stop story audio; keep TTF alive (demo session uses VN internally)
             battleSession = std::make_unique<battle::demo::Session>();
             const std::string battleKey = state.pendingBattleKey.empty() ? "tutorial_vs_lyoo" : state.pendingBattleKey;
-            if (!battleSession->initialize(window.getRenderer(), battleKey, state.progression)) {
+            std::optional<std::vector<std::string>> initialPartyLineup;
+            if (!state.pendingBattlePartyLineup.empty()) {
+                initialPartyLineup = state.pendingBattlePartyLineup;
+            }
+            state.pendingBattlePartyLineup.clear();
+            if (!battleSession->initialize(window.getRenderer(), battleKey, state.progression,
+                                           std::move(initialPartyLineup))) {
                 battleSession.reset();
                 state.screen = ScreenState::MainMenu;
                 state.pauseContext = PauseContext::Story;
                 state.mainSelection = MainMenuAction::Battle;
-                state.pendingBattleKey.clear();
-                state.pendingBattleLaunchedFromStory = false;
-                state.pendingBattleWinScript.clear();
-                state.pendingBattleLoseScript.clear();
+                clearPendingBattleState(state);
                 state.noticeText = "Battle demo failed to load.";
                 state.noticeTimer = 2.8f;
             }
@@ -2154,16 +2248,60 @@ int main(int argc, char** argv) {
                 }
             }
         }
+
+        if (state.screen == ScreenState::PartyLoader && partyLoaderSession == nullptr) {
+            releaseRendererUi(menuResources, rendererUiReady);
+#ifdef APP_ENABLE_RMLUI
+            if (frontUi.isInitialized()) {
+                frontUi.shutdown();
+            }
+#endif
+            if (bossSelectorSession != nullptr) {
+                bossSelectorSession->shutdown();
+                bossSelectorSession.reset();
+            }
+            vn::stopVoicePlayback();
+            vn::shutdown();
+
+            battle::BattleDefinition battleDefinition;
+            const std::string battleKey = state.pendingBattleKey.empty() ? "tutorial_vs_lyoo" : state.pendingBattleKey;
+            if (!battle::loader::loadBattleDefinition(battleKey, battleDefinition)) {
+                clearPendingBattleState(state);
+                state.screen = ScreenState::MainMenu;
+                state.mainSelection = MainMenuAction::Battle;
+                state.noticeText = "Party loader failed to resolve the battle.";
+                state.noticeTimer = 2.8f;
+            } else if (!window.enableOpenGL()) {
+                clearPendingBattleState(state);
+                state.screen = ScreenState::MainMenu;
+                state.mainSelection = MainMenuAction::Battle;
+                state.noticeText = "Party loader failed to open.";
+                state.noticeTimer = 2.8f;
+            } else {
+                partyLoaderSession = std::make_unique<battle::partyloader::Session>();
+                if (!partyLoaderSession->initialize(window, battleDefinition, state.progression)) {
+                    partyLoaderSession->shutdown();
+                    partyLoaderSession.reset();
+                    clearPendingBattleState(state);
+                    state.screen = ScreenState::MainMenu;
+                    state.mainSelection = MainMenuAction::Battle;
+                    state.noticeText = "Party loader failed to load.";
+                    state.noticeTimer = 2.8f;
+                }
+            }
+        }
+
+        if (state.screen != ScreenState::PartyLoader && partyLoaderSession != nullptr) {
+            partyLoaderSession->shutdown();
+            partyLoaderSession.reset();
+        }
 #endif
 
         if (state.screen == ScreenState::MainMenu && battleSession != nullptr) {
             battleSession->shutdown();
             battleSession.reset();
             state.pauseContext = PauseContext::Story;
-            state.pendingBattleKey.clear();
-            state.pendingBattleLaunchedFromStory = false;
-            state.pendingBattleWinScript.clear();
-            state.pendingBattleLoseScript.clear();
+            clearPendingBattleState(state);
         }
 
         if (state.noticeTimer > 0.0f) {
@@ -2216,11 +2354,7 @@ int main(int argc, char** argv) {
                     const ScreenState battleReturnScreen = state.pendingBattleReturnScreen;
                     const std::string battleWinScript = state.pendingBattleWinScript;
                     const std::string battleLoseScript = state.pendingBattleLoseScript;
-                    state.pendingBattleKey.clear();
-                    state.pendingBattleLaunchedFromStory = false;
-                    state.pendingBattleReturnScreen = ScreenState::MainMenu;
-                    state.pendingBattleWinScript.clear();
-                    state.pendingBattleLoseScript.clear();
+                    clearPendingBattleState(state);
 
                     const auto enterLoadedStory = [&](const std::string& scriptRef,
                                                       const char* failureNotice,
@@ -2304,6 +2438,11 @@ int main(int argc, char** argv) {
                 }
             }
         }
+        else if (state.screen == ScreenState::PartyLoader) {
+            if (partyLoaderSession != nullptr) {
+                partyLoaderSession->update(deltaSeconds);
+            }
+        }
 #endif
         else if (state.screen == ScreenState::Playing) {
             vn::update(deltaSeconds);
@@ -2322,13 +2461,82 @@ int main(int argc, char** argv) {
                     state.pendingBattleReturnScreen = state.storyEndReturnScreen;
                     state.pendingBattleWinScript = currentEntry.battleWinScript;
                     state.pendingBattleLoseScript = currentEntry.battleLoseScript;
-                    beginBattle(state, pendingBattleKey);
+                    battle::BattleDefinition battleDefinition;
+                    if (!battle::loader::loadBattleDefinition(pendingBattleKey, battleDefinition)) {
+                        clearPendingBattleState(state);
+                        state.noticeText = "Battle not found: " + pendingBattleKey;
+                        state.noticeTimer = 2.6f;
+                        state.screen = ScreenState::MainMenu;
+                    } else {
+                        const bool needsPartyLoader =
+#ifdef RMLUI_SDL_VERSION_MAJOR
+                            !battleDefinition.isLineupFixed;
+#else
+                            false;
+#endif
+                        startLoadingTransition(
+                            loadingTransition,
+                            needsPartyLoader
+                                ? LoadingTransitionPresentation::RmlUi
+                                : LoadingTransitionPresentation::RendererFallback,
+                            needsPartyLoader
+                                ? std::function<bool()>{}
+                                : std::function<bool()>(prepareRendererLoadingHold),
+                            [&, pendingBattleKey, needsPartyLoader]() -> bool {
+                                if (!needsPartyLoader) {
+                                    destroyLoadingLogoTexture();
+                                    if (!restoreRendererUi(window, menuResources, state.settings)) {
+                                        state.noticeText = "Battle failed to load.";
+                                        state.noticeTimer = 2.6f;
+                                        return false;
+                                    }
+                                    rendererUiReady = true;
+                                }
+                                beginBattle(state, pendingBattleKey);
+                                return true;
+                            });
+                    }
                 } else if (pendingBattleId >= 0) {
                     state.pendingBattleLaunchedFromStory = true;
                     state.pendingBattleReturnScreen = state.storyEndReturnScreen;
                     state.pendingBattleWinScript = currentEntry.battleWinScript;
                     state.pendingBattleLoseScript = currentEntry.battleLoseScript;
-                    beginBattle(state, pendingBattleId);
+                    battle::BattleDefinition battleDefinition;
+                    if (!battle::loader::loadBattleDefinitionById(pendingBattleId, battleDefinition)) {
+                        clearPendingBattleState(state);
+                        state.noticeText = "Battle not found: " + std::to_string(pendingBattleId);
+                        state.noticeTimer = 2.6f;
+                        state.screen = ScreenState::MainMenu;
+                    } else {
+                        const std::string routedBattleKey = battleDefinition.key;
+                        const bool needsPartyLoader =
+#ifdef RMLUI_SDL_VERSION_MAJOR
+                            !battleDefinition.isLineupFixed;
+#else
+                            false;
+#endif
+                        startLoadingTransition(
+                            loadingTransition,
+                            needsPartyLoader
+                                ? LoadingTransitionPresentation::RmlUi
+                                : LoadingTransitionPresentation::RendererFallback,
+                            needsPartyLoader
+                                ? std::function<bool()>{}
+                                : std::function<bool()>(prepareRendererLoadingHold),
+                            [&, routedBattleKey, needsPartyLoader]() -> bool {
+                                if (!needsPartyLoader) {
+                                    destroyLoadingLogoTexture();
+                                    if (!restoreRendererUi(window, menuResources, state.settings)) {
+                                        state.noticeText = "Battle failed to load.";
+                                        state.noticeTimer = 2.6f;
+                                        return false;
+                                    }
+                                    rendererUiReady = true;
+                                }
+                                beginBattle(state, routedBattleKey);
+                                return true;
+                            });
+                    }
                 } else if (state.story.entryIndex >= state.story.script.entries.size()) {
                     if (state.storyEndReturnScreen == ScreenState::BossSelector) {
                         state.requestStoryReturnToBossSelector = true;
@@ -2383,6 +2591,10 @@ int main(int argc, char** argv) {
             bossSelectorSession->setUiMusicVisualState(uiMusicVisualState);
             bossSelectorSession->setLoadingOverlay(hiddenRmlLoadingOverlay);
         }
+        if (partyLoaderSession != nullptr) {
+            partyLoaderSession->setUiMusicVisualState(uiMusicVisualState);
+            partyLoaderSession->setLoadingOverlay(hiddenRmlLoadingOverlay);
+        }
 #endif
 
         if (loadingTransitionUsesRmlUi(loadingTransition)) {
@@ -2390,7 +2602,13 @@ int main(int argc, char** argv) {
                 buildRmlLoadingOverlayState(loadingTransition);
             bool overlayApplied = false;
 #ifdef RMLUI_SDL_VERSION_MAJOR
-            if (state.screen == ScreenState::BossSelector && bossSelectorSession != nullptr) {
+            if (state.screen == ScreenState::PartyLoader && partyLoaderSession != nullptr) {
+                partyLoaderSession->setLoadingOverlay(rmlLoadingOverlay);
+                overlayApplied = true;
+            }
+            if (!overlayApplied &&
+                state.screen == ScreenState::BossSelector &&
+                bossSelectorSession != nullptr) {
                 bossSelectorSession->setLoadingOverlay(rmlLoadingOverlay);
                 overlayApplied = true;
             }
@@ -2451,6 +2669,8 @@ int main(int argc, char** argv) {
         } else if (state.screen == ScreenState::BattleDemo && battleSession != nullptr) {
             battleSession->render(window.getRenderer(), window.getWidth(), window.getHeight());
 #ifdef RMLUI_SDL_VERSION_MAJOR
+        } else if (state.screen == ScreenState::PartyLoader && partyLoaderSession != nullptr) {
+            partyLoaderSession->render();
         } else if (state.screen == ScreenState::BossSelector && bossSelectorSession != nullptr) {
             bossSelectorSession->render();
 #endif
@@ -2497,6 +2717,10 @@ int main(int argc, char** argv) {
         battleSession.reset();
     }
 #ifdef RMLUI_SDL_VERSION_MAJOR
+    if (partyLoaderSession != nullptr) {
+        partyLoaderSession->shutdown();
+        partyLoaderSession.reset();
+    }
     if (bossSelectorSession != nullptr) {
         bossSelectorSession->shutdown();
         bossSelectorSession.reset();

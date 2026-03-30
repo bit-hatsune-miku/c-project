@@ -1,0 +1,1958 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Party Loader Prototype</title>
+  <style>
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+
+    :root {
+      --paper: #fffdfd;
+      --paper-soft: #fff7fb;
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-strong: rgba(255, 255, 255, 0.98);
+      --ink: #17141f;
+      --ink-soft: rgba(23, 20, 31, 0.58);
+      --ink-faint: rgba(23, 20, 31, 0.14);
+      --line: rgba(23, 20, 31, 0.12);
+      --pink: #ff67b6;
+      --pink-soft: rgba(255, 103, 182, 0.14);
+      --pink-shadow: rgba(255, 103, 182, 0.2);
+      --gold: #f0c470;
+      --ui-font: "Space Mono", "Noto Sans CJK SC", "Noto Sans CJK JP", "PingFang SC", sans-serif;
+      --row-height: clamp(72px, 9.4vh, 80px);
+      --row-gap: 10px;
+      --visible-rows: 4;
+      --motion: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 18% 16%, rgba(255, 103, 182, 0.13), transparent 22%),
+        radial-gradient(circle at 80% 78%, rgba(255, 103, 182, 0.07), transparent 24%),
+        linear-gradient(180deg, #ffffff 0%, var(--paper-soft) 100%);
+      color: var(--ink);
+      font-family: var(--ui-font);
+    }
+
+    body {
+      position: relative;
+    }
+
+    body::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          -18deg,
+          rgba(23, 20, 31, 0.018) 0,
+          rgba(23, 20, 31, 0.018) 1px,
+          transparent 1px,
+          transparent 82px
+        );
+      pointer-events: none;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+    }
+
+    .screen {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 18px 24px 52px;
+    }
+
+    .ambient-orb {
+      position: absolute;
+      right: -94px;
+      top: 84px;
+      width: 360px;
+      height: 360px;
+      border-radius: 50%;
+      border: 1px solid rgba(23, 20, 31, 0.08);
+      background:
+        radial-gradient(circle at center, rgba(255, 103, 182, 0.08) 0 18%, transparent 18.5% 100%),
+        radial-gradient(circle at center, transparent 0 32%, rgba(23, 20, 31, 0.03) 32.4% 32.8%, transparent 33.1% 48%, rgba(255, 103, 182, 0.06) 48.4% 48.8%, transparent 49.1% 64%, rgba(23, 20, 31, 0.024) 64.3% 64.7%, transparent 65% 100%);
+      box-shadow:
+        inset 0 0 0 46px rgba(255, 255, 255, 0.22),
+        0 24px 72px rgba(23, 20, 31, 0.05);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+
+    .ambient-orb::before,
+    .ambient-orb::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .ambient-orb::before {
+      inset: 12%;
+    }
+
+    .ambient-orb::after {
+      inset: 28%;
+      border-color: rgba(255, 103, 182, 0.16);
+    }
+
+    .topbar {
+      position: relative;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 12px;
+      flex: 0 0 auto;
+    }
+
+    .page-kicker {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.46);
+    }
+
+    .page-title {
+      margin: 10px 0 0;
+      font-size: clamp(28px, 3vw, 32px);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .page-copy {
+      max-width: 560px;
+      margin: 8px 0 0;
+      font-size: 12px;
+      line-height: 1.58;
+      color: rgba(23, 20, 31, 0.68);
+    }
+
+    .menu-logo {
+      width: clamp(160px, 16vw, 188px);
+      height: auto;
+      opacity: 0.96;
+      flex: 0 0 auto;
+    }
+
+    .layout {
+      position: relative;
+      display: flex;
+      gap: 18px;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .panel {
+      position: relative;
+      border-radius: 26px;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.84)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0));
+      border: 1px solid var(--line);
+      box-shadow:
+        0 18px 38px rgba(23, 20, 31, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.38);
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: "";
+      position: absolute;
+      inset: 12px;
+      border-radius: 19px;
+      border: 1px solid rgba(23, 20, 31, 0.05);
+      pointer-events: none;
+    }
+
+    .roster-panel {
+      width: 374px;
+      flex: 0 0 374px;
+      padding: 20px 18px 16px;
+    }
+
+    .stage-panel {
+      flex: 1 1 auto;
+      min-width: 0;
+      padding: 20px 18px 16px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .roster-header,
+    .stage-top,
+    .stage-meta,
+    .stage-footer {
+      position: relative;
+      z-index: 1;
+    }
+
+    .panel-kicker,
+    .stage-kicker {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.44);
+    }
+
+    .panel-title {
+      margin: 8px 0 0;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .panel-copy {
+      margin: 8px 0 0;
+      font-size: 11px;
+      line-height: 1.52;
+      color: rgba(23, 20, 31, 0.66);
+    }
+
+    .roster-shell {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      align-items: stretch;
+      gap: 14px;
+      margin-top: 16px;
+      height: calc((var(--row-height) * var(--visible-rows)) + (var(--row-gap) * (var(--visible-rows) - 1)));
+    }
+
+    .roster-list {
+      position: relative;
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .roster-row {
+      position: relative;
+      display: block;
+      width: 100%;
+      height: var(--row-height);
+      margin-bottom: var(--row-gap);
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+      transition:
+        transform 220ms var(--motion),
+        filter 220ms ease;
+    }
+
+    .roster-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .roster-row.is-animated-up {
+      animation: focus-slide-up 300ms var(--motion);
+    }
+
+    .roster-row.is-animated-down {
+      animation: focus-slide-down 300ms var(--motion);
+    }
+
+    .roster-row-shell {
+      position: absolute;
+      inset: 0;
+      border-radius: 18px;
+      background: var(--panel-strong);
+      border: 1px solid rgba(23, 20, 31, 0.14);
+      box-shadow:
+        0 14px 24px rgba(23, 20, 31, 0.06),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.44);
+      transform: skewX(-14deg);
+      transition:
+        background-color 220ms ease,
+        border-color 220ms ease,
+        box-shadow 220ms ease;
+    }
+
+    .roster-row-inner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px 10px 16px;
+      transform: skewX(14deg);
+    }
+
+    .roster-row-accent {
+      flex: 0 0 auto;
+      width: 8px;
+      height: 36px;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.14);
+      transition: background-color 220ms ease;
+    }
+
+    .art-thumb,
+    .card-art {
+      position: relative;
+      overflow: hidden;
+      flex: 0 0 auto;
+      border-radius: 16px;
+      background:
+        radial-gradient(circle at 50% 26%, rgba(255, 103, 182, 0.16), transparent 48%),
+        rgba(23, 20, 31, 0.04);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .art-thumb {
+      width: 56px;
+      height: 56px;
+    }
+
+    .card-art {
+      width: clamp(74px, 7vw, 94px);
+      height: clamp(74px, 7vw, 94px);
+      border-radius: 18px;
+    }
+
+    .art-thumb-inner,
+    .card-art-inner {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+    }
+
+    .card-art-inner {
+      padding: 10px;
+    }
+
+    .art-thumb img,
+    .card-art img {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .art-fallback {
+      position: absolute;
+      inset: 0;
+      z-index: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: rgba(23, 20, 31, 0.5);
+      text-transform: uppercase;
+    }
+
+    .roster-row-copy {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .roster-row-name {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.2;
+      color: var(--ink);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .roster-row-class {
+      display: block;
+      margin-top: 2px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .roster-row-stats {
+      display: block;
+      margin-top: 6px;
+      font-size: 10px;
+      line-height: 1.34;
+      color: rgba(23, 20, 31, 0.56);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .roster-row-side {
+      flex: 0 0 auto;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 6px;
+      margin-left: 4px;
+    }
+
+    .slot-badge,
+    .lock-badge,
+    .slot-pill,
+    .preset-note {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 22px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .slot-badge {
+      min-width: 28px;
+      padding-left: 0;
+      padding-right: 0;
+      background: rgba(255, 103, 182, 0.16);
+      color: rgba(255, 103, 182, 0.94);
+      border: 1px solid rgba(255, 103, 182, 0.24);
+    }
+
+    .lock-badge,
+    .slot-pill.is-locked {
+      background: rgba(23, 20, 31, 0.08);
+      color: rgba(23, 20, 31, 0.62);
+      border: 1px solid rgba(23, 20, 31, 0.1);
+    }
+
+    .roster-row.is-selected .roster-row-shell,
+    .stage-card.is-filled .stage-card-shell {
+      background: rgba(255, 103, 182, 0.94);
+      border-color: rgba(255, 103, 182, 0.9);
+      box-shadow:
+        0 20px 34px var(--pink-shadow),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+    }
+
+    .roster-row.is-selected .roster-row-accent {
+      background: rgba(255, 255, 255, 0.68);
+    }
+
+    .roster-row.is-selected .roster-row-name,
+    .roster-row.is-selected .roster-row-class,
+    .roster-row.is-selected .roster-row-stats,
+    .stage-card.is-filled .slot-index,
+    .stage-card.is-filled .card-name,
+    .stage-card.is-filled .card-class,
+    .stage-card.is-filled .stat-value,
+    .stage-card.is-filled .stat-row-label {
+      color: #ffffff;
+    }
+
+    .roster-row.is-selected .slot-badge {
+      background: rgba(255, 255, 255, 0.22);
+      border-color: rgba(255, 255, 255, 0.24);
+      color: #ffffff;
+    }
+
+    .roster-row.is-selected .lock-badge,
+    .stage-card.is-filled .slot-pill.is-locked,
+    .stage-card.is-filled .slot-pill.is-remove {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: rgba(255, 255, 255, 0.92);
+    }
+
+    .roster-row.is-focused {
+      transform: translateX(4px);
+      filter: brightness(1.015);
+    }
+
+    .roster-row.is-focused .roster-row-shell,
+    .roster-row:hover .roster-row-shell {
+      border-color: rgba(240, 196, 112, 0.9);
+      box-shadow:
+        0 18px 28px rgba(23, 20, 31, 0.08),
+        0 0 0 1px rgba(240, 196, 112, 0.16),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.46);
+    }
+
+    .scrollbar {
+      position: relative;
+      flex: 0 0 12px;
+      width: 12px;
+      height: 100%;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.08);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+      cursor: pointer;
+    }
+
+    .scrollbar-thumb {
+      position: absolute;
+      left: -2px;
+      width: 16px;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(180deg, rgba(255, 182, 220, 0.96), rgba(255, 103, 182, 0.96));
+      box-shadow: 0 10px 18px rgba(255, 103, 182, 0.18);
+      cursor: grab;
+      padding: 0;
+      transition: top 180ms ease;
+    }
+
+    .scrollbar.is-dragging .scrollbar-thumb {
+      cursor: grabbing;
+      transition: none;
+    }
+
+    .roster-footer {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .roster-footer-copy,
+    .roster-footer-controls {
+      margin: 0;
+      font-size: 10px;
+      line-height: 1.5;
+      color: rgba(23, 20, 31, 0.58);
+    }
+
+    .roster-footer-controls {
+      max-width: 152px;
+      text-align: right;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .stage-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      flex: 0 0 auto;
+    }
+
+    .stage-copy {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .stage-title {
+      margin: 8px 0 0;
+      font-size: clamp(24px, 2.4vw, 28px);
+      font-weight: 700;
+      line-height: 1.12;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .stage-description {
+      max-width: 620px;
+      margin: 8px 0 0;
+      font-size: 12px;
+      line-height: 1.56;
+      color: rgba(23, 20, 31, 0.68);
+    }
+
+    .stage-divider {
+      position: relative;
+      z-index: 1;
+      height: 1px;
+      margin: 14px 0 12px;
+      background: linear-gradient(90deg, rgba(23, 20, 31, 0), rgba(23, 20, 31, 0.12), rgba(255, 103, 182, 0.22), rgba(23, 20, 31, 0.12), rgba(23, 20, 31, 0));
+      flex: 0 0 auto;
+    }
+
+    .stage-meta {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex: 0 0 auto;
+    }
+
+    .preset-note {
+      background: rgba(23, 20, 31, 0.05);
+      color: rgba(23, 20, 31, 0.64);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .preset-note.is-pink {
+      background: rgba(255, 103, 182, 0.12);
+      color: rgba(255, 103, 182, 0.96);
+      border-color: rgba(255, 103, 182, 0.18);
+    }
+
+    .selection-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-rows: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .selection-grid.is-settling .stage-card {
+      animation: card-settle 360ms var(--motion);
+    }
+
+    .stage-card {
+      position: relative;
+      width: auto;
+      height: 100%;
+      min-height: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+      transition:
+        transform 220ms var(--motion),
+        filter 220ms ease;
+    }
+
+    .stage-card-shell {
+      position: absolute;
+      inset: 0;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(23, 20, 31, 0.12);
+      box-shadow:
+        0 16px 28px rgba(23, 20, 31, 0.06),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+      transform: skewX(-12deg);
+      transition:
+        background-color 220ms ease,
+        border-color 220ms ease,
+        box-shadow 220ms ease;
+    }
+
+    .stage-card-inner {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 12px 14px;
+      transform: skewX(12deg);
+    }
+
+    .stage-card-topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .slot-index {
+      margin: 0;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.48);
+    }
+
+    .slot-pill {
+      background: rgba(23, 20, 31, 0.06);
+      color: rgba(23, 20, 31, 0.64);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .stage-card-main {
+      display: flex;
+      gap: 12px;
+      margin-top: 10px;
+      flex: 1 1 auto;
+      min-height: 0;
+    }
+
+    .card-copy {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-name {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      line-height: 1.22;
+      color: var(--ink);
+    }
+
+    .card-class {
+      margin: 4px 0 0;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.6px;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+    }
+
+    .stat-list {
+      margin-top: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-icon {
+      flex: 0 0 auto;
+      width: 16px;
+      height: 16px;
+    }
+
+    .stat-row-label {
+      flex: 0 0 auto;
+      width: 19px;
+      margin: 0;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: rgba(23, 20, 31, 0.44);
+      text-transform: uppercase;
+    }
+
+    .stat-track {
+      position: relative;
+      flex: 1 1 auto;
+      height: 8px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: rgba(23, 20, 31, 0.08);
+      border: 1px solid rgba(23, 20, 31, 0.06);
+    }
+
+    .stat-fill {
+      height: 100%;
+      border-radius: 999px;
+    }
+
+    .stat-fill.hp {
+      background: linear-gradient(90deg, rgba(99, 209, 130, 0.95), rgba(83, 201, 121, 0.95));
+    }
+
+    .stat-fill.atk {
+      background: linear-gradient(90deg, rgba(255, 176, 106, 0.95), rgba(255, 149, 70, 0.95));
+    }
+
+    .stat-fill.spd {
+      background: linear-gradient(90deg, rgba(105, 204, 255, 0.95), rgba(69, 188, 255, 0.95));
+    }
+
+    .stat-value {
+      flex: 0 0 auto;
+      width: 30px;
+      margin: 0;
+      font-size: 10px;
+      text-align: right;
+      color: rgba(23, 20, 31, 0.74);
+    }
+
+    .stage-card.is-filled .stat-track {
+      background: rgba(255, 255, 255, 0.18);
+      border-color: rgba(255, 255, 255, 0.14);
+    }
+
+    .stage-card.is-hoverable:hover,
+    .stage-card.is-hoverable:focus-visible {
+      transform: translateY(-2px);
+      filter: brightness(1.01);
+      outline: none;
+    }
+
+    .stage-card.is-hoverable:hover .stage-card-shell,
+    .stage-card.is-hoverable:focus-visible .stage-card-shell {
+      border-color: rgba(240, 196, 112, 0.86);
+      box-shadow:
+        0 18px 30px rgba(23, 20, 31, 0.08),
+        0 0 0 1px rgba(240, 196, 112, 0.16),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+    }
+
+    .stage-card.is-empty {
+      cursor: default;
+    }
+
+    .stage-card.is-empty .stage-card-shell {
+      background: rgba(255, 255, 255, 0.76);
+      border-style: dashed;
+      border-color: rgba(23, 20, 31, 0.12);
+      box-shadow:
+        0 12px 22px rgba(23, 20, 31, 0.04),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+    }
+
+    .empty-layout {
+      display: flex;
+      flex: 1 1 auto;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 8px;
+      padding: 4px 14px 12px;
+    }
+
+    .empty-icon {
+      width: 36px;
+      height: 36px;
+      opacity: 0.52;
+    }
+
+    .empty-title {
+      margin: 0;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: rgba(23, 20, 31, 0.52);
+    }
+
+    .empty-copy {
+      max-width: 156px;
+      margin: 0;
+      font-size: 10px;
+      line-height: 1.45;
+      color: rgba(23, 20, 31, 0.44);
+      text-align: center;
+    }
+
+    .stage-footer {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(23, 20, 31, 0.08);
+      flex: 0 0 auto;
+    }
+
+    .status-block {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+
+    .status-code {
+      margin: 0;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: rgba(255, 103, 182, 0.94);
+    }
+
+    .status-title {
+      margin: 8px 0 0;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.28;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .status-copy {
+      max-width: 460px;
+      margin: 8px 0 0;
+      font-size: 11px;
+      line-height: 1.56;
+      color: rgba(23, 20, 31, 0.66);
+    }
+
+    .start-button {
+      position: relative;
+      flex: 0 0 auto;
+      width: 280px;
+      height: 64px;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+      transition: transform 220ms var(--motion);
+    }
+
+    .start-button.is-firing {
+      animation: button-launch 380ms var(--motion);
+    }
+
+    .start-button-shell {
+      position: absolute;
+      inset: 0;
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(23, 20, 31, 0.14);
+      box-shadow:
+        0 18px 30px rgba(23, 20, 31, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.38);
+      transform: skewX(-14deg);
+      transition:
+        background-color 220ms ease,
+        border-color 220ms ease,
+        box-shadow 220ms ease,
+        transform 220ms ease;
+    }
+
+    .start-button-inner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 0 18px;
+      transform: skewX(14deg);
+      text-transform: uppercase;
+      letter-spacing: 2.4px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .start-button-accent {
+      width: 8px;
+      height: 28px;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.14);
+      transition: background-color 220ms ease;
+    }
+
+    .start-button:not(.is-disabled):hover,
+    .start-button:not(.is-disabled):focus-visible {
+      transform: translateY(-2px);
+      outline: none;
+    }
+
+    .start-button:not(.is-disabled):hover .start-button-shell,
+    .start-button:not(.is-disabled):focus-visible .start-button-shell {
+      background: rgba(255, 255, 255, 0.98);
+      border-color: rgba(255, 103, 182, 0.34);
+      box-shadow:
+        0 20px 34px rgba(255, 103, 182, 0.14),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.44);
+      transform: skewX(-14deg) translateY(-1px);
+    }
+
+    .start-button:not(.is-disabled):hover .start-button-accent,
+    .start-button:not(.is-disabled):focus-visible .start-button-accent {
+      background: rgba(255, 103, 182, 0.36);
+    }
+
+    .start-button.is-disabled {
+      cursor: default;
+    }
+
+    .start-button.is-disabled .start-button-shell {
+      background: rgba(255, 255, 255, 0.74);
+      border-color: rgba(23, 20, 31, 0.08);
+      box-shadow:
+        0 12px 20px rgba(23, 20, 31, 0.04),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.32);
+    }
+
+    .start-button.is-disabled .start-button-inner {
+      color: rgba(23, 20, 31, 0.34);
+    }
+
+    .start-button.is-disabled .start-button-accent {
+      background: rgba(23, 20, 31, 0.08);
+    }
+
+    .helper {
+      position: absolute;
+      right: 24px;
+      bottom: 16px;
+      margin: 0;
+      font-size: 10px;
+      letter-spacing: 1.8px;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+    }
+
+    .toast {
+      position: absolute;
+      left: 50%;
+      bottom: 14px;
+      z-index: 4;
+      min-width: 240px;
+      max-width: 560px;
+      padding: 12px 18px;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.9);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-align: center;
+      transform: translate(-50%, 12px);
+      opacity: 0;
+      transition:
+        transform 220ms var(--motion),
+        opacity 220ms var(--motion);
+      pointer-events: none;
+    }
+
+    .toast.is-visible {
+      transform: translate(-50%, 0);
+      opacity: 1;
+    }
+
+    .stage-panel.is-confirming {
+      animation: stage-confirm 420ms var(--motion);
+    }
+
+    @keyframes stage-confirm {
+      0% {
+        transform: translateY(0);
+      }
+      28% {
+        transform: translateY(-2px);
+      }
+      100% {
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes focus-slide-up {
+      0% {
+        transform: translateY(10px);
+        opacity: 0.82;
+      }
+      100% {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes focus-slide-down {
+      0% {
+        transform: translateY(-10px);
+        opacity: 0.82;
+      }
+      100% {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    @keyframes card-settle {
+      0% {
+        transform: translateY(10px) scale(0.985);
+        opacity: 0.8;
+      }
+      100% {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+      }
+    }
+
+    @keyframes button-launch {
+      0% {
+        transform: scale(1);
+      }
+      35% {
+        transform: scale(1.03);
+      }
+      100% {
+        transform: scale(1);
+      }
+    }
+
+    @media (max-width: 1220px) {
+      html,
+      body {
+        overflow: auto;
+      }
+
+      .screen {
+        height: auto;
+        min-height: 100%;
+      }
+
+      .layout {
+        flex-direction: column;
+        min-height: 0;
+      }
+
+      .roster-panel,
+      .stage-panel {
+        width: 100%;
+        flex-basis: auto;
+      }
+
+      .stage-footer {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .start-button {
+        width: 100%;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .topbar {
+        flex-direction: column;
+      }
+
+      .menu-logo {
+        width: 160px;
+      }
+
+      .selection-grid {
+        grid-template-columns: 1fr;
+        grid-template-rows: none;
+      }
+
+      .helper {
+        position: static;
+        margin-top: 16px;
+      }
+
+      .toast {
+        width: calc(100% - 40px);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="screen" id="screen">
+    <div class="ambient-orb" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <div class="top-copy">
+        <p class="page-kicker">Party Loader</p>
+        <h1 class="page-title">Assemble The Stage Order</h1>
+        <p class="page-copy">
+          Browser-first prototype for the battle party setup screen. The structure stays faithful to the current flow,
+          but the presentation shifts into the newer white, pink, and rounded-parallelogram UI language.
+        </p>
+      </div>
+
+      <img class="menu-logo" src="../assets/vn/backgrounds/General_Art/MainMenuTitle.png" alt="Game logo">
+    </header>
+
+    <section class="layout">
+      <aside class="panel roster-panel" aria-label="Roster panel">
+        <div class="roster-header">
+          <p class="panel-kicker">Available Members</p>
+          <h2 class="panel-title">Roster</h2>
+          <p class="panel-copy" id="roster-copy">
+            Pick who enters the fight. Locked members stay in formation and selected order fills the stage from slot one onward.
+          </p>
+        </div>
+
+        <div class="roster-shell">
+          <div class="roster-list" id="roster-list" aria-label="Roster list"></div>
+
+          <div class="scrollbar" id="scrollbar-track" aria-hidden="true">
+            <button class="scrollbar-thumb" id="scrollbar-thumb" type="button" tabindex="-1"></button>
+          </div>
+        </div>
+
+        <div class="roster-footer">
+          <p class="roster-footer-copy" id="roster-footer-copy">
+            Flexible battles let you remix the order. The opening slot can still stay anchored so locked-member handling remains visible in the prototype.
+          </p>
+          <p class="roster-footer-controls">
+            Up / Down move<br>
+            Space toggle<br>
+            Enter start<br>
+            Esc back
+          </p>
+        </div>
+      </aside>
+
+      <section class="panel stage-panel" id="stage-panel" aria-label="Selected party panel">
+        <div class="stage-top">
+          <div class="stage-copy">
+            <p class="stage-kicker" id="stage-kicker">Flexible Battle</p>
+            <h2 class="stage-title" id="stage-title">Scan To Pay</h2>
+            <p class="stage-description" id="stage-description">
+              Build the party order before the show begins. Use the roster on the left to add or remove members, then press start to stage the prototype handoff.
+            </p>
+          </div>
+        </div>
+
+        <div class="stage-divider" aria-hidden="true"></div>
+
+        <div class="stage-meta">
+          <span class="preset-note is-pink" id="stage-capacity">Select 1-4 members</span>
+          <span class="preset-note is-pink" id="stage-mode-note">Miku locked in slot one</span>
+        </div>
+
+        <div class="selection-grid" id="selection-grid" aria-label="Selected party slots"></div>
+
+        <div class="stage-footer">
+          <div class="status-block">
+            <p class="status-code" id="status-code">04 / 04 Selected</p>
+            <h3 class="status-title" id="status-title">Build The Opening Formation</h3>
+            <p class="status-copy" id="status-copy">
+              Click a selected card to remove it, or move through the roster with the keyboard and toggle with space.
+            </p>
+          </div>
+
+          <button class="start-button" id="start-button" type="button">
+            <span class="start-button-shell" aria-hidden="true"></span>
+            <span class="start-button-inner">
+              <span class="start-button-accent" aria-hidden="true"></span>
+              <span>Start Battle</span>
+            </span>
+          </button>
+        </div>
+      </section>
+    </section>
+
+    <p class="helper">Mouse or keyboard both work. Page Up / Down jumps the roster by four rows.</p>
+    <div class="toast" id="toast" aria-live="polite"></div>
+  </main>
+
+  <script>
+    const visibleRows = 4;
+    const statIcons = {
+      hp: "../assets/ui/party_setup/def.png",
+      atk: "../assets/ui/party_setup/atk.png",
+      spd: "../assets/ui/party_setup/spd.png"
+    };
+
+    const artAssets = {
+      bigPlus: "../assets/ui/party_setup/big_plus.png"
+    };
+
+    const characters = {
+      miku: {
+        key: "miku",
+        title: "Hatsune Miku",
+        className: "DPS",
+        hp: 40,
+        atk: 15,
+        spd: 134,
+        rosterArt: "../assets/combat/icons/miku.png",
+        stageArt: "../assets/combat/sprites/miku.png"
+      },
+      cupcakke: {
+        key: "cupcakke",
+        title: "Cupcakke",
+        className: "Tank",
+        hp: 60,
+        atk: 35,
+        spd: 99,
+        rosterArt: "../assets/combat/icons/cupcakke.png",
+        stageArt: "../assets/combat/sprites/cupcakke.png"
+      },
+      lyoo: {
+        key: "lyoo",
+        title: "Lyoo",
+        className: "Healer",
+        hp: 80,
+        atk: 0,
+        spd: 200,
+        rosterArt: "../assets/combat/icons/lyoo.png",
+        stageArt: "../assets/combat/sprites/lyoo.png"
+      },
+      jiafei: {
+        key: "jiafei",
+        title: "Jiafei",
+        className: "DPS",
+        hp: 48,
+        atk: 28,
+        spd: 145,
+        rosterArt: "../assets/combat/icons/jiafei.png",
+        stageArt: "../assets/combat/sprites/jiafei.png"
+      },
+      luotianyi: {
+        key: "luotianyi",
+        title: "洛天依",
+        className: "Buffer",
+        hp: 60,
+        atk: 40,
+        spd: 160,
+        rosterArt: "../assets/combat/sprites/luotianyi.png",
+        stageArt: "../assets/combat/sprites/luotianyi.png"
+      },
+      wechatalipay: {
+        key: "wechatalipay",
+        title: "微信姐 & 支付宝姐",
+        className: "Shielder",
+        hp: 64,
+        atk: 14,
+        spd: 200,
+        rosterArt: "../assets/combat/sprites/wechatalipay.png",
+        stageArt: "../assets/combat/sprites/wechatalipay.png"
+      },
+      ari: {
+        key: "ari",
+        title: "Ariana Grande",
+        className: "Buffer",
+        hp: 52,
+        atk: 18,
+        spd: 170,
+        rosterArt: "../assets/combat/icons/ari.png",
+        stageArt: "../assets/combat/sprites/ari.png"
+      }
+    };
+
+    const battlePreset = {
+      displayName: "Scan To Pay",
+      kicker: "Flexible Battle",
+      description: "The phone-duo showdown lets you tune the opening roster before the curtain rises. One member is already anchored, but the rest of the formation stays yours to reshape.",
+      partySize: 4,
+      lockedLineup: ["miku"],
+      lineup: ["miku", "cupcakke", "jiafei", "lyoo"],
+      rosterKeys: ["miku", "cupcakke", "jiafei", "lyoo", "luotianyi", "wechatalipay", "ari"]
+    };
+
+    const scrollTemplate = new Audio("../assets/ui/sfx/UI_notification-done.wav");
+    const confirmTemplate = new Audio("../assets/ui/sfx/Selection_roulette-result.wav");
+    scrollTemplate.preload = "auto";
+    confirmTemplate.preload = "auto";
+
+    const rosterList = document.getElementById("roster-list");
+    const scrollbarTrack = document.getElementById("scrollbar-track");
+    const scrollbarThumb = document.getElementById("scrollbar-thumb");
+    const selectionGrid = document.getElementById("selection-grid");
+    const stagePanel = document.getElementById("stage-panel");
+    const stageKicker = document.getElementById("stage-kicker");
+    const stageTitle = document.getElementById("stage-title");
+    const stageDescription = document.getElementById("stage-description");
+    const stageCapacity = document.getElementById("stage-capacity");
+    const statusCode = document.getElementById("status-code");
+    const statusTitle = document.getElementById("status-title");
+    const statusCopy = document.getElementById("status-copy");
+    const startButton = document.getElementById("start-button");
+    const toast = document.getElementById("toast");
+    const rosterCopy = document.getElementById("roster-copy");
+    const rosterFooterCopy = document.getElementById("roster-footer-copy");
+
+    const state = {
+      selectedKeys: [],
+      focusedRosterIndex: 0,
+      scrollOffset: 0,
+      draggingScrollbar: false,
+      dragGrabOffset: 0,
+      toastTimer: 0,
+      confirmTimer: 0,
+      focusAnimation: null,
+      gridAnimation: false
+    };
+
+    const rosterMaxStats = computeRosterMaxStats();
+
+    function playSound(template, volume) {
+      const sound = template.cloneNode();
+      sound.volume = volume;
+      sound.play().catch(() => {});
+    }
+
+    function computeRosterMaxStats() {
+      const values = Object.values(characters);
+      const maxHp = Math.max(...values.map((character) => character.hp), 1);
+      const maxAtk = Math.max(...values.map((character) => character.atk), 1);
+      const maxSpd = Math.max(...values.map((character) => character.spd), 1);
+      return { maxHp, maxAtk, maxSpd };
+    }
+
+    function currentPreset() {
+      return battlePreset;
+    }
+
+    function currentRoster() {
+      return currentPreset().rosterKeys.map((key) => characters[key]).filter(Boolean);
+    }
+
+    function selectionCapacity() {
+      return Math.max(1, Math.min(currentPreset().partySize || 1, 4));
+    }
+
+    function lockedKeysForPreset(preset) {
+      return preset.lockedLineup.filter((key, index, array) => key && array.indexOf(key) === index);
+    }
+
+    function isLockedKey(key) {
+      return lockedKeysForPreset(currentPreset()).includes(key);
+    }
+
+    function visibleCount() {
+      return currentRoster().length;
+    }
+
+    function maxScrollOffset() {
+      return Math.max(0, visibleCount() - visibleRows);
+    }
+
+    function clampScrollOffset() {
+      state.scrollOffset = Math.max(0, Math.min(state.scrollOffset, maxScrollOffset()));
+    }
+
+    function ensureFocusedVisible() {
+      clampScrollOffset();
+      if (state.focusedRosterIndex < state.scrollOffset) {
+        state.scrollOffset = state.focusedRosterIndex;
+      } else if (state.focusedRosterIndex >= state.scrollOffset + visibleRows) {
+        state.scrollOffset = state.focusedRosterIndex - visibleRows + 1;
+      }
+      clampScrollOffset();
+    }
+
+    function selectedSlotForKey(key) {
+      return state.selectedKeys.indexOf(key);
+    }
+
+    function canStart() {
+      return state.selectedKeys.length >= 1 && state.selectedKeys.length <= selectionCapacity();
+    }
+
+    function initialsForName(name) {
+      const letters = String(name)
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => Array.from(part)[0] || "")
+        .join("");
+      return letters || "?";
+    }
+
+    function artMarkup(path, name, className) {
+      return `
+        <span class="${className}">
+          <span class="${className}-inner">
+            <img src="${path}" alt="" onerror="this.style.display='none'">
+          </span>
+          <span class="art-fallback">${initialsForName(name)}</span>
+        </span>
+      `;
+    }
+
+    function statRowMarkup(label, value, maxValue, fillClass) {
+      const ratio = Math.max(0, Math.min(1, value / Math.max(1, maxValue)));
+      const iconPath = statIcons[label];
+      return `
+        <div class="stat-row">
+          <img class="stat-icon" src="${iconPath}" alt="" onerror="this.style.display='none'">
+          <p class="stat-row-label">${label.toUpperCase()}</p>
+          <div class="stat-track" aria-hidden="true">
+            <div class="stat-fill ${fillClass}" style="width: ${Math.round(ratio * 100)}%;"></div>
+          </div>
+          <p class="stat-value">${value}</p>
+        </div>
+      `;
+    }
+
+    function seedSelectionForPreset(preset) {
+      const capacity = Math.max(1, Math.min(preset.partySize || 1, 4));
+      const nextSelected = [];
+      const addIfAvailable = (key) => {
+        if (!key || nextSelected.includes(key) || nextSelected.length >= capacity) {
+          return;
+        }
+        if (!characters[key]) {
+          return;
+        }
+        nextSelected.push(key);
+      };
+
+      lockedKeysForPreset(preset).forEach(addIfAvailable);
+      preset.lineup.forEach(addIfAvailable);
+      return nextSelected;
+    }
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("is-visible");
+      window.clearTimeout(state.toastTimer);
+      state.toastTimer = window.setTimeout(() => {
+        toast.classList.remove("is-visible");
+      }, 1100);
+    }
+
+    function updateFocus(nextIndex, direction, playSfx) {
+      const roster = currentRoster();
+      if (!roster.length) {
+        return;
+      }
+
+      const clampedIndex = Math.max(0, Math.min(nextIndex, roster.length - 1));
+      if (clampedIndex === state.focusedRosterIndex) {
+        return;
+      }
+
+      state.focusedRosterIndex = clampedIndex;
+      state.focusAnimation = direction;
+      ensureFocusedVisible();
+      if (playSfx) {
+        playSound(scrollTemplate, 0.34);
+      }
+      render();
+    }
+
+    function toggleFocusedCharacter() {
+      const roster = currentRoster();
+      if (!roster.length) {
+        return;
+      }
+      const entry = roster[state.focusedRosterIndex];
+      if (!entry) {
+        return;
+      }
+      toggleCharacter(entry.key);
+    }
+
+    function toggleCharacter(key) {
+      if (!characters[key]) {
+        return;
+      }
+
+      const selectedIndex = selectedSlotForKey(key);
+      if (selectedIndex >= 0) {
+        if (isLockedKey(key)) {
+          showToast("That member is locked into this lineup");
+          return;
+        }
+        state.selectedKeys.splice(selectedIndex, 1);
+      } else {
+        if (state.selectedKeys.length >= selectionCapacity()) {
+          showToast("Party limit reached");
+          return;
+        }
+        state.selectedKeys.push(key);
+      }
+
+      state.gridAnimation = true;
+      playSound(scrollTemplate, 0.48);
+      render();
+    }
+
+    function removeSelectedAt(slotIndex) {
+      const key = state.selectedKeys[slotIndex];
+      if (!key) {
+        return;
+      }
+      if (isLockedKey(key)) {
+        showToast("Locked members cannot be removed");
+        return;
+      }
+      state.selectedKeys.splice(slotIndex, 1);
+      state.gridAnimation = true;
+      playSound(scrollTemplate, 0.48);
+      render();
+    }
+
+    function startPreview() {
+      if (!canStart()) {
+        showToast("Choose at least one member first");
+        return;
+      }
+
+      stagePanel.classList.remove("is-confirming");
+      startButton.classList.remove("is-firing");
+      void stagePanel.offsetWidth;
+      stagePanel.classList.add("is-confirming");
+      startButton.classList.add("is-firing");
+      playSound(confirmTemplate, 0.56);
+
+      window.clearTimeout(state.confirmTimer);
+      state.confirmTimer = window.setTimeout(() => {
+        stagePanel.classList.remove("is-confirming");
+        startButton.classList.remove("is-firing");
+      }, 450);
+
+      const names = state.selectedKeys
+        .map((key) => characters[key])
+        .filter(Boolean)
+        .map((entry) => entry.title)
+        .join(" / ");
+      showToast(`Prototype start: ${names}`);
+    }
+
+    function updateScrollbarFromPointer(clientY) {
+      const total = visibleCount();
+      const maxOffset = maxScrollOffset();
+      if (total <= visibleRows || maxOffset <= 0) {
+        state.scrollOffset = 0;
+        renderScrollbar();
+        return;
+      }
+
+      const trackRect = scrollbarTrack.getBoundingClientRect();
+      const thumbHeight = Math.max(42, trackRect.height * (visibleRows / total));
+      const usableTravel = Math.max(1, trackRect.height - thumbHeight);
+      const pointerY = clientY - trackRect.top - state.dragGrabOffset;
+      const clampedY = Math.max(0, Math.min(pointerY, usableTravel));
+      const ratio = clampedY / usableTravel;
+      state.scrollOffset = Math.round(ratio * maxOffset);
+      render();
+    }
+
+    function renderRoster() {
+      const roster = currentRoster();
+      const visibleEntries = roster.slice(state.scrollOffset, state.scrollOffset + visibleRows);
+
+      rosterList.innerHTML = visibleEntries.map((entry, visibleIndex) => {
+        const rosterIndex = state.scrollOffset + visibleIndex;
+        const selectedSlot = selectedSlotForKey(entry.key);
+        const selected = selectedSlot >= 0;
+        const focused = rosterIndex === state.focusedRosterIndex;
+        const locked = isLockedKey(entry.key);
+        const animationClass = focused && state.focusAnimation
+          ? ` is-animated-${state.focusAnimation}`
+          : "";
+
+        return `
+          <button
+            class="roster-row${selected ? " is-selected" : ""}${focused ? " is-focused" : ""}${locked ? " is-locked" : ""}${animationClass}"
+            type="button"
+            data-roster-index="${rosterIndex}">
+            <span class="roster-row-shell" aria-hidden="true"></span>
+            <span class="roster-row-inner">
+              <span class="roster-row-accent" aria-hidden="true"></span>
+              ${artMarkup(entry.rosterArt, entry.title, "art-thumb")}
+              <span class="roster-row-copy">
+                <span class="roster-row-name">${entry.title}</span>
+                <span class="roster-row-class">${entry.className}</span>
+                <span class="roster-row-stats">HP ${entry.hp}  •  ATK ${entry.atk}  •  SPD ${entry.spd}</span>
+              </span>
+              <span class="roster-row-side">
+                ${selected ? `<span class="slot-badge">${selectedSlot + 1}</span>` : ""}
+                ${locked ? `<span class="lock-badge">Locked</span>` : ""}
+              </span>
+            </span>
+          </button>
+        `;
+      }).join("");
+
+      rosterList.querySelectorAll("[data-roster-index]").forEach((button) => {
+        const index = Number(button.getAttribute("data-roster-index"));
+        button.addEventListener("mouseenter", () => {
+          if (!Number.isNaN(index)) {
+            updateFocus(index, index < state.focusedRosterIndex ? "up" : "down", true);
+          }
+        });
+        button.addEventListener("click", () => {
+          if (Number.isNaN(index)) {
+            return;
+          }
+          state.focusedRosterIndex = index;
+          ensureFocusedVisible();
+          const entry = currentRoster()[index];
+          if (entry) {
+            toggleCharacter(entry.key);
+          }
+        });
+      });
+    }
+
+    function renderScrollbar() {
+      const total = visibleCount();
+      if (total <= visibleRows) {
+        scrollbarTrack.style.opacity = "0.35";
+        scrollbarThumb.style.height = `${scrollbarTrack.clientHeight}px`;
+        scrollbarThumb.style.top = "0px";
+        return;
+      }
+
+      scrollbarTrack.style.opacity = "1";
+      const trackHeight = scrollbarTrack.clientHeight;
+      const thumbHeight = Math.max(42, trackHeight * (visibleRows / total));
+      const usableTravel = Math.max(0, trackHeight - thumbHeight);
+      const ratio = maxScrollOffset() === 0 ? 0 : state.scrollOffset / maxScrollOffset();
+      scrollbarThumb.style.height = `${thumbHeight}px`;
+      scrollbarThumb.style.top = `${usableTravel * ratio}px`;
+    }
+
+    function renderSelectionGrid() {
+      const capacity = selectionCapacity();
+      selectionGrid.classList.toggle("is-settling", state.gridAnimation);
+      selectionGrid.innerHTML = Array.from({ length: capacity }, (_, slotIndex) => {
+        const key = state.selectedKeys[slotIndex];
+        if (!key || !characters[key]) {
+          return `
+            <button class="stage-card is-empty" type="button" tabindex="-1">
+              <span class="stage-card-shell" aria-hidden="true"></span>
+              <span class="stage-card-inner">
+                <div class="stage-card-topline">
+                  <p class="slot-index">Slot ${slotIndex + 1}</p>
+                  <span class="slot-pill">Empty</span>
+                </div>
+                <div class="empty-layout">
+                  <img class="empty-icon" src="${artAssets.bigPlus}" alt="" onerror="this.style.display='none'">
+                  <p class="empty-title">Open Slot</p>
+                  <p class="empty-copy">Select someone from the roster and the stage order fills from left to right.</p>
+                </div>
+              </span>
+            </button>
+          `;
+        }
+
+        const entry = characters[key];
+        const locked = isLockedKey(key);
+        return `
+          <button
+            class="stage-card is-filled${locked ? "" : " is-hoverable"}"
+            type="button"
+            data-slot-index="${slotIndex}">
+            <span class="stage-card-shell" aria-hidden="true"></span>
+            <span class="stage-card-inner">
+              <div class="stage-card-topline">
+                <p class="slot-index">Slot ${slotIndex + 1}</p>
+                <span class="slot-pill ${locked ? "is-locked" : "is-remove"}">${locked ? "Locked" : "Remove"}</span>
+              </div>
+              <div class="stage-card-main">
+                ${artMarkup(entry.stageArt, entry.title, "card-art")}
+                <div class="card-copy">
+                  <p class="card-name">${entry.title}</p>
+                  <p class="card-class">${entry.className}</p>
+                  <div class="stat-list">
+                    ${statRowMarkup("hp", entry.hp, rosterMaxStats.maxHp, "hp")}
+                    ${statRowMarkup("atk", entry.atk, rosterMaxStats.maxAtk, "atk")}
+                    ${statRowMarkup("spd", entry.spd, rosterMaxStats.maxSpd, "spd")}
+                  </div>
+                </div>
+              </div>
+            </span>
+          </button>
+        `;
+      }).join("");
+
+      selectionGrid.querySelectorAll("[data-slot-index]").forEach((button) => {
+        const slotIndex = Number(button.getAttribute("data-slot-index"));
+        button.addEventListener("click", () => {
+          if (!Number.isNaN(slotIndex)) {
+            removeSelectedAt(slotIndex);
+          }
+        });
+      });
+    }
+
+    function renderStatus() {
+      const preset = currentPreset();
+      const selectedCount = state.selectedKeys.length;
+      const capacity = selectionCapacity();
+
+      stageKicker.textContent = preset.kicker;
+      stageTitle.textContent = preset.displayName;
+      stageDescription.textContent = preset.description;
+      stageCapacity.textContent = `Select 1-${capacity} members`;
+      statusCode.textContent = `${String(selectedCount).padStart(2, "0")} / ${String(capacity).padStart(2, "0")} Selected`;
+      statusTitle.textContent = "Build The Opening Formation";
+      statusCopy.textContent = "Click a selected card to remove it, or move through the roster with the keyboard and toggle with space.";
+      rosterCopy.textContent = "Pick who enters the fight. Locked members stay in formation and selected order fills the stage from slot one onward.";
+      rosterFooterCopy.textContent = "Flexible battles let you remix the order. The opening slot can still stay anchored so locked-member handling remains visible in the prototype.";
+    }
+
+    function renderStartButton() {
+      const disabled = !canStart();
+      startButton.classList.toggle("is-disabled", disabled);
+      startButton.setAttribute("aria-disabled", disabled ? "true" : "false");
+    }
+
+    function render() {
+      const roster = currentRoster();
+      if (roster.length === 0) {
+        state.focusedRosterIndex = 0;
+      } else {
+        state.focusedRosterIndex = Math.max(0, Math.min(state.focusedRosterIndex, roster.length - 1));
+      }
+      ensureFocusedVisible();
+      renderStatus();
+      renderRoster();
+      renderSelectionGrid();
+      renderStartButton();
+      renderScrollbar();
+      scrollbarTrack.classList.toggle("is-dragging", state.draggingScrollbar);
+      state.focusAnimation = null;
+      state.gridAnimation = false;
+    }
+
+    scrollbarTrack.addEventListener("mousedown", (event) => {
+      const total = visibleCount();
+      if (total <= visibleRows) {
+        return;
+      }
+      const thumbRect = scrollbarThumb.getBoundingClientRect();
+      const clickedThumb = event.target === scrollbarThumb;
+      state.draggingScrollbar = true;
+      state.dragGrabOffset = clickedThumb
+        ? event.clientY - thumbRect.top
+        : thumbRect.height * 0.5;
+      updateScrollbarFromPointer(event.clientY);
+      render();
+      event.preventDefault();
+    });
+
+    window.addEventListener("mousemove", (event) => {
+      if (!state.draggingScrollbar) {
+        return;
+      }
+      updateScrollbarFromPointer(event.clientY);
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (!state.draggingScrollbar) {
+        return;
+      }
+      state.draggingScrollbar = false;
+      render();
+    });
+
+    scrollbarThumb.addEventListener("dragstart", (event) => {
+      event.preventDefault();
+    });
+
+    document.querySelector(".roster-shell").addEventListener("wheel", (event) => {
+      const total = visibleCount();
+      if (total <= visibleRows) {
+        return;
+      }
+      event.preventDefault();
+      const previousOffset = state.scrollOffset;
+      state.scrollOffset += event.deltaY > 0 ? 1 : -1;
+      clampScrollOffset();
+      if (state.scrollOffset !== previousOffset) {
+        state.focusAnimation = event.deltaY > 0 ? "down" : "up";
+        playSound(scrollTemplate, 0.26);
+      }
+      render();
+    }, { passive: false });
+
+    startButton.addEventListener("click", () => {
+      startPreview();
+    });
+
+    document.addEventListener("keydown", (event) => {
+      const roster = currentRoster();
+      if (!roster.length) {
+        return;
+      }
+
+      switch (event.key) {
+        case "ArrowUp":
+          event.preventDefault();
+          updateFocus((state.focusedRosterIndex - 1 + roster.length) % roster.length, "up", true);
+          break;
+        case "ArrowDown":
+          event.preventDefault();
+          updateFocus((state.focusedRosterIndex + 1) % roster.length, "down", true);
+          break;
+        case "PageUp":
+          event.preventDefault();
+          if (state.scrollOffset > 0) {
+            playSound(scrollTemplate, 0.3);
+          }
+          state.scrollOffset -= visibleRows;
+          clampScrollOffset();
+          state.focusedRosterIndex = Math.max(state.scrollOffset, Math.min(state.focusedRosterIndex, state.scrollOffset + visibleRows - 1));
+          state.focusAnimation = "up";
+          render();
+          break;
+        case "PageDown":
+          event.preventDefault();
+          if (state.scrollOffset < maxScrollOffset()) {
+            playSound(scrollTemplate, 0.3);
+          }
+          state.scrollOffset += visibleRows;
+          clampScrollOffset();
+          state.focusedRosterIndex = Math.min(roster.length - 1, Math.max(state.focusedRosterIndex, state.scrollOffset));
+          if (state.focusedRosterIndex < state.scrollOffset) {
+            state.focusedRosterIndex = state.scrollOffset;
+          }
+          if (state.focusedRosterIndex > state.scrollOffset + visibleRows - 1) {
+            state.focusedRosterIndex = state.scrollOffset + visibleRows - 1;
+          }
+          state.focusAnimation = "down";
+          render();
+          break;
+        case " ":
+        case "Spacebar":
+          event.preventDefault();
+          toggleFocusedCharacter();
+          break;
+        case "Enter":
+          event.preventDefault();
+          if (canStart()) {
+            startPreview();
+          } else {
+            toggleFocusedCharacter();
+          }
+          break;
+        case "Escape":
+          event.preventDefault();
+          showToast("Back requested (prototype only)");
+          break;
+        default:
+          break;
+      }
+    });
+
+    state.selectedKeys = seedSelectionForPreset(currentPreset());
+    render();
+  </script>
+</body>
+</html>

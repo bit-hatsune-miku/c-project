@@ -65,6 +65,8 @@ std::vector<ScreenId> stackForAppState(const AppState& state) {
             return {};
 
         case ScreenState::BattleDemo:
+        case ScreenState::BossSelector:
+        case ScreenState::PartyLoader:
             return {};
     }
 

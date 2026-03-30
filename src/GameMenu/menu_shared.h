@@ -19,6 +19,7 @@ class Window;
 enum class ScreenState {
     MainMenu,
     BossSelector,
+    PartyLoader,
     Settings,
     LoadMenu,
     LoadConfirmDelete,
@@ -186,6 +187,7 @@ struct AppState {
     bool requestStoryReturnToBossSelector = false;
     ScreenState storyEndReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleKey;
+    std::vector<std::string> pendingBattlePartyLineup;
     bool pendingBattleLaunchedFromStory = false;
     ScreenState pendingBattleReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleWinScript;
