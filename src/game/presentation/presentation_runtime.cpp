@@ -63,6 +63,8 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
         return {};
     }
 
+    presentation->preload(renderer);
+
     std::cout << "[Presentation] Playing: " << context.presentationId << "\n";
 
     // Set basic playback flags — but hold off on exposing the presentation pointer
@@ -74,10 +76,13 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     // ------------------------------------------------------------------
     // Splash art intro (pre-presentation)
     // ------------------------------------------------------------------
-    std::optional<SplashArtConfig> splashCfg = presentation->getSplashConfig(callbacks.casterSpriteTexture);
+    SDL_Texture* splashSpriteTexture = callbacks.splashSpriteTexture != nullptr
+        ? callbacks.splashSpriteTexture
+        : callbacks.casterSpriteTexture;
+    std::optional<SplashArtConfig> splashCfg = presentation->getSplashConfig(splashSpriteTexture);
     if (!splashCfg.has_value() && context.isBoss) {
         SplashArtConfig cfg;
-        cfg.sprite = callbacks.casterSpriteTexture;
+        cfg.sprite = splashSpriteTexture;
         splashCfg = std::move(cfg);
     }
 
@@ -136,6 +141,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     }
 
     presentation->setExternalTextures(callbacks.casterSpriteTexture, callbacks.targetSpriteTexture);
+    presentation->setOverlayTextures(callbacks.overlayCasterSpriteTexture, callbacks.overlayTargetSpriteTexture);
     presentation->setTargetPartyIndex(context.targetIndex);
     presentation->setTargetWorldPosition(targetX, targetY, targetZ);
     presentation->setPresentationValue(context.presentationValue);

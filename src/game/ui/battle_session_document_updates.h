@@ -50,6 +50,18 @@ inline void setElementDisplay(Rml::ElementDocument* document, const std::string&
     }
 }
 
+inline void setElementProperty(Rml::ElementDocument* document,
+                               const std::string& id,
+                               const std::string& property,
+                               const std::string& value) {
+    if (document == nullptr) {
+        return;
+    }
+    if (Rml::Element* element = document->GetElementById(id)) {
+        element->SetProperty(property, value);
+    }
+}
+
 inline void setElementClass(Rml::ElementDocument* document,
                             const std::string& id,
                             const std::string& className,
@@ -77,13 +89,19 @@ inline void setPortraitDecorator(Rml::ElementDocument* document,
                                  const std::string& id,
                                  const std::string& assetName,
                                  const BattleHudDocumentDependencies& dependencies) {
-    if (document == nullptr || !dependencies.findCombatImagePath) {
+    if (document == nullptr) {
         return;
     }
     if (Rml::Element* element = document->GetElementById(id)) {
+        if (!dependencies.findCombatImagePath) {
+            element->RemoveProperty("decorator");
+            return;
+        }
         const std::string path = dependencies.findCombatImagePath("icons", assetName);
         if (!path.empty()) {
             element->SetProperty("decorator", "image(" + path + " cover center center)");
+        } else {
+            element->RemoveProperty("decorator");
         }
     }
 }
@@ -101,36 +119,6 @@ inline std::vector<int> getSortedTurnActorIndices(const battle::TurnState& turnS
         return battle::turn::turnPriorityLess(a, b);
     });
     return sorted;
-}
-
-inline void setOrbState(Rml::Element* orb, bool visible, bool filled, bool gold = false) {
-    if (orb == nullptr) {
-        return;
-    }
-    orb->SetClass("hidden", !visible);
-    orb->SetClass("full", filled);
-    orb->SetClass("gold", filled && gold);
-}
-
-inline void updateBossOrbRow(Rml::ElementDocument* document, int charge, int required) {
-    const int safeRequired = std::clamp(required, 1, 6);
-    const int safeCharge = std::clamp(charge, 0, safeRequired);
-    for (int i = 0; i < 6; ++i) {
-        if (Rml::Element* orb = document->GetElementById("boss-orb-" + std::to_string(i + 1))) {
-            setOrbState(orb, i < safeRequired, i < safeCharge, false);
-        }
-    }
-}
-
-inline void updateUnitOrbRow(Rml::ElementDocument* document, int unitIndex, int charge, int required) {
-    const int safeRequired = std::clamp(required, 1, 6);
-    const int safeCharge = std::clamp(charge, 0, safeRequired);
-    for (int i = 0; i < 6; ++i) {
-        if (Rml::Element* orb = document->GetElementById(
-                "unit-" + std::to_string(unitIndex) + "-orb-" + std::to_string(i + 1))) {
-            setOrbState(orb, i < safeRequired, i < safeCharge, safeCharge == safeRequired && i == safeRequired - 1);
-        }
-    }
 }
 
 inline std::string hpColorForRatio(float ratio) {
@@ -166,6 +154,16 @@ inline void updateToastDocument(Rml::ElementDocument* document, const HudFeedbac
     if (Rml::Element* toast = document->GetElementById("battle-toast")) {
         toast->SetInnerRML(feedback.toastText);
         toast->SetClass("visible", !feedback.toastText.empty());
+    }
+}
+
+inline void updateHintDocument(Rml::ElementDocument* document, const HudFeedbackState& feedback) {
+    if (document == nullptr) {
+        return;
+    }
+    if (Rml::Element* hint = document->GetElementById("battle-hint")) {
+        hint->SetInnerRML(feedback.hintText);
+        hint->SetClass("visible", !feedback.hintText.empty());
     }
 }
 
@@ -292,17 +290,21 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
     const battle::TurnState& turnState = manager.getTurnState();
     const int activeActorIndex = manager.getPreviewNextActorIndex();
 
+    const std::string bossDisplayName = !battleState.boss.title.empty() ? battleState.boss.title : battleState.boss.key;
     detail::setElementText(document,
                            "boss-name",
-                           dependencies.uppercaseText ? dependencies.uppercaseText(battleState.boss.key) : battleState.boss.key);
+                           dependencies.uppercaseText ? dependencies.uppercaseText(bossDisplayName) : bossDisplayName);
     const int bossCurrentHp = manager.getBossCurrentHp();
     const int bossMaxHp = std::max(1, manager.getBossMaxHp());
     const int bossPercent = static_cast<int>(std::round((100.0f * bossCurrentHp) / bossMaxHp));
-    detail::setElementText(document, "boss-percent", "HP " + std::to_string(bossPercent) + "%");
+    detail::setElementText(document,
+                           "boss-readout",
+                           std::to_string(bossCurrentHp) + " / " + std::to_string(bossMaxHp) + " HP");
+    detail::setElementText(document, "boss-percent", std::to_string(bossPercent) + "%");
     if (Rml::Element* bossFill = document->GetElementById("boss-fill")) {
         bossFill->SetProperty("width", std::to_string(bossPercent) + "%");
     }
-    detail::updateBossOrbRow(document, manager.getBossUltimateCharge(), manager.getBossUltimateRequired());
+    detail::setElementClass(document, "boss-band", "hit", nowMs < feedback.bossHitUntilMs);
 
     const std::vector<int> sortedActorIndices = detail::getSortedTurnActorIndices(turnState);
     for (int slot = 0; slot < 5; ++slot) {
@@ -319,12 +321,12 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
             "turn-portrait-" + slotIndex,
             actor.assetId.empty() ? actor.key : actor.assetId,
             dependencies);
+        detail::setElementText(document,
+                               "turn-value-" + slotIndex,
+                               std::to_string(static_cast<int>(std::round(actor.currentActionValue))));
         if (Rml::Element* card = document->GetElementById("turn-card-" + slotIndex)) {
             card->SetClass("active", sortedActorIndices[static_cast<size_t>(slot)] == activeActorIndex);
             card->SetClass("boss", actor.type == battle::ParticipantType::Boss);
-        }
-        if (Rml::Element* accent = document->GetElementById("turn-accent-" + slotIndex)) {
-            accent->SetClass("boss-accent", actor.type == battle::ParticipantType::Boss);
         }
     }
 
@@ -340,69 +342,55 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
         const int currentHp = manager.getCharacterCurrentHp(i);
         const int maxHp = std::max(1, manager.getCharacterMaxHp(i));
         const float ratio = static_cast<float>(std::clamp(currentHp, 0, maxHp)) / static_cast<float>(maxHp);
+        const int ultimateCharge = manager.getCharacterUltimateCharge(i);
+        const int ultimateRequired = std::max(1, manager.getCharacterUltimateRequired(i));
+        const float ultimateRatio =
+            static_cast<float>(std::clamp(ultimateCharge, 0, ultimateRequired)) / static_cast<float>(ultimateRequired);
+        const int shield = manager.getCharacterShield(i);
+        const float shieldRatio =
+            currentHp > 0 ? std::min(1.0f, static_cast<float>(shield) / static_cast<float>(currentHp)) : 0.0f;
 
         detail::setElementText(document,
-                               "unit-name-" + index,
-                               dependencies.uppercaseText ? dependencies.uppercaseText(character.title) : character.title);
-        detail::setElementText(document, "unit-hp-text-" + index, std::to_string(currentHp));
-        detail::setPortraitDecorator(document, "unit-portrait-" + index, character.assets, dependencies);
-        detail::updateUnitOrbRow(document, i + 1, manager.getCharacterUltimateCharge(i), manager.getCharacterUltimateRequired(i));
-
-        // Shield bar (drawn behind HP bar, animated)
-        const int shield = manager.getCharacterShield(i);
-        if (Rml::Element* shieldFill = document->GetElementById("unit-shield-fill-" + index)) {
-            // Shield ratio is shield/maxHp, capped at 1.0 for full bar
-            float shieldRatio = 0.0f;
-            if (maxHp > 0 && shield > 0) {
-                shieldRatio = std::min(1.0f, static_cast<float>(shield) / static_cast<float>(maxHp));
-            }
-            const int shieldWidth = std::clamp(static_cast<int>(std::round(shieldRatio * 174.0f)), 0, 174);
-            shieldFill->SetProperty("width", std::to_string(shieldWidth) + "px");
-            shieldFill->SetProperty("background-color", "#6ec1e4"); // Light blue for shield
-            shieldFill->SetProperty("display", shield > 0 ? "block" : "none");
-        }
+                               "unit-hp-text-" + index,
+                               std::to_string(currentHp) + " / " + std::to_string(maxHp));
+        detail::setPortraitDecorator(document, "unit-icon-" + index, character.assets, dependencies);
+        detail::setElementText(document,
+                               "unit-ult-text-" + index,
+                               std::to_string(ultimateCharge) + " / " + std::to_string(ultimateRequired));
+        detail::setElementProperty(document,
+                                   "unit-ult-fill-" + index,
+                                   "height",
+                                   std::to_string(static_cast<int>(std::round(ultimateRatio * 100.0f))) + "%");
         if (Rml::Element* hpFill = document->GetElementById("unit-hp-fill-" + index)) {
-            const int fillWidth = std::clamp(static_cast<int>(std::round(ratio * 174.0f)), 0, 174);
-            hpFill->SetProperty("width", std::to_string(fillWidth) + "px");
+            hpFill->SetProperty("width", std::to_string(static_cast<int>(std::round(ratio * 100.0f))) + "%");
             hpFill->SetProperty("background-color", detail::hpColorForRatio(ratio));
         }
+        detail::setElementDisplay(document, "unit-shield-badge-" + index, shield > 0);
+        detail::setElementText(document, "unit-shield-value-" + index, std::to_string(shield));
+        detail::setElementDisplay(document, "unit-shield-top-" + index, shield > 0);
+        detail::setElementDisplay(document, "unit-shield-bottom-" + index, shield > 0);
+        detail::setElementDisplay(document, "unit-shield-left-" + index, shield > 0);
+        detail::setElementDisplay(document, "unit-shield-right-" + index, shield > 0 && shieldRatio >= 0.999f);
+        const std::string shieldWidth =
+            std::to_string(static_cast<int>(std::round(shieldRatio * 100.0f))) + "%";
+        detail::setElementProperty(document, "unit-shield-top-" + index, "width", shieldWidth);
+        detail::setElementProperty(document, "unit-shield-bottom-" + index, "width", shieldWidth);
         if (Rml::Element* card = document->GetElementById("unit-card-" + index)) {
-            const bool isFocused = activeActorIndex >= 0 &&
-                activeActorIndex < static_cast<int>(turnState.actors.size()) &&
+            const bool isFocused =
+                activeActorIndex >= 0 && activeActorIndex < static_cast<int>(turnState.actors.size()) &&
                 turnState.actors[static_cast<size_t>(activeActorIndex)].type == battle::ParticipantType::Character &&
                 turnState.actors[static_cast<size_t>(activeActorIndex)].partyIndex == i;
-            card->SetClass("focus", isFocused);
+            card->SetClass("active", isFocused);
             card->SetClass("ghost", currentHp <= 0);
+            card->SetClass("hit", nowMs < feedback.unitHitUntilMs[static_cast<size_t>(i)]);
             card->SetClass(
                 "ult-ready",
-                currentHp > 0 && manager.getCharacterUltimateCharge(i) >= manager.getCharacterUltimateRequired(i)
+                currentHp > 0 && ultimateCharge >= ultimateRequired
             );
         }
-
-        for (int orbIndex = 0; orbIndex < 6; ++orbIndex) {
-            if (Rml::Element* orb = document->GetElementById(
-                    "unit-" + std::to_string(i + 1) + "-orb-" + std::to_string(orbIndex + 1))) {
-                const bool shouldBlink =
-                    feedback.blinkUnitIndex == i &&
-                    orbIndex >= feedback.blinkMissingFrom &&
-                    orbIndex <= feedback.blinkMissingTo;
-                orb->SetClass("missing", shouldBlink);
-            }
-        }
     }
 
-    const bool playerCanAct = getActiveCharacterPartyIndex(manager).has_value();
-    if (Rml::Element* actionStandard = document->GetElementById("action-standard")) {
-        actionStandard->SetClass(
-            "disabled",
-            paused || rhythm.active || !playerCanAct || !manager.isPlayerActionReady(battle::BattleAction::Standard));
-    }
-    if (Rml::Element* actionSkill = document->GetElementById("action-skill")) {
-        actionSkill->SetClass(
-            "disabled",
-            paused || rhythm.active || !playerCanAct || !manager.isPlayerActionReady(battle::BattleAction::Skill));
-    }
-
+    detail::updateHintDocument(document, feedback);
     detail::updateToastDocument(document, feedback);
     detail::updateTutorialDocument(document, tutorial, nowMs, narrationCharsPerSecond, dependencies);
     detail::updateRhythmDocument(document, rhythm, nowMs);

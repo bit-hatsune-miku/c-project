@@ -18,6 +18,7 @@ public:
 
     void start() override;
     void update(float deltaTime) override;
+    void preload(SDL_Renderer* renderer) override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
 
@@ -31,6 +32,7 @@ public:
     bool shouldRenderCasterEntity() const override { return false; }
     bool shouldRenderBossEntity() const override { return true; }
     bool shouldRenderAboveHud() const override { return false; }
+    bool shouldRenderFloor() const override { return false; }
 
 private:
     struct FallingRectangle {

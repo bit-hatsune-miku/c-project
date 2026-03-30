@@ -44,6 +44,9 @@ TTF_Font* openBestAvailablePopupFont(int ptSize) {
 } // namespace
 
 void BattleFeedbackSystem::reset(const BattleManager& manager) {
+    for (FeedbackPopup& popup : popups_) {
+        destroyPopupTextures(popup);
+    }
     popups_.clear();
 
     const BattleState& state = manager.getBattleState();
@@ -68,6 +71,9 @@ void BattleFeedbackSystem::reset(const BattleManager& manager) {
 }
 
 void BattleFeedbackSystem::shutdown() {
+    for (FeedbackPopup& popup : popups_) {
+        destroyPopupTextures(popup);
+    }
     popups_.clear();
     lastCharacterHp_.clear();
     lastBossHp_ = -1;
@@ -103,6 +109,7 @@ void BattleFeedbackSystem::spawnFeedbackPopup(bool onBoss, int partyIndex, int a
     popup.lifetime = kFeedbackPopupLifetimeSeconds;
     popup.jitterX = xDist(popupRng());
     popup.jitterY = yDist(popupRng());
+    popup.text = (healing ? "+" : "") + std::to_string(amount);
     popups_.push_back(popup);
 }
 
@@ -323,8 +330,12 @@ void BattleFeedbackSystem::update(float deltaSeconds) {
     }
 
     popups_.erase(
-        std::remove_if(popups_.begin(), popups_.end(), [](const FeedbackPopup& popup) {
-            return popup.elapsed >= popup.lifetime;
+        std::remove_if(popups_.begin(), popups_.end(), [this](FeedbackPopup& popup) {
+            if (popup.elapsed < popup.lifetime) {
+                return false;
+            }
+            destroyPopupTextures(popup);
+            return true;
         }),
         popups_.end()
     );
@@ -360,7 +371,7 @@ void BattleFeedbackSystem::render(SDL_Renderer* renderer,
         return;
     }
 
-    for (const FeedbackPopup& popup : popups_) {
+    for (FeedbackPopup& popup : popups_) {
         const FeedbackEntityAnchor* anchor = nullptr;
         for (const FeedbackEntityAnchor& candidate : anchors) {
             if (popup.onBoss && candidate.isBoss) {
@@ -385,49 +396,20 @@ void BattleFeedbackSystem::render(SDL_Renderer* renderer,
         const float slide = kFeedbackPopupSlidePixels * t;
         const float alphaNorm = 1.0f - t;
 
-        const std::string text = (popup.healing ? "+" : "") + std::to_string(popup.amount);
-        int textW = 0;
-        int textH = 0;
-        if (TTF_SizeUTF8(font_, text.c_str(), &textW, &textH) != 0) {
+        if (!ensurePopupTextures(renderer, popup)) {
             continue;
         }
 
-        const int drawX = static_cast<int>(std::lround(baseScreen.x + popup.jitterX)) - textW / 2;
+        const int drawX = static_cast<int>(std::lround(baseScreen.x + popup.jitterX)) - popup.textWidth / 2;
         const int drawY = static_cast<int>(std::lround(baseScreen.y - approxSpriteHeight * 0.95f +
-                                                       kFeedbackPopupBaseYOffset + popup.jitterY - slide)) - textH / 2;
+                                                       kFeedbackPopupBaseYOffset + popup.jitterY - slide)) - popup.textHeight / 2;
 
-        SDL_Color outlineColor{0, 0, 0, static_cast<Uint8>(220.0f * alphaNorm)};
-        SDL_Color mainColor = popup.healing
-            ? SDL_Color{114, 255, 163, static_cast<Uint8>(255.0f * alphaNorm)}
-            : SDL_Color{255, 255, 255, static_cast<Uint8>(255.0f * alphaNorm)};
+        const Uint8 outlineAlpha = static_cast<Uint8>(220.0f * alphaNorm);
+        const Uint8 mainAlpha = static_cast<Uint8>(255.0f * alphaNorm);
+        SDL_SetTextureAlphaMod(popup.shadowTexture, outlineAlpha);
+        SDL_SetTextureAlphaMod(popup.textTexture, mainAlpha);
 
-        SDL_Surface* shadowSurface = TTF_RenderUTF8_Blended(font_, text.c_str(), outlineColor);
-        SDL_Surface* textSurface = TTF_RenderUTF8_Blended(font_, text.c_str(), mainColor);
-        if (shadowSurface == nullptr || textSurface == nullptr) {
-            if (shadowSurface != nullptr) {
-                SDL_FreeSurface(shadowSurface);
-            }
-            if (textSurface != nullptr) {
-                SDL_FreeSurface(textSurface);
-            }
-            continue;
-        }
-
-        SDL_Texture* shadowTex = SDL_CreateTextureFromSurface(renderer, shadowSurface);
-        SDL_Texture* textTex = SDL_CreateTextureFromSurface(renderer, textSurface);
-        SDL_FreeSurface(shadowSurface);
-        SDL_FreeSurface(textSurface);
-        if (shadowTex == nullptr || textTex == nullptr) {
-            if (shadowTex != nullptr) {
-                SDL_DestroyTexture(shadowTex);
-            }
-            if (textTex != nullptr) {
-                SDL_DestroyTexture(textTex);
-            }
-            continue;
-        }
-
-        SDL_Rect textDst{drawX, drawY, textW, textH};
+        SDL_Rect textDst{drawX, drawY, popup.textWidth, popup.textHeight};
 
         const int outlineOffsets[8][2] = {
             {-1, -1}, {0, -1}, {1, -1},
@@ -435,18 +417,88 @@ void BattleFeedbackSystem::render(SDL_Renderer* renderer,
             {-1,  1}, {0,  1}, {1,  1}
         };
         for (const auto& offset : outlineOffsets) {
-            SDL_Rect shadowDst{drawX + offset[0], drawY + offset[1], textW, textH};
-            SDL_RenderCopy(renderer, shadowTex, nullptr, &shadowDst);
+            SDL_Rect shadowDst{drawX + offset[0], drawY + offset[1], popup.textWidth, popup.textHeight};
+            SDL_RenderCopy(renderer, popup.shadowTexture, nullptr, &shadowDst);
         }
-        SDL_RenderCopy(renderer, textTex, nullptr, &textDst);
-
-        SDL_DestroyTexture(shadowTex);
-        SDL_DestroyTexture(textTex);
+        SDL_RenderCopy(renderer, popup.textTexture, nullptr, &textDst);
     }
 #else
     (void)renderer;
     (void)camera;
     (void)anchors;
+#endif
+}
+
+void BattleFeedbackSystem::destroyPopupTextures(FeedbackPopup& popup) {
+    if (popup.shadowTexture != nullptr) {
+        SDL_DestroyTexture(popup.shadowTexture);
+        popup.shadowTexture = nullptr;
+    }
+    if (popup.textTexture != nullptr) {
+        SDL_DestroyTexture(popup.textTexture);
+        popup.textTexture = nullptr;
+    }
+    popup.cachedRenderer = nullptr;
+    popup.textWidth = 0;
+    popup.textHeight = 0;
+}
+
+bool BattleFeedbackSystem::ensurePopupTextures(SDL_Renderer* renderer, FeedbackPopup& popup) {
+#ifdef BATTLE_ENABLE_TTF
+    if (renderer == nullptr || font_ == nullptr || popup.text.empty()) {
+        return false;
+    }
+
+    if (popup.cachedRenderer == renderer &&
+        popup.shadowTexture != nullptr &&
+        popup.textTexture != nullptr &&
+        popup.textWidth > 0 &&
+        popup.textHeight > 0) {
+        return true;
+    }
+
+    destroyPopupTextures(popup);
+
+    if (TTF_SizeUTF8(font_, popup.text.c_str(), &popup.textWidth, &popup.textHeight) != 0) {
+        popup.textWidth = 0;
+        popup.textHeight = 0;
+        return false;
+    }
+
+    const SDL_Color outlineColor{0, 0, 0, 220};
+    const SDL_Color mainColor = popup.healing
+        ? SDL_Color{114, 255, 163, 255}
+        : SDL_Color{255, 255, 255, 255};
+
+    SDL_Surface* shadowSurface = TTF_RenderUTF8_Blended(font_, popup.text.c_str(), outlineColor);
+    SDL_Surface* textSurface = TTF_RenderUTF8_Blended(font_, popup.text.c_str(), mainColor);
+    if (shadowSurface == nullptr || textSurface == nullptr) {
+        if (shadowSurface != nullptr) {
+            SDL_FreeSurface(shadowSurface);
+        }
+        if (textSurface != nullptr) {
+            SDL_FreeSurface(textSurface);
+        }
+        popup.textWidth = 0;
+        popup.textHeight = 0;
+        return false;
+    }
+
+    popup.shadowTexture = SDL_CreateTextureFromSurface(renderer, shadowSurface);
+    popup.textTexture = SDL_CreateTextureFromSurface(renderer, textSurface);
+    SDL_FreeSurface(shadowSurface);
+    SDL_FreeSurface(textSurface);
+    if (popup.shadowTexture == nullptr || popup.textTexture == nullptr) {
+        destroyPopupTextures(popup);
+        return false;
+    }
+
+    popup.cachedRenderer = renderer;
+    return true;
+#else
+    (void)renderer;
+    (void)popup;
+    return false;
 #endif
 }
 

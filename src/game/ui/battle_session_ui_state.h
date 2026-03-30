@@ -2,6 +2,7 @@
 #define BATTLE_SESSION_UI_STATE_H
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <optional>
 #include <string>
@@ -15,12 +16,16 @@
 namespace battle::app::ui {
 
 struct HudFeedbackState {
+    std::string hintText;
+    Uint64 hintUntilMs = 0;
     std::string toastText;
     Uint64 toastUntilMs = 0;
     int blinkUnitIndex = -1;
     int blinkMissingFrom = 0;
     int blinkMissingTo = 0;
     Uint64 blinkUntilMs = 0;
+    Uint64 bossHitUntilMs = 0;
+    std::array<Uint64, 4> unitHitUntilMs{{0, 0, 0, 0}};
 };
 
 enum class TutorialStep {

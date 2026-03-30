@@ -109,6 +109,10 @@ void AriBossPresentation::update(float deltaTime) {
     }
 }
 
+void AriBossPresentation::preload(SDL_Renderer* renderer) {
+    ensureFramesLoaded(renderer);
+}
+
 void AriBossPresentation::render(SDL_Renderer* renderer,
                                  int screenW,
                                  int screenH,

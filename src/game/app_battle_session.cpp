@@ -8,10 +8,11 @@
 #include <functional>
 #include <iostream>
 #include <map>
-#include <unordered_map>
 #include <memory>
 #include <optional>
+#include <sstream>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <SDL2/SDL.h>
@@ -31,18 +32,32 @@
 
 #include "RmlUi_Platform_SDL.h"
 #include "RmlUi_Renderer_GL3.h"
+#include "audio/bgm_player.h"
 #include "core/ability_system.h"
+#include "core/battle_loader.h"
 #include "core/battle_manager.h"
+#include "core/battle_turn_flow.h"
 #include "core/easing.h"
 #include "presentation/ability_presentation.h"
+#include "presentation/presentation_runtime.h"
+#include "presentation/splash_art_animation.h"
+#include "render/battle_camera_staging.h"
+#include "render/battle_combat_begin_animation.h"
+#include "render/battle_feedback.h"
+#include "render/battle_party_staging.h"
+#include "render/battle_world_renderer.h"
 #include "render/battle_scene_renderer.h"
 #include "render/camera_3d.h"
 #include "render/free_view_camera_debug_log.h"
 #include "render/gl_screen_blitter.h"
+#include "../graphics/rmlui_loading_overlay.h"
+#include "../graphics/rmlui_sdl_gl_renderer.h"
+#include "demo/demo_narrative_flow.h"
 #include "ui/battle_session_document_updates.h"
 #include "ui/battle_session_overlay_bindings.h"
 #include "ui/battle_session_ui_state.h"
 #include "vn/vn_script.h"
+#include "vn/vn_system.h"
 #include "audio/wav_one_shot.h"
 #include "app_battle_session.h"
 #include "../platform/path_resolution.h"
@@ -69,6 +84,13 @@ constexpr float kNarrationCharsPerSecond = 42.0f;
 constexpr Uint64 kIdleDelayMs = 5000;
 constexpr float kMinSettingsTextSpeed = 18.0f;
 constexpr float kMaxSettingsTextSpeed = 90.0f;
+constexpr float kBossTurnCharacterBaseY = 420.0f;
+constexpr float kCharacterSpacingWorld = 400.0f;
+constexpr float kBossTurnCharacterSpacingWorld = 260.0f;
+constexpr Uint64 kHitFlashDurationMs = 320;
+constexpr const char* kLoadingOverlayDocumentPath = "assets/rmlui/shared/loading_overlay.rml";
+constexpr float kCharacterVisibilityAnimSeconds = 0.22f;
+constexpr float kCharacterVisibilityOffsetPx = 70.0f;
 
 struct CameraIntroAnimation {
     bool active = false;
@@ -104,8 +126,93 @@ private:
 };
 
 game::audio::WavOneShotPlayer gOneShotAudio;
+game::audio::WavOneShotPlayer gPresentationSfxAudio;
+game::audio::BgmPlayer gBgmPlayer;
+game::audio::BgmPlayer gPresentationLoopAudio;
 
-bool playResolvedVoicePath(const std::string& path, float voiceVolume) {
+bool loadRmlFontIfPresent(const std::string& path, bool fallback = false) {
+    if (path.empty() || !std::filesystem::exists(path)) {
+        return false;
+    }
+
+    const std::string extension = std::filesystem::path(path).extension().string();
+    if (extension == ".ttc" || extension == ".otc") {
+        bool anyLoaded = false;
+        for (int faceIndex = 0; faceIndex < 6; ++faceIndex) {
+            if (!Rml::LoadFontFace(path, fallback, Rml::Style::FontWeight::Auto, faceIndex)) {
+                if (faceIndex == 0 && !anyLoaded) {
+                    return false;
+                }
+                break;
+            }
+            anyLoaded = true;
+        }
+        return anyLoaded;
+    }
+
+    return Rml::LoadFontFace(path, fallback);
+}
+
+std::string getPresentationCasterVoiceKey(const battle::PresentationContext& context,
+                                          const battle::BattleManager& manager) {
+    const battle::BattleState& battleState = manager.getBattleState();
+    if (context.isBoss) {
+        return battleState.boss.assets.empty() ? battleState.boss.key : battleState.boss.assets;
+    }
+
+    if (context.casterIndex < 0 || static_cast<size_t>(context.casterIndex) >= battleState.party.size()) {
+        return std::string();
+    }
+
+    return battleState.party[static_cast<size_t>(context.casterIndex)].assets;
+}
+
+bool playCombatVoiceClip(const std::string& assetName,
+                         const std::string& clipName,
+                         float volume,
+                         int repeatCount = 1) {
+    if (assetName.empty() || clipName.empty() || repeatCount <= 0) {
+        return false;
+    }
+
+    if (const auto clipPath = platform::path::resolveCombatVoicePath(assetName, clipName);
+        clipPath.has_value()) {
+        bool played = false;
+        for (int index = 0; index < repeatCount; ++index) {
+            if (gOneShotAudio.playWavOneShot(*clipPath, volume)) {
+                played = true;
+            }
+        }
+        return played;
+    }
+
+    return false;
+}
+
+bool playResolvedVoicePath(const std::string& path, float voiceVolume, int repeatCount = 1) {
+    if (path.empty() || repeatCount <= 0) {
+        return false;
+    }
+
+    const std::string resolved = platform::path::resolvePath(path);
+    if (!std::filesystem::exists(resolved)) {
+        return false;
+    }
+
+    bool played = false;
+    for (int index = 0; index < repeatCount; ++index) {
+        if (gOneShotAudio.playWavOneShot(resolved, voiceVolume)) {
+            played = true;
+        }
+    }
+
+    return played;
+}
+
+bool playResolvedOneShot(game::audio::WavOneShotPlayer& player,
+                         const std::string& path,
+                         float volume,
+                         bool replaceExisting = true) {
     if (path.empty()) {
         return false;
     }
@@ -115,7 +222,28 @@ bool playResolvedVoicePath(const std::string& path, float voiceVolume) {
         return false;
     }
 
-    return gOneShotAudio.playWavOneShot(resolved, voiceVolume);
+    return player.playWavOneShot(resolved, volume, replaceExisting);
+}
+
+bool playResolvedLoop(game::audio::BgmPlayer& player, const std::string& path, float volume) {
+    if (path.empty()) {
+        return false;
+    }
+
+    const std::string resolved = platform::path::resolvePath(path);
+    if (!std::filesystem::exists(resolved)) {
+        return false;
+    }
+
+    return player.play(resolved, volume);
+}
+
+void stopPresentationAudioPlayback(bool resumeBgm = false) {
+    gPresentationLoopAudio.stop();
+    gPresentationSfxAudio.stopAllPlayback();
+    if (resumeBgm) {
+        gBgmPlayer.resume();
+    }
 }
 
 std::optional<std::string> resolveBossHitVoicePath(const battle::BattleState& battleState) {
@@ -145,17 +273,16 @@ std::optional<std::string> resolveBossDeadVoicePath(const battle::BattleState& b
     return std::nullopt;
 }
 
-bool playBossHitVoice(const battle::BattleState& battleState, float voiceVolume) {
-    if (playResolvedVoicePath(battleState.boss.voiceHit, voiceVolume)) {
+bool playBossHitVoice(const battle::BattleState& battleState, float voiceVolume, int repeatCount = 1) {
+    if (playResolvedVoicePath(battleState.boss.voiceHit, voiceVolume, repeatCount)) {
         return true;
     }
-    if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.assets, "hit"); hitVoice.has_value()) {
-        return gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
+
+    if (playCombatVoiceClip(battleState.boss.assets, "hit", voiceVolume, repeatCount)) {
+        return true;
     }
-    if (const auto hitVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "hit"); hitVoice.has_value()) {
-        return gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
-    }
-    return false;
+
+    return playCombatVoiceClip(battleState.boss.key, "hit", voiceVolume, repeatCount);
 }
 
 using battle::app::ui::HudFeedbackState;
@@ -169,8 +296,8 @@ using battle::app::ui::TutorialStep;
 using battle::app::ui::getActiveCharacterPartyIndex;
 using battle::app::ui::getRhythmProgress;
 using battle::render::GlScreenBlitter;
+using battle::render::SceneEntity;
 using battle::render::SoftwareSceneRenderer;
-using battle::render::WorldEntity;
 
 std::string resolveBattleSpritePath(const std::string& assetName) {
     const std::array<std::string, 2> candidates = {
@@ -239,6 +366,31 @@ void showToast(HudFeedbackState& feedback, std::string message, Uint64 nowMs, Ui
     feedback.toastUntilMs = nowMs + durationMs;
 }
 
+void showHint(HudFeedbackState& feedback, std::string message, Uint64 nowMs, Uint64 durationMs = 0) {
+    feedback.hintText = std::move(message);
+    feedback.hintUntilMs = durationMs > 0 ? nowMs + durationMs : 0;
+}
+
+void clearHint(HudFeedbackState& feedback) {
+    feedback.hintText.clear();
+    feedback.hintUntilMs = 0;
+}
+
+void markBossHit(HudFeedbackState& feedback, Uint64 nowMs, Uint64 durationMs = kHitFlashDurationMs) {
+    feedback.bossHitUntilMs = std::max(feedback.bossHitUntilMs, nowMs + durationMs);
+}
+
+void markUnitHit(HudFeedbackState& feedback,
+                 int partyIndex,
+                 Uint64 nowMs,
+                 Uint64 durationMs = kHitFlashDurationMs) {
+    if (partyIndex < 0 || partyIndex >= static_cast<int>(feedback.unitHitUntilMs.size())) {
+        return;
+    }
+    feedback.unitHitUntilMs[static_cast<size_t>(partyIndex)] =
+        std::max(feedback.unitHitUntilMs[static_cast<size_t>(partyIndex)], nowMs + durationMs);
+}
+
 void blinkMissingOrbs(HudFeedbackState& feedback,
                       int unitIndex,
                       int firstMissingOrb,
@@ -252,6 +404,9 @@ void blinkMissingOrbs(HudFeedbackState& feedback,
 }
 
 void tickHudFeedback(HudFeedbackState& feedback, Uint64 nowMs) {
+    if (feedback.hintUntilMs != 0 && nowMs >= feedback.hintUntilMs) {
+        clearHint(feedback);
+    }
     if (feedback.toastUntilMs != 0 && nowMs >= feedback.toastUntilMs) {
         feedback.toastText.clear();
         feedback.toastUntilMs = 0;
@@ -352,11 +507,14 @@ bool loadTutorialScriptLibrary(TutorialScriptLibrary& outLibrary) {
 void consumeBattleActionEvents(HudFeedbackState& feedback,
                                battle::BattleManager& manager,
                                float voiceVolume,
-                               Uint64 nowMs) {
+                               Uint64 nowMs,
+                               battle::render::BattleCameraStaging* cameraStaging = nullptr) {
     const battle::BattleState& battleState = manager.getBattleState();
-    (void)feedback;
-    (void)nowMs;
     for (const battle::BattleActionEvent& event : manager.getRecentActionEvents()) {
+        if (cameraStaging != nullptr && event.actorType == battle::ParticipantType::Boss) {
+            cameraStaging->queueCharacterTurnIntro();
+        }
+
         const std::string actorVoiceKey = event.actorType == battle::ParticipantType::Boss
             ? battleState.boss.key
             : ((event.actorPartyIndex >= 0 && event.actorPartyIndex < static_cast<int>(battleState.party.size()))
@@ -364,12 +522,27 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
                 : std::string());
 
         if (!event.abilityVoicesHandledDuringPresentation && event.action == battle::BattleAction::Skill) {
-            if (const auto skillVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "skill"); skillVoice.has_value()) {
+            if (const auto abilityVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "ability");
+                abilityVoice.has_value()) {
+                (void)gOneShotAudio.playWavOneShot(*abilityVoice, voiceVolume);
+            } else if (const auto skillVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "skill");
+                       skillVoice.has_value()) {
                 (void)gOneShotAudio.playWavOneShot(*skillVoice, voiceVolume);
+            }
+        } else if (!event.abilityVoicesHandledDuringPresentation && event.action == battle::BattleAction::Ultimate) {
+            if (const auto ultimateVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "ultimate");
+                ultimateVoice.has_value()) {
+                (void)gOneShotAudio.playWavOneShot(*ultimateVoice, voiceVolume);
+            } else if (const auto abilityVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "ability");
+                       abilityVoice.has_value()) {
+                (void)gOneShotAudio.playWavOneShot(*abilityVoice, voiceVolume);
             }
         }
 
         if (event.bossHpAfter < event.bossHpBefore) {
+            markBossHit(feedback, nowMs);
+        }
+        if (!event.hitVoicesHandledDuringPresentation && event.bossHpAfter < event.bossHpBefore) {
             if (event.bossHpBefore > 0 && event.bossHpAfter <= 0) {
                 const auto deadVoice = resolveBossDeadVoicePath(battleState);
                 if (deadVoice.has_value()) {
@@ -385,6 +558,15 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
             }
         }
 
+        if (event.hitVoicesHandledDuringPresentation) {
+            for (size_t i = 0; i < event.targetPartyIndices.size() && i < event.targetHpBefore.size() && i < event.targetHpAfter.size(); ++i) {
+                if (event.targetHpAfter[i] < event.targetHpBefore[i]) {
+                    markUnitHit(feedback, event.targetPartyIndices[i], nowMs);
+                }
+            }
+            continue;
+        }
+
         for (size_t i = 0; i < event.targetPartyIndices.size() && i < event.targetHpBefore.size() && i < event.targetHpAfter.size(); ++i) {
             if (event.targetHpAfter[i] >= event.targetHpBefore[i]) {
                 continue;
@@ -393,6 +575,7 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
             if (partyIndex < 0 || partyIndex >= static_cast<int>(battleState.party.size())) {
                 continue;
             }
+            markUnitHit(feedback, partyIndex, nowMs);
             const std::string& assetKey = battleState.party[static_cast<size_t>(partyIndex)].assets;
             if (event.targetHpBefore[i] > 0 && event.targetHpAfter[i] <= 0) {
                 if (const auto deadVoice = platform::path::resolveCombatVoicePath(assetKey, "dead"); deadVoice.has_value()) {
@@ -469,62 +652,70 @@ void updateActionIntroCamera(battle::Camera3D& camera, CameraIntroAnimation& ani
     }
 }
 
-class RenderInterfaceGL3SDL final : public RenderInterface_GL3 {
-public:
-    Rml::TextureHandle LoadTexture(Rml::Vector2i& textureDimensions, const Rml::String& source) override {
-#ifdef BATTLE_ENABLE_IMAGE
-        Rml::FileInterface* fileInterface = Rml::GetFileInterface();
-        Rml::FileHandle fileHandle = fileInterface->Open(source);
-        if (!fileHandle) {
-            return {};
+std::vector<std::string> resolveBattlePartyLineup(const battle::BattleDefinition& battleDefinition,
+                                                  const battle::PlayerProgression& progression,
+                                                  std::optional<std::vector<std::string>> initialPartyLineup) {
+    auto appendUnique = [](std::vector<std::string>& out, const std::string& key) {
+        if (key.empty()) {
+            return;
         }
-
-        fileInterface->Seek(fileHandle, 0, SEEK_END);
-        const size_t bufferSize = fileInterface->Tell(fileHandle);
-        fileInterface->Seek(fileHandle, 0, SEEK_SET);
-
-        using Rml::byte;
-        Rml::UniquePtr<byte[]> buffer(new byte[bufferSize]);
-        fileInterface->Read(buffer.get(), bufferSize, fileHandle);
-        fileInterface->Close(fileHandle);
-
-        const size_t extIndex = source.rfind('.');
-        const Rml::String extension = (extIndex == Rml::String::npos ? Rml::String() : source.substr(extIndex + 1));
-
-        SDL_Surface* surface = IMG_LoadTyped_RW(SDL_RWFromMem(buffer.get(), static_cast<int>(bufferSize)), 1, extension.c_str());
-        if (surface == nullptr) {
-            Rml::Log::Message(Rml::Log::LT_ERROR, "Could not load texture: %s", source.c_str());
-            return {};
+        if (std::find(out.begin(), out.end(), key) == out.end()) {
+            out.push_back(key);
         }
+    };
 
-        if (surface->format->format != SDL_PIXELFORMAT_RGBA32) {
-            SDL_Surface* convertedSurface = SDL_ConvertSurfaceFormat(surface, SDL_PIXELFORMAT_RGBA32, 0);
-            SDL_FreeSurface(surface);
-            if (convertedSurface == nullptr) {
-                return {};
-            }
-            surface = convertedSurface;
+    std::vector<std::string> lineup;
+    lineup.reserve(4);
+
+    if (initialPartyLineup.has_value()) {
+        for (const std::string& key : *initialPartyLineup) {
+            appendUnique(lineup, key);
         }
-
-        textureDimensions = {surface->w, surface->h};
-
-        byte* pixels = static_cast<byte*>(surface->pixels);
-        const size_t pixelBytes = static_cast<size_t>(surface->w) * static_cast<size_t>(surface->h) * 4;
-        for (size_t i = 0; i < pixelBytes; i += 4) {
-            const byte alpha = pixels[i + 3];
-            pixels[i + 0] = byte((int(pixels[i + 0]) * int(alpha)) / 255);
-            pixels[i + 1] = byte((int(pixels[i + 1]) * int(alpha)) / 255);
-            pixels[i + 2] = byte((int(pixels[i + 2]) * int(alpha)) / 255);
+    } else if (battleDefinition.isLineupFixed) {
+        for (const std::string& key : battleDefinition.lockedLineup) {
+            appendUnique(lineup, key);
         }
-
-        const Rml::TextureHandle textureHandle = GenerateTexture({pixels, pixelBytes}, textureDimensions);
-        SDL_FreeSurface(surface);
-        return textureHandle;
-#else
-        return RenderInterface_GL3::LoadTexture(textureDimensions, source);
-#endif
+        for (const std::string& key : battleDefinition.lineup) {
+            appendUnique(lineup, key);
+        }
+    } else {
+        for (const std::string& key : battleDefinition.lockedLineup) {
+            appendUnique(lineup, key);
+        }
+        for (const std::string& key : progression.currentPartyLineup) {
+            appendUnique(lineup, key);
+        }
+        for (const std::string& key : battleDefinition.lineup) {
+            appendUnique(lineup, key);
+        }
     }
-};
+
+    const int safePartySize = std::clamp(battleDefinition.partySize, 1, 4);
+    if (static_cast<int>(lineup.size()) > safePartySize) {
+        lineup.resize(static_cast<size_t>(safePartySize));
+    }
+
+    return lineup;
+}
+
+int findEntityIndexByPartyIndex(const std::vector<SceneEntity>& entities, int partyIndex) {
+    for (int i = 0; i < static_cast<int>(entities.size()); ++i) {
+        if (!entities[static_cast<size_t>(i)].isBoss &&
+            entities[static_cast<size_t>(i)].partyIndex == partyIndex) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+int findBossEntityIndex(const std::vector<SceneEntity>& entities) {
+    for (int i = 0; i < static_cast<int>(entities.size()); ++i) {
+        if (entities[static_cast<size_t>(i)].isBoss) {
+            return i;
+        }
+    }
+    return -1;
+}
 
 } // namespace
 
@@ -532,7 +723,11 @@ namespace battle::app {
 
 class SessionImpl {
 public:
-    bool initialize(Window& hostWindow, GameSettings& settings) {
+    bool initialize(Window& hostWindow,
+                    GameSettings& settings,
+                    const std::string& battleKey,
+                    const battle::PlayerProgression& progression,
+                    std::optional<std::vector<std::string>> initialPartyLineup) {
         shutdown();
 
         windowHost_ = &hostWindow;
@@ -577,9 +772,14 @@ public:
             shutdown();
             return false;
         }
+        if (!presentationOverlayBlitter_.initialize()) {
+            std::cerr << "Failed to initialize presentation overlay blitter\n";
+            shutdown();
+            return false;
+        }
 
         systemInterface_.SetWindow(window_);
-        renderInterface_ = std::make_unique<RenderInterfaceGL3SDL>();
+        renderInterface_ = std::make_unique<graphics::RmlUiSdlGlRenderInterface>();
         if (!(*renderInterface_)) {
             std::cerr << "RmlUi GL3 render interface construction failed\n";
             shutdown();
@@ -595,63 +795,107 @@ public:
         }
         rmlInitialized_ = true;
 
-        const std::string fontPath = platform::path::findFontPath();
-        if (!fontPath.empty()) {
-            Rml::LoadFontFace(fontPath);
+        if (!loadFonts()) {
+            std::cerr << "[Battle] No usable fonts were loaded.\n";
+            shutdown();
+            return false;
         }
 
-        if (!manager_.initialize("lyoo", {"miku", "cupcakke", "lyoo"})) {
+        const std::string resolvedBattleKey = battleKey.empty() ? "tutorial_vs_lyoo" : battleKey;
+        if (!battle::loader::loadBattleDefinition(resolvedBattleKey, battleDefinition_)) {
+            std::cerr << "[Battle] Failed to resolve battle definition: " << resolvedBattleKey << "\n";
+            shutdown();
+            return false;
+        }
+
+        activePartyLineup_ = resolveBattlePartyLineup(battleDefinition_, progression, std::move(initialPartyLineup));
+        if (activePartyLineup_.empty()) {
+            std::cerr << "[Battle] Battle requires at least one party member.\n";
+            shutdown();
+            return false;
+        }
+
+        if (!manager_.initialize(battleDefinition_.bossKey, activePartyLineup_)) {
             std::cerr << "[Battle] Initialization failed.\n";
             shutdown();
             return false;
         }
 
+        tutorialEnabled_ = false;
+        narrativeEnabled_ = (battleDefinition_.type == "tutorial");
+        narrativeInitialized_ = false;
+
         battle::ability::setPresentationInteractionRunner([this](const battle::PresentationContext& context) {
             return runPresentationInteraction(context);
         });
 
-        if (!loadTutorialScriptLibrary(tutorialLibrary_)) {
-            std::cerr << "Failed to load tutorial script: assets/vn/json/demo.json\n";
-            shutdown();
-            return false;
-        }
-
         const battle::BattleState& state = manager_.getBattleState();
+        if (!state.boss.bgm.empty()) {
+            if (const auto bgmPath = platform::path::resolveCombatBgmPath(state.boss.bgm); bgmPath.has_value()) {
+                gBgmPlayer.play(*bgmPath, state.boss.bgmVolume);
+            }
+        }
         worldAssets_.clear();
         for (const battle::CharacterDefinition& character : state.party) {
             worldAssets_.push_back(character.assets);
         }
         worldAssets_.push_back(state.boss.assets);
+        if (std::find(worldAssets_.begin(), worldAssets_.end(), "miku") == worldAssets_.end()) {
+            worldAssets_.push_back("miku");
+        }
 
-        windowWidth_ = windowHost_->getWidth();
-        windowHeight_ = windowHost_->getHeight();
+        updateViewportFromWindow();
         if (!sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
             shutdown();
             return false;
         }
+        if (!presentationOverlayRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
+            shutdown();
+            return false;
+        }
 
-        entities_.clear();
-        entities_.reserve(2);
-        entities_.push_back(WorldEntity{
-            state.party.front().key,
-            state.party.front().assets,
-            false,
-            battle::render::kDuelCharacterSlotX,
-            battle::render::kDuelCharacterBaseY,
-            0.0f,
-            battle::render::colorFromKey(state.party.front().key, false)
-        });
-        entities_.push_back(WorldEntity{
-            state.boss.key,
-            state.boss.assets,
-            true,
-            battle::render::kDuelBossSlotX,
-            battle::render::kDuelCharacterBaseY + battle::render::kBossCharacterDistanceWorld,
-            0.0f,
-            battle::render::colorFromKey(state.boss.key, true)
-        });
+        if (narrativeEnabled_) {
+            if (!vn::initialize(presentationOverlayRenderer_.renderer, windowWidth_, windowHeight_)) {
+                std::cerr << "[Battle] Failed to initialize VN system for narrative overlay.\n";
+                shutdown();
+                return false;
+            }
+            if (settings_ != nullptr) {
+                vn::setMusicVolume(settings_->musicVolume);
+                vn::setVoiceVolume(settings_->voiceVolume);
+                vn::setTypewriterSpeed(settings_->textSpeed);
+            }
+            if (!narrative_.initialize()) {
+                std::cerr << "[Battle] Failed to initialize battle narrative flow.\n";
+                shutdown();
+                return false;
+            }
+            narrativeInitialized_ = true;
+        }
 
-        renderInterface_->SetViewport(windowWidth_, windowHeight_);
+        initializeWorldEntities();
+        const battle::flow::PreviewActorContext preview = battle::flow::inspectPreviewActor(manager_);
+        const bool bossActing = !(preview.valid && preview.type == battle::ParticipantType::Character);
+        const int actingPartyIndex =
+            (!bossActing && preview.partyIndex >= 0) ? preview.partyIndex : -1;
+        updateSceneEntities(0.0f, bossActing, actingPartyIndex);
+        feedback_.reset(manager_);
+
+        SDL_Texture* mikuSprite = nullptr;
+        if (const auto mikuIt = sceneRenderer_.textureByAsset.find("miku"); mikuIt != sceneRenderer_.textureByAsset.end()) {
+            mikuSprite = mikuIt->second;
+        }
+        SDL_Texture* bossSprite = nullptr;
+        if (const auto bossIt = sceneRenderer_.textureByAsset.find(state.boss.assets); bossIt != sceneRenderer_.textureByAsset.end()) {
+            bossSprite = bossIt->second;
+        }
+        combatBeginAnimation_.reset(mikuSprite, bossSprite);
+        activeUltimateTurnSplash_.reset();
+        previewUltimateSplashPartyIndex_ = -1;
+        discardNextUpdateDelta_ = false;
+        activeOverlay_ = nullptr;
+
+        renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
         context_ = Rml::CreateContext("battle-app", Rml::Vector2i(windowWidth_, windowHeight_));
         if (context_ == nullptr) {
             std::cerr << "Failed to create RmlUi context\n";
@@ -668,31 +912,13 @@ public:
         }
         document_->Show();
 
-        // Legacy flow: actions are triggered with Space only (executePlayerTurn).
-        // Keeping button listeners commented for future per-character input design.
-        // attachListener("action-standard", Rml::EventId::Click, [this](Rml::Event&) {
-        //     attemptAction(battle::BattleAction::Standard);
-        // });
-        // attachListener("action-skill", Rml::EventId::Click, [this](Rml::Event&) {
-        //     attemptAction(battle::BattleAction::Skill);
-        // });
-        // Legacy flow: no manual ultimate trigger from unit cards.
-        // Keep listeners commented for future per-character custom input work.
-        // for (int i = 0; i < 4; ++i) {
-        //     attachListener("unit-card-" + std::to_string(i + 1), Rml::EventId::Click, [this, i](Rml::Event&) {
-        //         const Uint64 nowMs = SDL_GetTicks64();
-        //         const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager_);
-        //         if (!activePartyIndex.has_value()) {
-        //             showToast(hudFeedback_, "WAIT FOR AN ALLY TURN.", nowMs);
-        //             return;
-        //         }
-        //         if (*activePartyIndex != i) {
-        //             showToast(hudFeedback_, "ONLY THE ACTIVE UNIT CAN ULTIMATE.", nowMs);
-        //             return;
-        //         }
-        //         attemptAction(battle::BattleAction::Ultimate);
-        //     });
-        // }
+        if (!loadingOverlay_.initialize(*context_, platform::path::resolvePath(kLoadingOverlayDocumentPath))) {
+            std::cerr << "[Battle] Failed to load loading overlay document.\n";
+            shutdown();
+            return false;
+        }
+        loadingOverlayState_ = graphics::RmlUiLoadingOverlayState{};
+
         const battle::app::ui::AttachListenerFn attachOverlayListener =
             [this](const std::string& id, Rml::EventId eventId, std::function<void(Rml::Event&)> callback) {
                 attachListener(id, eventId, std::move(callback));
@@ -717,6 +943,7 @@ public:
                 pauseOverlayMode_ = PauseOverlayMode::Settings;
             },
             [this]() {
+                exitToMainMenuRequested_ = true;
                 finished_ = true;
             },
             [this]() {
@@ -749,13 +976,8 @@ public:
 
         camera_.screenCenterX = windowWidth_ * 0.5f;
         camera_.screenCenterY = windowHeight_ * 0.5f;
-        applyGoalCamera(camera_);
-        battle::app::ui::updateBattleHudDocument(document_, manager_, hudFeedback_, tutorialOverlay_, rhythmChallenge_,
-                                                 paused_, pauseOverlayMode_, pauseSelection_, settingsSelection_,
-                                                 settings_,
-                                                 settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond,
-                                                 SDL_GetTicks64(),
-                                                 makeBattleHudDocumentDependencies());
+        cameraStaging_.reset(camera_);
+        syncHudDocument(SDL_GetTicks64());
 
         initialized_ = true;
         return true;
@@ -770,6 +992,7 @@ public:
             document_->Close();
             document_ = nullptr;
         }
+        loadingOverlay_.shutdown();
         if (rmlInitialized_) {
             Rml::Shutdown();
             rmlInitialized_ = false;
@@ -781,7 +1004,16 @@ public:
         uiListeners_.clear();
         renderInterface_.reset();
         screenBlitter_.destroy();
+        presentationOverlayBlitter_.destroy();
+        presentationOverlayRenderer_.destroy();
         sceneRenderer_.destroy();
+        feedback_.shutdown();
+        narrative_.shutdown();
+        vn::stopVoicePlayback();
+        vn::shutdown();
+        stopPresentationAudioPlayback(false);
+        gPresentationSfxAudio.shutdown();
+        gBgmPlayer.stop();
         gOneShotAudio.shutdown();
         gOneShotAudio.cleanupFinishedPlayback();
 #ifdef BATTLE_ENABLE_IMAGE
@@ -795,21 +1027,39 @@ public:
         glContext_ = nullptr;
         windowHost_ = nullptr;
         finished_ = false;
+        exitToMainMenuRequested_ = false;
         paused_ = false;
         freeViewEnabled_ = false;
         pauseOverlayMode_ = PauseOverlayMode::Menu;
         pauseSelection_ = PauseSelection::Continue;
         settingsSelection_ = SettingsSelection::DisplayMode;
         settings_ = nullptr;
+        tutorialEnabled_ = false;
+        narrativeEnabled_ = false;
+        narrativeInitialized_ = false;
         tutorialOverlay_ = TutorialOverlayState{};
         tutorialLibrary_ = TutorialScriptLibrary{};
         hudFeedback_ = HudFeedbackState{};
         rhythmChallenge_ = RhythmChallengeState{};
+        presentationPlaybackActive_ = false;
+        presentationCasterIsBoss_ = false;
+        presentationCasterPartyIndex_ = -1;
+        activePresentation_ = nullptr;
         worldAssets_.clear();
         entities_.clear();
         lastTurnToken_.clear();
-        cameraOscillationTime_ = 0.0f;
+        presentationAudioSequenceId_.clear();
+        presentationAudioCueIndex_ = 0;
+        activeUltimateTurnSplash_.reset();
+        previewUltimateSplashPartyIndex_ = -1;
+        activeOverlay_ = nullptr;
         frameAccumulator_ = 0.0f;
+        discardNextUpdateDelta_ = false;
+        battleDefinition_ = battle::BattleDefinition{};
+        activePartyLineup_.clear();
+        loadingOverlayState_ = graphics::RmlUiLoadingOverlayState{};
+        drawableWidth_ = kWindowWidth;
+        drawableHeight_ = kWindowHeight;
     }
 
     void handleEvent(const SDL_Event& event) {
@@ -818,18 +1068,35 @@ public:
         }
 
         if (isWindowResizeEvent(event)) {
-            windowWidth_ = windowHost_->getWidth();
-            windowHeight_ = windowHost_->getHeight();
-            renderInterface_->SetViewport(windowWidth_, windowHeight_);
+            updateViewportFromWindow();
+            renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
             context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
             camera_.screenCenterX = windowWidth_ * 0.5f;
             camera_.screenCenterY = windowHeight_ * 0.5f;
-            if (!sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
+            if (!refreshSceneRenderers()) {
                 finished_ = true;
             }
         }
 
         if (event.type == SDL_KEYDOWN && event.key.repeat != 0) {
+            return;
+        }
+
+        if (combatBeginAnimation_.isActive()) {
+            if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
+                finished_ = true;
+            }
+            return;
+        }
+
+        if (activeUltimateTurnSplash_ != nullptr) {
+            if (event.type == SDL_KEYDOWN) {
+                if (event.key.keysym.sym == SDLK_ESCAPE) {
+                    finished_ = true;
+                } else if (event.key.keysym.sym == SDLK_SPACE) {
+                    activeUltimateTurnSplash_->skip();
+                }
+            }
             return;
         }
 
@@ -858,9 +1125,12 @@ public:
             if (event.key.keysym.sym == SDLK_f) {
                 freeViewEnabled_ = !freeViewEnabled_;
                 if (!freeViewEnabled_) {
-                    applyGoalCamera(camera_);
+                    cameraStaging_.snapToGoalCamera(camera_);
                     freeViewCameraDebugLog_.clear();
                 }
+            } else if (event.key.keysym.sym == SDLK_SPACE && isDialogueInProgress()) {
+                narrative_.onDialogueSpacePressed();
+                return;
             } else if (event.key.keysym.sym == SDLK_SPACE && tutorialOverlay_.step != TutorialStep::None) {
                 const float textSpeed = settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond;
                 const std::string revealed = revealNarrationText(
@@ -888,23 +1158,38 @@ public:
                                            progress <= rhythmChallenge_.targetCenter + halfWindow);
                 }
             } else if (!freeViewEnabled_ && event.key.keysym.sym == SDLK_SPACE) {
-                if (!manager_.executePlayerTurn()) {
+                if (!isBattleSpaceEnabled() || manager_.isBattleOver()) {
+                    return;
+                }
+
+                const battle::flow::PreviewActorContext preview = battle::flow::inspectPreviewActor(manager_);
+                maybeStartUltimateTurnSplash(
+                    preview,
+                    isDialogueInProgress() || tutorialOverlay_.step != TutorialStep::None);
+                if (activeUltimateTurnSplash_ != nullptr) {
+                    return;
+                }
+
+                const battle::flow::PlayerTurnExecution turnExecution =
+                    battle::flow::executeDefaultPlayerTurn(manager_);
+                if (!turnExecution.executed) {
                     showToast(hudFeedback_, "WAIT FOR AN ALLY TURN.", nowMs);
                     return;
                 }
-                manager_.processAutomaticTurns();
-                consumeBattleActionEvents(hudFeedback_, manager_, settings_ != nullptr ? settings_->voiceVolume : 1.0f, nowMs);
 
-                const int previewActorIndex = manager_.getPreviewNextActorIndex();
-                if (previewActorIndex >= 0) {
-                    const battle::TurnState& turnState = manager_.getTurnState();
-                    if (previewActorIndex < static_cast<int>(turnState.actors.size())) {
-                        const battle::TurnActor& previewActor = turnState.actors[static_cast<size_t>(previewActorIndex)];
-                        if (previewActor.type == battle::ParticipantType::Character) {
-                            startActionIntroCamera(camera_, cameraIntro_);
-                        }
-                    }
+                const bool allowAutoTurns =
+                    !narrativeEnabled_ ||
+                    !narrativeInitialized_ ||
+                    narrative_.onPlayerTurnExecuted(turnExecution);
+                if (allowAutoTurns) {
+                    manager_.processAutomaticTurns();
                 }
+                consumeBattleActionEvents(
+                    hudFeedback_,
+                    manager_,
+                    settings_ != nullptr ? settings_->voiceVolume : 1.0f,
+                    nowMs,
+                    &cameraStaging_);
                 return;
                 // Legacy replacement of the multi-action controls:
                 // attemptAction(battle::BattleAction::Ultimate);
@@ -912,7 +1197,7 @@ public:
                 // attemptAction(battle::BattleAction::Skill);
             }
         } else if (event.type == SDL_MOUSEWHEEL) {
-            if (freeViewEnabled_ && !cameraIntro_.active) {
+            if (freeViewEnabled_ && !cameraStaging_.isIntroActive()) {
                 camera_.focalLength += event.wheel.y * 500.0f;
                 camera_.focalLength = std::clamp(camera_.focalLength, 1000.0f, 50000.0f);
             }
@@ -927,21 +1212,47 @@ public:
         const Uint64 nowMs = SDL_GetTicks64();
         tickHudFeedback(hudFeedback_, nowMs);
         gOneShotAudio.cleanupFinishedPlayback();
+        gPresentationSfxAudio.cleanupFinishedPlayback();
 
-        if (paused_) {
-            battle::app::ui::updateBattleHudDocument(document_, manager_, hudFeedback_, tutorialOverlay_,
-                                                     rhythmChallenge_, paused_, pauseOverlayMode_, pauseSelection_,
-                                                     settingsSelection_, settings_,
-                                                     settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond,
-                                                     nowMs,
-                                                     makeBattleHudDocumentDependencies());
+        if (discardNextUpdateDelta_) {
+            discardNextUpdateDelta_ = false;
+            deltaSeconds = 0.0f;
+        }
+
+        if (combatBeginAnimation_.isActive()) {
+            combatBeginAnimation_.update(deltaSeconds);
             return;
         }
 
-        manager_.processAutomaticTurns();
-        consumeBattleActionEvents(hudFeedback_, manager_, settings_ != nullptr ? settings_->voiceVolume : 1.0f, nowMs);
+        if (paused_) {
+            if (narrativeEnabled_ && narrativeInitialized_) {
+                vn::setPaused(true);
+            }
+            syncHudDocument(nowMs);
+            return;
+        }
+
+        if (narrativeEnabled_ && narrativeInitialized_) {
+            vn::setPaused(false);
+            syncNarrativeSettings();
+            vn::update(deltaSeconds);
+            narrative_.maybeStartBossDefeatedDialogue(manager_);
+            narrative_.handleAutomaticProgression(manager_);
+        } else {
+            manager_.processAutomaticTurns();
+        }
+
+        consumeBattleActionEvents(
+            hudFeedback_,
+            manager_,
+            settings_ != nullptr ? settings_->voiceVolume : 1.0f,
+            nowMs,
+            &cameraStaging_);
+        feedback_.syncFromManager(manager_, presentationPlaybackActive_);
+        feedback_.update(deltaSeconds);
         maybeStartTutorial(nowMs);
-        if (tutorialOverlay_.step != TutorialStep::None && !tutorialOverlay_.audioPlayed && !tutorialOverlay_.entry.voice.empty()) {
+        if (tutorialEnabled_ && tutorialOverlay_.step != TutorialStep::None &&
+            !tutorialOverlay_.audioPlayed && !tutorialOverlay_.entry.voice.empty()) {
             if (gOneShotAudio.playWavOneShot(platform::path::resolvePath(tutorialOverlay_.entry.voice),
                                              settings_ != nullptr ? settings_->voiceVolume : 1.0f)) {
                 tutorialOverlay_.audioPlayed = true;
@@ -954,7 +1265,17 @@ public:
 
         frameAccumulator_ += deltaSeconds;
 
+        const bool dialogueActive = isDialogueInProgress();
         int previewActorIndex = manager_.getPreviewNextActorIndex();
+        const battle::flow::PreviewActorContext preview = battle::flow::inspectPreviewActor(manager_);
+        maybeStartUltimateTurnSplash(preview, dialogueActive || tutorialOverlay_.step != TutorialStep::None);
+        if (activeUltimateTurnSplash_ != nullptr) {
+            activeUltimateTurnSplash_->update(deltaSeconds);
+            if (activeUltimateTurnSplash_->isComplete()) {
+                activeUltimateTurnSplash_.reset();
+            }
+        }
+
         std::string turnToken = "none";
         bool nextIsCharacter = false;
         const battle::TurnActor* previewActor = nullptr;
@@ -968,96 +1289,483 @@ public:
                             actor.key + ":" + std::to_string(actor.partyIndex) + ":" +
                             (actor.isExtraTurn ? "E" : "N");
                 nextIsCharacter = actor.type == battle::ParticipantType::Character;
-                if (nextIsCharacter && actor.partyIndex >= 0 &&
-                    actor.partyIndex < static_cast<int>(state.party.size())) {
-                    const battle::CharacterDefinition& currentChar = state.party[static_cast<size_t>(actor.partyIndex)];
-                    entities_[0].key = currentChar.key;
-                    entities_[0].assetName = currentChar.assets;
-                    entities_[0].fallbackColor = battle::render::colorFromKey(currentChar.key, false);
-                }
             }
         }
 
         if (turnToken != lastTurnToken_) {
-            if (nextIsCharacter && !freeViewEnabled_) {
-                startActionIntroCamera(camera_, cameraIntro_);
-            }
             lastTurnToken_ = turnToken;
             onActiveActorChanged(previewActor, state, nowMs);
         }
 
+        cameraStaging_.notifyTurnPreview(
+            manager_.getTurnState(),
+            previewActorIndex,
+            dialogueActive || tutorialOverlay_.step != TutorialStep::None,
+            freeViewEnabled_,
+            camera_);
+
         const Uint8* keys = SDL_GetKeyboardState(nullptr);
         const float camMovementSpeed = 15.0f;
-        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_W]) camera_.posY += camMovementSpeed;
-        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_S]) camera_.posY -= camMovementSpeed;
-        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_A]) camera_.posX -= camMovementSpeed;
-        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_D]) camera_.posX += camMovementSpeed;
-        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_E]) camera_.posZ += camMovementSpeed;
-        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_Q]) camera_.posZ -= camMovementSpeed;
+        if (freeViewEnabled_ && !cameraStaging_.isIntroActive() && keys[SDL_SCANCODE_W]) camera_.posY += camMovementSpeed;
+        if (freeViewEnabled_ && !cameraStaging_.isIntroActive() && keys[SDL_SCANCODE_S]) camera_.posY -= camMovementSpeed;
+        if (freeViewEnabled_ && !cameraStaging_.isIntroActive() && keys[SDL_SCANCODE_A]) camera_.posX -= camMovementSpeed;
+        if (freeViewEnabled_ && !cameraStaging_.isIntroActive() && keys[SDL_SCANCODE_D]) camera_.posX += camMovementSpeed;
+        if (freeViewEnabled_ && !cameraStaging_.isIntroActive() && keys[SDL_SCANCODE_E]) camera_.posZ += camMovementSpeed;
+        if (freeViewEnabled_ && !cameraStaging_.isIntroActive() && keys[SDL_SCANCODE_Q]) camera_.posZ -= camMovementSpeed;
 
         const float rotationSpeed = 2.0f;
-        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_LEFT]) camera_.yawDegrees -= rotationSpeed;
-        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_RIGHT]) camera_.yawDegrees += rotationSpeed;
-        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_UP]) camera_.pitchDegrees -= rotationSpeed;
-        if (freeViewEnabled_ && !cameraIntro_.active && keys[SDL_SCANCODE_DOWN]) camera_.pitchDegrees += rotationSpeed;
+        if (freeViewEnabled_ && !cameraStaging_.isIntroActive() && keys[SDL_SCANCODE_LEFT]) camera_.yawDegrees -= rotationSpeed;
+        if (freeViewEnabled_ && !cameraStaging_.isIntroActive() && keys[SDL_SCANCODE_RIGHT]) camera_.yawDegrees += rotationSpeed;
+        if (freeViewEnabled_ && !cameraStaging_.isIntroActive() && keys[SDL_SCANCODE_UP]) camera_.pitchDegrees -= rotationSpeed;
+        if (freeViewEnabled_ && !cameraStaging_.isIntroActive() && keys[SDL_SCANCODE_DOWN]) camera_.pitchDegrees += rotationSpeed;
         camera_.pitchDegrees = battle::clampFreeViewPitchDegrees(camera_.pitchDegrees);
 
-        updateActionIntroCamera(camera_, cameraIntro_, deltaSeconds);
+        cameraStaging_.update(camera_, deltaSeconds, freeViewEnabled_);
+        freeViewCameraDebugLog_.update(freeViewEnabled_ && !cameraStaging_.isIntroActive(), camera_);
 
-        cameraOscillationTime_ += deltaSeconds;
-        if (!freeViewEnabled_ && !cameraIntro_.active) {
-            applyGoalCamera(camera_);
-            if (nextIsCharacter) {
-                constexpr float kOscillationAmplitudeDegrees = 1.8f;
-                constexpr float kOscillationSpeed = 0.55f;
-                camera_.yawDegrees = kGoalCameraYaw + std::sin(cameraOscillationTime_ * kOscillationSpeed) * kOscillationAmplitudeDegrees;
-            }
-        }
-
-        freeViewCameraDebugLog_.update(freeViewEnabled_ && !cameraIntro_.active, camera_);
-
+        const bool bossActing = !(preview.valid && preview.type == battle::ParticipantType::Character);
+        const int actingPartyIndex =
+            (!bossActing && preview.partyIndex >= 0) ? preview.partyIndex : -1;
+        updateSceneEntities(deltaSeconds, bossActing, actingPartyIndex);
         maybeHandleIdleVoiceline(nowMs);
 
-        battle::app::ui::updateBattleHudDocument(document_, manager_, hudFeedback_, tutorialOverlay_,
-                                                 rhythmChallenge_, paused_, pauseOverlayMode_, pauseSelection_,
-                                                 settingsSelection_, settings_,
-                                                 settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond,
-                                                 nowMs,
-                                                 makeBattleHudDocumentDependencies());
+        syncHudDocument(nowMs);
+
+        if (manager_.isBattleOver() && !dialogueActive && !presentationPlaybackActive_ &&
+            tutorialOverlay_.step == TutorialStep::None &&
+            !rhythmChallenge_.active && activeUltimateTurnSplash_ == nullptr &&
+            isBossDeathFadeComplete() && !isBattleFinishBlocked()) {
+            finished_ = true;
+        }
     }
 
     void render() {
-        if (!initialized_ || finished_) {
+        if (!initialized_ || finished_ || sceneRenderer_.renderer == nullptr || sceneRenderer_.surface == nullptr) {
             return;
         }
 
-        int focusedIndex = getActiveCharacterPartyIndex(manager_).has_value() ? 0 : 1;
+        if (combatBeginAnimation_.isActive()) {
+            combatBeginAnimation_.render(sceneRenderer_.renderer, sceneRenderer_.width, sceneRenderer_.height);
+            screenBlitter_.uploadSurface(sceneRenderer_.surface);
+
+            SDL_GL_MakeCurrent(window_, glContext_);
+            glViewport(0, 0, drawableWidth_, drawableHeight_);
+            glClearColor(0.035f, 0.043f, 0.07f, 1.0f);
+            glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+            screenBlitter_.draw();
+            return;
+        }
+
+        int focusedIndex = -1;
         if (presentationPlaybackActive_) {
-            if (presentationCasterIsBoss_) {
-                focusedIndex = 1;
-            } else if (presentationCasterPartyIndex_ >= 0) {
-                focusedIndex = 0;
+            int presentationFocusedPartyIndex = -1;
+            if (activePresentation_ != nullptr) {
+                presentationFocusedPartyIndex = activePresentation_->getFocusedPartyIndex();
+            }
+
+            if (presentationFocusedPartyIndex >= 0) {
+                focusedIndex = findEntityIndexByPartyIndex(entities_, presentationFocusedPartyIndex);
+            } else {
+                focusedIndex = presentationCasterIsBoss_
+                    ? findBossEntityIndex(entities_)
+                    : findEntityIndexByPartyIndex(entities_, presentationCasterPartyIndex_);
             }
         }
-        battle::render::renderBattleScene(sceneRenderer_, camera_, entities_, focusedIndex, frameAccumulator_);
+        if (focusedIndex < 0) {
+            const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager_);
+            focusedIndex = activePartyIndex.has_value()
+                ? findEntityIndexByPartyIndex(entities_, *activePartyIndex)
+                : findBossEntityIndex(entities_);
+        }
+        if (presentationPlaybackActive_) {
+            focusedIndex = std::max(focusedIndex, 0);
+        }
+
+        camera_.screenCenterX = windowWidth_ * 0.5f;
+        camera_.screenCenterY = windowHeight_ * 0.5f;
+
+        const bool blackoutWorld =
+            activePresentation_ != nullptr && activePresentation_->shouldBlackoutWorld();
+        const bool renderFloor =
+            activePresentation_ == nullptr || activePresentation_->shouldRenderFloor();
+        SDL_SetRenderDrawBlendMode(sceneRenderer_.renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(sceneRenderer_.renderer,
+                               blackoutWorld ? 0 : 16,
+                               blackoutWorld ? 0 : 18,
+                               blackoutWorld ? 0 : 26,
+                               255);
+        SDL_RenderClear(sceneRenderer_.renderer);
+
+        battle::render::renderBattleFloor(
+            sceneRenderer_.renderer,
+            sceneRenderer_.width,
+            sceneRenderer_.height,
+            camera_,
+            (blackoutWorld || !renderFloor) ? nullptr : sceneRenderer_.floorTileTexture
+        );
+
+        if (activePresentation_ != nullptr) {
+            activePresentation_->renderBelowWorld(
+                sceneRenderer_.renderer,
+                windowWidth_,
+                windowHeight_,
+                camera_);
+        }
+
+        battle::render::renderBattleEntities(
+            sceneRenderer_.renderer,
+            sceneRenderer_.width,
+            sceneRenderer_.height,
+            camera_,
+            entities_,
+            focusedIndex,
+            sceneRenderer_.textureByAsset,
+            frameAccumulator_,
+            [this](const SceneEntity& entity) {
+                return feedback_.getShakeOffsetX(entity.isBoss, entity.partyIndex);
+            });
+
+        if (activePresentation_ != nullptr && !activePresentation_->shouldRenderAboveHud()) {
+            activePresentation_->render(sceneRenderer_.renderer, windowWidth_, windowHeight_, camera_);
+        }
+
+        std::vector<battle::render::FeedbackEntityAnchor> anchors;
+        anchors.reserve(entities_.size());
+        for (const SceneEntity& entity : entities_) {
+            anchors.push_back(battle::render::FeedbackEntityAnchor{
+                entity.isBoss,
+                entity.partyIndex,
+                entity.worldX,
+                entity.worldY,
+                entity.worldZ,
+                entity.visible
+            });
+        }
+
+        feedback_.render(sceneRenderer_.renderer, camera_, anchors);
         screenBlitter_.uploadSurface(sceneRenderer_.surface);
 
-        glViewport(0, 0, windowWidth_, windowHeight_);
+        SDL_GL_MakeCurrent(window_, glContext_);
+        glViewport(0, 0, drawableWidth_, drawableHeight_);
         glClearColor(0.035f, 0.043f, 0.07f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+        glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
         screenBlitter_.draw();
 
-        renderInterface_->BeginFrame();
+        loadingOverlay_.apply(loadingOverlayState_);
         context_->Update();
+        renderInterface_->BeginFrame();
         context_->Render();
         renderInterface_->EndFrame();
+
+        const bool hasOverlayPass =
+            presentationOverlayRenderer_.renderer != nullptr &&
+            presentationOverlayRenderer_.surface != nullptr &&
+            ((activePresentation_ != nullptr && activePresentation_->shouldRenderAboveHud()) ||
+             activeUltimateTurnSplash_ != nullptr ||
+             static_cast<bool>(activeOverlay_) ||
+             isDialogueInProgress());
+        if (hasOverlayPass) {
+            SDL_SetRenderDrawBlendMode(presentationOverlayRenderer_.renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(presentationOverlayRenderer_.renderer, 0, 0, 0, 0);
+            SDL_RenderClear(presentationOverlayRenderer_.renderer);
+
+            if (activePresentation_ != nullptr && activePresentation_->shouldRenderAboveHud()) {
+                activePresentation_->render(
+                    presentationOverlayRenderer_.renderer,
+                    windowWidth_,
+                    windowHeight_,
+                    camera_);
+            }
+            if (activeUltimateTurnSplash_ != nullptr) {
+                activeUltimateTurnSplash_->renderOverlay(
+                    presentationOverlayRenderer_.renderer,
+                    windowWidth_,
+                    windowHeight_);
+            }
+            if (activeOverlay_) {
+                activeOverlay_(presentationOverlayRenderer_.renderer, windowWidth_, windowHeight_);
+            }
+            if (isDialogueInProgress()) {
+                vn::render();
+            }
+
+            presentationOverlayBlitter_.uploadSurface(presentationOverlayRenderer_.surface);
+            presentationOverlayBlitter_.draw(true);
+        }
     }
 
     bool isFinished() const {
         return finished_;
     }
 
+    bool exitedToMainMenu() const {
+        return exitToMainMenuRequested_;
+    }
+
+    void setLoadingOverlay(const graphics::RmlUiLoadingOverlayState& state) {
+        loadingOverlayState_ = state;
+        loadingOverlay_.apply(loadingOverlayState_);
+    }
+
+    BattleOutcome outcome() const {
+        if (!initialized_) {
+            return BattleOutcome::None;
+        }
+        if (manager_.getBossCurrentHp() <= 0) {
+            return BattleOutcome::Victory;
+        }
+
+        const battle::BattleState& state = manager_.getBattleState();
+        for (size_t i = 0; i < state.party.size(); ++i) {
+            if (manager_.isCharacterAlive(static_cast<int>(i))) {
+                return BattleOutcome::None;
+            }
+        }
+        return BattleOutcome::Defeat;
+    }
+
+    const std::vector<std::string>& currentPartyLineup() const {
+        return activePartyLineup_;
+    }
+
 private:
+    bool isBattleFinishBlocked() const {
+        if (manager_.getBossCurrentHp() > 0) {
+            return false;
+        }
+
+        const auto bossDeadVoicePath = resolveBossDeadVoicePath(manager_.getBattleState());
+        return bossDeadVoicePath.has_value() && gOneShotAudio.isPlaying(*bossDeadVoicePath);
+    }
+
+    bool isDialogueInProgress() const {
+        return narrativeEnabled_ && narrativeInitialized_ && narrative_.isDialogueInProgress();
+    }
+
+    bool isBattleSpaceEnabled() const {
+        if (!narrativeEnabled_) {
+            return true;
+        }
+        if (!narrativeInitialized_) {
+            return false;
+        }
+        return narrative_.isSpaceEnabledForBattle();
+    }
+
+    void syncNarrativeSettings() const {
+        if (!narrativeEnabled_ || !narrativeInitialized_ || settings_ == nullptr) {
+            return;
+        }
+
+        vn::setMusicVolume(settings_->musicVolume);
+        vn::setVoiceVolume(settings_->voiceVolume);
+        vn::setTypewriterSpeed(settings_->textSpeed);
+    }
+
+    float currentVoiceVolume() const {
+        return settings_ != nullptr ? settings_->voiceVolume : 1.0f;
+    }
+
+    void handlePresentationAudioCommands(
+        const battle::PresentationContext& context,
+        const std::vector<battle::PresentationAudioCommand>& commands) {
+        (void)context;
+
+        for (const battle::PresentationAudioCommand& command : commands) {
+            switch (command.type) {
+                case battle::PresentationAudioCommandType::PlayOneShot:
+                    (void)playResolvedOneShot(
+                        gPresentationSfxAudio,
+                        command.id,
+                        command.volume,
+                        true
+                    );
+                    break;
+                case battle::PresentationAudioCommandType::PlayOneShotAllowOverlap:
+                    (void)playResolvedOneShot(
+                        gPresentationSfxAudio,
+                        command.id,
+                        command.volume,
+                        false
+                    );
+                    break;
+                case battle::PresentationAudioCommandType::StartLoop:
+                    (void)playResolvedLoop(gPresentationLoopAudio, command.id, command.volume);
+                    break;
+                case battle::PresentationAudioCommandType::StopLoop:
+                    gPresentationLoopAudio.stop();
+                    break;
+                case battle::PresentationAudioCommandType::StopAllSfx:
+                    stopPresentationAudioPlayback(false);
+                    break;
+                case battle::PresentationAudioCommandType::PauseBgm:
+                    gBgmPlayer.pause();
+                    break;
+                case battle::PresentationAudioCommandType::ResumeBgm:
+                    gBgmPlayer.resume();
+                    break;
+            }
+        }
+    }
+
+    void handlePresentationAbilityAudio(const battle::PresentationContext& context, int cueCount) {
+        if (cueCount <= 0) {
+            return;
+        }
+
+        const float voiceVolume = currentVoiceVolume();
+        const battle::BattleState& battleState = manager_.getBattleState();
+        if (context.isBoss && context.presentationId == "qr_code_attack") {
+            for (int i = 0; i < cueCount; ++i) {
+                (void)playCombatVoiceClip(battleState.boss.key, "ability", voiceVolume);
+            }
+            manager_.markPresentationAbilityAudioPlayed();
+            return;
+        }
+
+        if (context.isBoss) {
+            const std::string audioSequenceId = battleState.boss.key + "|" + context.presentationId;
+            if (presentationAudioSequenceId_ != audioSequenceId) {
+                presentationAudioSequenceId_ = audioSequenceId;
+                presentationAudioCueIndex_ = 0;
+            }
+
+            for (int i = 0; i < cueCount; ++i) {
+                ++presentationAudioCueIndex_;
+                if (playCombatVoiceClip(battleState.boss.key, "ability", voiceVolume)) {
+                    continue;
+                }
+                (void)playCombatVoiceClip(battleState.boss.assets, "ability", voiceVolume);
+            }
+
+            manager_.markPresentationAbilityAudioPlayed();
+            return;
+        }
+
+        const std::string casterVoiceKey = getPresentationCasterVoiceKey(context, manager_);
+        const std::string audioSequenceId = casterVoiceKey + "|" + context.presentationId;
+        if (presentationAudioSequenceId_ != audioSequenceId) {
+            presentationAudioSequenceId_ = audioSequenceId;
+            presentationAudioCueIndex_ = 0;
+        }
+
+        for (int i = 0; i < cueCount; ++i) {
+            ++presentationAudioCueIndex_;
+
+            std::string clipName = "ability";
+            if (casterVoiceKey == "cupcakke" && context.presentationId == "drum_attack") {
+                clipName = (presentationAudioCueIndex_ == 1) ? "ability" : "ability2";
+            } else if (casterVoiceKey == "cupcakke" && context.presentationId == "niagara_falls_ultimate") {
+                clipName = (presentationAudioCueIndex_ == 1) ? "ultimate" : "ability2";
+            } else if (context.isUltimate) {
+                clipName = "ultimate";
+            }
+
+            if (playCombatVoiceClip(casterVoiceKey, clipName, voiceVolume)) {
+                continue;
+            }
+
+            if ((clipName == "ultimate" || clipName == "ability2") &&
+                playCombatVoiceClip(casterVoiceKey, "ability", voiceVolume)) {
+                continue;
+            }
+        }
+
+        manager_.markPresentationAbilityAudioPlayed();
+    }
+
+    void handlePresentationHealAudio(const battle::PresentationContext& context, int hitEvents) {
+        if (context.isBoss || hitEvents <= 0) {
+            return;
+        }
+
+        const float voiceVolume = currentVoiceVolume();
+        const battle::BattleState& battleState = manager_.getBattleState();
+        for (size_t i = 0; i < battleState.party.size(); ++i) {
+            if (manager_.getCharacterCurrentHp(static_cast<int>(i)) <= 0) {
+                continue;
+            }
+            (void)playCombatVoiceClip(battleState.party[i].assets, "healed", voiceVolume);
+        }
+    }
+
+    void handlePresentationHitAudio(const battle::PresentationContext& context,
+                                    int hitEvents,
+                                    int targetPartyIndex,
+                                    int bossHpBefore,
+                                    const std::vector<int>& partyHpBefore) {
+        if (hitEvents <= 0) {
+            return;
+        }
+
+        const float voiceVolume = currentVoiceVolume();
+        const battle::BattleState& battleState = manager_.getBattleState();
+        if (context.isBoss) {
+            auto handlePartyHitAudio = [&](int partyIndex, int repeatCount) {
+                if (partyIndex < 0 || partyIndex >= static_cast<int>(battleState.party.size()) ||
+                    static_cast<size_t>(partyIndex) >= partyHpBefore.size()) {
+                    return;
+                }
+
+                const int nowHp = manager_.getCharacterCurrentHp(partyIndex);
+                const int prevHp = partyHpBefore[static_cast<size_t>(partyIndex)];
+                const std::string& assetKey = battleState.party[static_cast<size_t>(partyIndex)].assets;
+                const bool diedNow = prevHp > 0 && nowHp <= 0;
+                const auto deadVoice = platform::path::resolveCombatVoicePath(assetKey, "dead");
+                if (diedNow && deadVoice.has_value()) {
+                    if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
+                        gOneShotAudio.stopPlayback(*hitVoice);
+                    }
+                    (void)gOneShotAudio.playWavOneShot(*deadVoice, voiceVolume);
+                    return;
+                }
+
+                if (nowHp <= 0 && !diedNow) {
+                    return;
+                }
+
+                if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
+                    for (int hit = 0; hit < repeatCount; ++hit) {
+                        (void)gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
+                    }
+                }
+            };
+
+            if (targetPartyIndex >= 0 && targetPartyIndex < static_cast<int>(battleState.party.size())) {
+                handlePartyHitAudio(targetPartyIndex, hitEvents);
+            } else {
+                for (size_t i = 0; i < battleState.party.size(); ++i) {
+                    handlePartyHitAudio(static_cast<int>(i), hitEvents);
+                }
+            }
+
+            manager_.markPresentationHitAudioPlayed();
+            return;
+        }
+
+        const std::string casterVoiceKey = getPresentationCasterVoiceKey(context, manager_);
+        if (context.presentationId == "drum_attack" && casterVoiceKey == "cupcakke") {
+            (void)playCombatVoiceClip(casterVoiceKey, "ability2", voiceVolume, hitEvents);
+            manager_.markPresentationHitAudioPlayed();
+            return;
+        }
+
+        const int nowBossHp = manager_.getBossCurrentHp();
+        const bool bossDiedNow = bossHpBefore > 0 && nowBossHp <= 0;
+        const auto bossDeadVoice = resolveBossDeadVoicePath(battleState);
+        if (bossDiedNow && bossDeadVoice.has_value()) {
+            if (const auto bossHitVoice = resolveBossHitVoicePath(battleState); bossHitVoice.has_value()) {
+                gOneShotAudio.stopPlayback(*bossHitVoice);
+            }
+            (void)gOneShotAudio.playWavOneShot(*bossDeadVoice, voiceVolume);
+            manager_.markPresentationHitAudioPlayed();
+            return;
+        }
+
+        (void)playBossHitVoice(battleState, voiceVolume, hitEvents);
+        manager_.markPresentationHitAudioPlayed();
+    }
+
     float runPresentationInteraction(const battle::PresentationContext& context) {
         if (!initialized_ || finished_) {
             return 1.0f;
@@ -1066,204 +1774,509 @@ private:
             return 1.0f;
         }
 
-        float casterX = battle::render::kDuelCharacterSlotX;
-        float casterY = battle::render::kDuelCharacterBaseY;
-        float casterZ = 0.0f;
-        float targetX = battle::render::kDuelBossSlotX;
-        float targetY = battle::render::kDuelCharacterBaseY + battle::render::kBossCharacterDistanceWorld;
-        float targetZ = 0.0f;
-
-        if (context.isBoss) {
-            casterX = battle::render::kDuelBossSlotX;
-            casterY = battle::render::kDuelCharacterBaseY + battle::render::kBossCharacterDistanceWorld;
-            casterZ = 0.0f;
-            targetX = battle::render::kDuelCharacterSlotX;
-            targetY = battle::render::kDuelCharacterBaseY;
-            targetZ = 0.0f;
+        const battle::AbilityDefinition* abilityDef = manager_.findAbilityDefinition(context.abilityId);
+        const Uint64 hintStartedMs = SDL_GetTicks64();
+        if (abilityDef != nullptr && !abilityDef->instructionHint.empty()) {
+            showHint(hudFeedback_, abilityDef->instructionHint, hintStartedMs);
+        } else {
+            clearHint(hudFeedback_);
         }
+        syncHudDocument(hintStartedMs);
 
-        std::unique_ptr<battle::AbilityPresentation> presentation = battle::PresentationRegistry::instance().create(
-            context.presentationId,
-            casterX, casterY, casterZ,
-            targetX, targetY, targetZ
-        );
-        if (!presentation) {
-            std::cerr << "[Presentation] Missing presentation id: " << context.presentationId << "\n";
-            return 1.0f;
-        }
+        updateSceneEntities(0.0f, context.isBoss, context.isBoss ? -1 : context.casterIndex);
+        cameraStaging_.snapToGoalCamera(camera_);
 
-        presentationPlaybackActive_ = true;
-        presentationCasterIsBoss_ = context.isBoss;
-        presentationCasterPartyIndex_ = context.casterIndex;
-
-        // ------------------------------------------------------------------
-        // Splash art intro (pre-presentation)
-        // ------------------------------------------------------------------
-        const battle::BattleState& battleState = manager_.getBattleState();
-        auto resolveSpriteTexture = [&](const std::string& assetName) -> SDL_Texture* {
-            auto it = sceneRenderer_.textureByAsset.find(assetName);
-            return (it != sceneRenderer_.textureByAsset.end()) ? it->second : nullptr;
+        auto resolveTextureForEntity = [&](auto predicate,
+                                          const auto& resolveTextureFn) -> SDL_Texture* {
+            for (const SceneEntity& entity : entities_) {
+                if (!predicate(entity)) {
+                    continue;
+                }
+                if (SDL_Texture* texture = resolveTextureFn(entity.assetName)) {
+                    return texture;
+                }
+            }
+            return nullptr;
         };
-        SDL_Texture* casterSpriteTexture = nullptr;
-        if (context.isBoss) {
-            casterSpriteTexture = resolveSpriteTexture(battleState.boss.assets);
-        } else if (context.casterIndex >= 0 &&
-                   static_cast<size_t>(context.casterIndex) < battleState.party.size()) {
-            casterSpriteTexture = resolveSpriteTexture(battleState.party[static_cast<size_t>(context.casterIndex)].assets);
-        }
 
-        std::optional<battle::SplashArtConfig> splashCfg = presentation->getSplashConfig(casterSpriteTexture);
-        if (!splashCfg.has_value() && context.isBoss) {
-            battle::SplashArtConfig cfg;
-            cfg.sprite = casterSpriteTexture;
-            splashCfg = std::move(cfg);
-        }
+        SDL_Texture* casterSpriteTexture = resolveTextureForEntity([&context](const SceneEntity& entity) {
+            return context.isBoss ? entity.isBoss
+                                  : (!entity.isBoss && entity.partyIndex == context.casterIndex);
+        }, [this](const std::string& assetName) {
+            return resolveSceneTextureByAsset(assetName);
+        });
+        SDL_Texture* targetSpriteTexture = resolveTextureForEntity([&context](const SceneEntity& entity) {
+            if (context.isBoss) {
+                if (context.targetIndex >= 0) {
+                    return !entity.isBoss && entity.partyIndex == context.targetIndex;
+                }
+                return !entity.isBoss;
+            }
+            return entity.isBoss;
+        }, [this](const std::string& assetName) {
+            return resolveSceneTextureByAsset(assetName);
+        });
+        SDL_Texture* overlayCasterSpriteTexture = resolveTextureForEntity([&context](const SceneEntity& entity) {
+            return context.isBoss ? entity.isBoss
+                                  : (!entity.isBoss && entity.partyIndex == context.casterIndex);
+        }, [this](const std::string& assetName) {
+            return resolveOverlayTextureByAsset(assetName);
+        });
+        SDL_Texture* overlayTargetSpriteTexture = resolveTextureForEntity([&context](const SceneEntity& entity) {
+            if (context.isBoss) {
+                if (context.targetIndex >= 0) {
+                    return !entity.isBoss && entity.partyIndex == context.targetIndex;
+                }
+                return !entity.isBoss;
+            }
+            return entity.isBoss;
+        }, [this](const std::string& assetName) {
+            return resolveOverlayTextureByAsset(assetName);
+        });
 
-        const bool allowSplash = context.isBoss || !context.isUltimate;
-        if (allowSplash && splashCfg.has_value()) {
-            if (!context.abilityName.empty()) {
-                splashCfg->abilityName = context.abilityName;
-            } else if (!context.abilityId.empty()) {
-                splashCfg->abilityName = context.abilityId;
+        battle::presentation_runtime::PlaybackStateRefs stateRefs;
+        stateRefs.playbackActive = &presentationPlaybackActive_;
+        stateRefs.casterIsBoss = &presentationCasterIsBoss_;
+        stateRefs.casterPartyIndex = &presentationCasterPartyIndex_;
+        stateRefs.activePresentation = &activePresentation_;
+
+        battle::presentation_runtime::PlaybackCallbacks callbacks;
+        callbacks.splashSpriteTexture = overlayCasterSpriteTexture != nullptr
+            ? overlayCasterSpriteTexture
+            : casterSpriteTexture;
+        callbacks.casterSpriteTexture = casterSpriteTexture;
+        callbacks.targetSpriteTexture = targetSpriteTexture;
+        callbacks.overlayCasterSpriteTexture = overlayCasterSpriteTexture;
+        callbacks.overlayTargetSpriteTexture = overlayTargetSpriteTexture;
+        callbacks.onWindowResized = [this](int width, int height) {
+            if (windowHost_ != nullptr && window_ != nullptr) {
+                SDL_Event resizeEvent{};
+                resizeEvent.type = SDL_WINDOWEVENT;
+                resizeEvent.window.windowID = SDL_GetWindowID(window_);
+                resizeEvent.window.event = SDL_WINDOWEVENT_SIZE_CHANGED;
+                resizeEvent.window.data1 = width;
+                resizeEvent.window.data2 = height;
+                windowHost_->handleEvent(resizeEvent);
+            }
+            windowWidth_ = width;
+            windowHeight_ = height;
+            if (window_ != nullptr) {
+                SDL_GL_GetDrawableSize(window_, &drawableWidth_, &drawableHeight_);
+            }
+            if (renderInterface_ != nullptr) {
+                renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
+            }
+            if (context_ != nullptr) {
+                context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
+            }
+            camera_.screenCenterX = windowWidth_ * 0.5f;
+            camera_.screenCenterY = windowHeight_ * 0.5f;
+            if (!refreshSceneRenderers()) {
+                finished_ = true;
+            }
+        };
+        callbacks.onAudioCommands = [this, &context](const std::vector<battle::PresentationAudioCommand>& commands) {
+            handlePresentationAudioCommands(context, commands);
+        };
+        callbacks.onAbilityAudioCues = [this, &context](int cueCount) {
+            handlePresentationAbilityAudio(context, cueCount);
+        };
+        callbacks.onHitEvents = [this, &context, abilityDef](int hitEvents, int damageLabelHitCount) {
+            if (hitEvents <= 0) {
+                return;
+            }
+
+            if (abilityDef == nullptr) {
+                feedback_.queuePresentationHitShakes(context.isBoss, hitEvents, manager_);
+                return;
+            }
+
+            if (abilityDef->type == battle::AbilityType::Heal) {
+                const float healMultiplier = activePresentation_ != nullptr
+                    ? std::max(0.0f, activePresentation_->getInputMultiplier())
+                    : 1.0f;
+                const int totalHeal = std::max(0, static_cast<int>(std::lround(
+                    static_cast<float>(abilityDef->flatHeal) * healMultiplier
+                )));
+                const int perHitHeal = totalHeal / std::max(1, hitEvents);
+                manager_.applyPresentationHealing(
+                    context.isBoss,
+                    perHitHeal,
+                    hitEvents,
+                    abilityDef->reviveDeadAllies
+                );
+                feedback_.queuePresentationHealFeedback(context.isBoss, hitEvents, perHitHeal, manager_);
+                handlePresentationHealAudio(context, hitEvents);
+                return;
+            }
+
+            int baseAtk = 0;
+            if (context.isBoss) {
+                baseAtk = manager_.getBattleState().boss.atk;
             } else {
-                splashCfg->abilityName = context.presentationId;
-            }
-
-            battle::SplashArtAnimation splash(*splashCfg);
-            splash.start();
-            Uint64 splashCounter = SDL_GetPerformanceCounter();
-            while (!finished_ && !splash.isComplete()) {
-                SDL_Event event;
-                while (SDL_PollEvent(&event)) {
-                    if (event.type == SDL_QUIT) {
-                        finished_ = true;
-                        break;
-                    }
-
-                    if (isWindowResizeEvent(event)) {
-                        windowHost_->handleEvent(event);
-                        windowWidth_ = windowHost_->getWidth();
-                        windowHeight_ = windowHost_->getHeight();
-                        renderInterface_->SetViewport(windowWidth_, windowHeight_);
-                        context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
-                        camera_.screenCenterX = windowWidth_ * 0.5f;
-                        camera_.screenCenterY = windowHeight_ * 0.5f;
-                        if (!sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
-                            finished_ = true;
-                            break;
-                        }
-                    }
-
-                    if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
-                        if (event.key.keysym.sym == SDLK_ESCAPE) {
-                            finished_ = true;
-                            break;
-                        }
-                        if (event.key.keysym.sym == SDLK_SPACE) {
-                            splash.skip();
-                        }
-                    }
-                }
-                if (finished_) break;
-
-                const Uint64 splashNow = SDL_GetPerformanceCounter();
-                const float splashDt = static_cast<float>(splashNow - splashCounter) /
-                    static_cast<float>(SDL_GetPerformanceFrequency());
-                splashCounter = splashNow;
-                splash.update(splashDt);
-
-                render();
-                if (SDL_Renderer* renderer = windowHost_ != nullptr ? windowHost_->getRenderer() : nullptr) {
-                    splash.renderOverlay(renderer, windowWidth_, windowHeight_);
-                }
-                if (windowHost_ != nullptr) {
-                    windowHost_->present();
-                }
-            }
-        }
-
-        presentation->start();
-        Uint64 lastCounter = SDL_GetPerformanceCounter();
-
-        while (!finished_ && !presentation->isComplete()) {
-            SDL_Event event;
-            while (SDL_PollEvent(&event)) {
-                if (event.type == SDL_QUIT) {
-                    finished_ = true;
-                    break;
-                }
-
-                if (isWindowResizeEvent(event)) {
-                    windowHost_->handleEvent(event);
-                    windowWidth_ = windowHost_->getWidth();
-                    windowHeight_ = windowHost_->getHeight();
-                    renderInterface_->SetViewport(windowWidth_, windowHeight_);
-                    context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
-                    camera_.screenCenterX = windowWidth_ * 0.5f;
-                    camera_.screenCenterY = windowHeight_ * 0.5f;
-                    if (!sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
-                        finished_ = true;
-                        break;
-                    }
-                }
-
-                if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
-                    if (event.key.keysym.sym == SDLK_ESCAPE) {
-                        finished_ = true;
-                        break;
-                    }
-                    if (event.key.keysym.sym == SDLK_SPACE) {
-                        presentation->onSpacePressed();
-                    }
-                    presentation->onKeyPressed(event.key.keysym.sym);
+                const battle::BattleState& state = manager_.getBattleState();
+                if (context.casterIndex >= 0 &&
+                    static_cast<size_t>(context.casterIndex) < state.party.size()) {
+                    baseAtk = state.party[static_cast<size_t>(context.casterIndex)].atk;
                 }
             }
 
-            const Uint64 now = SDL_GetPerformanceCounter();
-            const float deltaSeconds = static_cast<float>(now - lastCounter) /
-                static_cast<float>(SDL_GetPerformanceFrequency());
-            lastCounter = now;
-
-            presentation->update(deltaSeconds);
-
-            battle::Camera3D previousCamera = camera_;
-            std::vector<WorldEntity> previousEntities = entities_;
-
-            if (presentation->overridesCamera()) {
-                presentation->applyCameraState(camera_);
+            const int bossHpBefore = manager_.getBossCurrentHp();
+            std::vector<int> partyHpBefore;
+            const battle::BattleState& state = manager_.getBattleState();
+            partyHpBefore.reserve(state.party.size());
+            for (size_t i = 0; i < state.party.size(); ++i) {
+                partyHpBefore.push_back(manager_.getCharacterCurrentHp(static_cast<int>(i)));
             }
 
-            float overrideX = 0.0f;
-            float overrideY = 0.0f;
-            float overrideZ = 0.0f;
-            if (presentation->getCasterWorldOverride(overrideX, overrideY, overrideZ)) {
-                const size_t casterEntityIndex = context.isBoss ? 1u : 0u;
-                if (casterEntityIndex < entities_.size()) {
-                    entities_[casterEntityIndex].worldX = overrideX;
-                    entities_[casterEntityIndex].worldY = overrideY;
-                    entities_[casterEntityIndex].worldZ = overrideZ;
+            const float hitDamageMultiplier = activePresentation_ != nullptr
+                ? std::max(0.0f, activePresentation_->consumeHitDamageMultiplier())
+                : 1.0f;
+            const float totalDamageRaw = baseAtk * abilityDef->multiplier * hitDamageMultiplier;
+            const int totalDamage = std::max(1, static_cast<int>(totalDamageRaw));
+            const int perHitDamage = std::max(1, totalDamage / std::max(1, damageLabelHitCount));
+            const int presentationTargetPartyIndex = context.isBoss ? context.targetIndex : -1;
+
+            manager_.applyPresentationHitDamage(
+                context.isBoss,
+                perHitDamage,
+                hitEvents,
+                presentationTargetPartyIndex
+            );
+            handlePresentationHitAudio(
+                context,
+                hitEvents,
+                presentationTargetPartyIndex,
+                bossHpBefore,
+                partyHpBefore
+            );
+            feedback_.queuePresentationHitFeedback(
+                context.isBoss,
+                hitEvents,
+                perHitDamage,
+                manager_,
+                presentationTargetPartyIndex
+            );
+        };
+        callbacks.onPostUpdate = [this, &context](float deltaSeconds) {
+            const bool useCenteredPartyLayout =
+                activePresentation_ != nullptr &&
+                activePresentation_->shouldUseCenteredPartyLayout();
+            const bool bossActingLayout = context.isBoss || useCenteredPartyLayout;
+            const int actingPartyIndex = bossActingLayout ? -1 : context.casterIndex;
+
+            updateSceneEntities(deltaSeconds, bossActingLayout, actingPartyIndex);
+            feedback_.syncFromManager(manager_, presentationPlaybackActive_);
+            feedback_.update(deltaSeconds);
+            syncHudDocument(SDL_GetTicks64());
+        };
+        callbacks.onBossPresentationFrame = [this]() {
+            computeCharacterPositions(true, -1);
+
+            if (activePresentation_ == nullptr) {
+                return;
+            }
+
+            const int focusedPartyIndex = activePresentation_->getFocusedPartyIndex();
+            if (focusedPartyIndex < 0) {
+                return;
+            }
+
+            for (const SceneEntity& entity : entities_) {
+                if (entity.isBoss || entity.partyIndex != focusedPartyIndex) {
+                    continue;
                 }
-            }
 
+                activePresentation_->setTargetWorldPosition(entity.worldX, entity.worldY, entity.worldZ);
+                break;
+            }
+        };
+        callbacks.setRenderOverlay = [this](std::function<void(SDL_Renderer*, int, int)> fn) {
+            activeOverlay_ = std::move(fn);
+        };
+        callbacks.clearRenderOverlay = [this]() {
+            activeOverlay_ = nullptr;
+        };
+        callbacks.renderAndPresentFrame = [this]() {
             render();
-
-            if (SDL_Renderer* renderer = windowHost_ != nullptr ? windowHost_->getRenderer() : nullptr) {
-                presentation->render(renderer, windowWidth_, windowHeight_, camera_);
-            }
-
             if (windowHost_ != nullptr) {
                 windowHost_->present();
             }
+        };
 
-            entities_ = std::move(previousEntities);
-            camera_ = previousCamera;
+        const battle::presentation_runtime::PlaybackResult result =
+            battle::presentation_runtime::runAbilityPresentation(
+                sceneRenderer_.renderer,
+                finished_,
+                camera_,
+                entities_,
+                context,
+                stateRefs,
+                callbacks
+            );
+
+        activeOverlay_ = nullptr;
+
+        if (!context.isBoss &&
+            context.presentationId == "rang_wo_men_shuo_zhong_wen" &&
+            result.correctToneCount > 0) {
+            manager_.addLuotianyiCorrectTones(result.correctToneCount);
         }
 
-        presentationPlaybackActive_ = false;
-        presentationCasterIsBoss_ = false;
-        presentationCasterPartyIndex_ = -1;
+        const std::string resultText = result.resultText;
+        presentationAudioSequenceId_.clear();
+        presentationAudioCueIndex_ = 0;
+        if (context.presentationId == "boss_attack_lyoo_plot_twist") {
+            stopPresentationAudioPlayback(true);
+        }
+        if (context.presentationId == "aesthetic_warning") {
+            clearHint(hudFeedback_);
+        } else if (!resultText.empty() &&
+                   (context.isBoss || context.interactionType != battle::InteractionType::None)) {
+            showHint(hudFeedback_, resultText, SDL_GetTicks64(), 2200);
+        } else if (context.isBoss || context.interactionType != battle::InteractionType::None) {
+            clearHint(hudFeedback_);
+        }
+        syncHudDocument(SDL_GetTicks64());
 
-        return presentation->getInputMultiplier();
+        discardNextUpdateDelta_ = true;
+        return result.multiplier;
+    }
+
+    bool loadFonts() {
+        bool anyLoaded = false;
+        anyLoaded |= loadRmlFontIfPresent(platform::path::resolvePath("assets/fonts/SpaceMono-Regular.ttf"));
+        anyLoaded |= loadRmlFontIfPresent(platform::path::resolvePath("assets/fonts/SpaceMono-Bold.ttf"));
+        anyLoaded |= loadRmlFontIfPresent(platform::path::findFontPath(), true);
+        anyLoaded |= loadRmlFontIfPresent(platform::path::resolvePath("assets/fonts/NotoSansCJK-Regular.ttc"), true);
+        return anyLoaded;
+    }
+
+    void updateViewportFromWindow() {
+        if (windowHost_ == nullptr) {
+            return;
+        }
+        windowWidth_ = windowHost_->getWidth();
+        windowHeight_ = windowHost_->getHeight();
+        drawableWidth_ = windowHost_->getDrawableWidth();
+        drawableHeight_ = windowHost_->getDrawableHeight();
+    }
+
+    void syncHudDocument(Uint64 nowMs) {
+        battle::app::ui::updateBattleHudDocument(document_,
+                                                 manager_,
+                                                 hudFeedback_,
+                                                 tutorialOverlay_,
+                                                 rhythmChallenge_,
+                                                 paused_,
+                                                 pauseOverlayMode_,
+                                                 pauseSelection_,
+                                                 settingsSelection_,
+                                                 settings_,
+                                                 settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond,
+                                                 nowMs,
+                                                 makeBattleHudDocumentDependencies());
+    }
+
+    SDL_Texture* resolveSceneTextureByAsset(const std::string& assetName) const {
+        if (const auto it = sceneRenderer_.textureByAsset.find(assetName); it != sceneRenderer_.textureByAsset.end()) {
+            return it->second;
+        }
+        return nullptr;
+    }
+
+    SDL_Texture* resolveOverlayTextureByAsset(const std::string& assetName) const {
+        if (const auto it = presentationOverlayRenderer_.textureByAsset.find(assetName);
+            it != presentationOverlayRenderer_.textureByAsset.end()) {
+            return it->second;
+        }
+        return nullptr;
+    }
+
+    void refreshCombatBeginAnimationTextures() {
+        if (!combatBeginAnimation_.isActive()) {
+            return;
+        }
+
+        const battle::BattleState& state = manager_.getBattleState();
+        combatBeginAnimation_.reset(
+            resolveSceneTextureByAsset("miku"),
+            resolveSceneTextureByAsset(state.boss.assets)
+        );
+    }
+
+    bool refreshSceneRenderers() {
+        if (!sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
+            return false;
+        }
+        if (!presentationOverlayRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
+            return false;
+        }
+        if (narrativeEnabled_) {
+            if (!vn::initialize(presentationOverlayRenderer_.renderer, windowWidth_, windowHeight_)) {
+                return false;
+            }
+            vn::setViewportSize(windowWidth_, windowHeight_);
+            syncNarrativeSettings();
+        }
+
+        refreshCombatBeginAnimationTextures();
+
+        const battle::flow::PreviewActorContext preview = battle::flow::inspectPreviewActor(manager_);
+        const bool bossActing = !(preview.valid && preview.type == battle::ParticipantType::Character);
+        const int actingPartyIndex =
+            (!bossActing && preview.partyIndex >= 0) ? preview.partyIndex : -1;
+        updateSceneEntities(0.0f, bossActing, actingPartyIndex);
+        return true;
+    }
+
+    void initializeWorldEntities() {
+        const battle::BattleState& state = manager_.getBattleState();
+
+        entities_.clear();
+        entities_.reserve(state.party.size() + 1);
+        for (size_t partyIndex = 0; partyIndex < state.party.size(); ++partyIndex) {
+            const battle::CharacterDefinition& character = state.party[partyIndex];
+            entities_.push_back(SceneEntity{
+                character.key,
+                character.assets,
+                false,
+                battle::render::kDuelCharacterSlotX,
+                battle::render::kDuelCharacterBaseY,
+                0.0f,
+                battle::render::colorFromKey(character.key, false),
+                static_cast<int>(partyIndex),
+                true,
+                true,
+                1.0f,
+                0.0f
+            });
+        }
+
+        entities_.push_back(SceneEntity{
+            state.boss.key,
+            state.boss.assets,
+            true,
+            battle::render::kDuelBossSlotX,
+            battle::render::kDuelCharacterBaseY + battle::render::kBossCharacterDistanceWorld,
+            0.0f,
+            battle::render::colorFromKey(state.boss.key, true),
+            -1,
+            manager_.getBossCurrentHp() > 0,
+            manager_.getBossCurrentHp() > 0,
+            manager_.getBossCurrentHp() > 0 ? 1.0f : 0.0f,
+            0.0f
+        });
+    }
+
+    void computeCharacterPositions(bool bossActing, int actingPartyIndex) {
+        const battle::BattleState& state = manager_.getBattleState();
+        std::vector<bool> livingPartyMembers(state.party.size(), false);
+        for (size_t i = 0; i < state.party.size(); ++i) {
+            livingPartyMembers[i] = manager_.isCharacterAlive(static_cast<int>(i));
+        }
+
+        battle::render::computeDefaultPartyCharacterPositions(
+            entities_,
+            livingPartyMembers,
+            bossActing,
+            actingPartyIndex
+        );
+
+        const bool bossAlive = manager_.getBossCurrentHp() > 0;
+        for (SceneEntity& entity : entities_) {
+            if (!entity.isBoss) {
+                continue;
+            }
+            entity.lineupVisible = bossAlive;
+            break;
+        }
+    }
+
+    void updateCharacterVisibilityTransitions(float deltaSeconds) {
+        const float step = kCharacterVisibilityAnimSeconds <= 0.0f
+            ? 1.0f
+            : deltaSeconds / kCharacterVisibilityAnimSeconds;
+
+        for (SceneEntity& entity : entities_) {
+            if (entity.lineupVisible) {
+                entity.spriteAlpha = std::min(1.0f, entity.spriteAlpha + step);
+                const float eased = battle::easing::easeOutCubic(battle::easing::clamp01(entity.spriteAlpha));
+                entity.spriteOffsetYPx = -kCharacterVisibilityOffsetPx * (1.0f - eased);
+                entity.visible = true;
+                continue;
+            }
+
+            entity.spriteAlpha = std::max(0.0f, entity.spriteAlpha - step);
+            const float fadeT = battle::easing::clamp01(1.0f - entity.spriteAlpha);
+            entity.spriteOffsetYPx = -kCharacterVisibilityOffsetPx * battle::easing::easeOutCubic(fadeT);
+            entity.visible = entity.spriteAlpha > 0.001f;
+            if (!entity.visible) {
+                entity.spriteOffsetYPx = 0.0f;
+            }
+        }
+    }
+
+    void updateSceneEntities(float deltaSeconds, bool bossActing, int actingPartyIndex) {
+        computeCharacterPositions(bossActing, actingPartyIndex);
+        updateCharacterVisibilityTransitions(deltaSeconds);
+    }
+
+    void maybeStartUltimateTurnSplash(const battle::flow::PreviewActorContext& preview, bool dialogueActive) {
+        if (dialogueActive || presentationPlaybackActive_ || activeUltimateTurnSplash_) {
+            return;
+        }
+
+        const bool isCharacterUltimatePreview =
+            preview.valid &&
+            preview.type == battle::ParticipantType::Character &&
+            preview.isExtraTurn &&
+            preview.extraTurnAction == battle::BattleAction::Ultimate &&
+            !preview.autoExecute &&
+            preview.partyIndex >= 0;
+
+        if (!isCharacterUltimatePreview) {
+            previewUltimateSplashPartyIndex_ = -1;
+            return;
+        }
+
+        if (preview.partyIndex == previewUltimateSplashPartyIndex_) {
+            return;
+        }
+
+        const battle::BattleState& battleState = manager_.getBattleState();
+        if (static_cast<size_t>(preview.partyIndex) >= battleState.party.size()) {
+            return;
+        }
+
+        const battle::CharacterDefinition& character = battleState.party[static_cast<size_t>(preview.partyIndex)];
+        const battle::AbilityDefinition* abilityDef = manager_.findAbilityDefinition(character.ultimate);
+
+        battle::SplashArtConfig cfg;
+        cfg.abilityName = abilityDef != nullptr ? abilityDef->name : character.ultimate;
+        cfg.sprite = resolveOverlayTextureByAsset(character.assets);
+        if (cfg.sprite == nullptr) {
+            cfg.sprite = resolveSceneTextureByAsset(character.assets);
+        }
+
+        activeUltimateTurnSplash_ = std::make_unique<battle::SplashArtAnimation>(cfg);
+        activeUltimateTurnSplash_->start();
+        previewUltimateSplashPartyIndex_ = preview.partyIndex;
+    }
+
+    bool isBossDeathFadeComplete() const {
+        if (manager_.getBossCurrentHp() > 0) {
+            return true;
+        }
+
+        for (const SceneEntity& entity : entities_) {
+            if (!entity.isBoss) {
+                continue;
+            }
+            return !entity.visible || entity.spriteAlpha <= 0.001f;
+        }
+
+        return true;
     }
 
     void attachListener(const std::string& id, Rml::EventId eventId, std::function<void(Rml::Event&)> callback) {
@@ -1374,17 +2387,16 @@ private:
         if (windowHost_->setFullscreen(targetFullscreen)) {
             settings_->fullscreen = targetFullscreen;
         }
-        windowWidth_ = windowHost_->getWidth();
-        windowHeight_ = windowHost_->getHeight();
+        updateViewportFromWindow();
         if (renderInterface_ != nullptr) {
-            renderInterface_->SetViewport(windowWidth_, windowHeight_);
+            renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
         }
         if (context_ != nullptr) {
             context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
         }
         camera_.screenCenterX = windowWidth_ * 0.5f;
         camera_.screenCenterY = windowHeight_ * 0.5f;
-        (void)sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath);
+        (void)refreshSceneRenderers();
     }
 
     void adjustVoiceVolume(int direction) {
@@ -1416,7 +2428,8 @@ private:
     }
 
     void maybeStartTutorial(Uint64 nowMs) {
-        if (tutorialOverlay_.dismissed || rhythmChallenge_.active || tutorialOverlay_.step != TutorialStep::None) {
+        if (!tutorialEnabled_ || !tutorialLibrary_.loaded ||
+            tutorialOverlay_.dismissed || rhythmChallenge_.active || tutorialOverlay_.step != TutorialStep::None) {
             return;
         }
         const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager_);
@@ -1461,7 +2474,12 @@ private:
         showToast(hudFeedback_, onBeat ? "ON-BEAT INPUT." : "LATE INPUT.", nowMs, 1100);
         completeTutorialForAction(battle::BattleAction::Skill);
         manager_.processAutomaticTurns();
-        consumeBattleActionEvents(hudFeedback_, manager_, settings_ != nullptr ? settings_->voiceVolume : 1.0f, nowMs);
+        consumeBattleActionEvents(
+            hudFeedback_,
+            manager_,
+            settings_ != nullptr ? settings_->voiceVolume : 1.0f,
+            nowMs,
+            &cameraStaging_);
     }
 
     void attemptAction(battle::BattleAction action) {
@@ -1504,7 +2522,12 @@ private:
         }
         completeTutorialForAction(action);
         manager_.processAutomaticTurns();
-        consumeBattleActionEvents(hudFeedback_, manager_, settings_ != nullptr ? settings_->voiceVolume : 1.0f, nowMs);
+        consumeBattleActionEvents(
+            hudFeedback_,
+            manager_,
+            settings_ != nullptr ? settings_->voiceVolume : 1.0f,
+            nowMs,
+            &cameraStaging_);
     }
 
     void onActiveActorChanged(const battle::TurnActor* actor, const battle::BattleState& state, Uint64 nowMs) {
@@ -1599,39 +2622,61 @@ private:
     SDL_GLContext glContext_ = nullptr;
     bool initialized_ = false;
     bool finished_ = false;
+    bool exitToMainMenuRequested_ = false;
     bool paused_ = false;
     bool rmlInitialized_ = false;
     bool rmlGlInitialized_ = false;
     bool imageInitialized_ = false;
     int windowWidth_ = kWindowWidth;
     int windowHeight_ = kWindowHeight;
+    int drawableWidth_ = kWindowWidth;
+    int drawableHeight_ = kWindowHeight;
     GameSettings* settings_ = nullptr;
     PauseOverlayMode pauseOverlayMode_ = PauseOverlayMode::Menu;
     PauseSelection pauseSelection_ = PauseSelection::Continue;
     SettingsSelection settingsSelection_ = SettingsSelection::DisplayMode;
+    battle::BattleDefinition battleDefinition_{};
+    std::vector<std::string> activePartyLineup_;
     battle::BattleManager manager_;
+    battle::demo::DemoNarrativeFlow narrative_;
     TutorialScriptLibrary tutorialLibrary_;
     HudFeedbackState hudFeedback_;
     TutorialOverlayState tutorialOverlay_;
     RhythmChallengeState rhythmChallenge_;
     std::vector<std::unique_ptr<Rml::EventListener>> uiListeners_;
     std::vector<std::string> worldAssets_;
-    std::vector<WorldEntity> entities_;
+    std::vector<SceneEntity> entities_;
     SoftwareSceneRenderer sceneRenderer_;
+    SoftwareSceneRenderer presentationOverlayRenderer_;
     GlScreenBlitter screenBlitter_;
+    GlScreenBlitter presentationOverlayBlitter_;
     SystemInterface_SDL systemInterface_;
-    std::unique_ptr<RenderInterfaceGL3SDL> renderInterface_;
+    std::unique_ptr<graphics::RmlUiSdlGlRenderInterface> renderInterface_;
     Rml::Context* context_ = nullptr;
     Rml::ElementDocument* document_ = nullptr;
+    graphics::RmlUiLoadingOverlay loadingOverlay_;
+    graphics::RmlUiLoadingOverlayState loadingOverlayState_{};
     battle::Camera3D camera_;
+    battle::render::BattleCameraStaging cameraStaging_;
+    battle::render::BattleCombatBeginAnimation combatBeginAnimation_;
+    battle::render::BattleFeedbackSystem feedback_;
     CameraIntroAnimation cameraIntro_;
     battle::render::FreeViewCameraDebugLog freeViewCameraDebugLog_;
     bool freeViewEnabled_ = false;
+    bool tutorialEnabled_ = false;
+    bool narrativeEnabled_ = false;
+    bool narrativeInitialized_ = false;
     bool presentationPlaybackActive_ = false;
     bool presentationCasterIsBoss_ = false;
     int presentationCasterPartyIndex_ = -1;
-    float cameraOscillationTime_ = 0.0f;
+    battle::AbilityPresentation* activePresentation_ = nullptr;
+    std::unique_ptr<battle::SplashArtAnimation> activeUltimateTurnSplash_;
+    int previewUltimateSplashPartyIndex_ = -1;
+    std::function<void(SDL_Renderer*, int, int)> activeOverlay_;
     float frameAccumulator_ = 0.0f;
+    bool discardNextUpdateDelta_ = false;
+    std::string presentationAudioSequenceId_;
+    int presentationAudioCueIndex_ = 0;
     std::optional<int> idleActorPartyIndex_;
     std::optional<std::string> idleVoiceClipPath_;
     std::string idlePlayingPath_;
@@ -1642,11 +2687,21 @@ private:
 
 Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
 Session::~Session() = default;
-bool Session::initialize(Window& window, GameSettings& settings) { return impl_->initialize(window, settings); }
+bool Session::initialize(Window& window,
+                         GameSettings& settings,
+                         const std::string& battleKey,
+                         const battle::PlayerProgression& progression,
+                         std::optional<std::vector<std::string>> initialPartyLineup) {
+    return impl_->initialize(window, settings, battleKey, progression, std::move(initialPartyLineup));
+}
 void Session::shutdown() { impl_->shutdown(); }
 void Session::handleEvent(const SDL_Event& event) { impl_->handleEvent(event); }
 void Session::update(float deltaSeconds) { impl_->update(deltaSeconds); }
 void Session::render() { impl_->render(); }
+void Session::setLoadingOverlay(const graphics::RmlUiLoadingOverlayState& state) { impl_->setLoadingOverlay(state); }
 bool Session::isFinished() const { return impl_->isFinished(); }
+bool Session::exitedToMainMenu() const { return impl_->exitedToMainMenu(); }
+BattleOutcome Session::outcome() const { return impl_->outcome(); }
+const std::vector<std::string>& Session::currentPartyLineup() const { return impl_->currentPartyLineup(); }
 
 } // namespace battle::app

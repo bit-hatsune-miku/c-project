@@ -6,9 +6,6 @@
 #include "game/app_battle_session.h"
 
 int main(int argc, char** argv) {
-    (void)argc;
-    (void)argv;
-
     Window window("Battle Testing - RmlUi HUD Smoke", 1280, 720);
     if (!window.isOpen()) {
         std::cerr << "Failed to initialize window\n";
@@ -22,8 +19,22 @@ int main(int argc, char** argv) {
     }
 
     GameSettings settings;
+    battle::PlayerProgression progression = battle::makeDefaultPlayerProgression();
+    battle::normalizePlayerProgression(progression, battle::ProgressionFallbackPolicy::FullRoster);
+
+    const std::string battleKey = (argc > 1 && argv[1] != nullptr && argv[1][0] != '\0')
+        ? argv[1]
+        : "scan_to_pay";
+    const std::vector<std::string> fallbackLineup = {
+        "miku",
+        "cupcakke",
+        "jiafei",
+        "lyoo"
+    };
+
     battle::app::Session session;
-    if (!session.initialize(window, settings)) {
+    if (!session.initialize(window, settings, battleKey, progression, fallbackLineup)) {
+        std::cerr << "Failed to initialize battle session for battle key '" << battleKey << "'\n";
         session.shutdown();
         return 1;
     }

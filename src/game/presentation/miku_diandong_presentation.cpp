@@ -48,6 +48,7 @@ MikuDiandongPresentation::~MikuDiandongPresentation() {
         SDL_DestroyTexture(diandongTexture_);
         diandongTexture_ = nullptr;
     }
+    diandongTextureRenderer_ = nullptr;
 }
 
 MikuDiandongPresentation::MikuDiandongPresentation(
@@ -162,6 +163,10 @@ void MikuDiandongPresentation::update(float deltaSeconds) {
     }
 }
 
+void MikuDiandongPresentation::preload(SDL_Renderer* renderer) {
+    (void)ensureDiandongTexture(renderer);
+}
+
 bool MikuDiandongPresentation::isComplete() const {
     return phase_ == Phase::Complete;
 }
@@ -238,9 +243,18 @@ bool MikuDiandongPresentation::shouldRenderAboveHud() const {
     return true;
 }
 
+bool MikuDiandongPresentation::shouldRenderFloor() const {
+    return false;
+}
+
 void MikuDiandongPresentation::setExternalTextures(SDL_Texture* casterSprite, SDL_Texture* targetSprite) {
     casterSpriteTexture_ = casterSprite;
     targetSpriteTexture_ = targetSprite;
+}
+
+void MikuDiandongPresentation::setOverlayTextures(SDL_Texture* casterSprite, SDL_Texture* targetSprite) {
+    overlayCasterSpriteTexture_ = casterSprite;
+    overlayTargetSpriteTexture_ = targetSprite;
 }
 
 std::optional<SplashArtConfig> MikuDiandongPresentation::getSplashConfig(SDL_Texture* sprite) const {
@@ -407,6 +421,17 @@ void MikuDiandongPresentation::drawSilhouette(SDL_Renderer* renderer, const Came
 }
 
 bool MikuDiandongPresentation::ensureDiandongTexture(SDL_Renderer* renderer) {
+    if (diandongTextureRenderer_ != nullptr && diandongTextureRenderer_ != renderer) {
+        if (diandongTexture_ != nullptr) {
+            SDL_DestroyTexture(diandongTexture_);
+            diandongTexture_ = nullptr;
+        }
+        diandongTextureWidth_ = 0;
+        diandongTextureHeight_ = 0;
+        diandongTextureRenderer_ = nullptr;
+        attemptedTextureLoad_ = false;
+    }
+
     if (attemptedTextureLoad_) {
         return diandongTexture_ != nullptr;
     }
@@ -421,7 +446,10 @@ bool MikuDiandongPresentation::ensureDiandongTexture(SDL_Renderer* renderer) {
     SDL_Surface* surface = IMG_Load(path.c_str());
     if (surface != nullptr) {
         diandongTexture_ = SDL_CreateTextureFromSurface(renderer, surface);
-        SDL_QueryTexture(diandongTexture_, nullptr, nullptr, &diandongTextureWidth_, &diandongTextureHeight_);
+        if (diandongTexture_ != nullptr) {
+            SDL_QueryTexture(diandongTexture_, nullptr, nullptr, &diandongTextureWidth_, &diandongTextureHeight_);
+            diandongTextureRenderer_ = renderer;
+        }
         SDL_FreeSurface(surface);
     }
 #endif
@@ -440,7 +468,11 @@ void MikuDiandongPresentation::drawFreezeOverlay(SDL_Renderer* renderer, int scr
     SDL_RenderFillRect(renderer, &full);
 
     drawDiandongSprite(renderer, camera, mikuWorldX_, mikuWorldY_, mikuWorldZ_, true, 1.05f);
-    drawSilhouette(renderer, camera, targetSpriteTexture_, targetX_, targetY_, targetZ_, kBossSilhouetteHeight, kBossSilhouetteWidthScale);
+    SDL_Texture* silhouetteTexture = overlayTargetSpriteTexture_ != nullptr
+        ? overlayTargetSpriteTexture_
+        : targetSpriteTexture_;
+    drawSilhouette(renderer, camera, silhouetteTexture, targetX_, targetY_, targetZ_,
+                   kBossSilhouetteHeight, kBossSilhouetteWidthScale);
 }
 
 } // namespace battle

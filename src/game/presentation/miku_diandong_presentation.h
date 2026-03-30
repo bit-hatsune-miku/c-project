@@ -13,6 +13,7 @@ public:
 
     void start() override;
     void update(float deltaSeconds) override;
+    void preload(SDL_Renderer* renderer) override;
     bool isComplete() const override;
     bool overridesCamera() const override;
     void applyCameraState(Camera3D& camera) const override;
@@ -22,7 +23,9 @@ public:
     int consumeAbilityAudioCues() override;
     bool shouldRenderCasterEntity() const override;
     bool shouldRenderAboveHud() const override;
+    bool shouldRenderFloor() const override;
     void setExternalTextures(SDL_Texture* casterSprite, SDL_Texture* targetSprite) override;
+    void setOverlayTextures(SDL_Texture* casterSprite, SDL_Texture* targetSprite) override;
     std::optional<SplashArtConfig> getSplashConfig(SDL_Texture* sprite) const override;
 
 private:
@@ -82,9 +85,12 @@ private:
     int diandongTextureWidth_ = 0;
     int diandongTextureHeight_ = 0;
     bool attemptedTextureLoad_ = false;
+    SDL_Renderer* diandongTextureRenderer_ = nullptr;
 
     SDL_Texture* casterSpriteTexture_ = nullptr;
     SDL_Texture* targetSpriteTexture_ = nullptr;
+    SDL_Texture* overlayCasterSpriteTexture_ = nullptr;
+    SDL_Texture* overlayTargetSpriteTexture_ = nullptr;
 };
 
 } // namespace battle

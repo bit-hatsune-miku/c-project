@@ -17,6 +17,7 @@ public:
 
     void start() override;
     void update(float deltaTime) override;
+    void preload(SDL_Renderer* renderer) override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     void renderBelowWorld(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;

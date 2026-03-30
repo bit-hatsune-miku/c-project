@@ -93,7 +93,7 @@
     },
     "lyoo_plot_twist": {
       "id": 99,
-      "name": "A turn up of events",
+      "name": "Lyoo is able to one shot characters. It is recommended to pair a shielder AND a healer.",
       "bossKey": "lyooPlotTwist",
       "storyScript": "finale",
       "isLineupFixed": false,

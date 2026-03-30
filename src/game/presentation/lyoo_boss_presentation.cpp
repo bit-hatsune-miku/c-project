@@ -139,6 +139,10 @@ void LyooBossPresentation::update(float deltaTime) {
     }
 }
 
+void LyooBossPresentation::preload(SDL_Renderer* renderer) {
+    ensureFramesLoaded(renderer);
+}
+
 void LyooBossPresentation::render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) {
     ensureFramesLoaded(renderer);
 
@@ -244,6 +248,10 @@ bool LyooBossPresentation::shouldRenderCasterEntity() const {
 }
 
 bool LyooBossPresentation::shouldRenderAboveHud() const {
+    return false;
+}
+
+bool LyooBossPresentation::shouldRenderFloor() const {
     return false;
 }
 
@@ -532,15 +540,28 @@ void LyooBossPresentation::renderPulses(SDL_Renderer* renderer, const Camera3D& 
         }
 
         const SDL_FPoint p = camera.worldToScreen(x, y, z);
-        const float radius = std::max(6.0f, camera.getPerspectiveScale(x, y, z) * 22.0f);
-        const float alpha = (t > 0.85f) ? (1.0f - (t - 0.85f) / 0.15f) : 1.0f;
-        const Uint8 a = static_cast<Uint8>(std::clamp(alpha, 0.0f, 1.0f) * 220.0f);
+        const float size = std::max(10.0f, camera.getPerspectiveScale(x, y, z) * 30.0f);
+        const float alpha = (t > 0.88f) ? (1.0f - (t - 0.88f) / 0.12f) : 1.0f;
+        const Uint8 glowAlpha = static_cast<Uint8>(std::clamp(alpha, 0.0f, 1.0f) * 110.0f);
+        const Uint8 fillAlpha = static_cast<Uint8>(std::clamp(alpha, 0.0f, 1.0f) * 235.0f);
+        const Uint8 outlineAlpha = static_cast<Uint8>(std::clamp(alpha, 0.0f, 1.0f) * 255.0f);
 
-        SDL_FRect rect{p.x - radius * 0.5f, p.y - radius * 0.5f, radius, radius};
-        SDL_SetRenderDrawColor(renderer, 240, 35, 35, a);
-        SDL_RenderFillRectF(renderer, &rect);
-        SDL_SetRenderDrawColor(renderer, 255, 170, 170, a);
-        SDL_RenderDrawRectF(renderer, &rect);
+        const float armThickness = std::max(2.0f, size * 0.18f);
+        const float armLength = size;
+        const float coreSize = std::max(4.0f, size * 0.34f);
+        SDL_FRect glowRect{p.x - size * 0.72f, p.y - size * 0.72f, size * 1.44f, size * 1.44f};
+        SDL_FRect vertical{p.x - armThickness * 0.5f, p.y - armLength * 0.5f, armThickness, armLength};
+        SDL_FRect horizontal{p.x - armLength * 0.5f, p.y - armThickness * 0.5f, armLength, armThickness};
+        SDL_FRect core{p.x - coreSize * 0.5f, p.y - coreSize * 0.5f, coreSize, coreSize};
+
+        SDL_SetRenderDrawColor(renderer, 255, 70, 70, glowAlpha);
+        SDL_RenderFillRectF(renderer, &glowRect);
+        SDL_SetRenderDrawColor(renderer, 255, 215, 215, fillAlpha);
+        SDL_RenderFillRectF(renderer, &vertical);
+        SDL_RenderFillRectF(renderer, &horizontal);
+        SDL_RenderFillRectF(renderer, &core);
+        SDL_SetRenderDrawColor(renderer, 255, 250, 250, outlineAlpha);
+        SDL_RenderDrawRectF(renderer, &glowRect);
     }
 }
 
