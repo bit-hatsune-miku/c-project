@@ -54,6 +54,8 @@
 #include "render/free_view_camera_debug_log.h"
 #include "render/gl_battle_scene_renderer.h"
 #include "render/gl_screen_blitter.h"
+#include "../graphics/front_ui_pause.h"
+#include "../graphics/front_ui_settings.h"
 #include "../graphics/rmlui_loading_overlay.h"
 #include "../graphics/rmlui_sdl_gl_renderer.h"
 #include "demo/demo_narrative_flow.h"
@@ -133,6 +135,38 @@ game::audio::WavOneShotPlayer gOneShotAudio;
 game::audio::WavOneShotPlayer gPresentationSfxAudio;
 game::audio::BgmPlayer gBgmPlayer;
 game::audio::BgmPlayer gPresentationLoopAudio;
+game::audio::BgmPlayer gPauseMenuBgmPlayer;
+
+std::vector<std::string> resolveUiMusicTrackPaths() {
+    std::vector<std::string> tracks;
+    const std::string classicsDirectory = platform::path::resolvePath("assets/ui/classics");
+    std::error_code filesystemError;
+    if (classicsDirectory.empty() ||
+        !std::filesystem::exists(classicsDirectory, filesystemError) ||
+        filesystemError) {
+        return tracks;
+    }
+
+    for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(classicsDirectory, filesystemError)) {
+        if (filesystemError) {
+            break;
+        }
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+
+        std::string extension = entry.path().extension().string();
+        std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char ch) {
+            return static_cast<char>(std::tolower(ch));
+        });
+        if (extension == ".wav") {
+            tracks.push_back(entry.path().string());
+        }
+    }
+
+    std::sort(tracks.begin(), tracks.end());
+    return tracks;
+}
 
 bool loadRmlFontIfPresent(const std::string& path, bool fallback = false) {
     if (path.empty() || !std::filesystem::exists(path)) {
@@ -302,6 +336,10 @@ using battle::app::ui::getRhythmProgress;
 using battle::render::GlScreenBlitter;
 using battle::render::SceneEntity;
 using battle::render::SoftwareSceneRenderer;
+using graphics::frontui::DocumentController;
+using graphics::frontui::PauseDocumentController;
+using graphics::frontui::SoundRequest;
+using graphics::frontui::SettingsDocumentController;
 
 std::string resolveBattleSpritePath(const std::string& assetName) {
     const std::array<std::string, 2> candidates = {
@@ -856,9 +894,10 @@ public:
         });
 
         const battle::BattleState& state = manager_.getBattleState();
+        battleBgmBaseVolume_ = std::clamp(state.boss.bgmVolume, 0.0f, 1.0f);
         if (!state.boss.bgm.empty()) {
             if (const auto bgmPath = platform::path::resolveCombatBgmPath(state.boss.bgm); bgmPath.has_value()) {
-                gBgmPlayer.play(*bgmPath, state.boss.bgmVolume);
+                gBgmPlayer.play(*bgmPath, battleBgmBaseVolume_ * currentMusicMasterVolume());
             }
         }
         worldAssets_.clear();
@@ -938,6 +977,25 @@ public:
             return false;
         }
         document_->Show();
+        pauseDocument_ = nullptr;
+        pauseMenuController_.reset();
+        settingsDocument_ = nullptr;
+        settingsMenuController_.reset();
+        pauseMenuTracks_ = resolveUiMusicTrackPaths();
+        pauseMenuTrackCursor_ = 0;
+        battleBgmWasPlayingBeforePause_ = false;
+        battleBgmWasPausedBeforePause_ = false;
+        pauseMenuUiState_ = AppState{};
+        pauseMenuUiState_.screen = ScreenState::PauseMenu;
+        pauseMenuUiState_.pauseContext = PauseContext::Battle;
+        pauseMenuUiState_.pauseSelection = PauseAction::Continue;
+        pauseMenuUiState_.confirmSelection = ConfirmAction::Cancel;
+        pauseMenuUiState_.settingsReturnScreen = ScreenState::PauseMenu;
+        settingsMenuUiState_ = AppState{};
+        settingsMenuUiState_.screen = ScreenState::Settings;
+        settingsMenuUiState_.settingsReturnScreen = ScreenState::PauseMenu;
+        settingsMenuUiState_.settingsSelection = SettingsItem::DisplayMode;
+        settingsMenuUiState_.pauseContext = PauseContext::Battle;
 
         if (!loadingOverlay_.initialize(*context_, platform::path::resolvePath(kLoadingOverlayDocumentPath))) {
             std::cerr << "[Battle] Failed to load loading overlay document.\n";
@@ -1015,6 +1073,9 @@ public:
         resetIdleVoicelineState();
         battle::ability::setPresentationInteractionRunner(nullptr);
         freeViewCameraDebugLog_.clear();
+        closeSettingsMenuDocument();
+        closePauseMenuDocument();
+        stopPauseMenuMusic();
         if (document_ != nullptr) {
             document_->Close();
             document_ = nullptr;
@@ -1148,9 +1209,7 @@ public:
         }
 
         if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
-            paused_ = true;
-            pauseOverlayMode_ = PauseOverlayMode::Menu;
-            pauseSelection_ = PauseSelection::Continue;
+            enterPauseMenu();
             return;
         }
 
@@ -1268,6 +1327,8 @@ public:
             if (narrativeEnabled_ && narrativeInitialized_) {
                 vn::setPaused(true);
             }
+            updatePauseMenuUi(deltaSeconds);
+            updateSettingsMenuUi(deltaSeconds);
             syncHudDocument(nowMs);
             return;
         }
@@ -1642,6 +1703,10 @@ private:
         vn::setTypewriterSpeed(settings_->textSpeed);
     }
 
+    float currentMusicMasterVolume() const {
+        return settings_ != nullptr ? std::clamp(settings_->musicVolume, 0.0f, 1.0f) : 1.0f;
+    }
+
     float currentVoiceVolume() const {
         return settings_ != nullptr ? settings_->voiceVolume : 1.0f;
     }
@@ -1670,12 +1735,19 @@ private:
                     );
                     break;
                 case battle::PresentationAudioCommandType::StartLoop:
-                    (void)playResolvedLoop(gPresentationLoopAudio, command.id, command.volume);
+                    presentationLoopBaseVolume_ = std::clamp(command.volume, 0.0f, 1.0f);
+                    (void)playResolvedLoop(
+                        gPresentationLoopAudio,
+                        command.id,
+                        presentationLoopBaseVolume_ * currentMusicMasterVolume()
+                    );
                     break;
                 case battle::PresentationAudioCommandType::StopLoop:
+                    presentationLoopBaseVolume_ = 1.0f;
                     gPresentationLoopAudio.stop();
                     break;
                 case battle::PresentationAudioCommandType::StopAllSfx:
+                    presentationLoopBaseVolume_ = 1.0f;
                     stopPresentationAudioPlayback(false);
                     break;
                 case battle::PresentationAudioCommandType::PauseBgm:
@@ -2148,7 +2220,7 @@ private:
                                                  hudFeedback_,
                                                  tutorialOverlay_,
                                                  rhythmChallenge_,
-                                                 paused_,
+                                                 false,
                                                  pauseOverlayMode_,
                                                  pauseSelection_,
                                                  settingsSelection_,
@@ -2444,102 +2516,387 @@ private:
         }
     }
 
-    void handlePauseEvent(const SDL_Event& event) {
-        if (event.type != SDL_KEYDOWN) {
-            return;
+    PauseAction toFrontUiPauseAction(PauseSelection selection) const {
+        switch (selection) {
+            case PauseSelection::Continue:
+                return PauseAction::Continue;
+            case PauseSelection::Settings:
+                return PauseAction::Settings;
+            case PauseSelection::ExitToMainMenu:
+                return PauseAction::ExitToMainMenu;
         }
-        if (pauseOverlayMode_ == PauseOverlayMode::Menu) {
-            if (event.key.keysym.sym == SDLK_ESCAPE) {
-                paused_ = false;
-            } else if (event.key.keysym.sym == SDLK_F11) {
-                toggleDisplayMode();
-            } else if (event.key.keysym.sym == SDLK_UP || event.key.keysym.sym == SDLK_w) {
-                if (pauseSelection_ == PauseSelection::Settings) {
-                    pauseSelection_ = PauseSelection::Continue;
-                } else if (pauseSelection_ == PauseSelection::ExitToMainMenu) {
-                    pauseSelection_ = PauseSelection::Settings;
-                }
-            } else if (event.key.keysym.sym == SDLK_DOWN || event.key.keysym.sym == SDLK_s) {
-                if (pauseSelection_ == PauseSelection::Continue) {
-                    pauseSelection_ = PauseSelection::Settings;
-                } else if (pauseSelection_ == PauseSelection::Settings) {
-                    pauseSelection_ = PauseSelection::ExitToMainMenu;
-                }
-            } else if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER ||
-                       event.key.keysym.sym == SDLK_SPACE) {
-                if (pauseSelection_ == PauseSelection::Continue) {
-                    paused_ = false;
-                } else if (pauseSelection_ == PauseSelection::Settings) {
-                    pauseOverlayMode_ = PauseOverlayMode::Settings;
-                } else {
-                    finished_ = true;
-                }
-            }
-            return;
-        }
+        return PauseAction::Continue;
+    }
 
-        if (event.key.keysym.sym == SDLK_ESCAPE) {
-            pauseOverlayMode_ = PauseOverlayMode::Menu;
-            return;
+    PauseSelection fromFrontUiPauseAction(PauseAction action) const {
+        switch (action) {
+            case PauseAction::Continue:
+                return PauseSelection::Continue;
+            case PauseAction::Settings:
+                return PauseSelection::Settings;
+            case PauseAction::ExitToMainMenu:
+                return PauseSelection::ExitToMainMenu;
+            case PauseAction::Save:
+            case PauseAction::Load:
+                break;
         }
+        return PauseSelection::Continue;
+    }
 
-        if (event.key.keysym.sym == SDLK_F11) {
-            toggleDisplayMode();
-            return;
-        }
-
-        if (event.key.keysym.sym == SDLK_UP || event.key.keysym.sym == SDLK_w) {
-            if (settingsSelection_ == SettingsSelection::VoiceVolume) {
-                settingsSelection_ = SettingsSelection::DisplayMode;
-            } else if (settingsSelection_ == SettingsSelection::TextSpeed) {
-                settingsSelection_ = SettingsSelection::VoiceVolume;
-            } else if (settingsSelection_ == SettingsSelection::Back) {
-                settingsSelection_ = SettingsSelection::TextSpeed;
-            }
-        } else if (event.key.keysym.sym == SDLK_DOWN || event.key.keysym.sym == SDLK_s) {
-            if (settingsSelection_ == SettingsSelection::DisplayMode) {
-                settingsSelection_ = SettingsSelection::VoiceVolume;
-            } else if (settingsSelection_ == SettingsSelection::VoiceVolume) {
-                settingsSelection_ = SettingsSelection::TextSpeed;
-            } else if (settingsSelection_ == SettingsSelection::TextSpeed) {
-                settingsSelection_ = SettingsSelection::Back;
-            }
-        } else if (event.key.keysym.sym == SDLK_LEFT || event.key.keysym.sym == SDLK_a) {
-            applySettingsStep(-1);
-        } else if (event.key.keysym.sym == SDLK_RIGHT || event.key.keysym.sym == SDLK_d) {
-            applySettingsStep(1);
-        } else if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER ||
-                   event.key.keysym.sym == SDLK_SPACE) {
-            if (settingsSelection_ == SettingsSelection::Back) {
-                pauseOverlayMode_ = PauseOverlayMode::Menu;
-            } else {
-                applySettingsStep(1);
-            }
+    void syncPauseMenuUiState() {
+        pauseMenuUiState_.pauseContext = PauseContext::Battle;
+        pauseMenuUiState_.settingsReturnScreen = ScreenState::PauseMenu;
+        if (settings_ != nullptr) {
+            pauseMenuUiState_.settings = *settings_;
         }
     }
 
-    void applySettingsStep(int direction) {
+    void syncSettingsMenuUiState() {
+        settingsMenuUiState_.screen = ScreenState::Settings;
+        settingsMenuUiState_.settingsReturnScreen = ScreenState::PauseMenu;
+        settingsMenuUiState_.pauseContext = PauseContext::Battle;
+        if (settings_ != nullptr) {
+            settingsMenuUiState_.settings = *settings_;
+        }
+    }
+
+    void playControllerSoundRequests(DocumentController* controller) {
+        if (controller == nullptr) {
+            return;
+        }
+
+        for (const SoundRequest& request : controller->consumeSoundRequests()) {
+            (void)playResolvedOneShot(
+                gPresentationSfxAudio,
+                request.relativePath,
+                std::clamp(request.volume, 0.0f, 1.0f),
+                false
+            );
+        }
+    }
+
+    void applyLiveSettingsFromUiState(const AppState& state) {
         if (settings_ == nullptr) {
             return;
         }
-        if (settingsSelection_ == SettingsSelection::DisplayMode) {
-            toggleDisplayMode();
-        } else if (settingsSelection_ == SettingsSelection::VoiceVolume) {
-            adjustVoiceVolume(direction);
-        } else if (settingsSelection_ == SettingsSelection::TextSpeed) {
-            adjustTextSpeed(direction);
-        } else if (settingsSelection_ == SettingsSelection::Back) {
-            pauseOverlayMode_ = PauseOverlayMode::Menu;
+
+        *settings_ = state.settings;
+        const float musicMasterVolume = currentMusicMasterVolume();
+        gPauseMenuBgmPlayer.setVolume(musicMasterVolume);
+        gBgmPlayer.setVolume(battleBgmBaseVolume_ * musicMasterVolume);
+        gPresentationLoopAudio.setVolume(presentationLoopBaseVolume_ * musicMasterVolume);
+        syncNarrativeSettings();
+    }
+
+    bool openPauseMenuDocument() {
+        if (context_ == nullptr) {
+            return false;
+        }
+        if (pauseDocument_ != nullptr && pauseMenuController_ != nullptr) {
+            syncPauseMenuUiState();
+            pauseMenuController_->sync(pauseMenuUiState_);
+            return true;
+        }
+
+        const std::string documentPath = platform::path::resolvePath("assets/rmlui/front_ui/pause_sleek.rml");
+        pauseDocument_ = context_->LoadDocument(documentPath);
+        if (pauseDocument_ == nullptr) {
+            std::cerr << "[Battle] Failed to load pause menu document: " << documentPath << "\n";
+            return false;
+        }
+
+        pauseMenuController_ = std::make_unique<PauseDocumentController>();
+        syncPauseMenuUiState();
+        if (!pauseMenuController_->bind(*pauseDocument_, pauseMenuUiState_)) {
+            pauseMenuController_.reset();
+            pauseDocument_->Close();
+            pauseDocument_ = nullptr;
+            return false;
+        }
+
+        pauseDocument_->Show();
+        playControllerSoundRequests(pauseMenuController_.get());
+        return true;
+    }
+
+    void closePauseMenuDocument() {
+        if (pauseMenuController_ != nullptr) {
+            pauseMenuController_->unbind();
+            pauseMenuController_.reset();
+        }
+        if (pauseDocument_ != nullptr) {
+            pauseDocument_->Close();
+            pauseDocument_ = nullptr;
         }
     }
 
+    bool openSettingsMenuDocument() {
+        if (context_ == nullptr) {
+            return false;
+        }
+        if (settingsDocument_ != nullptr && settingsMenuController_ != nullptr) {
+            syncSettingsMenuUiState();
+            settingsMenuController_->sync(settingsMenuUiState_);
+            return true;
+        }
+
+        const std::string documentPath = platform::path::resolvePath("assets/rmlui/front_ui/settings.rml");
+        settingsDocument_ = context_->LoadDocument(documentPath);
+        if (settingsDocument_ == nullptr) {
+            std::cerr << "[Battle] Failed to load settings menu document: " << documentPath << "\n";
+            return false;
+        }
+
+        settingsMenuController_ = std::make_unique<SettingsDocumentController>();
+        syncSettingsMenuUiState();
+        if (!settingsMenuController_->bind(*settingsDocument_, settingsMenuUiState_)) {
+            settingsMenuController_.reset();
+            settingsDocument_->Close();
+            settingsDocument_ = nullptr;
+            return false;
+        }
+
+        settingsDocument_->Show();
+        playControllerSoundRequests(settingsMenuController_.get());
+        return true;
+    }
+
+    void closeSettingsMenuDocument() {
+        if (settingsMenuController_ != nullptr) {
+            settingsMenuController_->unbind();
+            settingsMenuController_.reset();
+        }
+        if (settingsDocument_ != nullptr) {
+            settingsDocument_->Close();
+            settingsDocument_ = nullptr;
+        }
+    }
+
+    std::string choosePauseMenuTrack() {
+        if (pauseMenuTracks_.empty()) {
+            pauseMenuTracks_ = resolveUiMusicTrackPaths();
+        }
+        if (pauseMenuTracks_.empty()) {
+            return std::string();
+        }
+
+        const std::size_t index = pauseMenuTrackCursor_ % pauseMenuTracks_.size();
+        ++pauseMenuTrackCursor_;
+        return pauseMenuTracks_[index];
+    }
+
+    void startPauseMenuMusic() {
+        stopPauseMenuMusic();
+
+        battleBgmWasPlayingBeforePause_ = gBgmPlayer.isPlaying();
+        battleBgmWasPausedBeforePause_ = gBgmPlayer.isPaused();
+        if (battleBgmWasPlayingBeforePause_ && !battleBgmWasPausedBeforePause_) {
+            gBgmPlayer.pause();
+        }
+
+        const std::string trackPath = choosePauseMenuTrack();
+        if (!trackPath.empty()) {
+            const float musicVolume = settings_ != nullptr ? settings_->musicVolume : 1.0f;
+            (void)gPauseMenuBgmPlayer.play(trackPath, musicVolume);
+        }
+    }
+
+    void stopPauseMenuMusic() {
+        gPauseMenuBgmPlayer.stop();
+    }
+
+    void leavePauseMenu(bool resumeBattleMusic) {
+        closeSettingsMenuDocument();
+        closePauseMenuDocument();
+        stopPauseMenuMusic();
+        if (resumeBattleMusic && battleBgmWasPlayingBeforePause_ && !battleBgmWasPausedBeforePause_) {
+            gBgmPlayer.resume();
+        }
+        battleBgmWasPlayingBeforePause_ = false;
+        battleBgmWasPausedBeforePause_ = false;
+        battleBgmBaseVolume_ = 1.0f;
+        presentationLoopBaseVolume_ = 1.0f;
+        paused_ = false;
+        pauseOverlayMode_ = PauseOverlayMode::Menu;
+        pauseSelection_ = PauseSelection::Continue;
+    }
+
+    void reopenPauseMenuFromSettings() {
+        closeSettingsMenuDocument();
+        pauseOverlayMode_ = PauseOverlayMode::Menu;
+        pauseMenuUiState_.screen = ScreenState::PauseMenu;
+        pauseMenuUiState_.confirmSelection = ConfirmAction::Cancel;
+        if (!openPauseMenuDocument()) {
+            paused_ = false;
+        }
+    }
+
+    void enterPauseMenu() {
+        paused_ = true;
+        pauseOverlayMode_ = PauseOverlayMode::Menu;
+        pauseSelection_ = PauseSelection::Continue;
+        settingsSelection_ = SettingsSelection::DisplayMode;
+        pauseMenuUiState_.screen = ScreenState::PauseMenu;
+        pauseMenuUiState_.pauseSelection = PauseAction::Continue;
+        pauseMenuUiState_.confirmSelection = ConfirmAction::Cancel;
+        settingsMenuUiState_.screen = ScreenState::Settings;
+        settingsMenuUiState_.settingsSelection = SettingsItem::DisplayMode;
+        startPauseMenuMusic();
+        if (!openPauseMenuDocument()) {
+            stopPauseMenuMusic();
+            battleBgmWasPlayingBeforePause_ = false;
+            battleBgmWasPausedBeforePause_ = false;
+            paused_ = false;
+        }
+    }
+
+    void applyPauseMenuControllerState() {
+        if (pauseMenuController_ == nullptr) {
+            return;
+        }
+
+        pauseMenuController_->applyState(pauseMenuUiState_);
+        playControllerSoundRequests(pauseMenuController_.get());
+        applyLiveSettingsFromUiState(pauseMenuUiState_);
+        pauseSelection_ = fromFrontUiPauseAction(pauseMenuUiState_.pauseSelection);
+
+        switch (pauseMenuUiState_.screen) {
+            case ScreenState::BattleDemo:
+                leavePauseMenu(true);
+                return;
+            case ScreenState::Settings:
+                closePauseMenuDocument();
+                pauseOverlayMode_ = PauseOverlayMode::Settings;
+                settingsMenuUiState_.screen = ScreenState::Settings;
+                settingsMenuUiState_.settingsReturnScreen = ScreenState::PauseMenu;
+                settingsMenuUiState_.settingsSelection = SettingsItem::DisplayMode;
+                if (!openSettingsMenuDocument()) {
+                    leavePauseMenu(true);
+                }
+                pauseMenuUiState_.screen = ScreenState::PauseMenu;
+                return;
+            case ScreenState::MainMenu:
+                closeSettingsMenuDocument();
+                closePauseMenuDocument();
+                stopPauseMenuMusic();
+                battleBgmWasPlayingBeforePause_ = false;
+                battleBgmWasPausedBeforePause_ = false;
+                paused_ = false;
+                exitToMainMenuRequested_ = true;
+                finished_ = true;
+                return;
+            default:
+                break;
+        }
+    }
+
+    void updatePauseMenuUi(float deltaSeconds) {
+        if (pauseOverlayMode_ != PauseOverlayMode::Menu || pauseMenuController_ == nullptr) {
+            return;
+        }
+
+        syncPauseMenuUiState();
+        pauseMenuController_->update(pauseMenuUiState_, deltaSeconds);
+        applyPauseMenuControllerState();
+    }
+
+    void applySettingsMenuControllerState() {
+        if (settingsMenuController_ == nullptr) {
+            return;
+        }
+
+        settingsMenuController_->applyState(settingsMenuUiState_);
+        playControllerSoundRequests(settingsMenuController_.get());
+        applyLiveSettingsFromUiState(settingsMenuUiState_);
+
+        if (const std::optional<graphics::frontui::Command> command = settingsMenuController_->consumeCommand();
+            command.has_value()) {
+            switch (command->type) {
+                case graphics::frontui::CommandType::ApplyDisplayMode:
+                    applyDisplayMode(command->displayModeFullscreen);
+                    syncSettingsMenuUiState();
+                    settingsMenuController_->sync(settingsMenuUiState_);
+                    break;
+                case graphics::frontui::CommandType::ReturnFromSettings:
+                    reopenPauseMenuFromSettings();
+                    break;
+                case graphics::frontui::CommandType::ActivateMainMenuAction:
+                    break;
+            }
+        }
+    }
+
+    void updateSettingsMenuUi(float deltaSeconds) {
+        if (pauseOverlayMode_ != PauseOverlayMode::Settings || settingsMenuController_ == nullptr) {
+            return;
+        }
+
+        syncSettingsMenuUiState();
+        settingsMenuController_->update(settingsMenuUiState_, deltaSeconds);
+        applySettingsMenuControllerState();
+    }
+
+    void handlePauseEvent(const SDL_Event& event) {
+        if (pauseOverlayMode_ == PauseOverlayMode::Menu) {
+            if (event.type == SDL_KEYDOWN && pauseMenuController_ != nullptr) {
+                if (event.key.keysym.sym == SDLK_ESCAPE) {
+                    pauseMenuController_->cancel();
+                } else if (event.key.keysym.sym == SDLK_F11) {
+                    toggleDisplayMode();
+                } else if (event.key.keysym.sym == SDLK_UP || event.key.keysym.sym == SDLK_w) {
+                    pauseMenuController_->moveSelection(-1);
+                } else if (event.key.keysym.sym == SDLK_DOWN || event.key.keysym.sym == SDLK_s) {
+                    pauseMenuController_->moveSelection(1);
+                } else if (event.key.keysym.sym == SDLK_LEFT || event.key.keysym.sym == SDLK_a) {
+                    pauseMenuController_->adjustSelection(-1);
+                } else if (event.key.keysym.sym == SDLK_RIGHT || event.key.keysym.sym == SDLK_d) {
+                    pauseMenuController_->adjustSelection(1);
+                } else if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER ||
+                           event.key.keysym.sym == SDLK_SPACE) {
+                    pauseMenuController_->activateSelection();
+                }
+            }
+            applyPauseMenuControllerState();
+            return;
+        }
+
+        if (settingsMenuController_ == nullptr) {
+            return;
+        }
+
+        if (event.type == SDL_KEYDOWN) {
+            if (event.key.keysym.sym == SDLK_ESCAPE) {
+                settingsMenuController_->cancel();
+            } else if (event.key.keysym.sym == SDLK_F11) {
+                applyDisplayMode(settings_ == nullptr ? true : !settings_->fullscreen);
+                syncSettingsMenuUiState();
+                settingsMenuController_->sync(settingsMenuUiState_);
+            } else if (event.key.keysym.sym == SDLK_UP || event.key.keysym.sym == SDLK_w) {
+                settingsMenuController_->moveSelection(-1);
+            } else if (event.key.keysym.sym == SDLK_DOWN || event.key.keysym.sym == SDLK_s) {
+                settingsMenuController_->moveSelection(1);
+            } else if (event.key.keysym.sym == SDLK_LEFT || event.key.keysym.sym == SDLK_a) {
+                settingsMenuController_->adjustSelection(-1);
+            } else if (event.key.keysym.sym == SDLK_RIGHT || event.key.keysym.sym == SDLK_d) {
+                settingsMenuController_->adjustSelection(1);
+            } else if (event.key.keysym.sym == SDLK_RETURN || event.key.keysym.sym == SDLK_KP_ENTER ||
+                       event.key.keysym.sym == SDLK_SPACE) {
+                settingsMenuController_->activateSelection();
+            }
+        }
+        applySettingsMenuControllerState();
+    }
+
     void toggleDisplayMode() {
+        applyDisplayMode(settings_ == nullptr ? true : !settings_->fullscreen);
+    }
+
+    void applyDisplayMode(bool fullscreen) {
         if (settings_ == nullptr || windowHost_ == nullptr) {
             return;
         }
-        const bool targetFullscreen = !settings_->fullscreen;
-        if (windowHost_->setFullscreen(targetFullscreen)) {
-            settings_->fullscreen = targetFullscreen;
+        if (windowHost_->setFullscreen(fullscreen)) {
+            settings_->fullscreen = fullscreen;
         }
         updateViewportFromWindow();
         if (renderInterface_ != nullptr) {
@@ -2551,21 +2908,6 @@ private:
         camera_.screenCenterX = windowWidth_ * 0.5f;
         camera_.screenCenterY = windowHeight_ * 0.5f;
         (void)refreshSceneRenderers();
-    }
-
-    void adjustVoiceVolume(int direction) {
-        if (settings_ == nullptr) {
-            return;
-        }
-        settings_->voiceVolume = std::clamp(settings_->voiceVolume + 0.05f * static_cast<float>(direction), 0.0f, 1.0f);
-    }
-
-    void adjustTextSpeed(int direction) {
-        if (settings_ == nullptr) {
-            return;
-        }
-        settings_->textSpeed = std::clamp(settings_->textSpeed + 6.0f * static_cast<float>(direction),
-                                          kMinSettingsTextSpeed, kMaxSettingsTextSpeed);
     }
 
     void beginRhythmChallenge(int partyIndex) {
@@ -2810,8 +3152,20 @@ private:
     std::unique_ptr<graphics::RmlUiSdlGlRenderInterface> renderInterface_;
     Rml::Context* context_ = nullptr;
     Rml::ElementDocument* document_ = nullptr;
+    Rml::ElementDocument* pauseDocument_ = nullptr;
+    std::unique_ptr<PauseDocumentController> pauseMenuController_;
+    Rml::ElementDocument* settingsDocument_ = nullptr;
+    std::unique_ptr<SettingsDocumentController> settingsMenuController_;
     graphics::RmlUiLoadingOverlay loadingOverlay_;
     graphics::RmlUiLoadingOverlayState loadingOverlayState_{};
+    AppState pauseMenuUiState_{};
+    AppState settingsMenuUiState_{};
+    std::vector<std::string> pauseMenuTracks_;
+    std::size_t pauseMenuTrackCursor_ = 0;
+    bool battleBgmWasPlayingBeforePause_ = false;
+    bool battleBgmWasPausedBeforePause_ = false;
+    float battleBgmBaseVolume_ = 1.0f;
+    float presentationLoopBaseVolume_ = 1.0f;
     battle::Camera3D camera_;
     battle::render::BattleCameraStaging cameraStaging_;
     battle::render::BattleCombatBeginAnimation combatBeginAnimation_;

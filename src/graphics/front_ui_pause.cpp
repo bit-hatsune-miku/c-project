@@ -68,6 +68,20 @@ constexpr std::array<PauseButtonDefinition, 5> kPauseButtons{{
     {PauseAction::ExitToMainMenu, "pause-button-exit"},
 }};
 
+constexpr std::array<PauseAction, 5> kStoryPauseOrder{{
+    PauseAction::Continue,
+    PauseAction::Save,
+    PauseAction::Load,
+    PauseAction::Settings,
+    PauseAction::ExitToMainMenu,
+}};
+
+constexpr std::array<PauseAction, 3> kBattlePauseOrder{{
+    PauseAction::Continue,
+    PauseAction::Settings,
+    PauseAction::ExitToMainMenu,
+}};
+
 struct ConfirmButtonDefinition {
     ConfirmAction action;
     const char* id;
@@ -238,7 +252,7 @@ void PauseDocumentController::applyState(AppState& state) {
     if (pendingResume_) {
         pendingResume_ = false;
         vn::setPaused(false);
-        state.screen = ScreenState::Playing;
+        state.screen = pauseContext_ == PauseContext::Battle ? ScreenState::BattleDemo : ScreenState::Playing;
         return;
     }
 
@@ -271,7 +285,7 @@ void PauseDocumentController::applyState(AppState& state) {
     switch (action) {
         case PauseAction::Continue:
             vn::setPaused(false);
-            state.screen = ScreenState::Playing;
+            state.screen = pauseContext_ == PauseContext::Battle ? ScreenState::BattleDemo : ScreenState::Playing;
             break;
 
         case PauseAction::Save:
@@ -279,7 +293,13 @@ void PauseDocumentController::applyState(AppState& state) {
             break;
 
         case PauseAction::Load:
-            openLoadMenu(state, ScreenState::PauseMenu);
+            state.loadReturnScreen = ScreenState::PauseMenu;
+            state.loadSelection = 0;
+            state.loadSlotSelection = 0;
+            state.pendingDeletePath.clear();
+            state.pendingDeleteSelection = 0;
+            state.confirmSelection = ConfirmAction::Cancel;
+            state.screen = ScreenState::LoadMenu;
             break;
 
         case PauseAction::Settings:
@@ -409,6 +429,7 @@ void PauseDocumentController::refreshFromState(const AppState& state) {
     screen_ = state.screen;
     selection_ = state.pauseSelection;
     confirmSelection_ = state.confirmSelection;
+    pauseContext_ = state.pauseContext;
     noticeText_ = state.noticeTimer > 0.0f ? state.noticeText : std::string();
 }
 
@@ -431,6 +452,10 @@ void PauseDocumentController::refreshDocument() const {
     for (const PauseButtonDefinition& button : kPauseButtons) {
         if (Rml::Element* element = document_->GetElementById(button.id)) {
             element->SetClass("is-selected", button.action == selection_);
+            const bool visible =
+                pauseContext_ != PauseContext::Battle ||
+                (button.action != PauseAction::Save && button.action != PauseAction::Load);
+            element->SetProperty("display", visible ? "block" : "none");
         }
     }
 
@@ -452,13 +477,17 @@ void PauseDocumentController::refreshDocument() const {
 
     if (Rml::Element* element = document_->GetElementById("pause-confirm-title")) {
         element->SetInnerRML(
-            screen_ == ScreenState::PauseConfirmOverwriteSave ? "Overwrite Save?" : "Exit To Main Menu?");
+            screen_ == ScreenState::PauseConfirmOverwriteSave
+                ? "Overwrite Save?"
+                : (pauseContext_ == PauseContext::Battle ? "Exit Battle?" : "Exit To Main Menu?"));
     }
     if (Rml::Element* element = document_->GetElementById("pause-confirm-body")) {
         element->SetInnerRML(
             screen_ == ScreenState::PauseConfirmOverwriteSave
                 ? "A manual save already exists at this story point.<br/>Overwrite that save file?"
-                : "You will lose the current chapter progress if you leave now.");
+                : (pauseContext_ == PauseContext::Battle
+                    ? "You will lose the current battle progress if you leave now."
+                    : "You will lose the current chapter progress if you leave now."));
     }
     if (Rml::Element* element = document_->GetElementById("pause-confirm-cancel")) {
         element->SetClass("is-selected", confirmSelection_ == ConfirmAction::Cancel);
@@ -481,13 +510,28 @@ bool PauseDocumentController::showingConfirm() const {
 }
 
 PauseAction PauseDocumentController::nextAction(int delta) const {
-    const int count = static_cast<int>(kPauseButtons.size());
-    int index = static_cast<int>(selection_);
-    index = (index + delta) % count;
-    if (index < 0) {
-        index += count;
+    const PauseAction* order = nullptr;
+    std::size_t count = 0;
+    if (pauseContext_ == PauseContext::Battle) {
+        order = kBattlePauseOrder.data();
+        count = kBattlePauseOrder.size();
+    } else {
+        order = kStoryPauseOrder.data();
+        count = kStoryPauseOrder.size();
     }
-    return kPauseButtons[static_cast<std::size_t>(index)].action;
+    const int countInt = static_cast<int>(count);
+    int index = 0;
+    for (std::size_t i = 0; i < count; ++i) {
+        if (order[i] == selection_) {
+            index = static_cast<int>(i);
+            break;
+        }
+    }
+    index = (index + delta) % countInt;
+    if (index < 0) {
+        index += countInt;
+    }
+    return order[static_cast<std::size_t>(index)];
 }
 
 ConfirmAction PauseDocumentController::nextConfirm(int delta) const {
@@ -556,7 +600,15 @@ void PauseDocumentController::exitStoryToMainMenu(AppState& state) const {
     state.confirmSelection = ConfirmAction::Cancel;
     state.settingsReturnScreen = ScreenState::MainMenu;
     state.mainSelection = MainMenuAction::Start;
-    state.requestStoryExitToMainMenu = true;
+    if (pauseContext_ == PauseContext::Battle) {
+        state.screen = ScreenState::MainMenu;
+        state.pauseContext = PauseContext::Story;
+        state.mainSelection = MainMenuAction::Battle;
+        state.noticeText = "Current battle was discarded.";
+        state.noticeTimer = 2.6f;
+    } else {
+        state.requestStoryExitToMainMenu = true;
+    }
 }
 
 }  // namespace graphics::frontui

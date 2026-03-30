@@ -105,6 +105,7 @@ public:
     void cancel() override;
     void applyState(AppState& state) override;
     std::optional<Command> consumeCommand() override;
+    std::vector<SoundRequest> consumeSoundRequests() override;
 
 private:
     void attachListeners();
@@ -122,6 +123,7 @@ private:
     ScreenState screen_ = ScreenState::PauseMenu;
     PauseAction selection_ = PauseAction::Continue;
     ConfirmAction confirmSelection_ = ConfirmAction::Cancel;
+    PauseContext pauseContext_ = PauseContext::Story;
     std::string noticeText_;
     std::optional<PauseAction> pendingPauseAction_;
     std::optional<ConfirmAction> pendingConfirmAction_;
@@ -131,7 +133,6 @@ private:
     bool needsEntryAnimation_ = false;
 
     void queueSound(const char* path, float volume);
-    std::vector<SoundRequest> consumeSoundRequests() override;
 };
 
 }  // namespace graphics::frontui
