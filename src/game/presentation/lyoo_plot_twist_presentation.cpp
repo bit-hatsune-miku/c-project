@@ -202,6 +202,10 @@ void LyooPlotTwistPresentation::update(float deltaTime) {
     }
 }
 
+void LyooPlotTwistPresentation::preload(SDL_Renderer* renderer) {
+    ensureAssetsLoaded(renderer);
+}
+
 void LyooPlotTwistPresentation::render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) {
     ensureAssetsLoaded(renderer);
 
@@ -314,6 +318,10 @@ bool LyooPlotTwistPresentation::shouldBlackoutWorld() const {
     return phase == Phase::RingStars || phase == Phase::SkyStars;
 }
 
+bool LyooPlotTwistPresentation::shouldRenderFloor() const {
+    return false;
+}
+
 int LyooPlotTwistPresentation::consumeAbilityAudioCues() {
     const int cues = pendingAbilityAudioCues_;
     pendingAbilityAudioCues_ = 0;
@@ -359,10 +367,21 @@ void LyooPlotTwistPresentation::queueAudioCommand(PresentationAudioCommandType t
 }
 
 void LyooPlotTwistPresentation::ensureAssetsLoaded(SDL_Renderer* renderer) {
-    if (attemptedLoad_ || renderer == nullptr) {
+    if (renderer == nullptr) {
+        return;
+    }
+
+    if (loadedRenderer_ != nullptr && loadedRenderer_ != renderer) {
+        releaseAssets();
+        attemptedLoad_ = false;
+        loadedRenderer_ = nullptr;
+    }
+
+    if (attemptedLoad_) {
         return;
     }
     attemptedLoad_ = true;
+    loadedRenderer_ = renderer;
 
     frames_.assign(kFrameCount, nullptr);
 
@@ -414,6 +433,10 @@ void LyooPlotTwistPresentation::releaseAssets() {
         SDL_DestroyTexture(starTexture_);
         starTexture_ = nullptr;
     }
+
+    starTextureWidth_ = 0;
+    starTextureHeight_ = 0;
+    loadedRenderer_ = nullptr;
 }
 
 void LyooPlotTwistPresentation::seedStarTimelines() {

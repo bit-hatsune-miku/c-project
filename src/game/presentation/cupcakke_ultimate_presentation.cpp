@@ -119,6 +119,10 @@ void CupcakkeUltimatePresentation::update(float deltaTime) {
     }
 }
 
+void CupcakkeUltimatePresentation::preload(SDL_Renderer* renderer) {
+    loadRectTexture(renderer);
+}
+
 void CupcakkeUltimatePresentation::render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) {
     (void)screenW;
     (void)screenH;

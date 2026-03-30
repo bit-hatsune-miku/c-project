@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <iostream>
 #include <string>
 
@@ -15,7 +16,9 @@ struct GlScreenBlitter {
     GLuint fragmentShader = 0;
     GLuint vao = 0;
     GLuint vbo = 0;
-    GLuint texture = 0;
+    std::array<GLuint, 2> textures{0, 0};
+    GLint samplerLocation = -1;
+    size_t currentTextureIndex = 0;
     int textureWidth = 0;
     int textureHeight = 0;
 
@@ -27,7 +30,7 @@ struct GlScreenBlitter {
     void destroy();
     void ensureTextureSize(int width, int height);
     void uploadSurface(SDL_Surface* surface);
-    void draw();
+    void draw(bool enableBlend = false);
 };
 
 namespace detail {
@@ -118,21 +121,25 @@ inline bool GlScreenBlitter::initialize() {
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
 
-    glGenTextures(1, &texture);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glGenTextures(static_cast<GLsizei>(textures.size()), textures.data());
+    for (GLuint texture : textures) {
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
     glBindTexture(GL_TEXTURE_2D, 0);
+    samplerLocation = glGetUniformLocation(program, "scene_texture");
+    currentTextureIndex = 0;
 
     return true;
 }
 
 inline void GlScreenBlitter::destroy() {
-    if (texture != 0) {
-        glDeleteTextures(1, &texture);
-        texture = 0;
+    if (textures[0] != 0 || textures[1] != 0) {
+        glDeleteTextures(static_cast<GLsizei>(textures.size()), textures.data());
+        textures = {0, 0};
     }
     if (vbo != 0) {
         glDeleteBuffers(1, &vbo);
@@ -154,6 +161,8 @@ inline void GlScreenBlitter::destroy() {
         glDeleteShader(fragmentShader);
         fragmentShader = 0;
     }
+    samplerLocation = -1;
+    currentTextureIndex = 0;
     textureWidth = 0;
     textureHeight = 0;
 }
@@ -165,8 +174,10 @@ inline void GlScreenBlitter::ensureTextureSize(int width, int height) {
 
     textureWidth = width;
     textureHeight = height;
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    for (GLuint texture : textures) {
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, textureWidth, textureHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    }
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
@@ -176,23 +187,32 @@ inline void GlScreenBlitter::uploadSurface(SDL_Surface* surface) {
     }
 
     ensureTextureSize(surface->w, surface->h);
-    glBindTexture(GL_TEXTURE_2D, texture);
+    currentTextureIndex = (currentTextureIndex + 1) % textures.size();
+    glBindTexture(GL_TEXTURE_2D, textures[currentTextureIndex]);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, surface->w, surface->h, GL_RGBA, GL_UNSIGNED_BYTE, surface->pixels);
     glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-inline void GlScreenBlitter::draw() {
-    glDisable(GL_BLEND);
+inline void GlScreenBlitter::draw(bool enableBlend) {
+    if (enableBlend) {
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    } else {
+        glDisable(GL_BLEND);
+    }
     glUseProgram(program);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture);
-    glUniform1i(glGetUniformLocation(program, "scene_texture"), 0);
+    glBindTexture(GL_TEXTURE_2D, textures[currentTextureIndex]);
+    glUniform1i(samplerLocation, 0);
     glBindVertexArray(vao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glUseProgram(0);
+    if (enableBlend) {
+        glDisable(GL_BLEND);
+    }
 }
 
 } // namespace battle::render

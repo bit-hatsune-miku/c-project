@@ -17,6 +17,7 @@ public:
 
     void start() override;
     void update(float deltaTime) override;
+    void preload(SDL_Renderer* renderer) override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
 
@@ -27,6 +28,7 @@ public:
     bool shouldRenderCasterEntity() const override;
     bool shouldRenderAboveHud() const override;
     bool shouldBlackoutWorld() const override;
+    bool shouldRenderFloor() const override;
 
     int consumeAbilityAudioCues() override;
     int consumeHitEvents() override;
@@ -105,6 +107,7 @@ private:
     std::vector<SDL_Texture*> frames_;
     SDL_Texture* starTexture_ = nullptr;
     bool attemptedLoad_ = false;
+    SDL_Renderer* loadedRenderer_ = nullptr;
     int starTextureWidth_ = 0;
     int starTextureHeight_ = 0;
 

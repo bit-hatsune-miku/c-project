@@ -339,7 +339,15 @@ if (ENABLE_RMLUI)
         src/rmlui_battle_main.cpp
         src/window.cpp
         src/window.h
+        src/game/vn/vn_system.cpp
+        src/game/vn/vn_system.h
         src/game/vn/vn_script.cpp
+        src/game/demo/demo_narrative_flow.cpp
+        src/game/demo/demo_narrative_flow.h
+        src/graphics/rmlui_loading_overlay.cpp
+        src/graphics/rmlui_loading_overlay.h
+        src/graphics/rmlui_sdl_gl_renderer.cpp
+        src/graphics/rmlui_sdl_gl_renderer.h
         ${RMLUI_APP_BATTLE_SOURCES}
         ${BATTLE_CORE_SOURCES}
         ${BATTLE_PRESENTATION_SOURCES}

@@ -35,8 +35,11 @@ struct PlaybackCallbacks {
     std::function<void()> renderAndPresentFrame;
 
     // Splash art support — populated by BattleSessionCore before calling runAbilityPresentation.
+    SDL_Texture* splashSpriteTexture = nullptr;
     SDL_Texture* casterSpriteTexture = nullptr;
     SDL_Texture* targetSpriteTexture = nullptr;
+    SDL_Texture* overlayCasterSpriteTexture = nullptr;
+    SDL_Texture* overlayTargetSpriteTexture = nullptr;
     // Set a render overlay function that is called after world render but before SDL_RenderPresent.
     std::function<void(std::function<void(SDL_Renderer*, int, int)>)> setRenderOverlay;
     // Clear the render overlay set above.

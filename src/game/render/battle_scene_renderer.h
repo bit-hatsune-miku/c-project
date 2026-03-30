@@ -40,6 +40,7 @@ struct WorldEntity {
     float worldY = 0.0f;
     float worldZ = 0.0f;
     SDL_Color fallbackColor{200, 200, 200, 255};
+    int partyIndex = -1;
 };
 
 inline SDL_Color colorFromKey(const std::string& key, bool boss) {
@@ -383,7 +384,8 @@ inline void renderBattleScene(SoftwareSceneRenderer& sceneRenderer,
                               const battle::Camera3D& camera,
                               const std::vector<WorldEntity>& entities,
                               int focusedEntityIndex,
-                              float frameAccumulator) {
+                              float frameAccumulator,
+                              const std::function<float(const WorldEntity&)>& shakeOffsetFn = {}) {
     SDL_SetRenderDrawBlendMode(sceneRenderer.renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(sceneRenderer.renderer, 16, 18, 26, 255);
     SDL_RenderClear(sceneRenderer.renderer);
@@ -420,11 +422,12 @@ inline void renderBattleScene(SoftwareSceneRenderer& sceneRenderer,
         const float scale = camera.getPerspectiveScale(entity.worldX, entity.worldY, entity.worldZ);
         const bool isFocused = (&entity == focusedEntity);
         const float focusScale = isFocused ? 1.13f : 1.0f;
+        const float shakeOffsetX = shakeOffsetFn ? shakeOffsetFn(entity) : 0.0f;
 
         const int drawW = static_cast<int>(kSuggestedBaseSpriteWidth * scale * focusScale * (entity.isBoss ? 1.28f : 1.0f));
         const int drawH = static_cast<int>(kSuggestedBaseSpriteHeight * scale * focusScale * (entity.isBoss ? 1.28f : 1.0f));
         SDL_Rect dst{
-            static_cast<int>(call.screen.x) - drawW / 2,
+            static_cast<int>(call.screen.x + shakeOffsetX) - drawW / 2,
             static_cast<int>(call.screen.y) - drawH,
             std::max(8, drawW),
             std::max(8, drawH)

@@ -2,6 +2,7 @@
 #define BATTLE_FEEDBACK_H
 
 #include <vector>
+#include <string>
 
 #include <SDL2/SDL.h>
 
@@ -57,6 +58,12 @@ private:
         float lifetime = 0.95f;
         float jitterX = 0.0f;
         float jitterY = 0.0f;
+        std::string text;
+        SDL_Renderer* cachedRenderer = nullptr;
+        SDL_Texture* shadowTexture = nullptr;
+        SDL_Texture* textTexture = nullptr;
+        int textWidth = 0;
+        int textHeight = 0;
     };
 
     struct DamageShakeState {
@@ -71,6 +78,8 @@ private:
     void spawnFeedbackPopup(bool onBoss, int partyIndex, int amount, bool healing);
     void queueDamageShake(bool onBoss, int partyIndex, int hitCount = 1);
     void updateOneDamageShakeState(DamageShakeState& state, float deltaSeconds);
+    void destroyPopupTextures(FeedbackPopup& popup);
+    bool ensurePopupTextures(SDL_Renderer* renderer, FeedbackPopup& popup);
 
     std::vector<int> lastCharacterHp_;
     int lastBossHp_ = -1;
