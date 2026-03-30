@@ -5,6 +5,23 @@ namespace battle {
 
 class MikuDiandongPresentation : public AbilityPresentation {
 public:
+    enum class NativePhase {
+        Chase,
+        ImpactFreeze,
+        EaseOut,
+        Complete
+    };
+
+    struct NativeState {
+        NativePhase phase = NativePhase::Complete;
+        float mikuWorldX = 0.0f;
+        float mikuWorldY = 0.0f;
+        float mikuWorldZ = 0.0f;
+        float targetWorldX = 0.0f;
+        float targetWorldY = 0.0f;
+        float targetWorldZ = 0.0f;
+    };
+
     ~MikuDiandongPresentation() override;
     MikuDiandongPresentation(
         float casterWorldX, float casterWorldY, float casterWorldZ,
@@ -27,6 +44,7 @@ public:
     void setExternalTextures(SDL_Texture* casterSprite, SDL_Texture* targetSprite) override;
     void setOverlayTextures(SDL_Texture* casterSprite, SDL_Texture* targetSprite) override;
     std::optional<SplashArtConfig> getSplashConfig(SDL_Texture* sprite) const override;
+    NativeState buildNativeState() const;
 
 private:
     enum class Phase {

@@ -43,6 +43,7 @@ public:
                                        int perHitHealing,
                                        const BattleManager& manager);
     float getShakeOffsetX(bool isBoss, int partyIndex) const;
+    bool hasVisiblePopups() const;
 
     void render(SDL_Renderer* renderer,
                 const Camera3D& camera,

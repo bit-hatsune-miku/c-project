@@ -49,6 +49,7 @@
 #include "render/battle_scene_renderer.h"
 #include "render/camera_3d.h"
 #include "render/free_view_camera_debug_log.h"
+#include "render/gl_battle_scene_renderer.h"
 #include "render/gl_screen_blitter.h"
 #include "../graphics/rmlui_loading_overlay.h"
 #include "../graphics/rmlui_sdl_gl_renderer.h"
@@ -749,6 +750,12 @@ public:
         SDL_GL_MakeCurrent(window_, glContext_);
         SDL_GL_SetSwapInterval(1);
         SDL_StopTextInput();
+        frameTimingEnabled_ = SDL_getenv("BIT_BATTLE_TIMING") != nullptr;
+        frameTimingFrequency_ = SDL_GetPerformanceFrequency();
+        timingFrameCount_ = 0;
+        timingWorldMs_ = 0.0;
+        timingCompatibilityMs_ = 0.0;
+        timingUiMs_ = 0.0;
 
 #ifdef BATTLE_ENABLE_IMAGE
         const int requiredImageFlags = IMG_INIT_PNG | IMG_INIT_WEBP;
@@ -774,6 +781,11 @@ public:
         }
         if (!presentationOverlayBlitter_.initialize()) {
             std::cerr << "Failed to initialize presentation overlay blitter\n";
+            shutdown();
+            return false;
+        }
+        if (!glSceneRenderer_.initialize()) {
+            std::cerr << "Failed to initialize GL battle scene renderer\n";
             shutdown();
             return false;
         }
@@ -853,6 +865,7 @@ public:
             shutdown();
             return false;
         }
+        (void)glSceneRenderer_.ensureWorldAssets(worldAssets_);
 
         if (narrativeEnabled_) {
             if (!vn::initialize(presentationOverlayRenderer_.renderer, windowWidth_, windowHeight_)) {
@@ -1005,6 +1018,7 @@ public:
         renderInterface_.reset();
         screenBlitter_.destroy();
         presentationOverlayBlitter_.destroy();
+        glSceneRenderer_.destroy();
         presentationOverlayRenderer_.destroy();
         sceneRenderer_.destroy();
         feedback_.shutdown();
@@ -1060,6 +1074,12 @@ public:
         loadingOverlayState_ = graphics::RmlUiLoadingOverlayState{};
         drawableWidth_ = kWindowWidth;
         drawableHeight_ = kWindowHeight;
+        frameTimingEnabled_ = false;
+        frameTimingFrequency_ = 0;
+        timingFrameCount_ = 0;
+        timingWorldMs_ = 0.0;
+        timingCompatibilityMs_ = 0.0;
+        timingUiMs_ = 0.0;
     }
 
     void handleEvent(const SDL_Event& event) {
@@ -1384,114 +1404,133 @@ public:
         camera_.screenCenterX = windowWidth_ * 0.5f;
         camera_.screenCenterY = windowHeight_ * 0.5f;
 
-        const bool blackoutWorld =
-            activePresentation_ != nullptr && activePresentation_->shouldBlackoutWorld();
-        const bool renderFloor =
-            activePresentation_ == nullptr || activePresentation_->shouldRenderFloor();
-        SDL_SetRenderDrawBlendMode(sceneRenderer_.renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(sceneRenderer_.renderer,
-                               blackoutWorld ? 0 : 16,
-                               blackoutWorld ? 0 : 18,
-                               blackoutWorld ? 0 : 26,
-                               255);
-        SDL_RenderClear(sceneRenderer_.renderer);
+        const battle::BattleSessionCore::BattleFrameSnapshot snapshot = buildFrameSnapshot(focusedIndex);
+        SDL_GL_MakeCurrent(window_, glContext_);
+        glViewport(0, 0, drawableWidth_, drawableHeight_);
+        glClearColor(snapshot.blackoutWorld ? 0.0f : 0.035f,
+                     snapshot.blackoutWorld ? 0.0f : 0.043f,
+                     snapshot.blackoutWorld ? 0.0f : 0.07f,
+                     1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+        double compatibilityMs = 0.0;
+        const Uint64 worldStartCounter = frameTimingEnabled_ ? SDL_GetPerformanceCounter() : 0;
 
-        battle::render::renderBattleFloor(
-            sceneRenderer_.renderer,
-            sceneRenderer_.width,
-            sceneRenderer_.height,
-            camera_,
-            (blackoutWorld || !renderFloor) ? nullptr : sceneRenderer_.floorTileTexture
-        );
+        const bool nativePresentation =
+            activePresentation_ != nullptr &&
+            glSceneRenderer_.rendersPresentationNatively(activePresentation_);
 
-        if (activePresentation_ != nullptr) {
+        if (!nativePresentation && activePresentation_ != nullptr) {
+            SDL_SetRenderDrawBlendMode(sceneRenderer_.renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(sceneRenderer_.renderer, 0, 0, 0, 0);
+            SDL_RenderClear(sceneRenderer_.renderer);
             activePresentation_->renderBelowWorld(
                 sceneRenderer_.renderer,
                 windowWidth_,
                 windowHeight_,
-                camera_);
+                snapshot.camera);
+            const Uint64 compatibilityStartCounter = frameTimingEnabled_ ? SDL_GetPerformanceCounter() : 0;
+            drawCompatibilitySurface(sceneRenderer_, screenBlitter_, true);
+            if (frameTimingEnabled_) {
+                compatibilityMs += elapsedTimingMs(compatibilityStartCounter, SDL_GetPerformanceCounter());
+            }
+        } else {
+            (void)glSceneRenderer_.renderNativeBelowWorld(snapshot, windowWidth_, windowHeight_);
         }
 
-        battle::render::renderBattleEntities(
-            sceneRenderer_.renderer,
-            sceneRenderer_.width,
-            sceneRenderer_.height,
-            camera_,
-            entities_,
-            focusedIndex,
-            sceneRenderer_.textureByAsset,
-            frameAccumulator_,
-            [this](const SceneEntity& entity) {
-                return feedback_.getShakeOffsetX(entity.isBoss, entity.partyIndex);
-            });
+        glSceneRenderer_.renderWorld(snapshot, windowWidth_, windowHeight_);
 
-        if (activePresentation_ != nullptr && !activePresentation_->shouldRenderAboveHud()) {
-            activePresentation_->render(sceneRenderer_.renderer, windowWidth_, windowHeight_, camera_);
+        const bool drewNativeMidWorld =
+            nativePresentation && glSceneRenderer_.renderNativeMidWorld(snapshot, windowWidth_, windowHeight_);
+        const bool hasFeedbackPopups = feedback_.hasVisiblePopups();
+        if (!drewNativeMidWorld || hasFeedbackPopups) {
+            SDL_SetRenderDrawBlendMode(sceneRenderer_.renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(sceneRenderer_.renderer, 0, 0, 0, 0);
+            SDL_RenderClear(sceneRenderer_.renderer);
+
+            bool hasSceneCompatibilityPass = false;
+            if (!drewNativeMidWorld &&
+                activePresentation_ != nullptr &&
+                !activePresentation_->shouldRenderAboveHud()) {
+                activePresentation_->render(sceneRenderer_.renderer, windowWidth_, windowHeight_, snapshot.camera);
+                hasSceneCompatibilityPass = true;
+            }
+            if (hasFeedbackPopups) {
+                feedback_.render(sceneRenderer_.renderer, snapshot.camera, snapshot.feedbackAnchors);
+                hasSceneCompatibilityPass = true;
+            }
+            if (hasSceneCompatibilityPass) {
+                const Uint64 compatibilityStartCounter = frameTimingEnabled_ ? SDL_GetPerformanceCounter() : 0;
+                drawCompatibilitySurface(sceneRenderer_, screenBlitter_, true);
+                if (frameTimingEnabled_) {
+                    compatibilityMs += elapsedTimingMs(compatibilityStartCounter, SDL_GetPerformanceCounter());
+                }
+            }
         }
-
-        std::vector<battle::render::FeedbackEntityAnchor> anchors;
-        anchors.reserve(entities_.size());
-        for (const SceneEntity& entity : entities_) {
-            anchors.push_back(battle::render::FeedbackEntityAnchor{
-                entity.isBoss,
-                entity.partyIndex,
-                entity.worldX,
-                entity.worldY,
-                entity.worldZ,
-                entity.visible
-            });
-        }
-
-        feedback_.render(sceneRenderer_.renderer, camera_, anchors);
-        screenBlitter_.uploadSurface(sceneRenderer_.surface);
-
-        SDL_GL_MakeCurrent(window_, glContext_);
-        glViewport(0, 0, drawableWidth_, drawableHeight_);
-        glClearColor(0.035f, 0.043f, 0.07f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-        screenBlitter_.draw();
+        const double worldMs = frameTimingEnabled_
+            ? elapsedTimingMs(worldStartCounter, SDL_GetPerformanceCounter()) - compatibilityMs
+            : 0.0;
 
         loadingOverlay_.apply(loadingOverlayState_);
+        const Uint64 uiStartCounter = frameTimingEnabled_ ? SDL_GetPerformanceCounter() : 0;
         context_->Update();
         renderInterface_->BeginFrame();
         context_->Render();
         renderInterface_->EndFrame();
+        const double uiMs = frameTimingEnabled_
+            ? elapsedTimingMs(uiStartCounter, SDL_GetPerformanceCounter())
+            : 0.0;
 
-        const bool hasOverlayPass =
-            presentationOverlayRenderer_.renderer != nullptr &&
-            presentationOverlayRenderer_.surface != nullptr &&
-            ((activePresentation_ != nullptr && activePresentation_->shouldRenderAboveHud()) ||
-             activeUltimateTurnSplash_ != nullptr ||
-             static_cast<bool>(activeOverlay_) ||
-             isDialogueInProgress());
-        if (hasOverlayPass) {
-            SDL_SetRenderDrawBlendMode(presentationOverlayRenderer_.renderer, SDL_BLENDMODE_BLEND);
-            SDL_SetRenderDrawColor(presentationOverlayRenderer_.renderer, 0, 0, 0, 0);
-            SDL_RenderClear(presentationOverlayRenderer_.renderer);
+        const bool drewNativeAboveHud =
+            nativePresentation && glSceneRenderer_.renderNativeAboveHud(snapshot, windowWidth_, windowHeight_);
 
-            if (activePresentation_ != nullptr && activePresentation_->shouldRenderAboveHud()) {
+        const bool hasSceneOverlayPass =
+            (activePresentation_ != nullptr && activePresentation_->shouldRenderAboveHud() && !drewNativeAboveHud) ||
+            activeUltimateTurnSplash_ != nullptr ||
+            static_cast<bool>(activeOverlay_);
+        if (hasSceneOverlayPass && sceneRenderer_.renderer != nullptr && sceneRenderer_.surface != nullptr) {
+            SDL_SetRenderDrawBlendMode(sceneRenderer_.renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(sceneRenderer_.renderer, 0, 0, 0, 0);
+            SDL_RenderClear(sceneRenderer_.renderer);
+
+            if (activePresentation_ != nullptr && activePresentation_->shouldRenderAboveHud() && !drewNativeAboveHud) {
                 activePresentation_->render(
-                    presentationOverlayRenderer_.renderer,
+                    sceneRenderer_.renderer,
                     windowWidth_,
                     windowHeight_,
-                    camera_);
+                    snapshot.camera);
             }
             if (activeUltimateTurnSplash_ != nullptr) {
                 activeUltimateTurnSplash_->renderOverlay(
-                    presentationOverlayRenderer_.renderer,
+                    sceneRenderer_.renderer,
                     windowWidth_,
                     windowHeight_);
             }
             if (activeOverlay_) {
-                activeOverlay_(presentationOverlayRenderer_.renderer, windowWidth_, windowHeight_);
-            }
-            if (isDialogueInProgress()) {
-                vn::render();
+                activeOverlay_(sceneRenderer_.renderer, windowWidth_, windowHeight_);
             }
 
-            presentationOverlayBlitter_.uploadSurface(presentationOverlayRenderer_.surface);
-            presentationOverlayBlitter_.draw(true);
+            const Uint64 compatibilityStartCounter = frameTimingEnabled_ ? SDL_GetPerformanceCounter() : 0;
+            drawCompatibilitySurface(sceneRenderer_, screenBlitter_, true);
+            if (frameTimingEnabled_) {
+                compatibilityMs += elapsedTimingMs(compatibilityStartCounter, SDL_GetPerformanceCounter());
+            }
         }
+
+        if (isDialogueInProgress() &&
+            presentationOverlayRenderer_.renderer != nullptr &&
+            presentationOverlayRenderer_.surface != nullptr) {
+            SDL_SetRenderDrawBlendMode(presentationOverlayRenderer_.renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(presentationOverlayRenderer_.renderer, 0, 0, 0, 0);
+            SDL_RenderClear(presentationOverlayRenderer_.renderer);
+            vn::render();
+            const Uint64 compatibilityStartCounter = frameTimingEnabled_ ? SDL_GetPerformanceCounter() : 0;
+            drawCompatibilitySurface(presentationOverlayRenderer_, presentationOverlayBlitter_, true);
+            if (frameTimingEnabled_) {
+                compatibilityMs += elapsedTimingMs(compatibilityStartCounter, SDL_GetPerformanceCounter());
+            }
+        }
+
+        accumulateFrameTiming(worldMs, compatibilityMs, uiMs);
     }
 
     bool isFinished() const {
@@ -2078,6 +2117,79 @@ private:
                                                  makeBattleHudDocumentDependencies());
     }
 
+    battle::BattleSessionCore::BattleFrameSnapshot buildFrameSnapshot(int focusedIndex) const {
+        battle::BattleSessionCore::BattleFrameSnapshot snapshot;
+        snapshot.camera = camera_;
+        snapshot.entities = entities_;
+        snapshot.focusedEntityIndex = focusedIndex;
+        snapshot.frameAccumulator = frameAccumulator_;
+        snapshot.blackoutWorld =
+            activePresentation_ != nullptr && activePresentation_->shouldBlackoutWorld();
+        snapshot.renderFloor =
+            activePresentation_ == nullptr || activePresentation_->shouldRenderFloor();
+        snapshot.presentationPlaybackActive = presentationPlaybackActive_;
+        snapshot.presentationCasterIsBoss = presentationCasterIsBoss_;
+        snapshot.presentationCasterPartyIndex = presentationCasterPartyIndex_;
+        snapshot.activePresentation = activePresentation_;
+        snapshot.activeUltimateTurnSplash = activeUltimateTurnSplash_.get();
+        snapshot.feedbackAnchors.reserve(entities_.size());
+        snapshot.shakeOffsetsX.reserve(entities_.size());
+        for (const SceneEntity& entity : entities_) {
+            snapshot.feedbackAnchors.push_back(battle::render::FeedbackEntityAnchor{
+                entity.isBoss,
+                entity.partyIndex,
+                entity.worldX,
+                entity.worldY,
+                entity.worldZ,
+                entity.visible
+            });
+            snapshot.shakeOffsetsX.push_back(feedback_.getShakeOffsetX(entity.isBoss, entity.partyIndex));
+        }
+        return snapshot;
+    }
+
+    void drawCompatibilitySurface(SoftwareSceneRenderer& renderer,
+                                  GlScreenBlitter& blitter,
+                                  bool enableBlend) {
+        if (renderer.renderer == nullptr || renderer.surface == nullptr) {
+            return;
+        }
+        blitter.uploadSurface(renderer.surface);
+        blitter.draw(enableBlend);
+    }
+
+    double elapsedTimingMs(Uint64 startCounter, Uint64 endCounter) const {
+        if (!frameTimingEnabled_ || frameTimingFrequency_ == 0 || endCounter < startCounter) {
+            return 0.0;
+        }
+        return (static_cast<double>(endCounter - startCounter) * 1000.0) /
+               static_cast<double>(frameTimingFrequency_);
+    }
+
+    void accumulateFrameTiming(double worldMs, double compatibilityMs, double uiMs) {
+        if (!frameTimingEnabled_) {
+            return;
+        }
+
+        timingWorldMs_ += worldMs;
+        timingCompatibilityMs_ += compatibilityMs;
+        timingUiMs_ += uiMs;
+        ++timingFrameCount_;
+        if (timingFrameCount_ < 120) {
+            return;
+        }
+
+        const double frames = static_cast<double>(timingFrameCount_);
+        std::cout << "[BattleTiming] avg world=" << (timingWorldMs_ / frames)
+                  << "ms compat=" << (timingCompatibilityMs_ / frames)
+                  << "ms ui=" << (timingUiMs_ / frames)
+                  << "ms\n";
+        timingWorldMs_ = 0.0;
+        timingCompatibilityMs_ = 0.0;
+        timingUiMs_ = 0.0;
+        timingFrameCount_ = 0;
+    }
+
     SDL_Texture* resolveSceneTextureByAsset(const std::string& assetName) const {
         if (const auto it = sceneRenderer_.textureByAsset.find(assetName); it != sceneRenderer_.textureByAsset.end()) {
             return it->second;
@@ -2112,6 +2224,7 @@ private:
         if (!presentationOverlayRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
             return false;
         }
+        (void)glSceneRenderer_.ensureWorldAssets(worldAssets_);
         if (narrativeEnabled_) {
             if (!vn::initialize(presentationOverlayRenderer_.renderer, windowWidth_, windowHeight_)) {
                 return false;
@@ -2648,6 +2761,7 @@ private:
     std::vector<SceneEntity> entities_;
     SoftwareSceneRenderer sceneRenderer_;
     SoftwareSceneRenderer presentationOverlayRenderer_;
+    battle::render::GlBattleSceneRenderer glSceneRenderer_;
     GlScreenBlitter screenBlitter_;
     GlScreenBlitter presentationOverlayBlitter_;
     SystemInterface_SDL systemInterface_;
@@ -2683,6 +2797,12 @@ private:
     Uint64 idleNextPlayMs_ = 0;
     std::unordered_map<std::string, std::optional<std::string>> idleVoicePathCache_;
     std::string lastTurnToken_;
+    bool frameTimingEnabled_ = false;
+    Uint64 frameTimingFrequency_ = 0;
+    int timingFrameCount_ = 0;
+    double timingWorldMs_ = 0.0;
+    double timingCompatibilityMs_ = 0.0;
+    double timingUiMs_ = 0.0;
 };
 
 Session::Session() : impl_(std::make_unique<SessionImpl>()) {}

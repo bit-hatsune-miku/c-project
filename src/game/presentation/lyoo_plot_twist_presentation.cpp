@@ -319,7 +319,7 @@ bool LyooPlotTwistPresentation::shouldBlackoutWorld() const {
 }
 
 bool LyooPlotTwistPresentation::shouldRenderFloor() const {
-    return false;
+    return true;
 }
 
 int LyooPlotTwistPresentation::consumeAbilityAudioCues() {
@@ -342,6 +342,70 @@ std::vector<PresentationAudioCommand> LyooPlotTwistPresentation::consumeAudioCom
     std::vector<PresentationAudioCommand> commands;
     commands.swap(pendingAudioCommands_);
     return commands;
+}
+
+LyooPlotTwistPresentation::NativeState LyooPlotTwistPresentation::buildNativeState() const {
+    auto copyStars = [](const std::vector<StarInstance>& source) {
+        std::vector<NativeStarState> result;
+        result.reserve(source.size());
+        for (const StarInstance& star : source) {
+            result.push_back(NativeStarState{
+                star.spawnTime,
+                star.lifetime,
+                star.orbitAngleDegrees,
+                star.orbitRadius,
+                star.baseSize,
+                star.rotationSpeed,
+                star.normalizedX,
+                star.normalizedY,
+                star.endNormalizedX,
+                star.endNormalizedY
+            });
+        }
+        return result;
+    };
+
+    NativeState state;
+    switch (currentPhase()) {
+        case Phase::IntroFrames:
+            state.phase = NativePhase::IntroFrames;
+            break;
+        case Phase::TransitionToVoid:
+            state.phase = NativePhase::TransitionToVoid;
+            break;
+        case Phase::RingStars:
+            state.phase = NativePhase::RingStars;
+            break;
+        case Phase::SkyStars:
+            state.phase = NativePhase::SkyStars;
+            break;
+        case Phase::ApproachAllies:
+            state.phase = NativePhase::ApproachAllies;
+            break;
+        case Phase::MassiveStar:
+            state.phase = NativePhase::MassiveStar;
+            break;
+        case Phase::FullBlackout:
+            state.phase = NativePhase::FullBlackout;
+            break;
+        case Phase::FinalShake:
+            state.phase = NativePhase::FinalShake;
+            break;
+        case Phase::Complete:
+        default:
+            state.phase = NativePhase::Complete;
+            break;
+    }
+    state.introFrameIndex = currentIntroFrameIndex();
+    state.elapsedTime = elapsedTime_;
+    state.ringStars = copyStars(ringStars_);
+    state.skyStars = copyStars(skyStars_);
+    state.scatterStars = copyStars(scatterStars_);
+    return state;
+}
+
+float LyooPlotTwistPresentation::computeNativeStarScale(float progress) const {
+    return starScaleForLifeProgress(progress);
 }
 
 std::string LyooPlotTwistPresentation::resolvePath(const std::string& relativePath) {

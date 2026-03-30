@@ -30,6 +30,22 @@ namespace battle {
 // and ability presentation playback. Demo-specific behaviour is injected via Hooks.
 class BattleSessionCore {
 public:
+    struct BattleFrameSnapshot {
+        Camera3D camera{};
+        std::vector<render::SceneEntity> entities;
+        std::vector<render::FeedbackEntityAnchor> feedbackAnchors;
+        std::vector<float> shakeOffsetsX;
+        int focusedEntityIndex = -1;
+        float frameAccumulator = 0.0f;
+        bool blackoutWorld = false;
+        bool renderFloor = true;
+        bool presentationPlaybackActive = false;
+        bool presentationCasterIsBoss = false;
+        int presentationCasterPartyIndex = -1;
+        const AbilityPresentation* activePresentation = nullptr;
+        const SplashArtAnimation* activeUltimateTurnSplash = nullptr;
+    };
+
     struct Hooks {
         // Return true when narrative dialogue is in progress.
         // Used to gate camera intro animations and the finish condition.
@@ -86,6 +102,10 @@ public:
         // Called at the very end of each render frame (e.g. VN dialogue overlay).
         std::function<void()> onPostRender;
 
+        // Optional custom render/present path for blocking presentation playback.
+        // When unset, the core uses its default SDL renderer world path.
+        std::function<void()> onRenderAndPresentFrame;
+
         // Called at the very end of shutdown (e.g. vn::stopVoicePlayback).
         std::function<void()> onShutdown;
     };
@@ -100,6 +120,12 @@ public:
     void handleEvent(const SDL_Event& event);
     void update(float deltaSeconds);
     void render(SDL_Renderer* renderer, int screenWidth, int screenHeight);
+    BattleFrameSnapshot buildFrameSnapshot(int screenWidth, int screenHeight) const;
+    void renderCompatibilityBelowWorld(SDL_Renderer* renderer, int screenWidth, int screenHeight);
+    void renderCompatibilityMidWorld(SDL_Renderer* renderer, int screenWidth, int screenHeight);
+    void renderCompatibilityOverlay(SDL_Renderer* renderer, int screenWidth, int screenHeight);
+    bool hasCompatibilityOverlay() const;
+    bool hasVisibleFeedbackPopups() const;
 
     bool isFinished() const;
     bool isCombatBeginAnimationActive() const;
@@ -111,6 +137,8 @@ public:
     const BattleManager& getBattleManager() const;
 
 private:
+    int computeFocusedEntityIndex() const;
+    std::vector<render::FeedbackEntityAnchor> buildFeedbackAnchors() const;
     void maybeStartUltimateTurnSplash(const flow::PreviewActorContext& preview, bool dialogueActive);
     void updateSceneEntities(float deltaSeconds, bool bossActing, int actingPartyIndex);
     void computeCharacterPositions(bool bossActing, int actingPartyIndex);

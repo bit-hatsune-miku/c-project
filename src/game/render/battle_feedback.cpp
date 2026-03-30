@@ -363,6 +363,10 @@ float BattleFeedbackSystem::getShakeOffsetX(bool isBoss, int partyIndex) const {
     return wave * kPopupShakeAmplitudePixels * static_cast<float>(state->directionSign);
 }
 
+bool BattleFeedbackSystem::hasVisiblePopups() const {
+    return !popups_.empty();
+}
+
 void BattleFeedbackSystem::render(SDL_Renderer* renderer,
                                   const Camera3D& camera,
                                   const std::vector<FeedbackEntityAnchor>& anchors) {

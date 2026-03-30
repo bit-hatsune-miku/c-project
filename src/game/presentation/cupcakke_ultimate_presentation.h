@@ -32,7 +32,7 @@ public:
     bool shouldRenderCasterEntity() const override { return false; }
     bool shouldRenderBossEntity() const override { return true; }
     bool shouldRenderAboveHud() const override { return false; }
-    bool shouldRenderFloor() const override { return false; }
+    bool shouldRenderFloor() const override { return true; }
 
 private:
     struct FallingRectangle {
