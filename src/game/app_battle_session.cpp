@@ -17,6 +17,9 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_opengl.h>
+#ifdef BATTLE_ENABLE_TTF
+#include <SDL2/SDL_ttf.h>
+#endif
 
 #include <RmlUi/Core/Context.h>
 #include <RmlUi/Core/Core.h>
@@ -837,6 +840,17 @@ public:
         narrativeEnabled_ = (battleDefinition_.type == "tutorial");
         narrativeInitialized_ = false;
 
+#ifdef BATTLE_ENABLE_TTF
+        if (!narrativeEnabled_ && TTF_WasInit() == 0) {
+            if (TTF_Init() != 0) {
+                std::cerr << "SDL_ttf init failed: " << TTF_GetError() << "\n";
+                shutdown();
+                return false;
+            }
+            ttfInitializedHere_ = true;
+        }
+#endif
+
         battle::ability::setPresentationInteractionRunner([this](const battle::PresentationContext& context) {
             return runPresentationInteraction(context);
         });
@@ -1025,6 +1039,12 @@ public:
         narrative_.shutdown();
         vn::stopVoicePlayback();
         vn::shutdown();
+#ifdef BATTLE_ENABLE_TTF
+        if (ttfInitializedHere_ && TTF_WasInit() != 0) {
+            TTF_Quit();
+            ttfInitializedHere_ = false;
+        }
+#endif
         stopPresentationAudioPlayback(false);
         gPresentationSfxAudio.shutdown();
         gBgmPlayer.stop();
@@ -2761,6 +2781,7 @@ private:
     bool rmlInitialized_ = false;
     bool rmlGlInitialized_ = false;
     bool imageInitialized_ = false;
+    bool ttfInitializedHere_ = false;
     int windowWidth_ = kWindowWidth;
     int windowHeight_ = kWindowHeight;
     int drawableWidth_ = kWindowWidth;

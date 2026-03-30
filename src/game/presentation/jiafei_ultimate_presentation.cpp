@@ -157,7 +157,7 @@ bool JiafeiUltimatePresentation::shouldRenderAboveHud() const {
 }
 
 bool JiafeiUltimatePresentation::shouldBlackoutWorld() const {
-    return true;
+    return false;
 }
 
 void JiafeiUltimatePresentation::ensureTextureLoaded(SDL_Renderer* renderer) {
