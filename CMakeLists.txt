@@ -350,6 +350,10 @@ if (ENABLE_RMLUI)
         src/graphics/rmlui_loading_overlay.h
         src/graphics/rmlui_sdl_gl_renderer.cpp
         src/graphics/rmlui_sdl_gl_renderer.h
+        src/graphics/front_ui_pause.cpp
+        src/graphics/front_ui_pause.h
+        src/graphics/front_ui_settings.cpp
+        src/graphics/front_ui_settings.h
         ${RMLUI_APP_BATTLE_SOURCES}
         ${BATTLE_CORE_SOURCES}
         ${BATTLE_PRESENTATION_SOURCES}

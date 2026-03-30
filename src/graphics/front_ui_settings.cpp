@@ -68,7 +68,7 @@ constexpr std::array<SettingsRowDefinition, 5> kRows{{
      "02",
      "MUSIC VOLUME",
      "MUSIC VOLUME",
-     "Adjust menu and story background music volume. Combat BGM will hook into this later."},
+     "Adjust menu, story, and battle background music volume without flattening the mix."},
     {SettingsItem::VoiceVolume,
      "settings-row-voice",
      "settings-code-voice",

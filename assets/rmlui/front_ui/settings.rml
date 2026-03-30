@@ -34,7 +34,7 @@
                             <div id="settings-code-music" class="submenu-row-code"></div>
                             <div class="submenu-row-main">
                                 <div id="settings-label-music" class="submenu-row-label"></div>
-                                <div class="submenu-row-sub">MENU / STORY BGM LEVEL</div>
+                                <div class="submenu-row-sub">MENU / STORY / BATTLE BGM LEVEL</div>
                             </div>
                             <div id="settings-music-value" class="submenu-row-value"></div>
                             <input class="submenu-slider" id="settings-music-slider" type="range" min="0" max="100" step="5" value="0" />
