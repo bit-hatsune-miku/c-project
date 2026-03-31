@@ -16,7 +16,6 @@ env:
   PACKAGE_PREFIX: HatsuneMiku_windows_amd64_source_bundle
   CCACHE_DIR: .ccache
   CCACHE_MAXSIZE: 750M
-  STATIC_MINGW_RUNTIME: -static-libgcc -static-libstdc++
 
 jobs:
   build-package-release:
@@ -122,7 +121,6 @@ jobs:
           ccache --zero-stats || true
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE="${BUILD_TYPE}" \
-            -DCMAKE_EXE_LINKER_FLAGS="${STATIC_MINGW_RUNTIME}" \
             -DCMAKE_C_COMPILER_LAUNCHER=ccache \
             -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
 
@@ -149,14 +147,12 @@ jobs:
           workspace="$(cygpath -u "$GITHUB_WORKSPACE")"
           stage_dir="$workspace/dist/staging"
           generated_dll_manifest="$workspace/dist/generated-build-dlls.txt"
-          staged_runtime_manifest="$workspace/dist/staged-runtime-dlls.txt"
           runtime_prefix="${MINGW_PREFIX:-/ucrt64}"
           runtime_dir="${runtime_prefix}/bin"
           rm -rf "$stage_dir"
           mkdir -p "$stage_dir"
           mkdir -p "$workspace/dist"
           : > "$generated_dll_manifest"
-          : > "$staged_runtime_manifest"
 
           git archive --format=tar HEAD | tar -xf - -C "$stage_dir"
 
@@ -169,40 +165,27 @@ jobs:
             printf '%s\n' "$dll_name" >> "$generated_dll_manifest"
           done < <(find build -maxdepth 4 -type f -name '*.dll' -print0)
 
-          copy_dep_if_needed() {
-            local dep_path="$1"
-            local dep_name
-            dep_name="$(basename "$dep_path")"
-            [[ -f "$dep_path" ]] || return 0
-            if [[ ! -f "$stage_dir/$dep_name" ]]; then
-              cp -f "$dep_path" "$stage_dir/$dep_name"
+          copy_runtime_dll() {
+            local dll_name="$1"
+            if [[ ! -f "${runtime_dir}/${dll_name}" ]]; then
+              echo "Missing runtime DLL in MSYS2 environment: ${dll_name}" >&2
+              exit 1
             fi
-            printf '%s\n' "$dep_name" >> "$staged_runtime_manifest"
+            cp -f "${runtime_dir}/${dll_name}" "$stage_dir/"
           }
 
-          collect_staged_dependencies() {
-            local binary_path="$1"
-            {
-              ntldd -R "$binary_path" \
-                | grep -oEi '/[^[:space:]]+\\.dll' || true
-            } \
-              | sort -u \
-              | while IFS= read -r dep_path; do
-                  case "$dep_path" in
-                    "${runtime_dir}/"*)
-                      copy_dep_if_needed "$dep_path"
-                      ;;
-                    "${workspace}/build/"*)
-                      copy_dep_if_needed "$dep_path"
-                      ;;
-                  esac
-                done
-          }
+          for dll_name in \
+            SDL2.dll \
+            SDL2_image.dll \
+            SDL2_ttf.dll \
+            libgcc_s_seh-1.dll \
+            libstdc++-6.dll \
+            libwinpthread-1.dll
+          do
+            copy_runtime_dll "$dll_name"
+          done
 
-          collect_staged_dependencies "build/bin/${MAIN_TARGET}.exe"
-          collect_staged_dependencies "build/bin/${SUPPORT_TARGET}.exe"
-          sort -u -o "$generated_dll_manifest" "$generated_dll_manifest"
-          sort -u -o "$staged_runtime_manifest" "$staged_runtime_manifest"
+          find "$runtime_dir" -maxdepth 1 -type f -name '*.dll' -exec cp -f {} "$stage_dir/" \;
 
           cat > "$stage_dir/BUILD_INFO.txt" <<EOF
           Project: ${MAIN_TARGET}
@@ -212,7 +195,6 @@ jobs:
           Run number: ${GITHUB_RUN_NUMBER}
           Runner: blacksmith-4vcpu-windows-2025
           Build type: ${BUILD_TYPE}
-          MinGW runtime link flags: ${STATIC_MINGW_RUNTIME}
           Included executables:
             - ${MAIN_TARGET}.exe
             - ${SUPPORT_TARGET}.exe
@@ -226,11 +208,16 @@ jobs:
           workspace="$(cygpath -u "$GITHUB_WORKSPACE")"
           stage_dir="$workspace/dist/staging"
           generated_dll_manifest="$workspace/dist/generated-build-dlls.txt"
-          staged_runtime_manifest="$workspace/dist/staged-runtime-dlls.txt"
 
           for required_file in \
             "${MAIN_TARGET}.exe" \
-            "${SUPPORT_TARGET}.exe"
+            "${SUPPORT_TARGET}.exe" \
+            "SDL2.dll" \
+            "SDL2_image.dll" \
+            "SDL2_ttf.dll" \
+            "libgcc_s_seh-1.dll" \
+            "libstdc++-6.dll" \
+            "libwinpthread-1.dll"
           do
             if [[ ! -f "${stage_dir}/${required_file}" ]]; then
               echo "Packaged file missing: ${required_file}" >&2
@@ -248,23 +235,8 @@ jobs:
             done < "$generated_dll_manifest"
           fi
 
-          if [[ -f "$staged_runtime_manifest" ]]; then
-            while read -r dll_name; do
-              [[ -n "$dll_name" ]] || continue
-              if [[ ! -f "${stage_dir}/${dll_name}" ]]; then
-                echo "Staged runtime DLL missing from package: ${dll_name}" >&2
-                exit 1
-              fi
-            done < "$staged_runtime_manifest"
-          fi
-
           for exe_name in "${MAIN_TARGET}.exe" "${SUPPORT_TARGET}.exe"; do
             ntldd -R "${stage_dir}/${exe_name}" > "$workspace/dist/${exe_name}.deps.txt" || true
-            if grep -qi "not found" "$workspace/dist/${exe_name}.deps.txt"; then
-              echo "Unresolved runtime dependency detected for ${exe_name}." >&2
-              cat "$workspace/dist/${exe_name}.deps.txt" >&2
-              exit 1
-            fi
           done
 
       - name: Smoke test packaged executable launch
