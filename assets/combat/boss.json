@@ -33,7 +33,7 @@
         "voiceHit": "assets/combat/voices/lyooPlotTwist/hit.wav",
         "spd": 90,
         "atk": 50,
-        "hp": 1,
+        "hp": 1000,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "IfICantHaveWingsThenIllJustLetTheSkyFall",
         "ability": "IfICantHaveWingsThenIllJustLetTheSkyFall",
