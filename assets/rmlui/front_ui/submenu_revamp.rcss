@@ -79,12 +79,16 @@ button {
 
 .submenu-outline {
     position: absolute;
-    #pause-overlay {
-        position: absolute;
-        left: 0; top: 0; width: 100%; height: 100%;
-        background-color: rgba(2,8,10,0.28);
-        z-index: 1;
-    }
+}
+
+#pause-overlay {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(2,8,10,0.28);
+    z-index: 1;
 }
 
 .submenu-kicker {

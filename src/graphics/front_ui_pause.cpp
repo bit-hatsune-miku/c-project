@@ -299,7 +299,7 @@ void PauseDocumentController::applyState(AppState& state) {
             state.pendingDeletePath.clear();
             state.pendingDeleteSelection = 0;
             state.confirmSelection = ConfirmAction::Cancel;
-            state.screen = ScreenState::LoadMenu;
+            state.screen = ScreenState::LoadGameMenu;
             break;
 
         case PauseAction::Settings:
