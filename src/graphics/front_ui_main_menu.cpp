@@ -137,10 +137,10 @@ std::string translateScale(float x, float y, float scale) {
 
 void applyStaticArtSources(Rml::ElementDocument& document) {
     if (Rml::Element* element = document.GetElementById("bg-art")) {
-        element->SetAttribute("src", platform::path::resolvePath(kMainMenuBackgroundArtPath));
+        element->SetAttribute("src", platform::path::resolvePathForRml(kMainMenuBackgroundArtPath));
     }
     if (Rml::Element* element = document.GetElementById("title-logo")) {
-        element->SetAttribute("src", platform::path::resolvePath(kMainMenuTitleLogoPath));
+        element->SetAttribute("src", platform::path::resolvePathForRml(kMainMenuTitleLogoPath));
     }
 }
 
@@ -268,7 +268,7 @@ void MainMenuDocumentController::update(const AppState& state, float deltaSecond
  * The main menu stack is active when:
  * - the current screen is MainMenu, or
  * - the current screen is Settings and settingsReturnScreen equals MainMenu, or
- * - the current screen is LoadMenu or LoadConfirmDelete and loadReturnScreen equals MainMenu.
+ * - the current screen is LoadGameMenu or LoadConfirmDelete and loadReturnScreen equals MainMenu.
  *
  * @param state Current application state to evaluate.
  * @return true if the main menu stack should be active in this state, false otherwise.
@@ -282,7 +282,7 @@ bool MainMenuDocumentController::isMenuStackActive(const AppState& state) const 
         return state.settingsReturnScreen == ScreenState::MainMenu;
     }
 
-    return (state.screen == ScreenState::LoadMenu || state.screen == ScreenState::LoadConfirmDelete) &&
+    return (state.screen == ScreenState::LoadGameMenu || state.screen == ScreenState::LoadConfirmDelete) &&
            state.loadReturnScreen == ScreenState::MainMenu;
 }
 
@@ -294,7 +294,7 @@ bool MainMenuDocumentController::isMenuStackActive(const AppState& state) const 
  * @return MainMenuOverlayMode
  *         `MainMenuOverlayMode::Settings` if `state.screen` is `Settings` and
  *         `state.settingsReturnScreen` is `MainMenu`.
- *         `MainMenuOverlayMode::Load` if `state.screen` is `LoadMenu` or `LoadConfirmDelete`
+ *         `MainMenuOverlayMode::Load` if `state.screen` is `LoadGameMenu` or `LoadConfirmDelete`
  *         and `state.loadReturnScreen` is `MainMenu`.
  *         `MainMenuOverlayMode::None` otherwise.
  */
@@ -303,7 +303,7 @@ MainMenuOverlayMode MainMenuDocumentController::overlayModeForState(const AppSta
         return MainMenuOverlayMode::Settings;
     }
 
-    if ((state.screen == ScreenState::LoadMenu || state.screen == ScreenState::LoadConfirmDelete) &&
+    if ((state.screen == ScreenState::LoadGameMenu || state.screen == ScreenState::LoadConfirmDelete) &&
         state.loadReturnScreen == ScreenState::MainMenu) {
         return MainMenuOverlayMode::Load;
     }

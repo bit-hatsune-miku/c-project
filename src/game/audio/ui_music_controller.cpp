@@ -67,7 +67,7 @@ bool isPauseStoryScreen(const AppState& state) {
 /**
  * @brief Determines whether the current screen should be treated as a pause-child screen for story pause music behavior.
  *
- * Evaluates Settings, LoadMenu, and LoadConfirmDelete screens to see if they will return to PauseMenu and the pause context is Story.
+ * Evaluates Settings, LoadGameMenu, and LoadConfirmDelete screens to see if they will return to PauseMenu and the pause context is Story.
  *
  * @param state Current application state used to inspect screen, return-target fields, and pause context.
  * @return true if the current screen is a pause-child (i.e., will return to PauseMenu and pause context is Story), false otherwise.
@@ -78,7 +78,7 @@ bool isPauseChildScreen(const AppState& state) {
                state.pauseContext == PauseContext::Story;
     }
 
-    if (state.screen == ScreenState::LoadMenu || state.screen == ScreenState::LoadConfirmDelete) {
+    if (state.screen == ScreenState::LoadGameMenu || state.screen == ScreenState::LoadConfirmDelete) {
         return state.loadReturnScreen == ScreenState::PauseMenu &&
                state.pauseContext == PauseContext::Story;
     }
@@ -266,7 +266,7 @@ UiMusicSurface UiMusicController::resolveSurface(const AppState& state) const {
         return UiMusicSurface::MainMenu;
     }
 
-    if ((state.screen == ScreenState::LoadMenu || state.screen == ScreenState::LoadConfirmDelete) &&
+    if ((state.screen == ScreenState::LoadGameMenu || state.screen == ScreenState::LoadConfirmDelete) &&
         state.loadReturnScreen == ScreenState::MainMenu) {
         return UiMusicSurface::MainMenu;
     }

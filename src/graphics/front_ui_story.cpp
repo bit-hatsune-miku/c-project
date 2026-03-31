@@ -66,7 +66,7 @@ std::string toRmlAssetSource(const std::string& path) {
         return std::string();
     }
 
-    return platform::path::resolvePath(path);
+    return platform::path::resolvePathForRml(path);
 }
 
 void releaseDocumentTexture(Rml::ElementDocument& document, const std::string& source) {
@@ -75,11 +75,15 @@ void releaseDocumentTexture(Rml::ElementDocument& document, const std::string& s
     }
 
     Rml::String resolvedSource = source;
-    if (Rml::SystemInterface* systemInterface = Rml::GetSystemInterface()) {
-        systemInterface->JoinPath(resolvedSource, document.GetSourceURL(), source);
+    if (!std::filesystem::path(source).is_absolute()) {
+        if (Rml::SystemInterface* systemInterface = Rml::GetSystemInterface()) {
+            systemInterface->JoinPath(resolvedSource, document.GetSourceURL(), source);
+        }
     }
 
-    (void)Rml::ReleaseTexture(resolvedSource);
+    if (!resolvedSource.empty()) {
+        (void)Rml::ReleaseTexture(resolvedSource);
+    }
 }
 
 }  // namespace
