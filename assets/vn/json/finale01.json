@@ -631,7 +631,8 @@
       "type": "chorus",
       "background": "",
       "voice": "",
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "battleKey": "miku_plot_twist"
     }
   ]
 }

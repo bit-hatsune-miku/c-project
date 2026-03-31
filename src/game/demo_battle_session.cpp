@@ -1391,20 +1391,15 @@ public:
         }
 
         const BattleManager& manager = core_.getBattleManager();
-        if (manager.getBossCurrentHp() <= 0) {
-            return BattleOutcome::Victory;
+        switch (manager.outcome()) {
+            case battle::BattleResolvedOutcome::Victory:
+                return BattleOutcome::Victory;
+            case battle::BattleResolvedOutcome::Defeat:
+                return BattleOutcome::Defeat;
+            case battle::BattleResolvedOutcome::None:
+            default:
+                return BattleOutcome::None;
         }
-
-        const BattleState& state = manager.getBattleState();
-        bool anyPartyMemberAlive = false;
-        for (size_t i = 0; i < state.party.size(); ++i) {
-            if (manager.isCharacterAlive(static_cast<int>(i))) {
-                anyPartyMemberAlive = true;
-                break;
-            }
-        }
-
-        return anyPartyMemberAlive ? BattleOutcome::None : BattleOutcome::Defeat;
     }
 
     const std::vector<std::string>& currentPartyLineup() const {

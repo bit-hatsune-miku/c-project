@@ -104,6 +104,8 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/miku_sing_presentation.h
     src/game/presentation/miku_diandong_presentation.cpp
     src/game/presentation/miku_diandong_presentation.h
+    src/game/presentation/miku_self_corruption_presentation.cpp
+    src/game/presentation/miku_self_corruption_presentation.h
     src/game/presentation/cupcakke_drum_presentation.cpp
     src/game/presentation/cupcakke_drum_presentation.h
     src/game/presentation/cupcakke_ultimate_presentation.cpp

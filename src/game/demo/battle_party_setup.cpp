@@ -872,7 +872,7 @@ const PartySetupResult& BattlePartySetupScreen::currentSelection() const {
 }
 
 int BattlePartySetupScreen::selectionCapacity() const {
-    return std::clamp(battleDefinition_.partySize, 1, 4);
+    return std::max(1, battleDefinition_.partySize);
 }
 
 bool BattlePartySetupScreen::canStart() const {

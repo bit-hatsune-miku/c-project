@@ -107,13 +107,14 @@
       "stageKey": "default_stage"
     },
     "miku_plot_twist": {
-      "id": 100,
+      "id": 101,
       "name": "Corrupted Miku",
       "bossKey": "corruptedMiku",
-      "storyScript": "finale02",
+      "storyScript": "finale01",
       "isLineupFixed": true,
       "selectorVisible": false,
-      "victoryStoryScript": "finale03",
+      "victoryStoryScript": "finale02",
+      "defeatStoryScript": "finale02",
       "lineup": [
         "cupcakke",
         "jiafei",
@@ -121,6 +122,12 @@
         "ari",
         "luotianyi"
       ],
+      "specialRules": {
+        "playerDamageHealsBoss": true,
+        "autoRevivePartyOnBossDamage": true,
+        "revivePartyToFull": true,
+        "bossSelfKnockoutIsDefeat": true
+      },
       "stageKey": "default_stage"
     }
   }

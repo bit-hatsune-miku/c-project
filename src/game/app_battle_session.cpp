@@ -311,6 +311,18 @@ std::optional<std::string> resolveBossDeadVoicePath(const battle::BattleState& b
     return std::nullopt;
 }
 
+std::optional<std::string> resolveBossHealedVoicePath(const battle::BattleState& battleState) {
+    if (const auto healedVoice = platform::path::resolveCombatVoicePath(battleState.boss.assets, "healed");
+        healedVoice.has_value()) {
+        return *healedVoice;
+    }
+    if (const auto healedVoice = platform::path::resolveCombatVoicePath(battleState.boss.key, "healed");
+        healedVoice.has_value()) {
+        return *healedVoice;
+    }
+    return std::nullopt;
+}
+
 bool playBossHitVoice(const battle::BattleState& battleState, float voiceVolume, int repeatCount = 1) {
     if (playResolvedVoicePath(battleState.boss.voiceHit, voiceVolume, repeatCount)) {
         return true;
@@ -321,6 +333,13 @@ bool playBossHitVoice(const battle::BattleState& battleState, float voiceVolume,
     }
 
     return playCombatVoiceClip(battleState.boss.key, "hit", voiceVolume, repeatCount);
+}
+
+bool playBossHealedVoice(const battle::BattleState& battleState, float voiceVolume, int repeatCount = 1) {
+    if (const auto healedVoice = resolveBossHealedVoicePath(battleState); healedVoice.has_value()) {
+        return playResolvedVoicePath(*healedVoice, voiceVolume, repeatCount);
+    }
+    return false;
 }
 
 using battle::app::ui::HudFeedbackState;
@@ -467,6 +486,13 @@ void tickHudFeedback(HudFeedbackState& feedback, Uint64 nowMs) {
     }
 }
 
+void syncHudFeedbackState(HudFeedbackState& feedback, const battle::BattleManager& manager) {
+    const std::size_t partySize = manager.getBattleState().party.size();
+    if (feedback.unitHitUntilMs.size() != partySize) {
+        feedback.unitHitUntilMs.assign(partySize, 0);
+    }
+}
+
 void resetHudValueAnimation(HudValueAnimationState& state, float value) {
     state.initialized = true;
     state.active = false;
@@ -547,14 +573,14 @@ void resetHudAnimationState(HudAnimationState& state, const battle::BattleManage
     resetHudValueAnimation(state.bossHp, static_cast<float>(manager.getBossCurrentHp()));
 
     const battle::BattleState& battleState = manager.getBattleState();
-    for (int index = 0; index < static_cast<int>(state.units.size()); ++index) {
-        const bool hasCharacter = index < static_cast<int>(battleState.party.size());
+    state.units.assign(battleState.party.size(), battle::app::ui::HudUnitAnimationState{});
+    for (int index = 0; index < static_cast<int>(battleState.party.size()); ++index) {
         resetHudValueAnimation(
             state.units[static_cast<size_t>(index)].hp,
-            hasCharacter ? static_cast<float>(manager.getCharacterCurrentHp(index)) : 0.0f);
+            static_cast<float>(manager.getCharacterCurrentHp(index)));
         resetHudValueAnimation(
             state.units[static_cast<size_t>(index)].ultimate,
-            hasCharacter ? static_cast<float>(manager.getCharacterUltimateCharge(index)) : 0.0f);
+            static_cast<float>(manager.getCharacterUltimateCharge(index)));
     }
 }
 
@@ -568,11 +594,13 @@ void updateHudAnimationState(HudAnimationState& state,
     syncHudHitReaction(state.bossHit, feedback.bossHitUntilMs, nowMs);
 
     const battle::BattleState& battleState = manager.getBattleState();
+    if (state.units.size() != battleState.party.size()) {
+        resetHudAnimationState(state, manager);
+    }
     for (int index = 0; index < static_cast<int>(state.units.size()); ++index) {
         auto& unitState = state.units[static_cast<size_t>(index)];
-        const bool hasCharacter = index < static_cast<int>(battleState.party.size());
-        const float hpTarget = hasCharacter ? static_cast<float>(manager.getCharacterCurrentHp(index)) : 0.0f;
-        const float ultimateTarget = hasCharacter ? static_cast<float>(manager.getCharacterUltimateCharge(index)) : 0.0f;
+        const float hpTarget = static_cast<float>(manager.getCharacterCurrentHp(index));
+        const float ultimateTarget = static_cast<float>(manager.getCharacterUltimateCharge(index));
         const bool hadUltimateTarget = unitState.ultimate.initialized;
         const float previousUltimateTarget = unitState.ultimate.targetValue;
 
@@ -843,7 +871,7 @@ std::vector<std::string> resolveBattlePartyLineup(const battle::BattleDefinition
     };
 
     std::vector<std::string> lineup;
-    lineup.reserve(4);
+    lineup.reserve(static_cast<size_t>(std::max(1, battleDefinition.partySize)));
 
     if (initialPartyLineup.has_value()) {
         for (const std::string& key : *initialPartyLineup) {
@@ -868,7 +896,7 @@ std::vector<std::string> resolveBattlePartyLineup(const battle::BattleDefinition
         }
     }
 
-    const int safePartySize = std::clamp(battleDefinition.partySize, 1, 4);
+    const int safePartySize = std::max(1, battleDefinition.partySize);
     if (static_cast<int>(lineup.size()) > safePartySize) {
         lineup.resize(static_cast<size_t>(safePartySize));
     }
@@ -1004,7 +1032,7 @@ public:
             return false;
         }
 
-        if (!manager_.initialize(battleDefinition_.bossKey, activePartyLineup_)) {
+        if (!manager_.initialize(battleDefinition_, activePartyLineup_)) {
             std::cerr << "[Battle] Initialization failed.\n";
             shutdown();
             return false;
@@ -1082,6 +1110,7 @@ public:
             (!bossActing && preview.partyIndex >= 0) ? preview.partyIndex : -1;
         updateSceneEntities(0.0f, bossActing, actingPartyIndex);
         feedback_.reset(manager_);
+        syncHudFeedbackState(hudFeedback_, manager_);
         resetHudAnimationState(hudAnimationState_, manager_);
 
         SDL_Texture* mikuSprite = nullptr;
@@ -1790,17 +1819,16 @@ public:
         if (!initialized_) {
             return BattleOutcome::None;
         }
-        if (manager_.getBossCurrentHp() <= 0) {
-            return BattleOutcome::Victory;
-        }
 
-        const battle::BattleState& state = manager_.getBattleState();
-        for (size_t i = 0; i < state.party.size(); ++i) {
-            if (manager_.isCharacterAlive(static_cast<int>(i))) {
+        switch (manager_.outcome()) {
+            case battle::BattleResolvedOutcome::Victory:
+                return BattleOutcome::Victory;
+            case battle::BattleResolvedOutcome::Defeat:
+                return BattleOutcome::Defeat;
+            case battle::BattleResolvedOutcome::None:
+            default:
                 return BattleOutcome::None;
-            }
         }
-        return BattleOutcome::Defeat;
     }
 
     const std::vector<std::string>& currentPartyLineup() const {
@@ -2022,9 +2050,11 @@ private:
             };
 
             if (targetPartyIndex >= 0 && targetPartyIndex < static_cast<int>(battleState.party.size())) {
+                markUnitHit(hudFeedback_, targetPartyIndex, SDL_GetTicks64());
                 handlePartyHitAudio(targetPartyIndex, hitEvents);
             } else {
                 for (size_t i = 0; i < battleState.party.size(); ++i) {
+                    markUnitHit(hudFeedback_, static_cast<int>(i), SDL_GetTicks64());
                     handlePartyHitAudio(static_cast<int>(i), hitEvents);
                 }
             }
@@ -2041,6 +2071,14 @@ private:
         }
 
         const int nowBossHp = manager_.getBossCurrentHp();
+        if (manager_.playerDamageHealsBoss() && nowBossHp > bossHpBefore) {
+            (void)playBossHealedVoice(battleState, voiceVolume, hitEvents);
+            manager_.markPresentationHitAudioPlayed();
+            return;
+        }
+        if (nowBossHp < bossHpBefore) {
+            markBossHit(hudFeedback_, SDL_GetTicks64());
+        }
         const bool bossDiedNow = bossHpBefore > 0 && nowBossHp <= 0;
         const auto bossDeadVoice = resolveBossDeadVoicePath(battleState);
         if (bossDiedNow && bossDeadVoice.has_value()) {
@@ -2415,6 +2453,10 @@ private:
         if (partyRack != nullptr) {
             partyRack->SetProperty("left", formatPx(16.0f * hudScale));
             partyRack->SetProperty("bottom", formatPx(12.0f * hudScale));
+            const std::size_t partyCount = manager_.getBattleState().party.size();
+            const float rackWidth = 186.0f +
+                std::max(0.0f, static_cast<float>(partyCount > 0 ? partyCount - 1 : 0)) * 198.0f;
+            partyRack->SetProperty("width", formatPx(rackWidth));
             setScaledTransform(partyRack, "0px 100%", hudScaleTransform);
         }
 
@@ -2471,6 +2513,7 @@ private:
     }
 
     void syncHudDocument(Uint64 nowMs) {
+        syncHudFeedbackState(hudFeedback_, manager_);
         battle::app::ui::updateBattleHudDocument(document_,
                                                  manager_,
                                                  hudAnimationState_,

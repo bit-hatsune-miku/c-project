@@ -145,6 +145,17 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     presentation->setTargetPartyIndex(context.targetIndex);
     presentation->setTargetWorldPosition(targetX, targetY, targetZ);
     presentation->setPresentationValue(context.presentationValue);
+    {
+        std::vector<std::string> partyAssetNames;
+        partyAssetNames.reserve(entities.size());
+        for (const render::SceneEntity& entity : entities) {
+            if (entity.isBoss || entity.assetName.empty()) {
+                continue;
+            }
+            partyAssetNames.push_back(entity.assetName);
+        }
+        presentation->setPartyAssetNames(partyAssetNames);
+    }
 
     presentation->start();
     Uint64 lastCounter = SDL_GetPerformanceCounter();

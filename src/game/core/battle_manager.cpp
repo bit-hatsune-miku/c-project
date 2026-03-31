@@ -233,7 +233,16 @@ void BattleCharacter::setAtkBuffBonus(int percentBonus) {
 }
 
 bool BattleManager::initialize(const std::string& bossKey, const std::vector<std::string>& characterKeys) {
+    BattleDefinition battleDefinition;
+    battleDefinition.key = bossKey;
+    battleDefinition.bossKey = bossKey;
+    return initialize(battleDefinition, characterKeys);
+}
+
+bool BattleManager::initialize(const BattleDefinition& battleDefinition,
+                               const std::vector<std::string>& characterKeys) {
     initialized_ = false;
+    battleDefinition_ = battleDefinition;
     state_ = BattleState{};
     turnState_ = TurnState{};
     bossCurrentHp_ = 0;
@@ -244,18 +253,14 @@ bool BattleManager::initialize(const std::string& bossKey, const std::vector<std
     simulatedActions_ = 0;
     activePartyBuffs_.clear();
     luotianyiCorrectTones_ = 0;
+    forcedOutcome_.reset();
 
-    if (bossKey.empty()) {
+    if (battleDefinition_.bossKey.empty()) {
         std::cerr << "[Battle] Missing boss key.\n";
         return false;
     }
 
-    // if (characterKeys.empty() || characterKeys.size() > 4) {
-    //     std::cerr << "[Battle] Party size must be between 1 and 4.\n";
-    //     return false;
-    // }
-
-    if (!loader::loadBossDefinition(bossKey, state_.boss)) {
+    if (!loader::loadBossDefinition(battleDefinition_.bossKey, state_.boss)) {
         return false;
     }
 
@@ -338,6 +343,14 @@ void BattleManager::printBattleSummary() const {
 
 const BattleState& BattleManager::getBattleState() const {
     return state_;
+}
+
+const BattleDefinition& BattleManager::getBattleDefinition() const {
+    return battleDefinition_;
+}
+
+const BattleSpecialRules& BattleManager::getSpecialRules() const {
+    return battleDefinition_.specialRules;
 }
 
 const TurnState& BattleManager::getTurnState() const {
@@ -431,6 +444,90 @@ int BattleManager::getLuotianyiCorrectTones() const {
     return std::max(0, luotianyiCorrectTones_);
 }
 
+BattleResolvedOutcome BattleManager::computeDerivedOutcome() const {
+    if (forcedOutcome_.has_value()) {
+        return *forcedOutcome_;
+    }
+
+    if (bossCurrentHp_ <= 0) {
+        return BattleResolvedOutcome::Victory;
+    }
+
+    return firstLivingCharacterPartyIndex() < 0
+        ? BattleResolvedOutcome::Defeat
+        : BattleResolvedOutcome::None;
+}
+
+BattleResolvedOutcome BattleManager::outcome() const {
+    return computeDerivedOutcome();
+}
+
+bool BattleManager::playerDamageHealsBoss() const {
+    return battleDefinition_.specialRules.playerDamageHealsBoss;
+}
+
+void BattleManager::applyBossDamage(int amount) {
+    if (amount <= 0 || bossCurrentHp_ <= 0) {
+        return;
+    }
+    bossCurrentHp_ = std::max(0, bossCurrentHp_ - amount);
+}
+
+void BattleManager::applyBossHealing(int amount) {
+    if (amount <= 0 || bossCurrentHp_ <= 0) {
+        return;
+    }
+    bossCurrentHp_ = std::min(state_.boss.hp, bossCurrentHp_ + amount);
+}
+
+void BattleManager::applyPlayerOffenseToBoss(int amount) {
+    if (amount <= 0) {
+        return;
+    }
+
+    if (playerDamageHealsBoss()) {
+        applyBossHealing(amount);
+        return;
+    }
+
+    applyBossDamage(amount);
+}
+
+void BattleManager::reviveDefeatedPartyMembersIfNeeded() {
+    if (!battleDefinition_.specialRules.autoRevivePartyOnBossDamage) {
+        return;
+    }
+
+    for (BattleCharacter& character : characters_) {
+        if (character.isAlive()) {
+            continue;
+        }
+
+        const int reviveAmount = battleDefinition_.specialRules.revivePartyToFull
+            ? character.maxHp()
+            : 1;
+        character.revive(reviveAmount);
+    }
+
+    syncAllCharacterTurnParticipation();
+}
+
+void BattleManager::applyBossAbilitySelfCost(const AbilityDefinition& ability) {
+    if (ability.selfHpCostPercentOfMax <= 0.0f || bossCurrentHp_ <= 0 || state_.boss.hp <= 0) {
+        return;
+    }
+
+    const float clampedPercent = std::max(0.0f, ability.selfHpCostPercentOfMax);
+    const int selfDamage = std::max(
+        1,
+        static_cast<int>(std::lround((clampedPercent / 100.0f) * static_cast<float>(state_.boss.hp)))
+    );
+    applyBossDamage(selfDamage);
+    if (bossCurrentHp_ <= 0 && battleDefinition_.specialRules.bossSelfKnockoutIsDefeat) {
+        forcedOutcome_ = BattleResolvedOutcome::Defeat;
+    }
+}
+
 void BattleManager::applyPresentationHitDamage(bool isBossCaster,
                                                int perHitDamage,
                                                int hitEvents,
@@ -450,6 +547,7 @@ void BattleManager::applyPresentationHitDamage(bool isBossCaster,
             target.receiveDamage(totalDamage);
             syncCharacterTurnParticipation(targetPartyIndex);
             syncCharacterUltimateTurn(targetPartyIndex);
+            reviveDefeatedPartyMembersIfNeeded();
             removeBuffsFromDefeatedCharacters();
             presentationHitDamageApplied_ = true;
             return;
@@ -465,6 +563,7 @@ void BattleManager::applyPresentationHitDamage(bool isBossCaster,
         }
         if (applied) {
             syncAllCharacterTurnParticipation();
+            reviveDefeatedPartyMembersIfNeeded();
             removeBuffsFromDefeatedCharacters();
             presentationHitDamageApplied_ = true;
         }
@@ -472,7 +571,7 @@ void BattleManager::applyPresentationHitDamage(bool isBossCaster,
     }
 
     if (bossCurrentHp_ > 0) {
-        bossCurrentHp_ = std::max(0, bossCurrentHp_ - totalDamage);
+        applyPlayerOffenseToBoss(totalDamage);
         presentationHitDamageApplied_ = true;
     }
 }
@@ -488,7 +587,7 @@ void BattleManager::applyPresentationHealing(bool isBossCaster, int perHitHeal, 
         if (bossCurrentHp_ <= 0) {
             return;
         }
-        bossCurrentHp_ = std::min(state_.boss.hp, bossCurrentHp_ + totalHeal);
+        applyBossHealing(totalHeal);
         presentationHealingApplied_ = true;
         return;
     }
@@ -683,7 +782,7 @@ void BattleManager::applyBossSplitHitDamage(int damage) {
         return;
     }
 
-    bossCurrentHp_ = std::max(0, bossCurrentHp_ - damage);
+    applyPlayerOffenseToBoss(damage);
 }
 
 bool BattleManager::commitCurrentPlayerSplitAttackTurn() {
@@ -821,7 +920,7 @@ bool BattleManager::processAutomaticTurns() {
 }
 
 bool BattleManager::isBattleOver() const {
-    return bossCurrentHp_ <= 0 || firstLivingCharacterPartyIndex() < 0;
+    return outcome() != BattleResolvedOutcome::None;
 }
 
 bool BattleManager::buildInitialTurnState() {
@@ -1069,7 +1168,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
         const int fallbackDamage = normalizeDamage(
             character.effectiveAtk() * ((action == BattleAction::Ultimate) ? 2 : 1)
         );
-        bossCurrentHp_ = std::max(0, bossCurrentHp_ - fallbackDamage);
+        applyPlayerOffenseToBoss(fallbackDamage);
     } else {
         PresentationContext presContext;
         presContext.abilityId = abilityDef->id;
@@ -1097,6 +1196,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
             execContext.ability = abilityDef;
             execContext.casterPartyIndex = character.partyIndex();
             execContext.isBossCaster = false;
+            execContext.playerDamageHealsBoss = playerDamageHealsBoss();
             execContext.baseDamage = character.effectiveAtk();
             execContext.baseHeal = abilityDef->flatHeal;
             execContext.presentationMultiplier = presentationMultiplier;
@@ -1248,10 +1348,15 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
         }
     }
 
+    reviveDefeatedPartyMembersIfNeeded();
+    if (abilityDef != nullptr) {
+        applyBossAbilitySelfCost(*abilityDef);
+    }
     removeBuffsFromDefeatedCharacters();
 
     actionEvent.abilityVoicesHandledDuringPresentation = consumePresentationAbilityAudioPlayed();
     actionEvent.hitVoicesHandledDuringPresentation = consumePresentationHitAudioPlayed();
+    actionEvent.bossHpAfter = bossCurrentHp_;
 
     turnState_.actors[actorIndex].currentActionValue = turnState_.actors[actorIndex].baseActionValue;
     turnState_.actors[actorIndex].priority = 0;

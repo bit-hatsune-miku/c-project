@@ -5,11 +5,6 @@
   "endReturnScreen": "selector",
   "entries": [
     {
-      "type": "narration",
-      "speaker": "",
-      "text": "Luotianyi is defeated. Placeholder post-battle dialogue: press SPACE to return to the selector."
-    },
-    {
       "speaker": "Luo Tianyi",
       "text": "Wow, Miku-JieJie... that high note you hit at the end was incredible. I’ve never heard a frequency like that.",
       "type": "dialogue",
