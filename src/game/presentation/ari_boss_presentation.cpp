@@ -173,6 +173,18 @@ bool AriBossPresentation::shouldRenderAboveHud() const {
     return false;
 }
 
+AriBossPresentation::NativeRenderState AriBossPresentation::buildNativeRenderState() const {
+    NativeRenderState state;
+    state.active = (phase_ == Phase::Attacking || phase_ == Phase::Waiting);
+    state.casterX = casterX_;
+    state.casterY = casterY_;
+    state.casterZ = casterZ_;
+    state.frameIndex = (phase_ == Phase::Waiting) ? 0 : currentFrameIndex();
+    state.frameWidth = frameWidth_;
+    state.frameHeight = frameHeight_;
+    return state;
+}
+
 void AriBossPresentation::renderAnimatedBoss(SDL_Renderer* renderer,
                                              int screenW,
                                              int screenH,
