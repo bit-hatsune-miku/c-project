@@ -61,12 +61,12 @@ std::string escapeRmlText(const std::string& text) {
     return escaped;
 }
 
-std::string toRmlAssetSource(const std::string& path) {
+std::string toRmlAssetSource(const std::string& path, const Rml::ElementDocument& document) {
     if (path.empty()) {
         return std::string();
     }
 
-    return platform::path::resolvePathForRml(path);
+    return platform::path::resolvePathForRml(path, document.GetSourceURL());
 }
 
 void releaseDocumentTexture(Rml::ElementDocument& document, const std::string& source) {
@@ -110,9 +110,9 @@ bool StoryDocumentController::bind(Rml::ElementDocument& document, const AppStat
 
 void StoryDocumentController::unbind() {
     if (document_ != nullptr) {
-        releaseDocumentTexture(*document_, toRmlAssetSource(lastBackground_));
-        releaseDocumentTexture(*document_, toRmlAssetSource(fadingOutBackground_));
-        releaseDocumentTexture(*document_, toRmlAssetSource(lastPortrait_));
+        releaseDocumentTexture(*document_, toRmlAssetSource(lastBackground_, *document_));
+        releaseDocumentTexture(*document_, toRmlAssetSource(fadingOutBackground_, *document_));
+        releaseDocumentTexture(*document_, toRmlAssetSource(lastPortrait_, *document_));
     }
     detachEventListeners(listeners_);
     document_ = nullptr;
@@ -160,7 +160,7 @@ void StoryDocumentController::update(const AppState& state, float deltaSeconds) 
 
         if (t >= 1.0f) {
             if (!fadingOutBackground_.empty()) {
-                releaseDocumentTexture(*document_, toRmlAssetSource(fadingOutBackground_));
+                releaseDocumentTexture(*document_, toRmlAssetSource(fadingOutBackground_, *document_));
                 fadingOutBackground_.clear();
             }
             backgroundFadeActive_ = false;
@@ -245,11 +245,11 @@ void StoryDocumentController::syncPresentation() {
 
     if (presentation.backgroundPath != lastBackground_) {
         if (!fadingOutBackground_.empty() && fadingOutBackground_ != lastBackground_) {
-            releaseDocumentTexture(*document_, toRmlAssetSource(fadingOutBackground_));
+            releaseDocumentTexture(*document_, toRmlAssetSource(fadingOutBackground_, *document_));
         }
         fadingOutBackground_ = lastBackground_;
-        const std::string previousBackgroundSource = toRmlAssetSource(fadingOutBackground_);
-        const std::string currentBackgroundSource = toRmlAssetSource(presentation.backgroundPath);
+        const std::string previousBackgroundSource = toRmlAssetSource(fadingOutBackground_, *document_);
+        const std::string currentBackgroundSource = toRmlAssetSource(presentation.backgroundPath, *document_);
 
         if (Rml::Element* element = document_->GetElementById("story-bg-art-prev")) {
             if (fadingOutBackground_.empty()) {
@@ -285,11 +285,11 @@ void StoryDocumentController::syncPresentation() {
     }
 
     if (presentation.iconPath != lastPortrait_) {
-        const std::string previousPortraitSource = toRmlAssetSource(lastPortrait_);
+        const std::string previousPortraitSource = toRmlAssetSource(lastPortrait_, *document_);
         if (Rml::Element* element = document_->GetElementById("story-portrait-img")) {
             const bool hasPortrait = !presentation.iconPath.empty();
             element->SetClass("is-hidden", !hasPortrait);
-            element->SetAttribute("src", hasPortrait ? toRmlAssetSource(presentation.iconPath) : "");
+            element->SetAttribute("src", hasPortrait ? toRmlAssetSource(presentation.iconPath, *document_) : "");
         }
         if (Rml::Element* element = document_->GetElementById("story-dialogue-box")) {
             element->SetClass("story-no-portrait", presentation.iconPath.empty());
