@@ -9,6 +9,16 @@ namespace battle {
 
 class AriBossPresentation : public AbilityPresentation {
 public:
+    struct NativeRenderState {
+        bool active = false;
+        float casterX = 0.0f;
+        float casterY = 0.0f;
+        float casterZ = 0.0f;
+        int frameIndex = 0;
+        int frameWidth = 500;
+        int frameHeight = 198;
+    };
+
     AriBossPresentation(
         float casterWorldX, float casterWorldY, float casterWorldZ,
         float targetWorldX, float targetWorldY, float targetWorldZ
@@ -28,6 +38,7 @@ public:
     void applyCameraState(Camera3D& camera) const override;
     bool shouldRenderCasterEntity() const override;
     bool shouldRenderAboveHud() const override;
+    NativeRenderState buildNativeRenderState() const;
 
     float getInputMultiplier() const override;
     float consumeHitDamageMultiplier() override;

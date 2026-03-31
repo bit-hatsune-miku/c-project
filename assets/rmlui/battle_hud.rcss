@@ -5,23 +5,42 @@ body {
     color: #fff7fb;
     background-color: transparent;
     font-family: "Space Mono";
+    position: relative;
 }
 
-#stage {
+#hud-root {
     position: relative;
     width: 100%;
     height: 100%;
 }
 
+#hud-edge-layer {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#safe-stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1280px;
+    height: 720px;
+}
+
 @keyframes active-turn-bounce {
     from {
-        transform: translateX(0dp) scale(1.04);
+        transform: translateX(0dp);
     }
     50% {
-        transform: translateX(14dp) scale(1.08);
+        transform: translateX(12dp);
     }
     to {
-        transform: translateX(0dp) scale(1.04);
+        transform: translateX(0dp);
     }
 }
 
@@ -59,8 +78,8 @@ body {
 
 .turn-rail {
     position: absolute;
-    left: 10dp;
-    top: 56dp;
+    left: 12dp;
+    top: 14dp;
     width: 86dp;
     height: 330dp;
 }
@@ -182,32 +201,37 @@ body {
 
 .boss-band {
     position: absolute;
-    left: 50%;
-    top: 16dp;
-    width: 540dp;
-    height: 78dp;
-    margin-left: -270dp;
+    left: 110dp;
+    right: 24dp;
+    top: 8dp;
+    height: 80dp;
 }
 
 .boss-name {
     position: absolute;
     left: 0;
+    right: 0;
     top: 0;
-    width: 540dp;
+    padding-left: 18dp;
+    padding-right: 18dp;
     text-align: center;
     color: #fff8fb;
-    font-size: 30dp;
+    font-size: 28dp;
     font-weight: bold;
     letter-spacing: 1dp;
     text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: clip;
 }
 
 .boss-meter-shell {
     position: absolute;
-    left: 0;
+    left: 50%;
     top: 38dp;
     width: 540dp;
     height: 34dp;
+    margin-left: -270dp;
     background-color: rgba(255, 250, 253, 238);
     border: 1dp rgba(23, 20, 31, 34);
     border-radius: 16dp;
@@ -228,6 +252,17 @@ body {
     overflow: hidden;
 }
 
+.boss-meter-trail {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 28dp;
+    width: 100%;
+    background-color: rgba(120, 26, 42, 0.82);
+    decorator: linear-gradient(to right, rgba(162, 54, 74, 0.90), rgba(120, 26, 42, 0.86), rgba(90, 18, 30, 0.94)) border-box;
+    opacity: 0;
+}
+
 .boss-meter-fill {
     position: absolute;
     left: 0;
@@ -241,8 +276,8 @@ body {
 .boss-meter-readout {
     position: absolute;
     left: 18dp;
+    right: 18dp;
     top: 7dp;
-    width: 498dp;
     height: 14dp;
     color: rgba(23, 20, 31, 214);
     font-size: 11dp;
@@ -265,10 +300,11 @@ body {
 
 .boss-hit-flash {
     position: absolute;
-    left: -6dp;
+    left: 50%;
     top: 32dp;
     width: 552dp;
     height: 46dp;
+    margin-left: -276dp;
     background-color: rgba(255, 96, 116, 0);
     border-radius: 20dp;
     opacity: 0;
@@ -285,8 +321,8 @@ body {
 
 .party-rack {
     position: absolute;
-    left: 12dp;
-    bottom: 10dp;
+    left: 16dp;
+    bottom: 12dp;
     width: 816dp;
     height: 146dp;
 }
@@ -311,10 +347,6 @@ body {
     opacity: 0.56;
 }
 
-.unit-card.hit {
-    animation: unit-hit-shake 0.36s linear;
-}
-
 .unit-ult {
     position: absolute;
     right: 10dp;
@@ -327,6 +359,18 @@ body {
     overflow: hidden;
     z-index: 1;
     box-shadow: 0 12dp 20dp rgba(0, 0, 0, 16);
+}
+
+.unit-ult-sheen {
+    position: absolute;
+    left: -30dp;
+    top: -12dp;
+    width: 26dp;
+    height: 112dp;
+    background-color: rgba(255, 255, 255, 164);
+    transform: skewX(-18deg) rotate(10deg);
+    opacity: 0;
+    z-index: 2;
 }
 
 .unit-ult-fill {
@@ -380,6 +424,7 @@ body {
     height: 112dp;
     z-index: 3;
     background-color: transparent;
+    image-color: #ffffff;
 }
 
 .unit-hp-shell {
@@ -417,6 +462,17 @@ body {
     width: 100%;
     background-color: #61d59a;
     decorator: linear-gradient(to right, rgba(159, 242, 186, 0.96), rgba(97, 213, 154, 0.94), rgba(66, 176, 126, 0.98)) border-box;
+}
+
+.unit-hp-trail {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 24dp;
+    width: 100%;
+    background-color: rgba(118, 40, 40, 0.82);
+    decorator: linear-gradient(to right, rgba(166, 74, 74, 0.90), rgba(118, 40, 40, 0.88), rgba(88, 28, 28, 0.96)) border-box;
+    opacity: 0;
 }
 
 .unit-hp-text {
@@ -515,15 +571,11 @@ body {
     top: 0;
     width: 186dp;
     height: 132dp;
-    background-color: rgba(255, 96, 116, 0);
+    background-color: rgba(255, 96, 116, 24);
     border-radius: 22dp;
     opacity: 0;
     z-index: 7;
-}
-
-.unit-card.hit .unit-hit-flash {
-    opacity: 1;
-    background-color: rgba(255, 96, 116, 26);
+    transition: opacity 0.08s linear;
 }
 
 .unit-card.active .unit-hp-shell {

@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "../../platform/path_resolution.h"
+#include "../presentation/ari_boss_presentation.h"
 #include "../presentation/lyoo_boss_presentation.h"
 #include "../presentation/lyoo_plot_twist_presentation.h"
 #include "../presentation/miku_diandong_presentation.h"
@@ -46,6 +47,10 @@ constexpr float kLyooPlotTransitionScreenCenterY = 0.49f;
 constexpr float kLyooPlotRingScreenCenterX = 0.50f;
 constexpr float kLyooPlotRingScreenCenterY = 0.45f;
 constexpr float kLyooPlotApproachDarknessAlpha = 105.0f;
+constexpr float kAriBossSpriteTargetHeightRatio = 0.40f;
+constexpr float kAriBossSpriteMinHeightPixels = 220.0f;
+constexpr float kAriBossSpriteMaxHeightPixels = 360.0f;
+constexpr float kAriBossSpriteWorldAnchorZ = -105.0f;
 
 struct FloorVertex {
     float worldX = 0.0f;
@@ -217,6 +222,19 @@ std::string makeLyooPlotFrameKey(int index) {
 std::string makeLyooPlotFramePath(int index) {
     char frameName[160];
     std::snprintf(frameName, sizeof(frameName), "assets/combat/presentations/lyooPlotTwist/frame%04d.png", index);
+    return platform::path::resolvePath(frameName);
+}
+
+std::string makeAriBossFrameKey(int index) {
+    return "ariBoss:frame:" + std::to_string(index);
+}
+
+std::string makeAriBossFramePath(int index) {
+    char frameName[192];
+    std::snprintf(frameName,
+                  sizeof(frameName),
+                  "assets/combat/presentations/ariBoss/frame_%02d_delay-0.04s.png",
+                  index);
     return platform::path::resolvePath(frameName);
 }
 
@@ -650,25 +668,49 @@ void GlBattleSceneRenderer::renderWorld(const battle::BattleSessionCore::BattleF
     }
 
     struct DrawCall {
+        enum class Kind {
+            Entity,
+            AriBossPresentation
+        };
+
+        Kind kind = Kind::Entity;
         const battle::render::SceneEntity* entity = nullptr;
         size_t index = 0;
         float depth = 0.0f;
         SDL_FPoint screen{};
+        battle::AriBossPresentation::NativeRenderState ariBossState{};
     };
 
     std::vector<DrawCall> drawList;
-    drawList.reserve(snapshot.entities.size());
+    drawList.reserve(snapshot.entities.size() + 1);
     for (size_t i = 0; i < snapshot.entities.size(); ++i) {
         const battle::render::SceneEntity& entity = snapshot.entities[i];
         if (!entity.visible || entity.spriteAlpha <= 0.001f) {
             continue;
         }
         drawList.push_back(DrawCall{
+            DrawCall::Kind::Entity,
             &entity,
             i,
             snapshot.camera.getDepth(entity.worldX, entity.worldY, entity.worldZ),
-            snapshot.camera.worldToScreen(entity.worldX, entity.worldY, entity.worldZ)
+            snapshot.camera.worldToScreen(entity.worldX, entity.worldY, entity.worldZ),
+            {}
         });
+    }
+
+    if (const auto* ariBoss = dynamic_cast<const battle::AriBossPresentation*>(snapshot.activePresentation)) {
+        const auto state = ariBoss->buildNativeRenderState();
+        if (state.active) {
+            const float ariWorldZ = state.casterZ + kAriBossSpriteWorldAnchorZ;
+            drawList.push_back(DrawCall{
+                DrawCall::Kind::AriBossPresentation,
+                nullptr,
+                snapshot.entities.size(),
+                snapshot.camera.getDepth(state.casterX, state.casterY, ariWorldZ),
+                snapshot.camera.worldToScreen(state.casterX, state.casterY, ariWorldZ),
+                state
+            });
+        }
     }
 
     std::sort(drawList.begin(), drawList.end(), [](const DrawCall& lhs, const DrawCall& rhs) {
@@ -676,6 +718,40 @@ void GlBattleSceneRenderer::renderWorld(const battle::BattleSessionCore::BattleF
     });
 
     for (const DrawCall& drawCall : drawList) {
+        if (drawCall.kind == DrawCall::Kind::AriBossPresentation) {
+            if (drawCall.depth <= 0.0f || drawCall.screen.x <= -500000.0f || drawCall.screen.y <= -500000.0f) {
+                continue;
+            }
+
+            const auto& state = drawCall.ariBossState;
+            const TextureInfo frame = ensureSpecialTexture(makeAriBossFrameKey(state.frameIndex),
+                                                           makeAriBossFramePath(state.frameIndex));
+            const float aspectRatio = static_cast<float>(std::max(1, frame.width != 0 ? frame.width : state.frameWidth)) /
+                                      static_cast<float>(std::max(1, frame.height != 0 ? frame.height : state.frameHeight));
+            const float drawHeight = std::clamp(static_cast<float>(screenHeight) * kAriBossSpriteTargetHeightRatio,
+                                                kAriBossSpriteMinHeightPixels,
+                                                kAriBossSpriteMaxHeightPixels);
+            const float drawWidth = drawHeight * aspectRatio;
+
+            std::vector<Vertex> vertices;
+            vertices.reserve(6);
+            appendQuad(vertices,
+                       drawCall.screen.x - drawWidth * 0.5f,
+                       drawCall.screen.y - drawHeight * 0.5f,
+                       drawCall.screen.x + drawWidth * 0.5f,
+                       drawCall.screen.y + drawHeight * 0.5f,
+                       0.0f,
+                       0.0f,
+                       1.0f,
+                       1.0f,
+                       SDL_Color{255, 255, 255, 255});
+            drawTexturedTriangles(frame.id != 0 ? frame.id : ensureSolidWhiteTexture().id,
+                                  vertices,
+                                  screenWidth,
+                                  screenHeight);
+            continue;
+        }
+
         const battle::render::SceneEntity& entity = *drawCall.entity;
         const float scale = snapshot.camera.getPerspectiveScale(entity.worldX, entity.worldY, entity.worldZ);
         if (scale <= 0.0f) {
@@ -745,7 +821,8 @@ void GlBattleSceneRenderer::renderWorld(const battle::BattleSessionCore::BattleF
 }
 
 bool GlBattleSceneRenderer::rendersPresentationNatively(const battle::AbilityPresentation* presentation) const {
-    return dynamic_cast<const battle::MikuDiandongPresentation*>(presentation) != nullptr ||
+    return dynamic_cast<const battle::AriBossPresentation*>(presentation) != nullptr ||
+           dynamic_cast<const battle::MikuDiandongPresentation*>(presentation) != nullptr ||
            dynamic_cast<const battle::LyooBossPresentation*>(presentation) != nullptr ||
            dynamic_cast<const battle::LyooPlotTwistPresentation*>(presentation) != nullptr;
 }
@@ -762,6 +839,10 @@ bool GlBattleSceneRenderer::renderNativeBelowWorld(const battle::BattleSessionCo
 bool GlBattleSceneRenderer::renderNativeMidWorld(const battle::BattleSessionCore::BattleFrameSnapshot& snapshot,
                                                  int screenWidth,
                                                  int screenHeight) {
+    if (dynamic_cast<const battle::AriBossPresentation*>(snapshot.activePresentation) != nullptr) {
+        return true;
+    }
+
     if (const auto* lyooBoss = dynamic_cast<const battle::LyooBossPresentation*>(snapshot.activePresentation)) {
         const auto state = lyooBoss->buildNativeState();
         if (state.phase == battle::LyooBossPresentation::NativePhase::IntroFrames ||

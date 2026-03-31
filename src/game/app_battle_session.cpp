@@ -324,6 +324,9 @@ bool playBossHitVoice(const battle::BattleState& battleState, float voiceVolume,
 }
 
 using battle::app::ui::HudFeedbackState;
+using battle::app::ui::HudAnimationState;
+using battle::app::ui::HudHitReactionState;
+using battle::app::ui::HudValueAnimationState;
 using battle::app::ui::PauseOverlayMode;
 using battle::app::ui::PauseSelection;
 using battle::app::ui::RhythmChallengeState;
@@ -340,6 +343,9 @@ using graphics::frontui::DocumentController;
 using graphics::frontui::PauseDocumentController;
 using graphics::frontui::SoundRequest;
 using graphics::frontui::SettingsDocumentController;
+
+constexpr float kHudAnimationDurationSeconds = 0.5f;
+constexpr Uint64 kHudUltSheenDurationMs = 520;
 
 std::string resolveBattleSpritePath(const std::string& assetName) {
     const std::array<std::string, 2> candidates = {
@@ -458,6 +464,136 @@ void tickHudFeedback(HudFeedbackState& feedback, Uint64 nowMs) {
         feedback.blinkMissingFrom = 0;
         feedback.blinkMissingTo = 0;
         feedback.blinkUntilMs = 0;
+    }
+}
+
+void resetHudValueAnimation(HudValueAnimationState& state, float value) {
+    state.initialized = true;
+    state.active = false;
+    state.displayedValue = value;
+    state.fromValue = value;
+    state.targetValue = value;
+    state.trailValue = value;
+    state.elapsedSeconds = 0.0f;
+    state.durationSeconds = kHudAnimationDurationSeconds;
+}
+
+void retargetHudValueAnimation(HudValueAnimationState& state,
+                               float targetValue,
+                               float durationSeconds = kHudAnimationDurationSeconds) {
+    if (!state.initialized) {
+        resetHudValueAnimation(state, targetValue);
+        return;
+    }
+
+    if (std::fabs(state.targetValue - targetValue) <= 0.001f &&
+        (!state.active || std::fabs(state.displayedValue - targetValue) <= 0.001f)) {
+        return;
+    }
+
+    state.fromValue = state.displayedValue;
+    state.targetValue = targetValue;
+    state.elapsedSeconds = 0.0f;
+    state.durationSeconds = std::max(0.001f, durationSeconds);
+    state.active = true;
+    state.trailValue = targetValue < state.displayedValue ? state.displayedValue : targetValue;
+}
+
+void advanceHudValueAnimation(HudValueAnimationState& state, float deltaSeconds) {
+    if (!state.initialized) {
+        return;
+    }
+
+    if (!state.active) {
+        state.displayedValue = state.targetValue;
+        state.trailValue = state.targetValue;
+        return;
+    }
+
+    state.elapsedSeconds += std::max(0.0f, deltaSeconds);
+    const float t = battle::easing::clamp01(state.elapsedSeconds / state.durationSeconds);
+    const float eased = battle::easing::easeOutCubic(t);
+    state.displayedValue = battle::easing::lerp(state.fromValue, state.targetValue, eased);
+
+    if (state.targetValue >= state.fromValue) {
+        state.trailValue = state.displayedValue;
+    }
+
+    if (t >= 1.0f) {
+        state.active = false;
+        state.displayedValue = state.targetValue;
+        state.fromValue = state.targetValue;
+        state.trailValue = state.targetValue;
+    }
+}
+
+void syncHudHitReaction(HudHitReactionState& state, Uint64 untilMs, Uint64 nowMs) {
+    if (untilMs <= nowMs) {
+        state.active = false;
+        state.untilMs = 0;
+        state.startedMs = 0;
+        return;
+    }
+
+    if (!state.active || untilMs > state.untilMs) {
+        state.active = true;
+        state.startedMs = nowMs;
+        state.untilMs = untilMs;
+    }
+}
+
+void resetHudAnimationState(HudAnimationState& state, const battle::BattleManager& manager) {
+    state = HudAnimationState{};
+    resetHudValueAnimation(state.bossHp, static_cast<float>(manager.getBossCurrentHp()));
+
+    const battle::BattleState& battleState = manager.getBattleState();
+    for (int index = 0; index < static_cast<int>(state.units.size()); ++index) {
+        const bool hasCharacter = index < static_cast<int>(battleState.party.size());
+        resetHudValueAnimation(
+            state.units[static_cast<size_t>(index)].hp,
+            hasCharacter ? static_cast<float>(manager.getCharacterCurrentHp(index)) : 0.0f);
+        resetHudValueAnimation(
+            state.units[static_cast<size_t>(index)].ultimate,
+            hasCharacter ? static_cast<float>(manager.getCharacterUltimateCharge(index)) : 0.0f);
+    }
+}
+
+void updateHudAnimationState(HudAnimationState& state,
+                             const battle::BattleManager& manager,
+                             const HudFeedbackState& feedback,
+                             float deltaSeconds,
+                             Uint64 nowMs) {
+    retargetHudValueAnimation(state.bossHp, static_cast<float>(manager.getBossCurrentHp()));
+    advanceHudValueAnimation(state.bossHp, deltaSeconds);
+    syncHudHitReaction(state.bossHit, feedback.bossHitUntilMs, nowMs);
+
+    const battle::BattleState& battleState = manager.getBattleState();
+    for (int index = 0; index < static_cast<int>(state.units.size()); ++index) {
+        auto& unitState = state.units[static_cast<size_t>(index)];
+        const bool hasCharacter = index < static_cast<int>(battleState.party.size());
+        const float hpTarget = hasCharacter ? static_cast<float>(manager.getCharacterCurrentHp(index)) : 0.0f;
+        const float ultimateTarget = hasCharacter ? static_cast<float>(manager.getCharacterUltimateCharge(index)) : 0.0f;
+        const bool hadUltimateTarget = unitState.ultimate.initialized;
+        const float previousUltimateTarget = unitState.ultimate.targetValue;
+
+        retargetHudValueAnimation(unitState.hp, hpTarget);
+        retargetHudValueAnimation(unitState.ultimate, ultimateTarget);
+        advanceHudValueAnimation(unitState.hp, deltaSeconds);
+        advanceHudValueAnimation(unitState.ultimate, deltaSeconds);
+
+        if (hadUltimateTarget && std::fabs(previousUltimateTarget - ultimateTarget) > 0.001f) {
+            unitState.ultSheenStartedMs = nowMs;
+            unitState.ultSheenUntilMs = nowMs + kHudUltSheenDurationMs;
+        } else if (unitState.ultSheenUntilMs <= nowMs) {
+            unitState.ultSheenStartedMs = 0;
+            unitState.ultSheenUntilMs = 0;
+        }
+
+        const Uint64 hitUntilMs =
+            index < static_cast<int>(feedback.unitHitUntilMs.size())
+                ? feedback.unitHitUntilMs[static_cast<size_t>(index)]
+                : 0;
+        syncHudHitReaction(unitState.hit, hitUntilMs, nowMs);
     }
 }
 
@@ -910,18 +1046,18 @@ public:
         }
 
         updateViewportFromWindow();
-        if (!sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
+        if (!sceneRenderer_.initialize(sceneWidth(), sceneHeight(), worldAssets_, resolveBattleSpritePath)) {
             shutdown();
             return false;
         }
-        if (!presentationOverlayRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
+        if (!presentationOverlayRenderer_.initialize(sceneWidth(), sceneHeight(), worldAssets_, resolveBattleSpritePath)) {
             shutdown();
             return false;
         }
         (void)glSceneRenderer_.ensureWorldAssets(worldAssets_);
 
         if (narrativeEnabled_) {
-            if (!vn::initialize(presentationOverlayRenderer_.renderer, windowWidth_, windowHeight_)) {
+            if (!vn::initialize(presentationOverlayRenderer_.renderer, sceneWidth(), sceneHeight())) {
                 std::cerr << "[Battle] Failed to initialize VN system for narrative overlay.\n";
                 shutdown();
                 return false;
@@ -946,6 +1082,7 @@ public:
             (!bossActing && preview.partyIndex >= 0) ? preview.partyIndex : -1;
         updateSceneEntities(0.0f, bossActing, actingPartyIndex);
         feedback_.reset(manager_);
+        resetHudAnimationState(hudAnimationState_, manager_);
 
         SDL_Texture* mikuSprite = nullptr;
         if (const auto mikuIt = sceneRenderer_.textureByAsset.find("miku"); mikuIt != sceneRenderer_.textureByAsset.end()) {
@@ -977,6 +1114,7 @@ public:
             return false;
         }
         document_->Show();
+        applyReferenceSceneMetrics();
         pauseDocument_ = nullptr;
         pauseMenuController_.reset();
         settingsDocument_ = nullptr;
@@ -1059,8 +1197,8 @@ public:
             }
         });
 
-        camera_.screenCenterX = windowWidth_ * 0.5f;
-        camera_.screenCenterY = windowHeight_ * 0.5f;
+        camera_.screenCenterX = sceneWidth() / 2;
+        camera_.screenCenterY = sceneHeight() / 2;
         cameraStaging_.reset(camera_);
         syncHudDocument(SDL_GetTicks64());
 
@@ -1135,6 +1273,7 @@ public:
         tutorialOverlay_ = TutorialOverlayState{};
         tutorialLibrary_ = TutorialScriptLibrary{};
         hudFeedback_ = HudFeedbackState{};
+        hudAnimationState_ = HudAnimationState{};
         rhythmChallenge_ = RhythmChallengeState{};
         presentationPlaybackActive_ = false;
         presentationCasterIsBoss_ = false;
@@ -1170,10 +1309,7 @@ public:
 
         if (isWindowResizeEvent(event)) {
             updateViewportFromWindow();
-            renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
-            context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
-            camera_.screenCenterX = windowWidth_ * 0.5f;
-            camera_.screenCenterY = windowHeight_ * 0.5f;
+            applyReferenceSceneMetrics();
             if (!refreshSceneRenderers()) {
                 finished_ = true;
             }
@@ -1202,7 +1338,7 @@ public:
         }
 
         if (paused_) {
-            SDL_Event mutablePausedEvent = event;
+            SDL_Event mutablePausedEvent = makeScaledRmlInputEvent(event);
             RmlSDL::InputEventHandler(context_, window_, mutablePausedEvent);
             handlePauseEvent(event);
             return;
@@ -1213,7 +1349,7 @@ public:
             return;
         }
 
-        SDL_Event mutableEvent = event;
+        SDL_Event mutableEvent = makeScaledRmlInputEvent(event);
         RmlSDL::InputEventHandler(context_, window_, mutableEvent);
 
         if (event.type == SDL_KEYDOWN) {
@@ -1329,6 +1465,7 @@ public:
             }
             updatePauseMenuUi(deltaSeconds);
             updateSettingsMenuUi(deltaSeconds);
+            updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
             syncHudDocument(nowMs);
             return;
         }
@@ -1430,6 +1567,7 @@ public:
         updateSceneEntities(deltaSeconds, bossActing, actingPartyIndex);
         maybeHandleIdleVoiceline(nowMs);
 
+        updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
         syncHudDocument(nowMs);
 
         if (manager_.isBattleOver() && !dialogueActive && !presentationPlaybackActive_ &&
@@ -1441,7 +1579,7 @@ public:
     }
 
     void render() {
-        if (!initialized_ || finished_ || sceneRenderer_.renderer == nullptr || sceneRenderer_.surface == nullptr) {
+        if (!initialized_ || sceneRenderer_.renderer == nullptr || sceneRenderer_.surface == nullptr) {
             return;
         }
 
@@ -1482,8 +1620,8 @@ public:
             focusedIndex = std::max(focusedIndex, 0);
         }
 
-        camera_.screenCenterX = windowWidth_ * 0.5f;
-        camera_.screenCenterY = windowHeight_ * 0.5f;
+        camera_.screenCenterX = sceneWidth() / 2;
+        camera_.screenCenterY = sceneHeight() / 2;
 
         const battle::BattleSessionCore::BattleFrameSnapshot snapshot = buildFrameSnapshot(focusedIndex);
         SDL_GL_MakeCurrent(window_, glContext_);
@@ -1506,8 +1644,8 @@ public:
             SDL_RenderClear(sceneRenderer_.renderer);
             activePresentation_->renderBelowWorld(
                 sceneRenderer_.renderer,
-                windowWidth_,
-                windowHeight_,
+                sceneWidth(),
+                sceneHeight(),
                 snapshot.camera);
             const Uint64 compatibilityStartCounter = frameTimingEnabled_ ? SDL_GetPerformanceCounter() : 0;
             drawCompatibilitySurface(sceneRenderer_, screenBlitter_, true);
@@ -1515,21 +1653,21 @@ public:
                 compatibilityMs += elapsedTimingMs(compatibilityStartCounter, SDL_GetPerformanceCounter());
             }
         } else {
-            (void)glSceneRenderer_.renderNativeBelowWorld(snapshot, windowWidth_, windowHeight_);
+            (void)glSceneRenderer_.renderNativeBelowWorld(snapshot, sceneWidth(), sceneHeight());
         }
 
-        glSceneRenderer_.renderWorld(snapshot, windowWidth_, windowHeight_);
+        glSceneRenderer_.renderWorld(snapshot, sceneWidth(), sceneHeight());
 
         if (snapshot.blackoutWorld) {
             glSceneRenderer_.renderFullscreenFade(
-                windowWidth_,
-                windowHeight_,
+                sceneWidth(),
+                sceneHeight(),
                 SDL_Color{0, 0, 0, 255}
             );
         }
 
         const bool drewNativeMidWorld =
-            nativePresentation && glSceneRenderer_.renderNativeMidWorld(snapshot, windowWidth_, windowHeight_);
+            nativePresentation && glSceneRenderer_.renderNativeMidWorld(snapshot, sceneWidth(), sceneHeight());
         const bool hasFeedbackPopups = feedback_.hasVisiblePopups();
         const bool renderFeedbackInOverlay =
             hasFeedbackPopups &&
@@ -1544,7 +1682,7 @@ public:
             if (!drewNativeMidWorld &&
                 activePresentation_ != nullptr &&
                 !activePresentation_->shouldRenderAboveHud()) {
-                activePresentation_->render(sceneRenderer_.renderer, windowWidth_, windowHeight_, snapshot.camera);
+                activePresentation_->render(sceneRenderer_.renderer, sceneWidth(), sceneHeight(), snapshot.camera);
                 hasSceneCompatibilityPass = true;
             }
             if (hasFeedbackPopups && !renderFeedbackInOverlay) {
@@ -1574,7 +1712,7 @@ public:
             : 0.0;
 
         const bool drewNativeAboveHud =
-            nativePresentation && glSceneRenderer_.renderNativeAboveHud(snapshot, windowWidth_, windowHeight_);
+            nativePresentation && glSceneRenderer_.renderNativeAboveHud(snapshot, sceneWidth(), sceneHeight());
 
         const bool hasSceneOverlayPass =
             (activePresentation_ != nullptr && activePresentation_->shouldRenderAboveHud() && !drewNativeAboveHud) ||
@@ -1587,8 +1725,8 @@ public:
             if (activePresentation_ != nullptr && activePresentation_->shouldRenderAboveHud() && !drewNativeAboveHud) {
                 activePresentation_->render(
                     sceneRenderer_.renderer,
-                    windowWidth_,
-                    windowHeight_,
+                    sceneWidth(),
+                    sceneHeight(),
                     snapshot.camera);
             }
             if (renderFeedbackInOverlay) {
@@ -1615,11 +1753,11 @@ public:
             if (activeUltimateTurnSplash_ != nullptr) {
                 activeUltimateTurnSplash_->renderOverlay(
                     presentationOverlayRenderer_.renderer,
-                    windowWidth_,
-                    windowHeight_);
+                    sceneWidth(),
+                    sceneHeight());
             }
             if (activeOverlay_) {
-                activeOverlay_(presentationOverlayRenderer_.renderer, windowWidth_, windowHeight_);
+                activeOverlay_(presentationOverlayRenderer_.renderer, sceneWidth(), sceneHeight());
             }
             if (isDialogueInProgress()) {
                 vn::render();
@@ -2015,14 +2153,7 @@ private:
             if (window_ != nullptr) {
                 SDL_GL_GetDrawableSize(window_, &drawableWidth_, &drawableHeight_);
             }
-            if (renderInterface_ != nullptr) {
-                renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
-            }
-            if (context_ != nullptr) {
-                context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
-            }
-            camera_.screenCenterX = windowWidth_ * 0.5f;
-            camera_.screenCenterY = windowHeight_ * 0.5f;
+            applyReferenceSceneMetrics();
             if (!refreshSceneRenderers()) {
                 finished_ = true;
             }
@@ -2116,11 +2247,13 @@ private:
                 activePresentation_->shouldUseCenteredPartyLayout();
             const bool bossActingLayout = context.isBoss || useCenteredPartyLayout;
             const int actingPartyIndex = bossActingLayout ? -1 : context.casterIndex;
+            const Uint64 nowMs = SDL_GetTicks64();
 
             updateSceneEntities(deltaSeconds, bossActingLayout, actingPartyIndex);
             feedback_.syncFromManager(manager_, presentationPlaybackActive_);
             feedback_.update(deltaSeconds);
-            syncHudDocument(SDL_GetTicks64());
+            updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
+            syncHudDocument(nowMs);
         };
         callbacks.onBossPresentationFrame = [this]() {
             computeCharacterPositions(true, -1);
@@ -2204,6 +2337,129 @@ private:
         return anyLoaded;
     }
 
+    int sceneWidth() const {
+        return kWindowWidth;
+    }
+
+    int sceneHeight() const {
+        return kWindowHeight;
+    }
+
+    void syncBattleHudStageTransform() {
+        if (document_ == nullptr) {
+            return;
+        }
+
+        Rml::Element* stage = document_->GetElementById("safe-stage");
+        Rml::Element* bossBand = document_->GetElementById("boss-band");
+        Rml::Element* bossMeterShell = document_->GetElementById("boss-meter-shell");
+        Rml::Element* bossHitFlash = document_->GetElementById("boss-hit-flash");
+        Rml::Element* turnRail = document_->GetElementById("turn-rail");
+        Rml::Element* partyRack = document_->GetElementById("party-rack");
+        if (stage == nullptr) {
+            return;
+        }
+
+        const float scaleX = windowWidth_ > 0
+            ? static_cast<float>(windowWidth_) / static_cast<float>(sceneWidth())
+            : 1.0f;
+        const float scaleY = windowHeight_ > 0
+            ? static_cast<float>(windowHeight_) / static_cast<float>(sceneHeight())
+            : 1.0f;
+        const float scale = std::max(0.01f, std::min(scaleX, scaleY));
+        const float scaledWidth = static_cast<float>(sceneWidth()) * scale;
+        const float scaledHeight = static_cast<float>(sceneHeight()) * scale;
+        const float offsetX = (static_cast<float>(windowWidth_) - scaledWidth) * 0.5f;
+        const float offsetY = (static_cast<float>(windowHeight_) - scaledHeight) * 0.5f;
+        const float hudScale = std::max(0.01f, scale);
+
+        auto formatPx = [](float value) {
+            return std::to_string(static_cast<int>(std::lround(value))) + "px";
+        };
+
+        auto formatScale = [](float value) {
+            std::ostringstream stream;
+            stream.setf(std::ios::fixed);
+            stream.precision(6);
+            stream << "scale(" << value << ")";
+            return stream.str();
+        };
+
+        const std::string safeStageTransform = formatScale(scale);
+        const std::string hudScaleTransform = formatScale(hudScale);
+
+        stage->SetProperty("position", "absolute");
+        stage->SetProperty("left", formatPx(offsetX));
+        stage->SetProperty("top", formatPx(offsetY));
+        stage->SetProperty("width", std::to_string(sceneWidth()) + "px");
+        stage->SetProperty("height", std::to_string(sceneHeight()) + "px");
+        stage->SetProperty("transform-origin", "0px 0px");
+        stage->SetProperty("transform", safeStageTransform);
+
+        auto setScaledTransform = [](Rml::Element* element,
+                                     const char* origin,
+                                     const std::string& transformValue) {
+            if (element == nullptr) {
+                return;
+            }
+            element->SetProperty("transform-origin", origin);
+            element->SetProperty("transform", transformValue);
+        };
+
+        if (turnRail != nullptr) {
+            turnRail->SetProperty("left", formatPx(12.0f * hudScale));
+            turnRail->SetProperty("top", formatPx(14.0f * hudScale));
+            setScaledTransform(turnRail, "0px 0px", hudScaleTransform);
+        }
+
+        if (partyRack != nullptr) {
+            partyRack->SetProperty("left", formatPx(16.0f * hudScale));
+            partyRack->SetProperty("bottom", formatPx(12.0f * hudScale));
+            setScaledTransform(partyRack, "0px 100%", hudScaleTransform);
+        }
+
+        if (bossBand != nullptr) {
+            const float bossLeft = 110.0f * hudScale;
+            const float bossRight = 24.0f * hudScale;
+            const float physicalWidth =
+                std::max(0.0f, static_cast<float>(windowWidth_) - bossLeft - bossRight);
+            const float unscaledWidth = physicalWidth / hudScale;
+
+            bossBand->SetProperty("left", formatPx(bossLeft));
+            bossBand->SetProperty("top", formatPx(8.0f * hudScale));
+            bossBand->SetProperty("right", "auto");
+            bossBand->SetProperty("width", formatPx(unscaledWidth));
+            bossBand->SetProperty("height", "80px");
+            setScaledTransform(bossBand, "0px 0px", hudScaleTransform);
+        }
+
+        if (bossMeterShell != nullptr) {
+            bossMeterShell->RemoveProperty("transform-origin");
+            bossMeterShell->SetProperty("transform", "skewX(-18deg)");
+        }
+
+        if (bossHitFlash != nullptr) {
+            bossHitFlash->RemoveProperty("transform-origin");
+            bossHitFlash->RemoveProperty("transform");
+        }
+    }
+
+    void applyReferenceSceneMetrics() {
+        if (renderInterface_ != nullptr) {
+            renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
+        }
+        if (context_ != nullptr) {
+            context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
+        }
+        syncBattleHudStageTransform();
+        camera_.screenCenterX = sceneWidth() / 2;
+        camera_.screenCenterY = sceneHeight() / 2;
+    }
+
+    SDL_Event makeScaledRmlInputEvent(const SDL_Event& event) const {
+        return event;
+    }
+
     void updateViewportFromWindow() {
         if (windowHost_ == nullptr) {
             return;
@@ -2217,6 +2473,7 @@ private:
     void syncHudDocument(Uint64 nowMs) {
         battle::app::ui::updateBattleHudDocument(document_,
                                                  manager_,
+                                                 hudAnimationState_,
                                                  hudFeedback_,
                                                  tutorialOverlay_,
                                                  rhythmChallenge_,
@@ -2331,18 +2588,18 @@ private:
     }
 
     bool refreshSceneRenderers() {
-        if (!sceneRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
+        if (!sceneRenderer_.initialize(sceneWidth(), sceneHeight(), worldAssets_, resolveBattleSpritePath)) {
             return false;
         }
-        if (!presentationOverlayRenderer_.initialize(windowWidth_, windowHeight_, worldAssets_, resolveBattleSpritePath)) {
+        if (!presentationOverlayRenderer_.initialize(sceneWidth(), sceneHeight(), worldAssets_, resolveBattleSpritePath)) {
             return false;
         }
         (void)glSceneRenderer_.ensureWorldAssets(worldAssets_);
         if (narrativeEnabled_) {
-            if (!vn::initialize(presentationOverlayRenderer_.renderer, windowWidth_, windowHeight_)) {
+            if (!vn::initialize(presentationOverlayRenderer_.renderer, sceneWidth(), sceneHeight())) {
                 return false;
             }
-            vn::setViewportSize(windowWidth_, windowHeight_);
+            vn::setViewportSize(sceneWidth(), sceneHeight());
             syncNarrativeSettings();
         }
 
@@ -2899,14 +3156,7 @@ private:
             settings_->fullscreen = fullscreen;
         }
         updateViewportFromWindow();
-        if (renderInterface_ != nullptr) {
-            renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
-        }
-        if (context_ != nullptr) {
-            context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
-        }
-        camera_.screenCenterX = windowWidth_ * 0.5f;
-        camera_.screenCenterY = windowHeight_ * 0.5f;
+        applyReferenceSceneMetrics();
         (void)refreshSceneRenderers();
     }
 
@@ -3138,6 +3388,7 @@ private:
     battle::demo::DemoNarrativeFlow narrative_;
     TutorialScriptLibrary tutorialLibrary_;
     HudFeedbackState hudFeedback_;
+    HudAnimationState hudAnimationState_;
     TutorialOverlayState tutorialOverlay_;
     RhythmChallengeState rhythmChallenge_;
     std::vector<std::unique_ptr<Rml::EventListener>> uiListeners_;

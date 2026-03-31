@@ -28,6 +28,37 @@ struct HudFeedbackState {
     std::array<Uint64, 4> unitHitUntilMs{{0, 0, 0, 0}};
 };
 
+struct HudValueAnimationState {
+    bool initialized = false;
+    bool active = false;
+    float displayedValue = 0.0f;
+    float fromValue = 0.0f;
+    float targetValue = 0.0f;
+    float trailValue = 0.0f;
+    float elapsedSeconds = 0.0f;
+    float durationSeconds = 0.5f;
+};
+
+struct HudHitReactionState {
+    bool active = false;
+    Uint64 startedMs = 0;
+    Uint64 untilMs = 0;
+};
+
+struct HudUnitAnimationState {
+    HudValueAnimationState hp;
+    HudValueAnimationState ultimate;
+    HudHitReactionState hit;
+    Uint64 ultSheenStartedMs = 0;
+    Uint64 ultSheenUntilMs = 0;
+};
+
+struct HudAnimationState {
+    HudValueAnimationState bossHp;
+    HudHitReactionState bossHit;
+    std::array<HudUnitAnimationState, 4> units{};
+};
+
 enum class TutorialStep {
     None,
     Standard,
