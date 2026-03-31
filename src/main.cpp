@@ -30,6 +30,7 @@
 #endif
 #include "game/audio/ui_music_controller.h"
 #include "game/app_battle_session.h"
+#include "game/render/gl_function_loader.h"
 #include "game/save/save.h"
 #include "game/vn/vn_system.h"
 #ifdef APP_ENABLE_RMLUI
@@ -1226,16 +1227,17 @@ void destroyLoadingOverlayGlState(LoadingOverlayGlState& state) {
         return;
     }
 
+    const auto& gl = battle::render::gl::get();
     if (state.vbo != 0) {
-        glDeleteBuffers(1, &state.vbo);
+        gl.deleteBuffers(1, &state.vbo);
         state.vbo = 0;
     }
     if (state.vao != 0) {
-        glDeleteVertexArrays(1, &state.vao);
+        gl.deleteVertexArrays(1, &state.vao);
         state.vao = 0;
     }
     if (state.program != 0) {
-        glDeleteProgram(state.program);
+        gl.deleteProgram(state.program);
         state.program = 0;
     }
     state.viewportUniform = -1;
@@ -1244,22 +1246,23 @@ void destroyLoadingOverlayGlState(LoadingOverlayGlState& state) {
 }
 
 GLuint compileLoadingOverlayShader(GLenum type, const char* source) {
-    const GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, nullptr);
-    glCompileShader(shader);
+    const auto& gl = battle::render::gl::get();
+    const GLuint shader = gl.createShader(type);
+    gl.shaderSource(shader, 1, &source, nullptr);
+    gl.compileShader(shader);
 
     GLint success = GL_FALSE;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+    gl.getShaderiv(shader, GL_COMPILE_STATUS, &success);
     if (success == GL_TRUE) {
         return shader;
     }
 
     char logBuffer[512] = {};
     GLsizei logLength = 0;
-    glGetShaderInfoLog(shader, static_cast<GLsizei>(sizeof(logBuffer)), &logLength, logBuffer);
+    gl.getShaderInfoLog(shader, static_cast<GLsizei>(sizeof(logBuffer)), &logLength, logBuffer);
     std::cerr << "Loading overlay shader compile failed: "
               << std::string(logBuffer, static_cast<std::size_t>(std::max<GLsizei>(0, logLength))) << "\n";
-    glDeleteShader(shader);
+    gl.deleteShader(shader);
     return 0;
 }
 
@@ -1270,6 +1273,11 @@ bool ensureLoadingOverlayGlState(LoadingOverlayGlState& state, SDL_GLContext con
     if (state.context == context && state.program != 0 && state.vao != 0 && state.vbo != 0) {
         return true;
     }
+    if (!battle::render::gl::ensureLoaded()) {
+        return false;
+    }
+
+    const auto& gl = battle::render::gl::get();
 
     destroyLoadingOverlayGlState(state);
 
@@ -1299,45 +1307,45 @@ bool ensureLoadingOverlayGlState(LoadingOverlayGlState& state, SDL_GLContext con
     const GLuint fragmentShader = compileLoadingOverlayShader(GL_FRAGMENT_SHADER, kFragmentShaderSource);
     if (vertexShader == 0 || fragmentShader == 0) {
         if (vertexShader != 0) {
-            glDeleteShader(vertexShader);
+            gl.deleteShader(vertexShader);
         }
         if (fragmentShader != 0) {
-            glDeleteShader(fragmentShader);
+            gl.deleteShader(fragmentShader);
         }
         return false;
     }
 
-    state.program = glCreateProgram();
-    glAttachShader(state.program, vertexShader);
-    glAttachShader(state.program, fragmentShader);
-    glLinkProgram(state.program);
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    state.program = gl.createProgram();
+    gl.attachShader(state.program, vertexShader);
+    gl.attachShader(state.program, fragmentShader);
+    gl.linkProgram(state.program);
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
 
     GLint linked = GL_FALSE;
-    glGetProgramiv(state.program, GL_LINK_STATUS, &linked);
+    gl.getProgramiv(state.program, GL_LINK_STATUS, &linked);
     if (linked != GL_TRUE) {
         char logBuffer[512] = {};
         GLsizei logLength = 0;
-        glGetProgramInfoLog(state.program, static_cast<GLsizei>(sizeof(logBuffer)), &logLength, logBuffer);
+        gl.getProgramInfoLog(state.program, static_cast<GLsizei>(sizeof(logBuffer)), &logLength, logBuffer);
         std::cerr << "Loading overlay program link failed: "
                   << std::string(logBuffer, static_cast<std::size_t>(std::max<GLsizei>(0, logLength))) << "\n";
         destroyLoadingOverlayGlState(state);
         return false;
     }
 
-    glGenVertexArrays(1, &state.vao);
-    glGenBuffers(1, &state.vbo);
-    glBindVertexArray(state.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, state.vbo);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeof(float) * 12), nullptr, GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, static_cast<GLsizei>(sizeof(float) * 2), nullptr);
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    gl.genVertexArrays(1, &state.vao);
+    gl.genBuffers(1, &state.vbo);
+    gl.bindVertexArray(state.vao);
+    gl.bindBuffer(GL_ARRAY_BUFFER, state.vbo);
+    gl.bufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(sizeof(float) * 12), nullptr, GL_DYNAMIC_DRAW);
+    gl.vertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, static_cast<GLsizei>(sizeof(float) * 2), nullptr);
+    gl.enableVertexAttribArray(0);
+    gl.bindBuffer(GL_ARRAY_BUFFER, 0);
+    gl.bindVertexArray(0);
 
-    state.viewportUniform = glGetUniformLocation(state.program, "u_viewport");
-    state.alphaUniform = glGetUniformLocation(state.program, "u_alpha");
+    state.viewportUniform = gl.getUniformLocation(state.program, "u_viewport");
+    state.alphaUniform = gl.getUniformLocation(state.program, "u_alpha");
     state.context = context;
     return true;
 }
@@ -1351,6 +1359,7 @@ void renderLoadingOverlayGl(LoadingOverlayGlState& state,
         return;
     }
 
+    const auto& gl = battle::render::gl::get();
     const float vertices[] = {
         0.0f, 0.0f,
         static_cast<float>(width), 0.0f,
@@ -1362,16 +1371,16 @@ void renderLoadingOverlayGl(LoadingOverlayGlState& state,
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glUseProgram(state.program);
-    glUniform2f(state.viewportUniform, static_cast<float>(width), static_cast<float>(height));
-    glUniform1f(state.alphaUniform, std::clamp(alpha, 0.0f, 1.0f));
-    glBindVertexArray(state.vao);
-    glBindBuffer(GL_ARRAY_BUFFER, state.vbo);
-    glBufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(sizeof(vertices)), vertices);
+    gl.useProgram(state.program);
+    gl.uniform2f(state.viewportUniform, static_cast<float>(width), static_cast<float>(height));
+    gl.uniform1f(state.alphaUniform, std::clamp(alpha, 0.0f, 1.0f));
+    gl.bindVertexArray(state.vao);
+    gl.bindBuffer(GL_ARRAY_BUFFER, state.vbo);
+    gl.bufferSubData(GL_ARRAY_BUFFER, 0, static_cast<GLsizeiptr>(sizeof(vertices)), vertices);
     glDrawArrays(GL_TRIANGLES, 0, 6);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
-    glUseProgram(0);
+    gl.bindBuffer(GL_ARRAY_BUFFER, 0);
+    gl.bindVertexArray(0);
+    gl.useProgram(0);
     glDisable(GL_BLEND);
 }
 

@@ -15,6 +15,7 @@
 #include <string>
 #include <vector>
 
+#include "gl_function_loader.h"
 #include "../../platform/path_resolution.h"
 #include "../presentation/ari_boss_presentation.h"
 #include "../presentation/lyoo_boss_presentation.h"
@@ -115,17 +116,18 @@ GlBattleSceneRenderer::TextureInfo loadTextureFromPath(const std::string& resolv
 }
 
 GLuint compileShader(GLenum type, const char* source) {
-    GLuint shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, nullptr);
-    glCompileShader(shader);
+    const auto& gl = battle::render::gl::get();
+    GLuint shader = gl.createShader(type);
+    gl.shaderSource(shader, 1, &source, nullptr);
+    gl.compileShader(shader);
 
     GLint status = GL_FALSE;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
+    gl.getShaderiv(shader, GL_COMPILE_STATUS, &status);
     if (status == GL_TRUE) {
         return shader;
     }
 
-    glDeleteShader(shader);
+    gl.deleteShader(shader);
     return 0;
 }
 
@@ -256,6 +258,11 @@ GlBattleSceneRenderer::~GlBattleSceneRenderer() {
 }
 
 bool GlBattleSceneRenderer::initialize() {
+    if (!battle::render::gl::ensureLoaded()) {
+        return false;
+    }
+
+    const auto& gl = battle::render::gl::get();
     static const char* kVertexShader = R"(
         #version 330 core
         layout (location = 0) in vec2 in_position;
@@ -290,49 +297,51 @@ bool GlBattleSceneRenderer::initialize() {
     GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, kFragmentShader);
     if (vertexShader == 0 || fragmentShader == 0) {
         if (vertexShader != 0) {
-            glDeleteShader(vertexShader);
+            gl.deleteShader(vertexShader);
         }
         if (fragmentShader != 0) {
-            glDeleteShader(fragmentShader);
+            gl.deleteShader(fragmentShader);
         }
         return false;
     }
 
-    program_ = glCreateProgram();
-    glAttachShader(program_, vertexShader);
-    glAttachShader(program_, fragmentShader);
-    glLinkProgram(program_);
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    program_ = gl.createProgram();
+    gl.attachShader(program_, vertexShader);
+    gl.attachShader(program_, fragmentShader);
+    gl.linkProgram(program_);
+    gl.deleteShader(vertexShader);
+    gl.deleteShader(fragmentShader);
 
     GLint linkStatus = GL_FALSE;
-    glGetProgramiv(program_, GL_LINK_STATUS, &linkStatus);
+    gl.getProgramiv(program_, GL_LINK_STATUS, &linkStatus);
     if (linkStatus != GL_TRUE) {
         destroy();
         return false;
     }
 
-    glGenVertexArrays(1, &vao_);
-    glGenBuffers(1, &vbo_);
-    glBindVertexArray(vao_);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, x)));
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, u)));
-    glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, r)));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    gl.genVertexArrays(1, &vao_);
+    gl.genBuffers(1, &vbo_);
+    gl.bindVertexArray(vao_);
+    gl.bindBuffer(GL_ARRAY_BUFFER, vbo_);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, x)));
+    gl.enableVertexAttribArray(1);
+    gl.vertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, u)));
+    gl.enableVertexAttribArray(2);
+    gl.vertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), reinterpret_cast<void*>(offsetof(Vertex, r)));
+    gl.bindBuffer(GL_ARRAY_BUFFER, 0);
+    gl.bindVertexArray(0);
 
-    viewportLocation_ = glGetUniformLocation(program_, "viewport_size");
-    samplerLocation_ = glGetUniformLocation(program_, "scene_texture");
+    viewportLocation_ = gl.getUniformLocation(program_, "viewport_size");
+    samplerLocation_ = gl.getUniformLocation(program_, "scene_texture");
     whiteTexture_ = ensureSolidWhiteTexture();
     floorTexture_ = ensureGeneratedFloorTexture();
     return program_ != 0 && vao_ != 0 && vbo_ != 0 && whiteTexture_.id != 0 && floorTexture_.id != 0;
 }
 
 void GlBattleSceneRenderer::destroy() {
+    const auto& gl = battle::render::gl::get();
+
     for (auto& [_, texture] : worldTextures_) {
         if (texture.id != 0) {
             glDeleteTextures(1, &texture.id);
@@ -356,15 +365,15 @@ void GlBattleSceneRenderer::destroy() {
         whiteTexture_ = {};
     }
     if (vbo_ != 0) {
-        glDeleteBuffers(1, &vbo_);
+        gl.deleteBuffers(1, &vbo_);
         vbo_ = 0;
     }
     if (vao_ != 0) {
-        glDeleteVertexArrays(1, &vao_);
+        gl.deleteVertexArrays(1, &vao_);
         vao_ = 0;
     }
     if (program_ != 0) {
-        glDeleteProgram(program_);
+        gl.deleteProgram(program_);
         program_ = 0;
     }
     viewportLocation_ = -1;
@@ -465,22 +474,23 @@ void GlBattleSceneRenderer::drawTexturedTriangles(GLuint textureId,
         return;
     }
 
-    glUseProgram(program_);
-    glUniform2f(viewportLocation_, static_cast<float>(screenWidth), static_cast<float>(screenHeight));
-    glUniform1i(samplerLocation_, 0);
-    glActiveTexture(GL_TEXTURE0);
+    const auto& gl = battle::render::gl::get();
+    gl.useProgram(program_);
+    gl.uniform2f(viewportLocation_, static_cast<float>(screenWidth), static_cast<float>(screenHeight));
+    gl.uniform1i(samplerLocation_, 0);
+    gl.activeTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureId);
-    glBindVertexArray(vao_);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_);
-    glBufferData(GL_ARRAY_BUFFER,
-                 static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
-                 vertices.data(),
-                 GL_DYNAMIC_DRAW);
+    gl.bindVertexArray(vao_);
+    gl.bindBuffer(GL_ARRAY_BUFFER, vbo_);
+    gl.bufferData(GL_ARRAY_BUFFER,
+                  static_cast<GLsizeiptr>(vertices.size() * sizeof(Vertex)),
+                  vertices.data(),
+                  GL_DYNAMIC_DRAW);
     glDrawArrays(GL_TRIANGLES, 0, static_cast<GLsizei>(vertices.size()));
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindVertexArray(0);
+    gl.bindBuffer(GL_ARRAY_BUFFER, 0);
+    gl.bindVertexArray(0);
     glBindTexture(GL_TEXTURE_2D, 0);
-    glUseProgram(0);
+    gl.useProgram(0);
 }
 
 void GlBattleSceneRenderer::renderFullscreenFade(int screenWidth,

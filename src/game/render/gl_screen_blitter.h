@@ -138,7 +138,7 @@ inline bool GlScreenBlitter::initialize() {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     }
     glBindTexture(GL_TEXTURE_2D, 0);
-    samplerLocation = glGetUniformLocation(program, "scene_texture");
+    samplerLocation = gl.getUniformLocation(program, "scene_texture");
     currentTextureIndex = 0;
 
     return true;

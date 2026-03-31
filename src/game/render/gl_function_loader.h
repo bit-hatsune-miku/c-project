@@ -12,6 +12,7 @@ struct Functions {
     PFNGLBINDBUFFERPROC bindBuffer = nullptr;
     PFNGLBINDVERTEXARRAYPROC bindVertexArray = nullptr;
     PFNGLBUFFERDATAPROC bufferData = nullptr;
+    PFNGLBUFFERSUBDATAPROC bufferSubData = nullptr;
     PFNGLCOMPILESHADERPROC compileShader = nullptr;
     PFNGLCREATEPROGRAMPROC createProgram = nullptr;
     PFNGLCREATESHADERPROC createShader = nullptr;
@@ -29,7 +30,9 @@ struct Functions {
     PFNGLGETUNIFORMLOCATIONPROC getUniformLocation = nullptr;
     PFNGLLINKPROGRAMPROC linkProgram = nullptr;
     PFNGLSHADERSOURCEPROC shaderSource = nullptr;
+    PFNGLUNIFORM1FPROC uniform1f = nullptr;
     PFNGLUNIFORM1IPROC uniform1i = nullptr;
+    PFNGLUNIFORM2FPROC uniform2f = nullptr;
     PFNGLUSEPROGRAMPROC useProgram = nullptr;
     PFNGLVERTEXATTRIBPOINTERPROC vertexAttribPointer = nullptr;
 };
