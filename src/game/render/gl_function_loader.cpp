@@ -32,6 +32,7 @@ bool ensureLoaded() {
     success = loadProc(gFunctions.bindBuffer, "glBindBuffer") && success;
     success = loadProc(gFunctions.bindVertexArray, "glBindVertexArray") && success;
     success = loadProc(gFunctions.bufferData, "glBufferData") && success;
+    success = loadProc(gFunctions.bufferSubData, "glBufferSubData") && success;
     success = loadProc(gFunctions.compileShader, "glCompileShader") && success;
     success = loadProc(gFunctions.createProgram, "glCreateProgram") && success;
     success = loadProc(gFunctions.createShader, "glCreateShader") && success;
@@ -49,7 +50,9 @@ bool ensureLoaded() {
     success = loadProc(gFunctions.getUniformLocation, "glGetUniformLocation") && success;
     success = loadProc(gFunctions.linkProgram, "glLinkProgram") && success;
     success = loadProc(gFunctions.shaderSource, "glShaderSource") && success;
+    success = loadProc(gFunctions.uniform1f, "glUniform1f") && success;
     success = loadProc(gFunctions.uniform1i, "glUniform1i") && success;
+    success = loadProc(gFunctions.uniform2f, "glUniform2f") && success;
     success = loadProc(gFunctions.useProgram, "glUseProgram") && success;
     success = loadProc(gFunctions.vertexAttribPointer, "glVertexAttribPointer") && success;
 
