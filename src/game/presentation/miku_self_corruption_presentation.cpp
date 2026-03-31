@@ -20,12 +20,14 @@ constexpr float kCheerLineDuration = 5.8f;
 constexpr float kWhiteoutDuration = 0.45f;
 constexpr float kBirdViewDuration = 3.6f;
 constexpr float kIntroFramesDuration = 2.4f;
-constexpr float kGlitchFramesDuration = 1.0f;
-constexpr float kCorruptionLoopDuration = 4.0f;
+constexpr float kGlitchFramesDuration = 0.75f;
+constexpr float kCorruptionLoopDuration = 1.0f;
 constexpr float kReturnToWorldDuration = 1.6f;
 constexpr float kFinalHitsDuration = 3.8f;
 constexpr int kFinalHitCount = 10;
 constexpr float kPi = 3.14159265f;
+constexpr float kCorruptionGlitchStartRate = 8.0f;
+constexpr float kCorruptionGlitchEndRate = 62.0f;
 
 constexpr float kWhiteoutStart = kCheerLineDuration;
 constexpr float kBirdViewStart = kWhiteoutStart + kWhiteoutDuration;
@@ -47,6 +49,22 @@ float clamp01Local(float value) {
 float easeInCubicLocal(float value) {
     const float t = clamp01Local(value);
     return t * t * t;
+}
+
+bool acceleratedToggle(float localTime,
+                       float duration,
+                       float startRate,
+                       float endRate) {
+    if (duration <= 0.0f) {
+        return false;
+    }
+
+    const float clampedTime = std::clamp(localTime, 0.0f, duration);
+    const float normalized = clampedTime / duration;
+    const float transitions =
+        (startRate * clampedTime) +
+        ((endRate - startRate) * clampedTime * normalized * 0.5f);
+    return (static_cast<int>(std::floor(transitions)) % 2) == 1;
 }
 
 } // namespace
@@ -74,14 +92,23 @@ MikuSelfCorruptionPresentation::~MikuSelfCorruptionPresentation() {
 void MikuSelfCorruptionPresentation::start() {
     elapsedTime_ = 0.0f;
     pendingAudioCommands_.clear();
-    pendingAbilityAudioCues_ = 1;
+    pendingAbilityAudioCues_ = 0;
     pendingHitEvents_ = 0;
     emittedHitBursts_ = 0;
     nextCheerVoiceIndex_ = 0;
+    corruptionShotAudioTriggered_ = false;
 }
 
 void MikuSelfCorruptionPresentation::update(float deltaTime) {
     elapsedTime_ += deltaTime;
+
+    if (!corruptionShotAudioTriggered_ && elapsedTime_ >= kGlitchFramesStart) {
+        corruptionShotAudioTriggered_ = true;
+        queueAudioCommand(
+            PresentationAudioCommandType::PlayOneShot,
+            "assets/combat/voices/mikuBoss/ability.wav",
+            1.0f);
+    }
 
     const NativePhase phase = currentPhase();
     if (phase == NativePhase::CheerLine && !partyAssetNames_.empty()) {
@@ -129,19 +156,55 @@ void MikuSelfCorruptionPresentation::render(SDL_Renderer* renderer,
     }
 
     const NativePhase phase = currentPhase();
-    if (phase == NativePhase::IntroFrames || phase == NativePhase::GlitchFrames ||
-        phase == NativePhase::CorruptionLoop || phase == NativePhase::ReturnToWorld) {
+    if (phase == NativePhase::IntroFrames) {
         SDL_Texture* texture = nullptr;
-        if (phase == NativePhase::IntroFrames) {
-            texture = loadedFrameAtIndex(phaseProgress() < 0.5f ? 0 : 1);
-        } else if (phase == NativePhase::GlitchFrames) {
-            texture = loadedFrameAtIndex(2);
-        } else if (phase == NativePhase::CorruptionLoop) {
-            texture = loadedFrameAtIndex(3);
+        texture = loadedFrameAtIndex(phaseProgress() < 0.5f ? 0 : 1);
+        if (texture != nullptr) {
+            renderFallbackFrame(renderer, texture, screenW, screenH);
+        }
+        return;
+    }
+
+    if (phase == NativePhase::GlitchFrames || phase == NativePhase::CorruptionLoop) {
+        const SDL_Rect rect{0, 0, screenW, screenH};
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderFillRect(renderer, &rect);
+
+        SDL_Texture* texture = nullptr;
+        if (phase == NativePhase::GlitchFrames) {
+            const bool showFrameThree = acceleratedToggle(
+                phaseElapsed(),
+                kGlitchFramesDuration,
+                2.5f,
+                26.0f);
+            if (showFrameThree) {
+                texture = loadedFrameAtIndex(2);
+            }
+        } else {
+            const bool showFrameFour = acceleratedToggle(
+                phaseElapsed(),
+                kCorruptionLoopDuration,
+                kCorruptionGlitchStartRate,
+                kCorruptionGlitchEndRate);
+            texture = loadedFrameAtIndex(showFrameFour ? 3 : 2);
+            if (texture == nullptr) {
+                texture = loadedFrameAtIndex(showFrameFour ? 2 : 3);
+            }
         }
         if (texture != nullptr) {
             renderFallbackFrame(renderer, texture, screenW, screenH);
         }
+        return;
+    }
+
+    if (phase == NativePhase::ReturnToWorld) {
+        const float t = easing::easeOutCubic(phaseProgress());
+        const Uint8 alpha = static_cast<Uint8>(std::lround((1.0f - t) * 255.0f));
+        SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, alpha);
+        SDL_Rect rect{0, 0, screenW, screenH};
+        SDL_RenderFillRect(renderer, &rect);
         return;
     }
 

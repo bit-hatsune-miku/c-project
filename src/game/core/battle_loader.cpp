@@ -560,6 +560,8 @@ bool parseAbilityDefinition(const json& abilityJson,
     outAbility.atkBuff = abilityJson.value("atkBuff", 0);
     outAbility.actionAdvance = abilityJson.value("actionAdvance", 0.0f);
     outAbility.selfHpCostPercentOfMax = abilityJson.value("selfHpCostPercentOfMax", 0.0f);
+    outAbility.selfHpCostPercentIncreasePerUse = abilityJson.value("selfHpCostPercentIncreasePerUse", 0.0f);
+    outAbility.selfHpCostPercentMax = abilityJson.value("selfHpCostPercentMax", 0.0f);
     outAbility.reviveDeadAllies = abilityJson.value("reviveDeadAllies", false);
     outAbility.presentationId = abilityJson.value("presentationId", "");
 
