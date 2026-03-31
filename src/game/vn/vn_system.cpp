@@ -35,6 +35,15 @@ std::string gBgmPath;
 std::string gFontPath;
 std::string gIconPath;
 std::string gBackgroundPath;
+std::string gBackgroundColorHex;
+
+enum class BackgroundKind {
+    None,
+    Image,
+    Color
+};
+BackgroundKind gBackgroundKind = BackgroundKind::None;
+BackgroundKind gPreviousBackgroundKind = BackgroundKind::None;
 
 SDL_Texture* gIconTexture = nullptr;
 int gIconFrameCount = 1;
@@ -46,6 +55,8 @@ int gIconCurrentFrame = 0;
 
 SDL_Texture* gBackgroundTexture = nullptr;
 SDL_Texture* gPreviousBackgroundTexture = nullptr;
+SDL_Color gBackgroundColor{0, 0, 0, 255};
+SDL_Color gPreviousBackgroundColor{0, 0, 0, 255};
 float gBackgroundFadeElapsed = 0.0f;
 bool gBackgroundFadeActive = false;
 constexpr float kBackgroundFadeDuration = 0.30f;
@@ -92,6 +103,74 @@ std::string toLowerAsciiCopy(const std::string& s) {
         ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
     }
     return out;
+}
+
+bool isHexColorStringInternal(const std::string& value) {
+    if (value.empty()) {
+        return false;
+    }
+    std::string trimmed = value;
+    if (trimmed[0] == '#') {
+        trimmed.erase(trimmed.begin());
+    }
+    if (trimmed.size() != 6 && trimmed.size() != 8) {
+        return false;
+    }
+    for (char ch : trimmed) {
+        if (!std::isxdigit(static_cast<unsigned char>(ch))) {
+            return false;
+        }
+    }
+    return true;
+}
+
+Uint8 hexByteFromPair(const std::string& hex, std::size_t offset) {
+    const auto toNibble = [](char ch) -> Uint8 {
+        if (ch >= '0' && ch <= '9') {
+            return static_cast<Uint8>(ch - '0');
+        }
+        if (ch >= 'a' && ch <= 'f') {
+            return static_cast<Uint8>(10 + (ch - 'a'));
+        }
+        if (ch >= 'A' && ch <= 'F') {
+            return static_cast<Uint8>(10 + (ch - 'A'));
+        }
+        return 0;
+    };
+    return static_cast<Uint8>((toNibble(hex[offset]) << 4) | toNibble(hex[offset + 1]));
+}
+
+std::optional<SDL_Color> parseHexColor(const std::string& value) {
+    if (!isHexColorStringInternal(value)) {
+        return std::nullopt;
+    }
+    std::string hex = value;
+    if (!hex.empty() && hex[0] == '#') {
+        hex.erase(hex.begin());
+    }
+    SDL_Color color{};
+    color.r = hexByteFromPair(hex, 0);
+    color.g = hexByteFromPair(hex, 2);
+    color.b = hexByteFromPair(hex, 4);
+    color.a = (hex.size() >= 8) ? hexByteFromPair(hex, 6) : 255;
+    return color;
+}
+
+std::string normalizeHexColorString(const std::string& value) {
+    if (!isHexColorStringInternal(value)) {
+        return std::string();
+    }
+    std::string hex = value;
+    if (!hex.empty() && hex[0] == '#') {
+        hex.erase(hex.begin());
+    }
+    std::string normalized;
+    normalized.reserve(hex.size() + 1);
+    normalized.push_back('#');
+    for (char ch : hex) {
+        normalized.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(ch))));
+    }
+    return normalized;
 }
 
 SDL_Rect dialogueBoxRect() {
@@ -995,7 +1074,7 @@ void reloadIconTexture() {
 void reloadBackgroundTexture() {
     destroyBackgroundTexture();
 
-    if (gRenderer == nullptr || gBackgroundPath.empty()) {
+    if (gRenderer == nullptr || gBackgroundKind != BackgroundKind::Image || gBackgroundPath.empty()) {
         return;
     }
 
@@ -1014,7 +1093,36 @@ void reloadBackgroundTexture() {
     SDL_FreeSurface(surface);
 }
 
+void clearPreviousBackgroundAssets() {
+    if (gPreviousBackgroundTexture != nullptr) {
+        SDL_DestroyTexture(gPreviousBackgroundTexture);
+        gPreviousBackgroundTexture = nullptr;
+    }
+    gPreviousBackgroundKind = BackgroundKind::None;
+}
+
+void beginBackgroundTransition(BackgroundKind nextKind) {
+    clearPreviousBackgroundAssets();
+
+    gPreviousBackgroundKind = gBackgroundKind;
+    if (gBackgroundKind == BackgroundKind::Image) {
+        gPreviousBackgroundTexture = gBackgroundTexture;
+        gBackgroundTexture = nullptr;
+    } else if (gBackgroundKind == BackgroundKind::Color) {
+        gPreviousBackgroundColor = gBackgroundColor;
+    }
+
+    gBackgroundKind = nextKind;
+    gBackgroundFadeElapsed = 0.0f;
+    gBackgroundFadeActive =
+        (gPreviousBackgroundKind != BackgroundKind::None) || (gBackgroundKind != BackgroundKind::None);
+}
+
 } // namespace
+
+bool isHexColorString(const std::string& value) {
+    return isHexColorStringInternal(value);
+}
 
 bool initialize(SDL_Renderer* renderer, int windowWidth, int windowHeight) {
     const bool rendererChanged = gRenderer != renderer;
@@ -1081,10 +1189,7 @@ void shutdown() {
     stopBgmPlayback();
     destroyIconTexture();
     destroyBackgroundTexture();
-    if (gPreviousBackgroundTexture != nullptr) {
-        SDL_DestroyTexture(gPreviousBackgroundTexture);
-        gPreviousBackgroundTexture = nullptr;
-    }
+    clearPreviousBackgroundAssets();
 
     stopAndFreeVoiceBuffer();
 
@@ -1128,21 +1233,36 @@ void setIcon(const std::string& imagePath, int frameCount, float fps) {
 }
 
 void setBackground(const std::string& imagePath) {
-    gBackgroundPath = imagePath;
-
     if (imagePath.empty()) {
-        if (gPreviousBackgroundTexture != nullptr) {
-            SDL_DestroyTexture(gPreviousBackgroundTexture);
-            gPreviousBackgroundTexture = nullptr;
+        if (gBackgroundKind == BackgroundKind::None) {
+            return;
         }
-        gPreviousBackgroundTexture = gBackgroundTexture;
-        gBackgroundTexture = nullptr;
-        gBackgroundFadeElapsed = 0.0f;
-        gBackgroundFadeActive = gPreviousBackgroundTexture != nullptr;
+        beginBackgroundTransition(BackgroundKind::None);
+        gBackgroundPath.clear();
+        gBackgroundColorHex.clear();
+        return;
+    }
+
+    if (const auto color = parseHexColor(imagePath)) {
+        const std::string normalized = normalizeHexColorString(imagePath);
+        if (gBackgroundKind == BackgroundKind::Color && gBackgroundColorHex == normalized) {
+            return;
+        }
+        beginBackgroundTransition(BackgroundKind::Color);
+        gBackgroundPath.clear();
+        gBackgroundColorHex = normalized;
+        gBackgroundColor = *color;
+        return;
+    }
+
+    if (gBackgroundKind == BackgroundKind::Image && gBackgroundPath == imagePath) {
         return;
     }
 
     if (gRenderer == nullptr) {
+        gBackgroundPath = imagePath;
+        gBackgroundColorHex.clear();
+        gBackgroundKind = BackgroundKind::Image;
         return;
     }
 
@@ -1165,15 +1285,10 @@ void setBackground(const std::string& imagePath) {
 
     SDL_SetTextureBlendMode(newTexture, SDL_BLENDMODE_BLEND);
 
-    if (gPreviousBackgroundTexture != nullptr) {
-        SDL_DestroyTexture(gPreviousBackgroundTexture);
-        gPreviousBackgroundTexture = nullptr;
-    }
-
-    gPreviousBackgroundTexture = gBackgroundTexture;
+    beginBackgroundTransition(BackgroundKind::Image);
+    gBackgroundPath = imagePath;
+    gBackgroundColorHex.clear();
     gBackgroundTexture = newTexture;
-    gBackgroundFadeElapsed = 0.0f;
-    gBackgroundFadeActive = true;
 }
 
 void setVoice(const std::string& wavPath) {
@@ -1457,10 +1572,7 @@ void update(float deltaSeconds) {
         gBackgroundFadeElapsed = std::min(kBackgroundFadeDuration, gBackgroundFadeElapsed + deltaSeconds);
         if (gBackgroundFadeElapsed >= kBackgroundFadeDuration) {
             gBackgroundFadeActive = false;
-            if (gPreviousBackgroundTexture != nullptr) {
-                SDL_DestroyTexture(gPreviousBackgroundTexture);
-                gPreviousBackgroundTexture = nullptr;
-            }
+            clearPreviousBackgroundAssets();
         }
     }
 
@@ -1518,10 +1630,7 @@ void reset() {
 
     destroyIconTexture();
     destroyBackgroundTexture();
-    if (gPreviousBackgroundTexture != nullptr) {
-        SDL_DestroyTexture(gPreviousBackgroundTexture);
-        gPreviousBackgroundTexture = nullptr;
-    }
+    clearPreviousBackgroundAssets();
 
     gSpeakerName.clear();
     gText.clear();
@@ -1530,6 +1639,9 @@ void reset() {
     gFontPath.clear();
     gIconPath.clear();
     gBackgroundPath.clear();
+    gBackgroundColorHex.clear();
+    gBackgroundKind = BackgroundKind::None;
+    gPreviousBackgroundKind = BackgroundKind::None;
 
     gIconFrameCount = 1;
     gIconFrameWidth = 96;
@@ -1577,40 +1689,72 @@ void render() {
     );
 
     SDL_Rect bgRect{0, 0, gWindowW, gWindowH};
-    if (gBackgroundFadeActive) {
-        const float t = std::clamp(gBackgroundFadeElapsed / kBackgroundFadeDuration, 0.0f, 1.0f);
-        if (gPreviousBackgroundTexture != nullptr && gBackgroundTexture != nullptr) {
-            // Draw the outgoing background fully, then fade the incoming one over it.
-            // This avoids the crossfade dimming toward black mid-transition.
-            SDL_SetTextureBlendMode(gPreviousBackgroundTexture, SDL_BLENDMODE_NONE);
-            SDL_RenderCopy(gRenderer, gPreviousBackgroundTexture, nullptr, &bgRect);
-
+    const auto drawBackgroundLayer = [&](BackgroundKind kind, float alpha01) {
+        if (kind == BackgroundKind::Image) {
+            if (gBackgroundTexture == nullptr) {
+                return;
+            }
             SDL_SetTextureBlendMode(gBackgroundTexture, SDL_BLENDMODE_BLEND);
             SDL_SetTextureAlphaMod(
                 gBackgroundTexture,
-                static_cast<Uint8>(std::lround(t * 255.0f))
+                static_cast<Uint8>(std::lround(alpha01 * 255.0f))
             );
             SDL_RenderCopy(gRenderer, gBackgroundTexture, nullptr, &bgRect);
             SDL_SetTextureAlphaMod(gBackgroundTexture, 255);
-        } else if (gPreviousBackgroundTexture != nullptr) {
+            return;
+        }
+        if (kind == BackgroundKind::Color) {
+            const Uint8 alpha = static_cast<Uint8>(std::lround(alpha01 * static_cast<float>(gBackgroundColor.a)));
+            SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(gRenderer, gBackgroundColor.r, gBackgroundColor.g, gBackgroundColor.b, alpha);
+            SDL_RenderFillRect(gRenderer, &bgRect);
+        }
+    };
+
+    const auto drawPreviousLayer = [&](BackgroundKind kind, float alpha01) {
+        if (kind == BackgroundKind::Image) {
+            if (gPreviousBackgroundTexture == nullptr) {
+                return;
+            }
             SDL_SetTextureBlendMode(gPreviousBackgroundTexture, SDL_BLENDMODE_BLEND);
             SDL_SetTextureAlphaMod(
                 gPreviousBackgroundTexture,
-                static_cast<Uint8>(std::lround((1.0f - t) * 255.0f))
+                static_cast<Uint8>(std::lround(alpha01 * 255.0f))
             );
             SDL_RenderCopy(gRenderer, gPreviousBackgroundTexture, nullptr, &bgRect);
             SDL_SetTextureAlphaMod(gPreviousBackgroundTexture, 255);
-        } else if (gBackgroundTexture != nullptr) {
-            SDL_SetTextureBlendMode(gBackgroundTexture, SDL_BLENDMODE_BLEND);
-            SDL_SetTextureAlphaMod(
-                gBackgroundTexture,
-                static_cast<Uint8>(std::lround(t * 255.0f))
-            );
-            SDL_RenderCopy(gRenderer, gBackgroundTexture, nullptr, &bgRect);
-            SDL_SetTextureAlphaMod(gBackgroundTexture, 255);
+            return;
         }
-    } else if (gBackgroundTexture != nullptr) {
-        SDL_RenderCopy(gRenderer, gBackgroundTexture, nullptr, &bgRect);
+        if (kind == BackgroundKind::Color) {
+            const Uint8 alpha = static_cast<Uint8>(std::lround(alpha01 * static_cast<float>(gPreviousBackgroundColor.a)));
+            SDL_SetRenderDrawBlendMode(gRenderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(
+                gRenderer,
+                gPreviousBackgroundColor.r,
+                gPreviousBackgroundColor.g,
+                gPreviousBackgroundColor.b,
+                alpha
+            );
+            SDL_RenderFillRect(gRenderer, &bgRect);
+        }
+    };
+
+    if (gBackgroundFadeActive) {
+        const float t = std::clamp(gBackgroundFadeElapsed / kBackgroundFadeDuration, 0.0f, 1.0f);
+        const bool hasPrevious = gPreviousBackgroundKind != BackgroundKind::None;
+        const bool hasCurrent = gBackgroundKind != BackgroundKind::None;
+
+        if (hasPrevious && hasCurrent) {
+            // Draw the outgoing background fully, then fade the incoming one over it.
+            drawPreviousLayer(gPreviousBackgroundKind, 1.0f);
+            drawBackgroundLayer(gBackgroundKind, t);
+        } else if (hasPrevious) {
+            drawPreviousLayer(gPreviousBackgroundKind, 1.0f - t);
+        } else if (hasCurrent) {
+            drawBackgroundLayer(gBackgroundKind, t);
+        }
+    } else if (gBackgroundKind != BackgroundKind::None) {
+        drawBackgroundLayer(gBackgroundKind, 1.0f);
     }
 
     const SDL_Rect box = dialogueBoxRect();
@@ -1689,7 +1833,8 @@ PresentationState getPresentationState() {
     PresentationState state;
     state.speakerName = gSpeakerName;
     state.iconPath = gIconPath;
-    state.backgroundPath = gBackgroundPath;
+    state.backgroundPath = (gBackgroundKind == BackgroundKind::Image) ? gBackgroundPath : std::string();
+    state.backgroundColor = (gBackgroundKind == BackgroundKind::Color) ? gBackgroundColorHex : std::string();
     state.visibleCharacters = gVisibleChars;
     state.totalVisibleCharacters = gTotalVisibleChars;
     state.lineFinished = isLineFinished();

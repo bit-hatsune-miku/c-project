@@ -43,8 +43,9 @@
  */
 
 /**
- * Set the current background image path used for subsequently shown lines.
- * @param imagePath Filesystem path to the background image.
+ * Set the current background used for subsequently shown lines.
+ * @param imagePath Filesystem path to the background image, or a hex color
+ *        string like "#RRGGBB" / "#RRGGBBAA".
  */
 
 /**
@@ -221,6 +222,7 @@ struct PresentationState {
     std::string fullTextRml;
     std::string iconPath;
     std::string backgroundPath;
+    std::string backgroundColor;
     std::size_t visibleCharacters = 0;
     std::size_t totalVisibleCharacters = 0;
     bool lineFinished = false;
@@ -281,6 +283,9 @@ bool isLineFinished();
 bool isWaitingForAdvance();
 bool consumeAdvanceRequest();
 PresentationState getPresentationState();
+
+// Utility: detect "#RRGGBB" / "#RRGGBBAA" hex color strings.
+bool isHexColorString(const std::string& value);
 
 } // namespace vn
 

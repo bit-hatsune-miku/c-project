@@ -153,7 +153,9 @@ bool DemoNarrativeFlow::loadDialogueLinesFromScript(const std::string& jsonRelat
 void DemoNarrativeFlow::showDialogueLine(const DialogueLine& line) const {
     const std::string speakerName = vn::getDisplaySpeakerName(line);
     const std::string iconPath = line.icon.empty() ? std::string{} : platform::path::resolvePath(line.icon);
-    const std::string backgroundPath = line.background.empty() ? std::string{} : platform::path::resolvePath(line.background);
+    const std::string backgroundPath = line.background.empty()
+        ? std::string{}
+        : (vn::isHexColorString(line.background) ? line.background : platform::path::resolvePath(line.background));
     const std::string voicePath = line.voice.empty() ? std::string{} : platform::path::resolvePath(line.voice);
     const std::string bgmPath = line.bgm.empty() ? std::string{} : platform::path::resolvePath(line.bgm);
     const std::string fontPath = line.fontPath.empty() ? std::string{} : platform::path::resolvePath(line.fontPath);

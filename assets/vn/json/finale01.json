@@ -198,7 +198,7 @@
       "speaker": "Lyoo",
       "text": "Oh and please make a claim to the PingAn assurance regarding my death and send the money to my friend, thank you.",
       "type": "dialogue",
-      "background": "",
+      "background": "#FFFFFF",
       "voice": "",
       "autoAdvanceOnVoiceEnd": false
     },
@@ -490,7 +490,7 @@
       "speaker": "",
       "text": "If you were to meet your younger self, how would you react? How would he/she react?\nWhat happened to those childhood dreams of yours?",
       "type": "narration",
-      "background": "",
+      "background": "#000000",
       "voice": "",
       "autoAdvanceOnVoiceEnd": false
     },

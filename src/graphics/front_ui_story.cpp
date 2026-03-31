@@ -97,6 +97,7 @@ bool StoryDocumentController::bind(Rml::ElementDocument& document, const AppStat
     detachEventListeners(listeners_);
     pendingOpenPause_ = false;
     lastBackground_.clear();
+    lastBackgroundColor_.clear();
     fadingOutBackground_.clear();
     lastPortrait_.clear();
     lastSpeaker_.clear();
@@ -121,6 +122,7 @@ void StoryDocumentController::unbind() {
     lastBackground_.clear();
     fadingOutBackground_.clear();
     lastPortrait_.clear();
+    lastBackgroundColor_.clear();
 }
 
 void StoryDocumentController::sync(const AppState& state) {
@@ -234,6 +236,15 @@ void StoryDocumentController::syncPresentation() {
     }
 
     const vn::PresentationState presentation = vn::getPresentationState();
+
+    if (presentation.backgroundColor != lastBackgroundColor_) {
+        if (Rml::Element* element = document_->GetElementById("story-bg-color")) {
+            const bool hasColor = !presentation.backgroundColor.empty();
+            element->SetClass("is-hidden", !hasColor);
+            element->SetProperty("background-color", hasColor ? presentation.backgroundColor : "transparent");
+        }
+        lastBackgroundColor_ = presentation.backgroundColor;
+    }
 
     if (presentation.backgroundPath != lastBackground_) {
         if (!fadingOutBackground_.empty() && fadingOutBackground_ != lastBackground_) {

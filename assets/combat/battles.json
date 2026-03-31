@@ -109,7 +109,7 @@
     "miku_plot_twist": {
       "id": 100,
       "name": "Corrupted Miku",
-      "bossKey": "miku",
+      "bossKey": "corruptedMiku",
       "storyScript": "finale02",
       "isLineupFixed": true,
       "selectorVisible": false,
