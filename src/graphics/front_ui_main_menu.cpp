@@ -137,10 +137,14 @@ std::string translateScale(float x, float y, float scale) {
 
 void applyStaticArtSources(Rml::ElementDocument& document) {
     if (Rml::Element* element = document.GetElementById("bg-art")) {
-        element->SetAttribute("src", platform::path::resolvePathForRml(kMainMenuBackgroundArtPath));
+        element->SetAttribute("src",
+                              platform::path::resolvePathForRml(kMainMenuBackgroundArtPath,
+                                                                 document.GetSourceURL()));
     }
     if (Rml::Element* element = document.GetElementById("title-logo")) {
-        element->SetAttribute("src", platform::path::resolvePathForRml(kMainMenuTitleLogoPath));
+        element->SetAttribute("src",
+                              platform::path::resolvePathForRml(kMainMenuTitleLogoPath,
+                                                                 document.GetSourceURL()));
     }
 }
 

@@ -112,7 +112,8 @@ inline std::string resolvePath(const std::string& relativePath) {
     return portablePathString(input);
 }
 
-inline std::string resolvePathForRml(const std::string& assetPath) {
+inline std::string resolvePathForRml(const std::string& assetPath,
+                                     const std::string& documentSourceUrl = std::string()) {
     namespace fs = std::filesystem;
 
     if (assetPath.empty()) {
@@ -121,10 +122,14 @@ inline std::string resolvePathForRml(const std::string& assetPath) {
 
     std::error_code ec;
     const fs::path resolved(resolvePath(assetPath));
-    if (fs::exists(resolved, ec) && !ec) {
-        const fs::path absolutePath = fs::absolute(resolved, ec);
-        if (!ec) {
-            return portablePathString(absolutePath);
+    if (!documentSourceUrl.empty()) {
+        const fs::path documentPath(resolvePath(documentSourceUrl));
+        const fs::path documentDirectory = documentPath.parent_path();
+        if (!documentDirectory.empty()) {
+            const fs::path relativePath = fs::relative(resolved, documentDirectory, ec);
+            if (!ec && !relativePath.empty()) {
+                return portablePathString(relativePath);
+            }
         }
     }
 
