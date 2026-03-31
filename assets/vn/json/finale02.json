@@ -6,7 +6,9 @@
       "type": "dialogue",
       "background": "",
       "voice": "",
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/vn/bgm/finale/farewellMiku.wav",
+      "bgmVolume": 0.3
     },
     {
       "speaker": "Miku",

@@ -122,6 +122,9 @@ public:
     virtual void setPresentationValue(int value) {
         (void)value;
     }
+    virtual void setPartyAssetNames(const std::vector<std::string>& assetNames) {
+        (void)assetNames;
+    }
     virtual void setExternalTextures(SDL_Texture* caster, SDL_Texture* target) {
         (void)caster;
         (void)target;

@@ -15,6 +15,7 @@
 #include "luotianyi_ultimate_presentation.h"
 #include "miku_sing_presentation.h"
 #include "miku_diandong_presentation.h"
+#include "miku_self_corruption_presentation.h"
 
 #include "qr_code_attack_presentation.h"
 #include "qr_code_shield_presentation.h"
@@ -61,6 +62,16 @@ void registerAllPresentations() {
         float targetWorldX, float targetWorldY, float targetWorldZ
     ) -> std::unique_ptr<AbilityPresentation> {
         return std::make_unique<MikuDiandongPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("self_corruption", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<MikuSelfCorruptionPresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
         );

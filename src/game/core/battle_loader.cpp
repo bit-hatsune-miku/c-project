@@ -236,6 +236,17 @@ bool fillBattleDefinitionFromJson(const std::string& battleKey,
     battle.isLineupFixed = battleJson.value("isLineupFixed", true);
     battle.lineup = battleJson.value("lineup", std::vector<std::string>{});
     battle.lockedLineup = battleJson.value("lockedLineup", std::vector<std::string>{});
+    if (battleJson.contains("specialRules") && battleJson.at("specialRules").is_object()) {
+        const json& specialRulesJson = battleJson.at("specialRules");
+        battle.specialRules.playerDamageHealsBoss =
+            specialRulesJson.value("playerDamageHealsBoss", false);
+        battle.specialRules.autoRevivePartyOnBossDamage =
+            specialRulesJson.value("autoRevivePartyOnBossDamage", false);
+        battle.specialRules.revivePartyToFull =
+            specialRulesJson.value("revivePartyToFull", false);
+        battle.specialRules.bossSelfKnockoutIsDefeat =
+            specialRulesJson.value("bossSelfKnockoutIsDefeat", false);
+    }
     battle.partySize = resolveBattlePartySize(battleJson, battle);
 
     if (!battle.isLineupFixed && battle.lineup.empty()) {
@@ -548,6 +559,7 @@ bool parseAbilityDefinition(const json& abilityJson,
     outAbility.speedBuff = abilityJson.value("speedBuff", 0);
     outAbility.atkBuff = abilityJson.value("atkBuff", 0);
     outAbility.actionAdvance = abilityJson.value("actionAdvance", 0.0f);
+    outAbility.selfHpCostPercentOfMax = abilityJson.value("selfHpCostPercentOfMax", 0.0f);
     outAbility.reviveDeadAllies = abilityJson.value("reviveDeadAllies", false);
     outAbility.presentationId = abilityJson.value("presentationId", "");
 

@@ -2,10 +2,10 @@
 #define BATTLE_SESSION_UI_STATE_H
 
 #include <algorithm>
-#include <array>
 #include <cmath>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include <SDL2/SDL.h>
 
@@ -25,7 +25,7 @@ struct HudFeedbackState {
     int blinkMissingTo = 0;
     Uint64 blinkUntilMs = 0;
     Uint64 bossHitUntilMs = 0;
-    std::array<Uint64, 4> unitHitUntilMs{{0, 0, 0, 0}};
+    std::vector<Uint64> unitHitUntilMs;
 };
 
 struct HudValueAnimationState {
@@ -56,7 +56,7 @@ struct HudUnitAnimationState {
 struct HudAnimationState {
     HudValueAnimationState bossHp;
     HudHitReactionState bossHit;
-    std::array<HudUnitAnimationState, 4> units{};
+    std::vector<HudUnitAnimationState> units;
 };
 
 enum class TutorialStep {

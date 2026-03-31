@@ -20,6 +20,7 @@
 #include "../presentation/lyoo_boss_presentation.h"
 #include "../presentation/lyoo_plot_twist_presentation.h"
 #include "../presentation/miku_diandong_presentation.h"
+#include "../presentation/miku_self_corruption_presentation.h"
 
 namespace battle::render {
 namespace {
@@ -222,6 +223,16 @@ std::string makeLyooPlotFrameKey(int index) {
 std::string makeLyooPlotFramePath(int index) {
     char frameName[160];
     std::snprintf(frameName, sizeof(frameName), "assets/combat/presentations/lyooPlotTwist/frame%04d.png", index);
+    return platform::path::resolvePath(frameName);
+}
+
+std::string makeMikuBossFrameKey(int index) {
+    return "mikuBoss:frame:" + std::to_string(index);
+}
+
+std::string makeMikuBossFramePath(int index) {
+    char frameName[160];
+    std::snprintf(frameName, sizeof(frameName), "assets/combat/presentations/mikuBoss/%02d.png", index);
     return platform::path::resolvePath(frameName);
 }
 
@@ -823,6 +834,7 @@ void GlBattleSceneRenderer::renderWorld(const battle::BattleSessionCore::BattleF
 bool GlBattleSceneRenderer::rendersPresentationNatively(const battle::AbilityPresentation* presentation) const {
     return dynamic_cast<const battle::AriBossPresentation*>(presentation) != nullptr ||
            dynamic_cast<const battle::MikuDiandongPresentation*>(presentation) != nullptr ||
+           dynamic_cast<const battle::MikuSelfCorruptionPresentation*>(presentation) != nullptr ||
            dynamic_cast<const battle::LyooBossPresentation*>(presentation) != nullptr ||
            dynamic_cast<const battle::LyooPlotTwistPresentation*>(presentation) != nullptr;
 }
@@ -1185,6 +1197,312 @@ bool GlBattleSceneRenderer::renderNativeAboveHud(const battle::BattleSessionCore
                         state.mikuWorldX, state.mikuWorldY, state.mikuWorldZ,
                         230.0f, 1.4f, SDL_Color{255, 255, 255, 255});
         return true;
+    }
+
+    if (const auto* corruptedMiku =
+            dynamic_cast<const battle::MikuSelfCorruptionPresentation*>(snapshot.activePresentation)) {
+        const auto state = corruptedMiku->buildNativeState();
+        if (state.phase == battle::MikuSelfCorruptionPresentation::NativePhase::Complete) {
+            return false;
+        }
+
+        std::vector<const battle::render::SceneEntity*> partyEntities;
+        partyEntities.reserve(snapshot.entities.size());
+        const battle::render::SceneEntity* bossEntity = nullptr;
+        for (const auto& entity : snapshot.entities) {
+            if (entity.isBoss) {
+                bossEntity = &entity;
+                continue;
+            }
+            partyEntities.push_back(&entity);
+        }
+        std::sort(partyEntities.begin(), partyEntities.end(), [](const auto* lhs, const auto* rhs) {
+            return lhs->partyIndex < rhs->partyIndex;
+        });
+
+        std::vector<std::string> cheeringAssets;
+        cheeringAssets.reserve(partyEntities.size() + 1);
+        for (const auto* entity : partyEntities) {
+            if (entity == nullptr || entity->assetName.empty()) {
+                continue;
+            }
+            cheeringAssets.push_back(entity->assetName);
+        }
+        if (std::find(cheeringAssets.begin(), cheeringAssets.end(), "lyoo") == cheeringAssets.end()) {
+            cheeringAssets.push_back("lyoo");
+        }
+
+        auto frameTexture = [&](int preferredIndex) -> TextureInfo {
+            TextureInfo texture = ensureSpecialTexture(makeMikuBossFrameKey(preferredIndex),
+                                                       makeMikuBossFramePath(preferredIndex));
+            if (texture.id != 0) {
+                return texture;
+            }
+            for (int fallbackIndex : {4, 3, 2, 1}) {
+                if (fallbackIndex == preferredIndex) {
+                    continue;
+                }
+                texture = ensureSpecialTexture(makeMikuBossFrameKey(fallbackIndex),
+                                               makeMikuBossFramePath(fallbackIndex));
+                if (texture.id != 0) {
+                    return texture;
+                }
+            }
+            return {};
+        };
+
+        auto exactFrameTexture = [&](int preferredIndex) -> TextureInfo {
+            return ensureSpecialTexture(makeMikuBossFrameKey(preferredIndex),
+                                        makeMikuBossFramePath(preferredIndex));
+        };
+
+        auto drawScreenTexture = [&](const TextureInfo& texture,
+                                     float centerX,
+                                     float centerY,
+                                     float width,
+                                     float height,
+                                     SDL_Color color,
+                                     float angleDegrees = 0.0f) {
+            std::vector<Vertex> vertices;
+            vertices.reserve(6);
+            appendRotatedQuad(vertices,
+                              centerX,
+                              centerY,
+                              width,
+                              height,
+                              0.0f,
+                              0.0f,
+                              1.0f,
+                              1.0f,
+                              color,
+                              angleDegrees);
+            drawTexturedTriangles(texture.id != 0 ? texture.id : ensureSolidWhiteTexture().id,
+                                  vertices,
+                                  screenWidth,
+                                  screenHeight);
+        };
+
+        auto drawFullscreenTexture = [&](const TextureInfo& texture, SDL_Color color) {
+            std::vector<Vertex> vertices;
+            vertices.reserve(6);
+            appendQuad(vertices,
+                       0.0f,
+                       0.0f,
+                       static_cast<float>(screenWidth),
+                       static_cast<float>(screenHeight),
+                       0.0f,
+                       0.0f,
+                       1.0f,
+                       1.0f,
+                       color);
+            drawTexturedTriangles(texture.id != 0 ? texture.id : ensureSolidWhiteTexture().id,
+                                  vertices,
+                                  screenWidth,
+                                  screenHeight);
+        };
+
+        auto drawWorldSprite = [&](const TextureInfo& texture,
+                                   float worldX,
+                                   float worldY,
+                                   float worldZ,
+                                   float baseHeight,
+                                   float widthScale,
+                                   SDL_Color color) {
+            if (snapshot.camera.getDepth(worldX, worldY, worldZ) <= 1.0f) {
+                return;
+            }
+            const SDL_FPoint screen = snapshot.camera.worldToScreen(worldX, worldY, worldZ);
+            const float perspectiveScale = snapshot.camera.getPerspectiveScale(worldX, worldY, worldZ);
+            const float drawHeight = std::max(10.0f, baseHeight * perspectiveScale);
+            float drawWidth = drawHeight * widthScale;
+            if (texture.id != 0 && texture.height > 0) {
+                drawWidth = std::max(
+                    8.0f,
+                    drawHeight * (static_cast<float>(texture.width) / static_cast<float>(texture.height)) * widthScale);
+            }
+            std::vector<Vertex> vertices;
+            vertices.reserve(6);
+            appendQuad(vertices,
+                       screen.x - drawWidth * 0.5f,
+                       screen.y - drawHeight,
+                       screen.x + drawWidth * 0.5f,
+                       screen.y,
+                       0.0f,
+                       0.0f,
+                       1.0f,
+                       1.0f,
+                       color);
+            drawTexturedTriangles(texture.id != 0 ? texture.id : ensureSolidWhiteTexture().id,
+                                  vertices,
+                                  screenWidth,
+                                  screenHeight);
+        };
+
+        auto drawFill = [&](SDL_Color color) {
+            std::vector<Vertex> vertices;
+            vertices.reserve(6);
+            appendFilledRect(vertices,
+                             0.0f,
+                             0.0f,
+                             static_cast<float>(screenWidth),
+                             static_cast<float>(screenHeight),
+                             color);
+            drawTexturedTriangles(ensureSolidWhiteTexture().id, vertices, screenWidth, screenHeight);
+        };
+
+        auto drawConcertCrowd = [&]() {
+            const TextureInfo realMiku = ensureWorldTexture("miku");
+            drawWorldSprite(realMiku,
+                            0.0f,
+                            760.0f,
+                            -8.0f,
+                            248.0f,
+                            1.0f,
+                            SDL_Color{255, 255, 255, 255});
+
+            for (std::size_t i = 0; i < cheeringAssets.size(); ++i) {
+                const std::string& assetName = cheeringAssets[i];
+                const int column = static_cast<int>(i % 4);
+                const int row = static_cast<int>(i / 4);
+                const float jump =
+                    std::fabs(std::sin(state.elapsedTime * 5.2f + static_cast<float>(i) * 1.17f)) * 18.0f;
+                const float crowdCenterOffset = (row % 2 == 0) ? 0.0f : 70.0f;
+                const float worldX = (static_cast<float>(column) - 1.5f) * 160.0f + crowdCenterOffset;
+                const float worldY = 455.0f + static_cast<float>(row) * 108.0f;
+                drawWorldSprite(ensureWorldTexture(assetName),
+                                worldX,
+                                worldY,
+                                -jump,
+                                168.0f,
+                                0.92f,
+                                SDL_Color{255, 255, 255, 230});
+            }
+        };
+
+        switch (state.phase) {
+            case battle::MikuSelfCorruptionPresentation::NativePhase::CheerLine: {
+                const float castExtent = static_cast<float>(std::max<std::size_t>(1, cheeringAssets.size())) - 1.0f;
+                const float startX = -castExtent * 146.0f;
+                for (std::size_t i = 0; i < cheeringAssets.size(); ++i) {
+                    const std::string& assetName = cheeringAssets[i];
+                    const float bob = std::sin(state.elapsedTime * 2.8f + static_cast<float>(i) * 0.8f) * 10.0f;
+                    const float worldX = startX + static_cast<float>(i) * 292.0f;
+                    const float worldY = 510.0f + std::sin(static_cast<float>(i) * 0.65f) * 18.0f;
+                    const float worldZ = -bob - std::fabs(std::cos(static_cast<float>(i) * 0.6f)) * 12.0f;
+                    drawWorldSprite(ensureWorldTexture(assetName),
+                                    worldX,
+                                    worldY,
+                                    worldZ,
+                                    230.0f,
+                                    1.0f,
+                                    SDL_Color{255, 255, 255, 255});
+                }
+
+                const float cheerFade = std::clamp((state.phaseProgress - 0.82f) / 0.18f, 0.0f, 1.0f);
+                if (cheerFade > 0.0f) {
+                    drawFill(SDL_Color{255, 255, 255, static_cast<Uint8>(std::lround(cheerFade * 140.0f))});
+                }
+                return true;
+            }
+
+            case battle::MikuSelfCorruptionPresentation::NativePhase::Whiteout:
+                drawFill(SDL_Color{255, 255, 255, 255});
+                return true;
+
+            case battle::MikuSelfCorruptionPresentation::NativePhase::BirdView: {
+                const float fadeOut = 1.0f - state.phaseProgress;
+                if (fadeOut > 0.0f) {
+                    drawFill(SDL_Color{255, 255, 255, static_cast<Uint8>(std::lround(fadeOut * 210.0f))});
+                }
+
+                drawConcertCrowd();
+                return true;
+            }
+
+            case battle::MikuSelfCorruptionPresentation::NativePhase::IntroFrames: {
+                const TextureInfo texture = exactFrameTexture(state.phaseProgress < 0.5f ? 1 : 2);
+                if (texture.id != 0) {
+                    drawFullscreenTexture(texture, SDL_Color{255, 255, 255, 255});
+                } else {
+                    drawConcertCrowd();
+                }
+                return true;
+            }
+
+            case battle::MikuSelfCorruptionPresentation::NativePhase::GlitchFrames: {
+                const TextureInfo texture = frameTexture(3);
+                const float flashCount = 4.0f + state.phaseProgress * 20.0f;
+                const bool flashOn =
+                    (static_cast<int>(std::floor(state.phaseProgress * flashCount)) % 2) == 1;
+
+                if (flashOn) {
+                    drawFill(SDL_Color{0, 0, 0, 255});
+                    drawFullscreenTexture(texture, SDL_Color{255, 255, 255, 255});
+                } else {
+                    drawConcertCrowd();
+                }
+                return true;
+            }
+
+            case battle::MikuSelfCorruptionPresentation::NativePhase::CorruptionLoop: {
+                const TextureInfo texture = frameTexture(4);
+                drawFullscreenTexture(texture, SDL_Color{255, 255, 255, 255});
+                return true;
+            }
+
+            case battle::MikuSelfCorruptionPresentation::NativePhase::ReturnToWorld: {
+                const float t = easeOutCubic(state.phaseProgress);
+                const Uint8 alpha = static_cast<Uint8>(std::lround(lerpF(255.0f, 0.0f, t)));
+                drawFill(SDL_Color{0, 0, 0, alpha});
+                return true;
+            }
+
+            case battle::MikuSelfCorruptionPresentation::NativePhase::FinalHits: {
+                const float localTime = state.phaseProgress * 3.8f;
+                const float hitInterval = 3.8f / 10.0f;
+                const int lastHitIndex = std::clamp(
+                    static_cast<int>(std::floor(localTime / std::max(0.001f, hitInterval))),
+                    0,
+                    std::max(0, state.emittedHitBursts - 1));
+                const float lastHitTime = static_cast<float>(lastHitIndex) * hitInterval;
+                const float flashProgress = std::clamp((localTime - lastHitTime) / 0.18f, 0.0f, 1.0f);
+                const float impactAlpha = state.emittedHitBursts > 0 ? (1.0f - flashProgress) : 0.0f;
+
+                if (bossEntity != nullptr &&
+                    snapshot.camera.getDepth(bossEntity->worldX, bossEntity->worldY, bossEntity->worldZ) > 1.0f) {
+                    const SDL_FPoint bossScreen = snapshot.camera.worldToScreen(
+                        bossEntity->worldX,
+                        bossEntity->worldY,
+                        bossEntity->worldZ);
+                    std::vector<Vertex> auraVertices;
+                    auraVertices.reserve(18);
+                    const float pulseSize = 120.0f + static_cast<float>(state.emittedHitBursts) * 18.0f;
+                    appendFilledRect(auraVertices,
+                                     bossScreen.x - pulseSize * 0.5f,
+                                     bossScreen.y - pulseSize,
+                                     pulseSize,
+                                     pulseSize,
+                                     SDL_Color{255, 82, 116, static_cast<Uint8>(std::lround(impactAlpha * 90.0f))});
+                    appendOutlineRect(auraVertices,
+                                      bossScreen.x - pulseSize * 0.58f,
+                                      bossScreen.y - pulseSize * 1.08f,
+                                      pulseSize * 1.16f,
+                                      pulseSize * 1.16f,
+                                      4.0f,
+                                      SDL_Color{255, 235, 245, static_cast<Uint8>(std::lround(impactAlpha * 180.0f))});
+                    drawTexturedTriangles(ensureSolidWhiteTexture().id, auraVertices, screenWidth, screenHeight);
+                }
+
+                if (impactAlpha > 0.0f) {
+                    drawFill(SDL_Color{255, 255, 255, static_cast<Uint8>(std::lround(impactAlpha * 170.0f))});
+                }
+                return true;
+            }
+
+            case battle::MikuSelfCorruptionPresentation::NativePhase::Complete:
+            default:
+                return false;
+        }
     }
 
     if (const auto* lyooPlot = dynamic_cast<const battle::LyooPlotTwistPresentation*>(snapshot.activePresentation)) {

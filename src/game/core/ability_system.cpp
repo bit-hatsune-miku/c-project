@@ -13,6 +13,21 @@ int normalizeDamage(int value) {
     return std::max(1, value);
 }
 
+void applyBossOffenseResult(const AbilityExecutionContext& context,
+                            int amount,
+                            int& bossCurrentHp) {
+    if (amount <= 0) {
+        return;
+    }
+
+    if (context.playerDamageHealsBoss) {
+        bossCurrentHp = std::min(context.bossMaxHp, bossCurrentHp + amount);
+        return;
+    }
+
+    bossCurrentHp = std::max(0, bossCurrentHp - amount);
+}
+
 } // namespace
 
 void executeAbilityEffect(const AbilityExecutionContext& context,
@@ -44,7 +59,7 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
             const int finalDamage = normalizeDamage(static_cast<int>(
                 context.baseDamage * ability.multiplier * context.presentationMultiplier
             ));
-            bossCurrentHp = std::max(0, bossCurrentHp - finalDamage);
+            applyBossOffenseResult(context, finalDamage, bossCurrentHp);
             break;
         }
 
@@ -96,7 +111,7 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
                 const int finalDamage = normalizeDamage(static_cast<int>(
                     context.baseDamage * ability.multiplier * context.presentationMultiplier
                 ));
-                bossCurrentHp = std::max(0, bossCurrentHp - finalDamage);
+                applyBossOffenseResult(context, finalDamage, bossCurrentHp);
             }
             break;
     }

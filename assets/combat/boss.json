@@ -54,12 +54,12 @@
         "bgm": "lyooPlotTwist",
         "bgmVolume": 0.1
     },
-    "mikuBoss": {
+    "corruptedMiku": {
         "title": "Corrupted Hatsune Miku",
         "assets": "mikuBoss",
         "voiceHit": "assets/combat/voices/miku/hit.wav",
-        "spd": 200,
-        "atk": 50,
+        "spd": 134,
+        "atk": 25,
         "hp": 9999,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "SelfCorruption",
@@ -72,13 +72,14 @@
                 "type": "attack",
                 "targetRule": "all_enemies",
                 "multiplier": 1.8,
+                "selfHpCostPercentOfMax": 19.0,
                 "interactionType": "none",
                 "presentationId": "self_corruption"
             }
         },
         "ultimatePoints": 6,
         "startingOrbs": 1,
-        "bgm": "The Disapperance of Hatsune Miku",
+        "bgm": "mikuBoss",
         "bgmVolume": 0.4
     },
     "jiafeiBoss": {

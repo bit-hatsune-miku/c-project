@@ -3,6 +3,7 @@
 
 #include <string>
 #include <iostream>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -45,6 +46,13 @@ struct CharacterDefinition {
     int baseShield = 0; // New: base shield value for shield abilities
 };
 
+struct BattleSpecialRules {
+    bool playerDamageHealsBoss = false;
+    bool autoRevivePartyOnBossDamage = false;
+    bool revivePartyToFull = false;
+    bool bossSelfKnockoutIsDefeat = false;
+};
+
 struct BattleDefinition {
     std::string key;
     int id = -1;
@@ -61,6 +69,7 @@ struct BattleDefinition {
     int partySize = 4;
     std::vector<std::string> lineup;
     std::vector<std::string> lockedLineup;
+    BattleSpecialRules specialRules;
 };
 
 struct BattleState {
@@ -101,9 +110,16 @@ struct AbilityDefinition {
     int speedBuff = 0;
     int atkBuff = 0;   // ATK % buff applied to targets (negative = nerf)
     float actionAdvance = 0.0f;
+    float selfHpCostPercentOfMax = 0.0f;
     bool reviveDeadAllies = false;
     InteractionType interactionType = InteractionType::None;
     std::string presentationId;
+};
+
+enum class BattleResolvedOutcome {
+    None,
+    Victory,
+    Defeat
 };
 
 struct PresentationContext {
@@ -122,6 +138,7 @@ struct AbilityExecutionContext {
     const AbilityDefinition* ability = nullptr;
     int casterPartyIndex = -1;
     bool isBossCaster = false;
+    bool playerDamageHealsBoss = false;
     int baseDamage = 0;
     int baseHeal = 0;
     float presentationMultiplier = 1.0f;
@@ -241,9 +258,12 @@ public:
     // Returns the shield value for a party member at the given index, or 0 if out of range.
     int getCharacterShield(int partyIndex) const;
 public:
+    bool initialize(const BattleDefinition& battleDefinition, const std::vector<std::string>& characterKeys);
     bool initialize(const std::string& bossKey, const std::vector<std::string>& characterKeys);
     void printBattleSummary() const;
     const BattleState& getBattleState() const;
+    const BattleDefinition& getBattleDefinition() const;
+    const BattleSpecialRules& getSpecialRules() const;
     const TurnState& getTurnState() const;
     int getPreviewNextActorIndex() const;
     int getBossCurrentHp() const;
@@ -283,6 +303,8 @@ public:
     bool executePlayerTurn();
     bool processAutomaticTurns();
     bool isBattleOver() const;
+    BattleResolvedOutcome outcome() const;
+    bool playerDamageHealsBoss() const;
 
 private:
     struct ActivePartyBuff {
@@ -315,6 +337,12 @@ private:
     const AbilityDefinition* getAbility(const std::string& abilityId) const;
     void executeAbilityEffect(const AbilityExecutionContext& context);
     float runPresentationInteraction(const PresentationContext& context);
+    BattleResolvedOutcome computeDerivedOutcome() const;
+    void applyBossDamage(int amount);
+    void applyBossHealing(int amount);
+    void applyPlayerOffenseToBoss(int amount);
+    void applyBossAbilitySelfCost(const AbilityDefinition& ability);
+    void reviveDefeatedPartyMembersIfNeeded();
     bool canUseBossAction(BattleAction action) const;
     bool resolvePlayerAction(BattleAction action);
     bool resolveBossAction();
@@ -337,6 +365,7 @@ private:
     void applyAllAlliesActionAdvance(float fraction);
 
     BattleState state_;
+    BattleDefinition battleDefinition_{};
     TurnState turnState_;
     int bossCurrentHp_ = 0;
     int bossUltimateCharge_ = 0;
@@ -349,6 +378,7 @@ private:
     bool presentationHealingApplied_ = false;
     bool presentationAbilityAudioPlayed_ = false;
     bool presentationHitAudioPlayed_ = false;
+    std::optional<BattleResolvedOutcome> forcedOutcome_;
     BossStatusState bossStatus_;
     int luotianyiCorrectTones_ = 0;
     std::vector<ActivePartyBuff> activePartyBuffs_;

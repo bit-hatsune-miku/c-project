@@ -213,6 +213,10 @@ void BattleFeedbackSystem::queuePresentationHitShakes(bool isBossCaster, int hit
         return;
     }
 
+    if (manager.playerDamageHealsBoss()) {
+        return;
+    }
+
     if (manager.getBossCurrentHp() > 0) {
         queueDamageShake(true, -1, hitEvents);
     }
@@ -259,6 +263,14 @@ void BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
     }
 
     if (manager.getBossCurrentHp() <= 0) {
+        return;
+    }
+
+    if (manager.playerDamageHealsBoss()) {
+        for (int h = 0; h < hitEvents; ++h) {
+            spawnHealingPopup(true, -1, perHitDamage);
+        }
+        suppressBossNextHealingPopup_ = true;
         return;
     }
 

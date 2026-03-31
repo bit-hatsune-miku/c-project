@@ -162,6 +162,68 @@ inline std::string formatHexColor(unsigned char red, unsigned char green, unsign
     return buffer;
 }
 
+inline std::string buildPartyRackMarkup(std::size_t partyCount) {
+    std::ostringstream markup;
+    constexpr int kCardLeftStepDp = 198;
+    for (std::size_t i = 0; i < partyCount; ++i) {
+        const std::size_t displayIndex = i + 1;
+        const int leftDp = static_cast<int>(i) * kCardLeftStepDp;
+        markup
+            << "<div class=\"unit-card\" id=\"unit-card-" << displayIndex << "\" style=\"left: " << leftDp << "dp;\">"
+            << "<div class=\"unit-ult\">"
+            << "<div class=\"unit-ult-fill\" id=\"unit-ult-fill-" << displayIndex << "\"></div>"
+            << "<div class=\"unit-ult-sheen\" id=\"unit-ult-sheen-" << displayIndex << "\"></div>"
+            << "<div class=\"unit-ult-rim\"></div>"
+            << "<div class=\"unit-ult-core\" id=\"unit-ult-text-" << displayIndex << "\"></div>"
+            << "</div>"
+            << "<div class=\"unit-icon\" id=\"unit-icon-" << displayIndex << "\"></div>"
+            << "<div class=\"unit-hp-shell\">"
+            << "<div class=\"unit-hp-lane\">"
+            << "<div class=\"unit-hp-trail\" id=\"unit-hp-trail-" << displayIndex << "\"></div>"
+            << "<div class=\"unit-hp-fill\" id=\"unit-hp-fill-" << displayIndex << "\"></div>"
+            << "<div class=\"unit-shield-stroke\">"
+            << "<div class=\"unit-shield-line unit-shield-line-top\" id=\"unit-shield-top-" << displayIndex << "\"></div>"
+            << "<div class=\"unit-shield-line unit-shield-line-bottom\" id=\"unit-shield-bottom-" << displayIndex << "\"></div>"
+            << "<div class=\"unit-shield-line unit-shield-line-left\" id=\"unit-shield-left-" << displayIndex << "\"></div>"
+            << "<div class=\"unit-shield-line unit-shield-line-right\" id=\"unit-shield-right-" << displayIndex << "\"></div>"
+            << "</div>"
+            << "<div class=\"unit-hp-text\" id=\"unit-hp-text-" << displayIndex << "\"></div>"
+            << "</div>"
+            << "</div>"
+            << "<div class=\"unit-shield-badge\" id=\"unit-shield-badge-" << displayIndex << "\">"
+            << "<div class=\"unit-shield-icon\"></div>"
+            << "<div class=\"unit-shield-value\" id=\"unit-shield-value-" << displayIndex << "\"></div>"
+            << "</div>"
+            << "<div class=\"unit-hit-flash\" id=\"unit-hit-flash-" << displayIndex << "\"></div>"
+            << "</div>";
+    }
+    return markup.str();
+}
+
+inline void ensurePartyRackDocument(Rml::ElementDocument* document, std::size_t partyCount) {
+    if (document == nullptr) {
+        return;
+    }
+
+    Rml::Element* partyRack = document->GetElementById("party-rack");
+    if (partyRack == nullptr) {
+        return;
+    }
+
+    const std::string countValue = std::to_string(partyCount);
+    if (partyRack->GetAttribute<std::string>("data-party-count", "") != countValue) {
+        partyRack->SetInnerRML(buildPartyRackMarkup(partyCount));
+        partyRack->SetAttribute("data-party-count", countValue);
+    }
+
+    constexpr int kCardWidthDp = 186;
+    constexpr int kCardLeftStepDp = 198;
+    const int rackWidthDp = partyCount == 0
+        ? kCardWidthDp
+        : kCardWidthDp + static_cast<int>(partyCount - 1) * kCardLeftStepDp;
+    partyRack->SetProperty("width", std::to_string(rackWidthDp) + "dp");
+}
+
 inline float hitReactionProgress(const HudHitReactionState& state, Uint64 nowMs) {
     if (!state.active || state.untilMs <= state.startedMs) {
         return 0.0f;
@@ -352,6 +414,8 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
     const battle::TurnState& turnState = manager.getTurnState();
     const int activeActorIndex = manager.getPreviewNextActorIndex();
 
+    detail::ensurePartyRackDocument(document, battleState.party.size());
+
     const std::string bossDisplayName = !battleState.boss.title.empty() ? battleState.boss.title : battleState.boss.key;
     detail::setElementText(document,
                            "boss-name",
@@ -409,13 +473,8 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
         }
     }
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < static_cast<int>(battleState.party.size()); ++i) {
         const std::string index = std::to_string(i + 1);
-        const bool hasCharacter = i < static_cast<int>(battleState.party.size());
-        detail::setElementDisplay(document, "unit-card-" + index, hasCharacter);
-        if (!hasCharacter) {
-            continue;
-        }
 
         const battle::CharacterDefinition& character = battleState.party[static_cast<size_t>(i)];
         const int currentHp = manager.getCharacterCurrentHp(i);
@@ -425,6 +484,9 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
         const int shield = manager.getCharacterShield(i);
         const float shieldRatio =
             currentHp > 0 ? std::min(1.0f, static_cast<float>(shield) / static_cast<float>(currentHp)) : 0.0f;
+        if (static_cast<size_t>(i) >= animationState.units.size()) {
+            continue;
+        }
         const HudUnitAnimationState& unitAnimation = animationState.units[static_cast<size_t>(i)];
         const int displayedHp = static_cast<int>(std::lround(std::clamp(
             unitAnimation.hp.initialized ? unitAnimation.hp.displayedValue : static_cast<float>(currentHp),
