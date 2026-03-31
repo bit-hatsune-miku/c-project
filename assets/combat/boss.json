@@ -33,7 +33,7 @@
         "voiceHit": "assets/combat/voices/lyooPlotTwist/hit.wav",
         "spd": 90,
         "atk": 50,
-        "hp": 1000,
+        "hp": 1,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "IfICantHaveWingsThenIllJustLetTheSkyFall",
         "ability": "IfICantHaveWingsThenIllJustLetTheSkyFall",
@@ -60,7 +60,7 @@
         "voiceHit": "assets/combat/voices/miku/hit.wav",
         "spd": 134,
         "atk": 25,
-        "hp": 9999,
+        "hp": 1000,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "SelfCorruption",
         "ability": "SelfCorruption",
@@ -69,10 +69,13 @@
             "skill": {
                 "id": "SelfCorruption",
                 "name": "Self Corruption",
+                "instructionHint": "Miku is trying to destroy herself to prevent the AI infection. Your attacks will heal her, restore her HP to keep her alive!",
                 "type": "attack",
                 "targetRule": "all_enemies",
                 "multiplier": 1.8,
                 "selfHpCostPercentOfMax": 19.0,
+                "selfHpCostPercentIncreasePerUse": 7.0,
+                "selfHpCostPercentMax": 100.0,
                 "interactionType": "none",
                 "presentationId": "self_corruption"
             }

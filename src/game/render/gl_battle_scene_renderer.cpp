@@ -1256,6 +1256,31 @@ bool GlBattleSceneRenderer::renderNativeAboveHud(const battle::BattleSessionCore
                                         makeMikuBossFramePath(preferredIndex));
         };
 
+        auto acceleratedToggle = [](float localTime,
+                                    float duration,
+                                    float startRate,
+                                    float endRate) -> bool {
+            if (duration <= 0.0f) {
+                return false;
+            }
+
+            const float clampedTime = std::clamp(localTime, 0.0f, duration);
+            const float normalized = clampedTime / duration;
+            const float transitions =
+                (startRate * clampedTime) +
+                ((endRate - startRate) * clampedTime * normalized * 0.5f);
+            return (static_cast<int>(std::floor(transitions)) % 2) == 1;
+        };
+
+        auto corruptionLoopTexture = [&](float localTime, float duration) -> TextureInfo {
+            const bool showFrameFour = acceleratedToggle(localTime, duration, 8.0f, 62.0f);
+            TextureInfo texture = exactFrameTexture(showFrameFour ? 4 : 3);
+            if (texture.id == 0) {
+                texture = exactFrameTexture(showFrameFour ? 3 : 4);
+            }
+            return texture;
+        };
+
         auto drawScreenTexture = [&](const TextureInfo& texture,
                                      float centerX,
                                      float centerY,
@@ -1430,14 +1455,16 @@ bool GlBattleSceneRenderer::renderNativeAboveHud(const battle::BattleSessionCore
             }
 
             case battle::MikuSelfCorruptionPresentation::NativePhase::GlitchFrames: {
-                const TextureInfo texture = frameTexture(3);
-                const float flashCount = 4.0f + state.phaseProgress * 20.0f;
-                const bool flashOn =
-                    (static_cast<int>(std::floor(state.phaseProgress * flashCount)) % 2) == 1;
+                const TextureInfo texture = exactFrameTexture(3);
+                const float glitchDuration = 0.75f;
+                const float localTime = state.phaseProgress * glitchDuration;
+                const bool flashOn = acceleratedToggle(localTime, glitchDuration, 2.5f, 26.0f);
 
                 if (flashOn) {
                     drawFill(SDL_Color{0, 0, 0, 255});
-                    drawFullscreenTexture(texture, SDL_Color{255, 255, 255, 255});
+                    if (texture.id != 0) {
+                        drawFullscreenTexture(texture, SDL_Color{255, 255, 255, 255});
+                    }
                 } else {
                     drawConcertCrowd();
                 }
@@ -1445,8 +1472,13 @@ bool GlBattleSceneRenderer::renderNativeAboveHud(const battle::BattleSessionCore
             }
 
             case battle::MikuSelfCorruptionPresentation::NativePhase::CorruptionLoop: {
-                const TextureInfo texture = frameTexture(4);
-                drawFullscreenTexture(texture, SDL_Color{255, 255, 255, 255});
+                const float corruptionDuration = 1.0f;
+                const float localTime = state.phaseProgress * corruptionDuration;
+                const TextureInfo texture = corruptionLoopTexture(localTime, corruptionDuration);
+                drawFill(SDL_Color{0, 0, 0, 255});
+                if (texture.id != 0) {
+                    drawFullscreenTexture(texture, SDL_Color{255, 255, 255, 255});
+                }
                 return true;
             }
 

@@ -111,6 +111,8 @@ struct AbilityDefinition {
     int atkBuff = 0;   // ATK % buff applied to targets (negative = nerf)
     float actionAdvance = 0.0f;
     float selfHpCostPercentOfMax = 0.0f;
+    float selfHpCostPercentIncreasePerUse = 0.0f;
+    float selfHpCostPercentMax = 0.0f;
     bool reviveDeadAllies = false;
     InteractionType interactionType = InteractionType::None;
     std::string presentationId;
@@ -382,6 +384,7 @@ private:
     BossStatusState bossStatus_;
     int luotianyiCorrectTones_ = 0;
     std::vector<ActivePartyBuff> activePartyBuffs_;
+    std::unordered_map<std::string, int> bossAbilityUseCounts_;
 };
 
 } // namespace battle

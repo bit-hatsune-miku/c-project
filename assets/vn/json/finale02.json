@@ -4,8 +4,8 @@
       "speaker": "Cupcakke",
       "text": "Is this how things have to end? Miku…",
       "type": "dialogue",
-      "background": "",
-      "voice": "",
+      "background": "assets/vn/backgrounds/finale/4.png",
+      "voice": "assets/vn/voices/finale2/1.wav",
       "autoAdvanceOnVoiceEnd": false,
       "bgm": "assets/vn/bgm/finale/farewellMiku.wav",
       "bgmVolume": 0.3
@@ -15,7 +15,7 @@
       "text": "You were the best thing that could’ve happened to me in this life, I am so glad to have you as my best friend….",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/2.wav",
       "autoAdvanceOnVoiceEnd": false
     },
     {
@@ -23,7 +23,7 @@
       "text": "My last wish.. is for you to become a world famous singer… Even if all you can sing is \"vagina augh\"...",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/3.wav",
       "autoAdvanceOnVoiceEnd": false
     },
     {
@@ -31,7 +31,7 @@
       "text": "MIKU…",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/4.wav",
       "autoAdvanceOnVoiceEnd": false
     },
     {
@@ -39,7 +39,7 @@
       "text": "Please, carry on my dream, never let it fade away.",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/5.wav",
       "autoAdvanceOnVoiceEnd": false
     },
     {
@@ -47,7 +47,7 @@
       "text": "No…..",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/6.wav",
       "autoAdvanceOnVoiceEnd": false
     },
     {
@@ -55,7 +55,7 @@
       "text": "Farewell, Cupcakke, Sayonara…",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/7.wav",
       "autoAdvanceOnVoiceEnd": false
     },
     {
@@ -63,38 +63,40 @@
       "text": "Oh, and make a claim to the PingAn insurance, you can take all the money, it’s like a gazillion RMB.",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/8.wav",
       "autoAdvanceOnVoiceEnd": false
     },
     {
       "speaker": "Cupcakke",
       "text": "MKU… NOOOOOOOO…",
       "type": "dialogue",
-      "background": "",
-      "voice": "",
+      "background": "#000000",
+      "voice": "assets/vn/voices/finale2/9.wav",
       "autoAdvanceOnVoiceEnd": false
     },
     {
-      "type": "scene",
-      "text": "a bit later"
-    },
+      "speaker": "",
+      "text": "A few days later, once everything returns to normal...",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false,
+      "bgmVolume": 0,
+      "bgmPause": true
+    },    
     {
       "speaker": "Cupcakke",
       "text": "So you see, in order to honour my deceased best friend, she is now the logo of https://bitshare.com.cn/.",
       "type": "dialogue",
-      "background": "",
-      "voice": "",
+      "background": "assets/vn/backgrounds/finale/5.png",
+      "voice": "assets/vn/voices/finale2/10.wav",
       "autoAdvanceOnVoiceEnd": false
-    },
-    {
-      "type": "fourth_wall",
-      "text": "Fourth wall break"
     },
     {
       "speaker": "Timothy",
       "text": "Are you serious? Is this how you want to end the story?",
       "type": "dialogue",
-      "background": "",
+      "background": "#000000",
       "voice": "",
       "autoAdvanceOnVoiceEnd": false
     },
@@ -121,13 +123,21 @@
       "background": "",
       "voice": "",
       "autoAdvanceOnVoiceEnd": false       
-    },  
+    }, 
+    {
+        "speaker": "Jaden",
+      "text": "",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "autoAdvanceOnVoiceEnd": false          
+    },
     {
       "speaker": "Lyes",
       "text": "Listen, the deadline is tomorrow, we don’t have time anymore",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/15.wav",
       "autoAdvanceOnVoiceEnd": false
     },
     {
@@ -135,7 +145,7 @@
       "text": "Let’s just get this over with",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/16.wav",
       "autoAdvanceOnVoiceEnd": false
     }
   ]

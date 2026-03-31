@@ -85,6 +85,7 @@ private:
     int pendingHitEvents_ = 0;
     int emittedHitBursts_ = 0;
     int nextCheerVoiceIndex_ = 0;
+    bool corruptionShotAudioTriggered_ = false;
 
     std::vector<SDL_Texture*> fallbackFrames_;
     SDL_Renderer* fallbackRenderer_ = nullptr;

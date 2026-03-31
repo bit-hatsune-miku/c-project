@@ -252,6 +252,7 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     bossStatus_ = BossStatusState{};
     simulatedActions_ = 0;
     activePartyBuffs_.clear();
+    bossAbilityUseCounts_.clear();
     luotianyiCorrectTones_ = 0;
     forcedOutcome_.reset();
 
@@ -517,12 +518,25 @@ void BattleManager::applyBossAbilitySelfCost(const AbilityDefinition& ability) {
         return;
     }
 
-    const float clampedPercent = std::max(0.0f, ability.selfHpCostPercentOfMax);
+    const std::string usageKey = ability.id.empty() ? ability.name : ability.id;
+    const int priorUses =
+        usageKey.empty() ? 0 : bossAbilityUseCounts_[usageKey];
+    float effectivePercent =
+        std::max(0.0f, ability.selfHpCostPercentOfMax) +
+        (std::max(0.0f, ability.selfHpCostPercentIncreasePerUse) * static_cast<float>(priorUses));
+    if (ability.selfHpCostPercentMax > 0.0f) {
+        effectivePercent = std::min(effectivePercent, ability.selfHpCostPercentMax);
+    }
+
+    const float clampedPercent = std::max(0.0f, effectivePercent);
     const int selfDamage = std::max(
         1,
         static_cast<int>(std::lround((clampedPercent / 100.0f) * static_cast<float>(state_.boss.hp)))
     );
     applyBossDamage(selfDamage);
+    if (!usageKey.empty()) {
+        bossAbilityUseCounts_[usageKey] = priorUses + 1;
+    }
     if (bossCurrentHp_ <= 0 && battleDefinition_.specialRules.bossSelfKnockoutIsDefeat) {
         forcedOutcome_ = BattleResolvedOutcome::Defeat;
     }
