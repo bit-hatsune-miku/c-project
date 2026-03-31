@@ -54,13 +54,13 @@
         "bgm": "lyooPlotTwist",
         "bgmVolume": 0.1
     },
-    "miku": {
-        "title": "Hatsune Miku",
-        "assets": "miku",
+    "mikuBoss": {
+        "title": "Corrupted Hatsune Miku",
+        "assets": "mikuBoss",
         "voiceHit": "assets/combat/voices/miku/hit.wav",
         "spd": 200,
-        "atk": 80,
-        "hp": 2000,
+        "atk": 50,
+        "hp": 9999,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "SelfCorruption",
         "ability": "SelfCorruption",

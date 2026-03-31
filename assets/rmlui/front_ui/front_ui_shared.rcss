@@ -616,6 +616,7 @@ input.settings-slider sliderarrowinc {
     height: 100%;
 }
 
+#story-bg-color,
 #story-bg-art-prev,
 #story-bg-art {
     position: absolute;

@@ -150,7 +150,9 @@ std::string resolvePath(const std::string& relativePath) {
 void showDialogueLine(const DialogueLine& line) {
     const std::string speakerName = vn::getDisplaySpeakerName(line);
     const std::string iconPath = line.icon.empty() ? std::string{} : resolvePath(line.icon);
-    const std::string backgroundPath = line.background.empty() ? std::string{} : resolvePath(line.background);
+    const std::string backgroundPath = line.background.empty()
+        ? std::string{}
+        : (vn::isHexColorString(line.background) ? line.background : resolvePath(line.background));
     const std::string voicePath = line.voice.empty() ? std::string{} : resolvePath(line.voice);
     const std::string bgmPath = line.bgm.empty() ? std::string{} : resolvePath(line.bgm);
     const std::string fontPath = line.fontPath.empty() ? std::string{} : resolvePath(line.fontPath);

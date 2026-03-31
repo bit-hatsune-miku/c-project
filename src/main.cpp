@@ -696,7 +696,9 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
     const std::string backgroundRef = entry.background.empty()
         ? effectiveStoryBackground(story, story.entryIndex)
         : entry.background;
-    const std::string backgroundPath = backgroundRef.empty() ? std::string{} : platform::path::resolvePath(backgroundRef);
+    const std::string backgroundPath = backgroundRef.empty()
+        ? std::string{}
+        : (vn::isHexColorString(backgroundRef) ? backgroundRef : platform::path::resolvePath(backgroundRef));
 
     vn::showLine(
         entry.text,

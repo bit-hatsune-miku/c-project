@@ -32,6 +32,7 @@ private:
     Rml::ElementDocument* document_ = nullptr;
     std::vector<EventListenerBinding> listeners_;
     std::string lastBackground_;
+    std::string lastBackgroundColor_;
     std::string fadingOutBackground_;
     std::string lastPortrait_;
     std::string lastSpeaker_;
