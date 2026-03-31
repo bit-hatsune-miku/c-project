@@ -258,10 +258,35 @@ jobs:
             done < "$staged_runtime_manifest"
           fi
 
+          staged_manifest_has() {
+            local dll_name="$1"
+            local normalized_name
+            normalized_name="$(printf '%s\n' "$dll_name" | tr '[:upper:]' '[:lower:]')"
+            if [[ -f "$generated_dll_manifest" ]] && tr '[:upper:]' '[:lower:]' < "$generated_dll_manifest" | grep -Fxq "$normalized_name"; then
+              return 0
+            fi
+            if [[ -f "$staged_runtime_manifest" ]] && tr '[:upper:]' '[:lower:]' < "$staged_runtime_manifest" | grep -Fxq "$normalized_name"; then
+              return 0
+            fi
+            return 1
+          }
+
           for exe_name in "${MAIN_TARGET}.exe" "${SUPPORT_TARGET}.exe"; do
             ntldd -R "${stage_dir}/${exe_name}" > "$workspace/dist/${exe_name}.deps.txt" || true
-            if grep -qi "not found" "$workspace/dist/${exe_name}.deps.txt"; then
-              echo "Unresolved runtime dependency detected for ${exe_name}." >&2
+            missing_packaged_deps=0
+            while read -r missing_name; do
+              [[ -n "$missing_name" ]] || continue
+              if staged_manifest_has "$missing_name"; then
+                if [[ ! -f "${stage_dir}/${missing_name}" ]]; then
+                  echo "Packaged dependency missing from stage for ${exe_name}: ${missing_name}" >&2
+                else
+                  echo "Packaged dependency was staged but still unresolved for ${exe_name}: ${missing_name}" >&2
+                fi
+                missing_packaged_deps=1
+              fi
+            done < <(awk '/=> not found$/ { print $1 }' "$workspace/dist/${exe_name}.deps.txt")
+            if [[ "$missing_packaged_deps" -ne 0 ]]; then
+              echo "Dependency snapshot for ${exe_name}:" >&2
               cat "$workspace/dist/${exe_name}.deps.txt" >&2
               exit 1
             fi
