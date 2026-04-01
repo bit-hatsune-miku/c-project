@@ -1,6 +1,6 @@
 <rml>
 <head>
-    <title>Battle Selector Preview</title>
+    <title>Practice Mode Preview</title>
     <link type="text/rcss" href="../shared/ui_music_bars.rcss"/>
     <style>
         body {
@@ -505,7 +505,7 @@
 
         <div id="selector-stage">
             <div id="selector-stage-outline"></div>
-            <div id="stage-kicker">BATTLE SELECTOR</div>
+            <div id="stage-kicker">PRACTICE MODE</div>
             <div id="stage-title">SELECT A RIVAL</div>
             <div id="boss-track"></div>
 

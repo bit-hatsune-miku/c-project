@@ -61,10 +61,10 @@ inline constexpr std::array<MainMenuPresentation, 5> kMainMenuPresentation{{
      "menu-button-label-start",
      "menu-button-detail-start",
      "01",
-     "PLAY",
-     "CHAPTER 0 / STORY",
-     "ENTER THE OPENING SIGNAL",
-     "Start chapter 0 from the first scene of the visual novel."},
+     "STORY MODE",
+     "CONTINUE / NEW GAME",
+     "CONTINUE THE NARRATIVE",
+     "Resume the latest valid save, or start from the beginning if none exists."},
     {MainMenuAction::Load,
      "menu-button-load",
      "menu-button-code-load",
@@ -81,9 +81,9 @@ inline constexpr std::array<MainMenuPresentation, 5> kMainMenuPresentation{{
      "menu-button-label-battle",
      "menu-button-detail-battle",
      "03",
-     "BATTLE SELECTOR",
+     "PRACTICE MODE",
      "BOSS LINEUP / STORY ENTRY",
-     "OPEN THE BATTLE SELECTOR",
+     "OPEN THE PRACTICE MODE TO REPLAY COMPLETED STORIES",
      "Browse bosses, preview progress, and launch a battle or its linked story scene."},
     {MainMenuAction::Settings,
      "menu-button-settings",
@@ -244,6 +244,7 @@ bool mapWindowPointToReference(float windowX, float windowY, int windowWidth, in
 void beginStory(AppState& state,
                 const std::string& scriptRef = std::string(),
                 ScreenState endReturnScreen = ScreenState::MainMenu);
+bool beginStoryMode(AppState& state, Window& window);
 void beginBossSelector(AppState& state);
 void beginBattleDemo(AppState& state);
 void beginBattle(AppState& state, int battleId);  // dispatches to the right battle by ID

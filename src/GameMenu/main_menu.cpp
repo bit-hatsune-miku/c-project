@@ -36,7 +36,7 @@ struct MenuButton {
 };
 
 constexpr std::array<MenuButton, 5> kMenuButtons{{
-    {MainMenuAction::Start, "Start", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 246.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
+    {MainMenuAction::Start, "Story Mode", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 246.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
     {MainMenuAction::Load, "Load", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 320.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
     {MainMenuAction::Battle, "Battle Selector", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 394.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
     {MainMenuAction::Settings, "Settings", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 468.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
@@ -139,7 +139,7 @@ private:
     void activate(AppState& state, Window& window, MainMenuAction action) const {
         switch (action) {
             case MainMenuAction::Start:
-                beginStory(state);
+                (void)beginStoryMode(state, window);
                 break;
             case MainMenuAction::Load:
                 openLoadMenu(state, ScreenState::MainMenu);
@@ -307,7 +307,7 @@ void applyMainMenuAction(AppState& state, Window& window, MainMenuAction action)
 
     switch (action) {
         case MainMenuAction::Start:
-            beginStory(state);
+            (void)beginStoryMode(state, window);
             break;
         case MainMenuAction::Load:
             openLoadMenu(state, ScreenState::MainMenu);
