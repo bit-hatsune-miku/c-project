@@ -60,6 +60,7 @@ private:
     bool rollFinished_ = false;
     bool speedupHeld_ = false;
     bool openingFinished_ = false;
+    float arrowSpeedMultiplier_ = 1.0f;
     float currentTop_ = 0.0f;
     float startTop_ = 0.0f;
     float endTop_ = 0.0f;

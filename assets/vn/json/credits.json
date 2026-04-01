@@ -1,152 +1,91 @@
 {
   "kicker": "ENDING SIGNAL / STAFF ROLL",
   "title": "CREDITS",
-  "subtitle": "A retrospective crawl through the route, the cast, the noise, and the people reckless enough to keep the signal alive.",
+  "subtitle": "Combat systems, RmlUi migration, narrative integration, and the team that built BIT's underground idol route.",
   "groupImage": "assets/vn/backgrounds/credits/group_cast_placeholder.png",
-  "groupPlaceholderTitle": "GROUP ILLUSTRATION PENDING",
-  "groupPlaceholderCopy": "Miku centered, full cast grouped around her. Slot reserved for Lyes' final art once the roster is complete.",
-  "groupImageCaption": "Group illustration by Lyes. Placeholder path reserved until the full cast piece is ready, with Miku centered in frame.",
+  "groupPlaceholderTitle": "TEAM SIGNAL / PHASE 1-2 BUILD",
+  "groupPlaceholderCopy": "LYES / JADEN / TIMOTHY / ANMOL / REVELL / RUSSEL",
+  "groupImageCaption": "IN-GAME DEVELOPMENT CREDITS DRAWN FROM THE PHASE 1 AND PHASE 2 PROJECT LOGS.",
   "returnPrompt": "PRESS ANY KEY OR CLICK TO RETURN TO MAIN MENU",
   "blocks": [
     {
-      "kicker": "SIGNAL ONE / OPENING",
-      "heading": "OUR UNDERGROUND BIT IDOL",
+      "kicker": "FOUNDATION LAYER",
+      "heading": "CORE COMBAT & CHARACTER SYSTEMS",
       "layout": "center",
       "entries": [
-        "ANMOL VARGHESE",
-        "TIMOTHY PILLAI",
-        "REVELL JOSE",
-        "RUSSEL REJI"
+        "LYES",
+        "TURN-BASED CORE, BOSSES, ULTIMATES",
+        "RHYTHM PHASE, SHIELDS, QR ATTACK",
+        "2.5D CAMERA, PRESENTATION, AUDIO SYNC",
+        "VN-BATTLE TRIGGERS AND STORY FUSION"
       ]
     },
     {
-      "kicker": "RETROSPECTIVE FRAME",
-      "heading": "STORY & DIRECTION",
-      "layout": "split",
-      "image": "assets/vn/backgrounds/ch0/0.jpg",
-      "imageLabel": "CHAPTER 0 / OPENING SIGNAL",
-      "imageCaption": "The route starts loud, awkward, and way too sincere to stop halfway through.",
-      "entries": [
-        "ANMOL VARGHESE",
-        "TIMOTHY PILLAI",
-        "NORA VEIL",
-        "JUNO STATIC"
-      ]
-    },
-    {
-      "kicker": "CAST LOAD",
-      "heading": "CHARACTER PERFORMANCE",
-      "layout": "center",
-      "entries": [
-        "MIKU AOKI",
-        "CUPCAKKE VEGA",
-        "LYOO NIGHTSHADE",
-        "JIAFEI STARLING",
-        "ARI MERIDIAN",
-        "LUOTIANYI BLUE"
-      ]
-    },
-    {
-      "kicker": "SCENE MEMORY",
-      "heading": "VISUAL DEVELOPMENT",
-      "layout": "split",
-      "image": "assets/vn/backgrounds/ch0/5.png",
-      "imageLabel": "UNDERGROUND VENUE / ENTRY POINT",
-      "imageCaption": "Back alleys, lecture halls, and the wrong kind of destiny all got the same glam pass.",
-      "entries": [
-        "LYES AURORA",
-        "MIRA DOTGRID",
-        "ELI SERRANO",
-        "KAI LATTICE"
-      ]
-    },
-    {
-      "kicker": "SYSTEM STACK",
-      "heading": "PROGRAMMING & BATTLE FLOW",
-      "layout": "center",
-      "entries": [
-        "TIMOTHY PILLAI",
-        "IVY CIRCUIT",
-        "MARCEL VANTAGE",
-        "SOREN PULSE",
-        "YUNA CHECKSUM"
-      ]
-    },
-    {
-      "kicker": "SCENE MEMORY",
-      "heading": "MUSIC, VOICE & CHAOS",
+      "kicker": "PLATFORM STACK",
+      "heading": "PLATFORM, BUILDS & BATTLE UI",
       "layout": "split",
       "image": "assets/vn/backgrounds/ch4/1.png",
-      "imageLabel": "BATTLE ROUTE / STAGE PRESSURE",
-      "imageCaption": "Every menu click, breakdown, and impossible setpiece needed somebody to make it sing anyway.",
+      "imageLabel": "WINDOWS PIPELINE / BATTLE UI",
+      "imageCaption": "Build stability, platform fixes, and RmlUi battle work that kept the project shippable across environments.",
       "entries": [
-        "JUNO STATIC",
-        "RHEA AFTERGLOW",
-        "KIKO PHASE",
-        "MILO BACKBEAT"
+        "JADEN",
+        "WINDOWS CI AND PACKAGING",
+        "OPENGL FIXES AND BUILD CLEANUP",
+        "RMLUI BATTLE HUD",
+        "PARTY SELECTOR, CJK TEXT, TOOLING"
       ]
     },
     {
-      "kicker": "POSTER MODE",
-      "heading": "UI, TYPE & PRESENTATION",
+      "kicker": "FRONTEND SHIFT",
+      "heading": "MENUS, SAVE FLOW & FRONTEND",
       "layout": "center",
       "entries": [
-        "LINA HALATION",
-        "ORION FADER",
-        "PIPER COMET",
-        "NOEL VECTOR"
+        "TIMOTHY",
+        "MAIN MENU, PAUSE, SETTINGS",
+        "BATTLE ACCESS AND SAVE-LOAD FLOW",
+        "RMLUI FRONTEND MIGRATION",
+        "VN TEXT SCROLL AND UI POLISH"
       ]
     },
     {
-      "kicker": "RECOVERY LOG",
-      "heading": "QA, FIXES & LAST-MINUTE RESCUES",
+      "kicker": "DATA BANK",
+      "heading": "DATA, CONFIG & CHARACTER KITS",
       "layout": "split",
-      "image": "assets/vn/backgrounds/ch5/1.png",
-      "imageLabel": "LATE CHAPTER / SYSTEM STRESS",
-      "imageCaption": "The build survived because somebody kept reopening the project after it should have been called done.",
+      "image": "assets/vn/backgrounds/ch0/5.png",
+      "imageLabel": "JSON FLOW / SUPPORT LAYER",
+      "imageCaption": "Configuration structure, save-data support, and character-kit support that held the content pipeline together.",
       "entries": [
-        "SABLE HOTFIX",
-        "TARA PATCHCORD",
-        "RUNE NULLCHECK",
-        "GIO ROLLBACK"
+        "ANMOL",
+        "JSON SAVE-DATA SUPPORT",
+        "CHARACTER KIT SUPPORT",
+        "TECHNICAL REVIEW AND CONSISTENCY"
       ]
     },
     {
-      "kicker": "FINAL APPROACH",
-      "heading": "ROUTE MEMORY / FINALE",
+      "kicker": "STORY SIGNAL",
+      "heading": "NARRATIVE, VN BOOKENDS & LORE",
+      "layout": "center",
+      "entries": [
+        "REVELL",
+        "MAIN STORY, LORE, STORY BRANCHES",
+        "BOOKEND WRITING AND CHARACTER CONTEXT",
+        "LYES",
+        "VN-BATTLE STORY INTEGRATION"
+      ]
+    },
+    {
+      "kicker": "CAST SUPPORT",
+      "heading": "PLAYER KITS, ASSETS & BALANCE",
       "layout": "split",
       "image": "assets/vn/backgrounds/finale/1.png",
-      "imageLabel": "FINALE / AFTERGLOW",
-      "imageCaption": "Where the campus melodrama mutates into a last-breath spectacle and somehow still lands emotionally.",
+      "imageLabel": "PLAYER KIT / FEEDBACK LOOP",
+      "imageCaption": "Support work across assets, kits, playtesting, and balance feedback that sharpened the final playable cast.",
       "entries": [
-        "TIMOTHY PILLAI",
-        "LYES AURORA",
-        "ANMOL VARGHESE",
-        "REVELL JOSE"
-      ]
-    },
-    {
-      "kicker": "CAMPUS CONSTELLATION",
-      "heading": "BIT CAMPUS ALL-STARS",
-      "layout": "center",
-      "entries": [
-        "JADEN QUASAR",
-        "MILA CROSSFADE",
-        "EZRA MIDNIGHT",
-        "NIA AFTERIMAGE",
-        "KAI STATIC",
-        "VIOLET KEYCHANGE"
-      ]
-    },
-    {
-      "kicker": "CAMPUS ECHO",
-      "heading": "SPECIAL THANKS",
-      "layout": "center",
-      "entries": [
-        "THE BIT UNDERGROUND",
-        "EVERYONE WHO STAYED UP TOO LATE",
-        "EVERYONE WHO SAID THE JOKE WAS TOO MUCH",
-        "EVERYONE WHO SAID MAKE IT WORSE"
+        "RUSSEL",
+        "PLAYER KIT AND ASSET SUPPORT",
+        "TIERLIST AND BALANCE FEEDBACK",
+        "REVELL",
+        "CHARACTER KIT SUPPORT AND PLAYTESTING"
       ]
     }
   ]

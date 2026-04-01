@@ -1,6 +1,7 @@
 #include "front_ui_credits.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <filesystem>
 #include <functional>
@@ -21,11 +22,15 @@ constexpr const char* kMainMenuLogoRelativePath = "assets/vn/backgrounds/General
 constexpr float kReferenceWidth = 1280.0f;
 constexpr float kReferenceHeight = 720.0f;
 constexpr float kCreditsScrollSpeedDpPerSecond = 54.0f;
+constexpr float kCreditsDefaultSpeedMultiplier = 1.5f;
+constexpr float kCreditsMinimumSpeedMultiplier = 1.0f;
 constexpr float kCreditsEndPaddingDp = 94.0f;
 constexpr float kVisualActiveHoldDistanceDp = 144.0f;
 constexpr float kVisualTransitionSeconds = 0.5f;
 constexpr float kVisualTextDelaySeconds = 0.5f;
 constexpr float kCreditsSpeedupMultiplier = 3.2f;
+constexpr float kCreditsArrowSpeedStepFactor = 2.0f;
+constexpr float kCreditsArrowSpeedMultiplierCap = 32.0f;
 constexpr float kOpeningBlackSeconds = 0.8f;
 constexpr float kOpeningTitleFadeInSeconds = 0.55f;
 constexpr float kOpeningTitleHoldSeconds = 2.0f;
@@ -127,7 +132,48 @@ std::string blockLayoutClass(const game::credits::CreditsBlock& block) {
     if (block.layout == "split") {
         return "credits-block credits-block-split";
     }
-    return "credits-block credits-block-center";
+    if (block.textAlign == "left") {
+        return "credits-block credits-block-center credits-copy-align-left";
+    }
+    return "credits-block credits-block-center credits-copy-align-center";
+}
+
+bool blockUsesVisualColumn(const game::credits::CreditsBlock& block) {
+    return block.layout == "split";
+}
+
+bool isNicknameEntry(const std::string& entry) {
+    if (entry.empty()) {
+        return false;
+    }
+
+    bool hasLetter = false;
+    for (char ch : entry) {
+        const unsigned char uch = static_cast<unsigned char>(ch);
+        if (std::isspace(uch)) {
+            return false;
+        }
+        if (std::isalpha(uch)) {
+            hasLetter = true;
+        }
+        if (!(std::isalnum(uch) || ch == '_' || ch == '-')) {
+            return false;
+        }
+    }
+
+    return hasLetter;
+}
+
+void appendBlockEntries(std::string& markup, const std::vector<std::string>& entries) {
+    for (std::size_t entryIndex = 0; entryIndex < entries.size(); ++entryIndex) {
+        const char* entryClass = isNicknameEntry(entries[entryIndex]) ? "credits-entry credits-entry-name"
+                                                                      : "credits-entry credits-entry-detail";
+        markup += "<div class='";
+        markup += entryClass;
+        markup += "'>";
+        markup += escapeRmlText(entries[entryIndex]);
+        markup += "</div>";
+    }
 }
 
 std::string creditsMarkup(const game::credits::CreditsData& creditsData, const Rml::ElementDocument& document) {
@@ -157,15 +203,14 @@ std::string creditsMarkup(const game::credits::CreditsData& creditsData, const R
         const std::string blockId = "credits-block-" + std::to_string(index);
         markup += "<div id='" + blockId + "' class='" + blockLayoutClass(block) + "'>";
 
-        if (block.layout == "split") {
-            markup += "<div id='credits-copy-" + std::to_string(index) + "' class='credits-block-split-copy credits-block-center-copy'>";
+        if (blockUsesVisualColumn(block)) {
+            markup += "<div id='credits-copy-" + std::to_string(index) +
+                      "' class='credits-block-split-copy credits-copy-align-center'>";
             if (!block.kicker.empty()) {
                 markup += "<div class='credits-block-kicker'>" + escapeRmlText(block.kicker) + "</div>";
             }
             markup += "<div class='credits-section-heading'>" + escapeRmlText(block.heading) + "</div>";
-            for (const std::string& entry : block.entries) {
-                markup += "<div class='credits-entry'>" + escapeRmlText(entry) + "</div>";
-            }
+            appendBlockEntries(markup, block.entries);
             markup += "</div>";
 
             markup += "<div id='credits-visual-shell-" + std::to_string(index) + "' class='credits-block-split-visual'>";
@@ -191,9 +236,7 @@ std::string creditsMarkup(const game::credits::CreditsData& creditsData, const R
                 markup += "<div class='credits-block-kicker'>" + escapeRmlText(block.kicker) + "</div>";
             }
             markup += "<div class='credits-section-heading'>" + escapeRmlText(block.heading) + "</div>";
-            for (const std::string& entry : block.entries) {
-                markup += "<div class='credits-entry'>" + escapeRmlText(entry) + "</div>";
-            }
+            appendBlockEntries(markup, block.entries);
         }
 
         markup += "</div>";
@@ -231,41 +274,36 @@ game::credits::CreditsData fallbackCreditsData() {
     game::credits::CreditsData creditsData;
     creditsData.kicker = "FINAL SIGNAL / STAFF ROLL";
     creditsData.title = "CREDITS";
-    creditsData.subtitle = "Credits JSON failed to load. This fallback exists so the screen still renders while the data file is being repaired.";
+    creditsData.subtitle = "Combat systems, RmlUi migration, narrative integration, and the team that built BIT's underground idol route.";
     creditsData.groupImage = "assets/vn/backgrounds/credits/group_cast_placeholder.png";
-    creditsData.groupPlaceholderTitle = "GROUP ILLUSTRATION PENDING";
-    creditsData.groupPlaceholderCopy =
-        "Miku centered, full cast grouped around her. Slot reserved for Lyes' final art once the roster is complete.";
-    creditsData.groupImageCaption = "GROUP IMAGE SLOT RESERVED FOR LYES";
+    creditsData.groupPlaceholderTitle = "TEAM SIGNAL / PHASE 1-2 BUILD";
+    creditsData.groupPlaceholderCopy = "LYES / JADEN / TIMOTHY / ANMOL / REVELL / RUSSEL";
+    creditsData.groupImageCaption = "IN-GAME DEVELOPMENT CREDITS DRAWN FROM THE PHASE 1 AND PHASE 2 PROJECT LOGS.";
     creditsData.returnPrompt = "PRESS ANY KEY OR CLICK TO RETURN TO MAIN MENU";
     creditsData.blocks = {
-        {"SIGNAL ONE / OPENING", "OUR UNDERGROUND BIT IDOL", "center", "", "", "",
-         {"ANMOL VARGHESE", "TIMOTHY PILLAI", "REVELL JOSE", "RUSSEL REJI"}},
-        {"RETROSPECTIVE FRAME", "STORY & DIRECTION", "split", "assets/vn/backgrounds/ch0/0.jpg",
-         "CHAPTER 0 / OPENING SIGNAL", "The route starts loud, awkward, and way too sincere to stop halfway through.",
-         {"ANMOL VARGHESE", "TIMOTHY PILLAI", "NORA VEIL", "JUNO STATIC"}},
-        {"CAST LOAD", "CHARACTER PERFORMANCE", "center", "", "", "",
-         {"MIKU AOKI", "CUPCAKKE VEGA", "LYOO NIGHTSHADE", "JIAFEI STARLING", "ARI MERIDIAN", "LUOTIANYI BLUE"}},
-        {"SCENE MEMORY", "VISUAL DEVELOPMENT", "split", "assets/vn/backgrounds/ch0/5.png",
-         "UNDERGROUND VENUE / ENTRY POINT", "Back alleys, lecture halls, and the wrong kind of destiny all got the same glam pass.",
-         {"LYES AURORA", "MIRA DOTGRID", "ELI SERRANO", "KAI LATTICE"}},
-        {"SYSTEM STACK", "PROGRAMMING & BATTLE FLOW", "center", "", "", "",
-         {"TIMOTHY PILLAI", "IVY CIRCUIT", "MARCEL VANTAGE", "SOREN PULSE", "YUNA CHECKSUM"}},
-        {"SCENE MEMORY", "MUSIC, VOICE & CHAOS", "split", "assets/vn/backgrounds/ch4/1.png",
-         "BATTLE ROUTE / STAGE PRESSURE", "Every menu click, breakdown, and impossible setpiece needed somebody to make it sing anyway.",
-         {"JUNO STATIC", "RHEA AFTERGLOW", "KIKO PHASE", "MILO BACKBEAT"}},
-        {"POSTER MODE", "UI, TYPE & PRESENTATION", "center", "", "", "",
-         {"LINA HALATION", "ORION FADER", "PIPER COMET", "NOEL VECTOR"}},
-        {"RECOVERY LOG", "QA, FIXES & LAST-MINUTE RESCUES", "split", "assets/vn/backgrounds/ch5/1.png",
-         "LATE CHAPTER / SYSTEM STRESS", "The build survived because somebody kept reopening the project after it should have been called done.",
-         {"SABLE HOTFIX", "TARA PATCHCORD", "RUNE NULLCHECK", "GIO ROLLBACK"}},
-        {"FINAL APPROACH", "ROUTE MEMORY / FINALE", "split", "assets/vn/backgrounds/finale/1.png",
-         "FINALE / AFTERGLOW", "Where the campus melodrama mutates into a last-breath spectacle and somehow still lands emotionally.",
-         {"TIMOTHY PILLAI", "LYES AURORA", "ANMOL VARGHESE", "REVELL JOSE"}},
-        {"CAMPUS CONSTELLATION", "BIT CAMPUS ALL-STARS", "center", "", "", "",
-         {"JADEN QUASAR", "MILA CROSSFADE", "EZRA MIDNIGHT", "NIA AFTERIMAGE", "KAI STATIC", "VIOLET KEYCHANGE"}},
-        {"CAMPUS ECHO", "SPECIAL THANKS", "center", "", "", "",
-         {"THE BIT UNDERGROUND", "EVERYONE WHO STAYED UP TOO LATE", "EVERYONE WHO SAID THE JOKE WAS TOO MUCH", "EVERYONE WHO SAID MAKE IT WORSE"}},
+        {"FOUNDATION LAYER", "CORE COMBAT & CHARACTER SYSTEMS", "center", "center", "", "", "",
+         {"LYES", "TURN-BASED CORE, BOSSES, ULTIMATES", "RHYTHM PHASE, SHIELDS, QR ATTACK",
+          "2.5D CAMERA, PRESENTATION, AUDIO SYNC", "VN-BATTLE TRIGGERS AND STORY FUSION"}},
+        {"PLATFORM STACK", "PLATFORM, BUILDS & BATTLE UI", "split", "center", "assets/vn/backgrounds/ch4/1.png",
+         "WINDOWS PIPELINE / BATTLE UI",
+         "Build stability, platform fixes, and RmlUi battle work that kept the project shippable across environments.",
+         {"JADEN", "WINDOWS CI AND PACKAGING", "OPENGL FIXES AND BUILD CLEANUP", "RMLUI BATTLE HUD",
+          "PARTY SELECTOR, CJK TEXT, TOOLING"}},
+        {"FRONTEND SHIFT", "MENUS, SAVE FLOW & FRONTEND", "center", "center", "", "", "",
+         {"TIMOTHY", "MAIN MENU, PAUSE, SETTINGS", "BATTLE ACCESS AND SAVE-LOAD FLOW",
+          "RMLUI FRONTEND MIGRATION", "VN TEXT SCROLL AND UI POLISH"}},
+        {"DATA BANK", "DATA, CONFIG & CHARACTER KITS", "split", "center", "assets/vn/backgrounds/ch0/5.png",
+         "JSON FLOW / SUPPORT LAYER",
+         "Configuration structure, save-data support, and character-kit support that held the content pipeline together.",
+         {"ANMOL", "JSON SAVE-DATA SUPPORT", "CHARACTER KIT SUPPORT", "TECHNICAL REVIEW AND CONSISTENCY"}},
+        {"STORY SIGNAL", "NARRATIVE, VN BOOKENDS & LORE", "center", "center", "", "", "",
+         {"REVELL", "MAIN STORY, LORE, STORY BRANCHES", "BOOKEND WRITING AND CHARACTER CONTEXT", "LYES",
+          "VN-BATTLE STORY INTEGRATION"}},
+        {"CAST SUPPORT", "PLAYER KITS, ASSETS & BALANCE", "split", "center", "assets/vn/backgrounds/finale/1.png",
+         "PLAYER KIT / FEEDBACK LOOP",
+         "Support work across assets, kits, playtesting, and balance feedback that sharpened the final playable cast.",
+         {"RUSSEL", "PLAYER KIT AND ASSET SUPPORT", "TIERLIST AND BALANCE FEEDBACK", "REVELL",
+          "CHARACTER KIT SUPPORT AND PLAYTESTING"}},
     };
     return creditsData;
 }
@@ -286,6 +324,7 @@ bool CreditsDocumentController::bind(Rml::ElementDocument& document, const AppSt
     rollFinished_ = false;
     speedupHeld_ = false;
     openingFinished_ = false;
+    arrowSpeedMultiplier_ = kCreditsDefaultSpeedMultiplier;
     currentTop_ = 0.0f;
     startTop_ = 0.0f;
     endTop_ = 0.0f;
@@ -350,6 +389,20 @@ void CreditsDocumentController::handleKeyDown(const SDL_KeyboardEvent& event) {
 
     if (event.keysym.sym == SDLK_SPACE && !rollFinished_) {
         speedupHeld_ = true;
+        return;
+    }
+
+    if (!rollFinished_ && event.repeat == 0 && event.keysym.sym == SDLK_DOWN) {
+        arrowSpeedMultiplier_ =
+            std::min(kCreditsArrowSpeedMultiplierCap,
+                     arrowSpeedMultiplier_ * kCreditsArrowSpeedStepFactor);
+        return;
+    }
+
+    if (!rollFinished_ && event.repeat == 0 && event.keysym.sym == SDLK_UP) {
+        arrowSpeedMultiplier_ =
+            std::max(kCreditsMinimumSpeedMultiplier,
+                     arrowSpeedMultiplier_ / kCreditsArrowSpeedStepFactor);
         return;
     }
 
@@ -424,7 +477,9 @@ void CreditsDocumentController::updateScroll(float deltaSeconds) {
         return;
     }
 
-    const float speedMultiplier = speedupHeld_ ? kCreditsSpeedupMultiplier : 1.0f;
+    const float speedMultiplier =
+        arrowSpeedMultiplier_ *
+        (speedupHeld_ ? kCreditsSpeedupMultiplier : 1.0f);
     const float scrollSpeedPxPerSecond = scaledDp(kCreditsScrollSpeedDpPerSecond, layoutScale_);
     currentTop_ = std::max(endTop_, currentTop_ - (scrollSpeedPxPerSecond * speedMultiplier * deltaSeconds));
     setScrollTop(currentTop_);
@@ -489,7 +544,7 @@ void CreditsDocumentController::initializeScrollMetrics() {
 
     bool splitBlockHeightChanged = false;
     for (std::size_t index = 0; index < creditsData_.blocks.size(); ++index) {
-        if (creditsData_.blocks[index].layout != "split") {
+        if (!blockUsesVisualColumn(creditsData_.blocks[index])) {
             continue;
         }
 
@@ -537,7 +592,7 @@ void CreditsDocumentController::initializeScrollMetrics() {
     setScrollTop(currentTop_);
 
     for (std::size_t index = 0; index < creditsData_.blocks.size(); ++index) {
-        if (creditsData_.blocks[index].layout != "split") {
+        if (!blockUsesVisualColumn(creditsData_.blocks[index])) {
             continue;
         }
 

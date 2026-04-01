@@ -257,8 +257,12 @@ body {
     width: 332dp;
 }
 
-.credits-block-center-copy {
+.credits-copy-align-center {
     text-align: center;
+}
+
+.credits-copy-align-left {
+    text-align: left;
 }
 
 .credits-block-kicker {
@@ -281,11 +285,20 @@ body {
 
 .credits-entry {
     display: block;
-    margin-top: 14dp;
-    font-size: 18dp;
-    font-weight: bold;
-    letter-spacing: 1.2dp;
+    margin-top: 12dp;
     color: #f7f7fb;
+}
+
+.credits-entry-name {
+    font-size: 19dp;
+    font-weight: bold;
+    letter-spacing: 1.4dp;
+}
+
+.credits-entry-detail {
+    font-size: 14dp;
+    font-weight: normal;
+    letter-spacing: 0.8dp;
 }
 
 .credits-visual-label {

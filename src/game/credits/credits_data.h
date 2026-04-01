@@ -9,6 +9,7 @@ struct CreditsBlock {
     std::string kicker;
     std::string heading;
     std::string layout;
+    std::string textAlign;
     std::string image;
     std::string imageLabel;
     std::string imageCaption;
