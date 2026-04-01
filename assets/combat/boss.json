@@ -42,6 +42,7 @@
             "skill": {
                 "id": "IfICantHaveWingsThenIllJustLetTheSkyFall",
                 "name": "If I can't have wings, then I'll just let the sky fall",
+                "instructionHint": "Lyoo is able to one shot characters. It is recommended to pair a shielder AND a healer.",
                 "type": "attack",
                 "targetRule": "all_enemies",
                 "multiplier": 1.25,

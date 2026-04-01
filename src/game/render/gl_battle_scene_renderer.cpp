@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "../../platform/path_resolution.h"
+#include "battle_backdrop_projection.h"
 #include "../presentation/ari_boss_presentation.h"
 #include "../presentation/lyoo_boss_presentation.h"
 #include "../presentation/lyoo_plot_twist_presentation.h"
@@ -30,7 +31,11 @@ constexpr int kSuggestedBaseSpriteHeight = 260;
 constexpr float kSpriteFrameTime = 0.15f;
 constexpr float kFloorNearClipDepth = 1.0f;
 constexpr float kClipEpsilon = 0.0001f;
+constexpr int kMaxFloorTilesX = 20;
+constexpr int kMaxFloorTilesY = 20;
 constexpr float kPi = 3.14159265f;
+constexpr SDL_Color kDefaultFloorBaseColor{46, 49, 60, 255};
+constexpr SDL_Color kDefaultFloorAccentColor{52, 56, 69, 255};
 
 constexpr float kLyooPlotIntroDurationSeconds = 2.40f;
 constexpr float kLyooPlotTransitionDurationSeconds = 0.55f;
@@ -204,6 +209,40 @@ int clipFloorQuadToNearPlane(const std::array<FloorVertex, 4>& input, std::array
         }
     }
     return outCount;
+}
+
+bool isOffscreen(float x, float y, float width, float height, int screenWidth, int screenHeight, float margin = 200.0f) {
+    return x + width < -margin ||
+           x > static_cast<float>(screenWidth) + margin ||
+           y + height < -margin ||
+           y > static_cast<float>(screenHeight) + margin;
+}
+
+bool sameColor(SDL_Color lhs, SDL_Color rhs) {
+    return lhs.r == rhs.r &&
+           lhs.g == rhs.g &&
+           lhs.b == rhs.b &&
+           lhs.a == rhs.a;
+}
+
+std::string colorKey(SDL_Color color) {
+    char buffer[16];
+    std::snprintf(buffer,
+                  sizeof(buffer),
+                  "%02X%02X%02X%02X",
+                  static_cast<unsigned>(color.r),
+                  static_cast<unsigned>(color.g),
+                  static_cast<unsigned>(color.b),
+                  static_cast<unsigned>(color.a));
+    return std::string(buffer);
+}
+
+std::string makeStageTextureKey(const char* prefix, const std::string& path) {
+    return std::string(prefix == nullptr ? "stage" : prefix) + ":" + path;
+}
+
+std::string makeGeneratedFloorKey(SDL_Color baseColor, SDL_Color accentColor) {
+    return "stage:generated-floor:" + colorKey(baseColor) + ":" + colorKey(accentColor);
 }
 
 std::string makeLyooBossFrameKey(int index) {
@@ -391,6 +430,58 @@ bool GlBattleSceneRenderer::ensureWorldAssets(const std::vector<std::string>& as
     return ok;
 }
 
+bool GlBattleSceneRenderer::ensureStageAssets(const StageDefinition& stage) {
+    bool ok = true;
+
+    if (!stage.floor.texturePath.empty()) {
+        const std::string resolvedPath = platform::path::resolvePath(stage.floor.texturePath);
+        const TextureInfo texture = ensureSpecialTexture(makeStageTextureKey("stage:floor", resolvedPath),
+                                                         resolvedPath);
+        if (texture.id == 0) {
+            ok = false;
+        }
+    } else {
+        (void)ensureGeneratedFloorTexture(stage.floor.baseColor, stage.floor.accentColor);
+    }
+
+    if (!stage.backdrop.imagePath.empty()) {
+        const std::string resolvedPath = platform::path::resolvePath(stage.backdrop.imagePath);
+        const TextureInfo texture = ensureSpecialTexture(makeStageTextureKey("stage:backdrop", resolvedPath),
+                                                         resolvedPath);
+        if (texture.id == 0) {
+            ok = false;
+        }
+    }
+    for (size_t faceIndex = 0; faceIndex < kStageSkyboxFaceCount; ++faceIndex) {
+        const StageSkyboxFace face = static_cast<StageSkyboxFace>(faceIndex);
+        const std::string& facePath = stageSkyboxFacePath(stage.backdrop.skybox, face);
+        if (facePath.empty()) {
+            continue;
+        }
+
+        const std::string resolvedPath = platform::path::resolvePath(facePath);
+        const TextureInfo texture = ensureSpecialTexture(makeStageTextureKey("stage:skybox", resolvedPath),
+                                                         resolvedPath);
+        if (texture.id == 0) {
+            ok = false;
+        }
+    }
+
+    for (const StagePropDefinition& prop : stage.props) {
+        if (prop.texturePath.empty()) {
+            continue;
+        }
+        const std::string resolvedPath = platform::path::resolvePath(prop.texturePath);
+        const TextureInfo texture = ensureSpecialTexture(makeStageTextureKey("stage:prop", resolvedPath),
+                                                         resolvedPath);
+        if (texture.id == 0) {
+            ok = false;
+        }
+    }
+
+    return ok;
+}
+
 GlBattleSceneRenderer::TextureInfo GlBattleSceneRenderer::ensureWorldTexture(const std::string& assetName) {
     if (const auto it = worldTextures_.find(assetName); it != worldTextures_.end()) {
         return it->second;
@@ -414,8 +505,20 @@ GlBattleSceneRenderer::TextureInfo GlBattleSceneRenderer::ensureSpecialTexture(c
 }
 
 GlBattleSceneRenderer::TextureInfo GlBattleSceneRenderer::ensureGeneratedFloorTexture() {
-    if (floorTexture_.id != 0) {
+    return ensureGeneratedFloorTexture(kDefaultFloorBaseColor, kDefaultFloorAccentColor);
+}
+
+GlBattleSceneRenderer::TextureInfo GlBattleSceneRenderer::ensureGeneratedFloorTexture(SDL_Color baseColor,
+                                                                                      SDL_Color accentColor) {
+    if (sameColor(baseColor, kDefaultFloorBaseColor) &&
+        sameColor(accentColor, kDefaultFloorAccentColor) &&
+        floorTexture_.id != 0) {
         return floorTexture_;
+    }
+
+    const std::string textureKey = makeGeneratedFloorKey(baseColor, accentColor);
+    if (const auto it = specialTextures_.find(textureKey); it != specialTextures_.end()) {
+        return it->second;
     }
 
     constexpr int texSize = 64;
@@ -425,8 +528,8 @@ GlBattleSceneRenderer::TextureInfo GlBattleSceneRenderer::ensureGeneratedFloorTe
         return {};
     }
 
-    const Uint32 c0 = SDL_MapRGBA(surface->format, 46, 49, 60, 255);
-    const Uint32 c1 = SDL_MapRGBA(surface->format, 52, 56, 69, 255);
+    const Uint32 c0 = SDL_MapRGBA(surface->format, baseColor.r, baseColor.g, baseColor.b, baseColor.a);
+    const Uint32 c1 = SDL_MapRGBA(surface->format, accentColor.r, accentColor.g, accentColor.b, accentColor.a);
 
     SDL_Rect rect{0, 0, cell, cell};
     for (int y = 0; y < texSize; y += cell) {
@@ -438,8 +541,15 @@ GlBattleSceneRenderer::TextureInfo GlBattleSceneRenderer::ensureGeneratedFloorTe
         }
     }
 
-    floorTexture_ = makeTextureFromSurface(surface, GL_LINEAR);
-    return floorTexture_;
+    TextureInfo texture = makeTextureFromSurface(surface, GL_LINEAR);
+    if (sameColor(baseColor, kDefaultFloorBaseColor) &&
+        sameColor(accentColor, kDefaultFloorAccentColor)) {
+        floorTexture_ = texture;
+        return floorTexture_;
+    }
+
+    specialTextures_[textureKey] = texture;
+    return texture;
 }
 
 GlBattleSceneRenderer::TextureInfo GlBattleSceneRenderer::ensureSolidWhiteTexture() {
@@ -588,9 +698,42 @@ void GlBattleSceneRenderer::appendFilledRect(std::vector<Vertex>& vertices,
     appendQuad(vertices, x, y, x + width, y + height, 0.0f, 0.0f, 1.0f, 1.0f, color);
 }
 
-void GlBattleSceneRenderer::renderWorld(const battle::BattleSessionCore::BattleFrameSnapshot& snapshot,
-                                        int screenWidth,
-                                        int screenHeight) {
+void GlBattleSceneRenderer::appendVerticalGradientRect(std::vector<Vertex>& vertices,
+                                                       float x,
+                                                       float y,
+                                                       float width,
+                                                       float height,
+                                                       SDL_Color topColor,
+                                                       SDL_Color bottomColor) const {
+    const float x0 = x;
+    const float y0 = y;
+    const float x1 = x + width;
+    const float y1 = y + height;
+
+    const auto pushVertex = [&vertices](float px, float py, float u, float v, SDL_Color color) {
+        vertices.push_back(Vertex{
+            px,
+            py,
+            u,
+            v,
+            static_cast<float>(color.r) / 255.0f,
+            static_cast<float>(color.g) / 255.0f,
+            static_cast<float>(color.b) / 255.0f,
+            static_cast<float>(color.a) / 255.0f
+        });
+    };
+
+    pushVertex(x0, y0, 0.0f, 0.0f, topColor);
+    pushVertex(x1, y0, 1.0f, 0.0f, topColor);
+    pushVertex(x1, y1, 1.0f, 1.0f, bottomColor);
+    pushVertex(x0, y0, 0.0f, 0.0f, topColor);
+    pushVertex(x1, y1, 1.0f, 1.0f, bottomColor);
+    pushVertex(x0, y1, 0.0f, 1.0f, bottomColor);
+}
+
+void GlBattleSceneRenderer::renderStageBase(const battle::BattleSessionCore::BattleFrameSnapshot& snapshot,
+                                            int screenWidth,
+                                            int screenHeight) {
     if (program_ == 0) {
         return;
     }
@@ -598,24 +741,140 @@ void GlBattleSceneRenderer::renderWorld(const battle::BattleSessionCore::BattleF
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+    const StageDefinition fallbackStage{};
+    const StageDefinition& stage = snapshot.stage != nullptr ? *snapshot.stage : fallbackStage;
+
+    {
+        std::vector<Vertex> backdropVertices;
+        backdropVertices.reserve(6);
+        appendVerticalGradientRect(backdropVertices,
+                                   0.0f,
+                                   0.0f,
+                                   static_cast<float>(screenWidth),
+                                   static_cast<float>(screenHeight),
+                                   stage.backdrop.gradientTopColor,
+                                   stage.backdrop.gradientBottomColor);
+        drawTexturedTriangles(ensureSolidWhiteTexture().id, backdropVertices, screenWidth, screenHeight);
+    }
+
+    auto resolveBackdropTexture = [this](const std::string& texturePath,
+                                         const char* keyPrefix) -> TextureInfo {
+        if (texturePath.empty()) {
+            return {};
+        }
+
+        const std::string resolvedPath = platform::path::resolvePath(texturePath);
+        return ensureSpecialTexture(makeStageTextureKey(keyPrefix, resolvedPath), resolvedPath);
+    };
+
+    auto drawBackdropQuad = [this, screenWidth, screenHeight](GLuint textureId, const BackdropQuad& quad) {
+        if (textureId == 0) {
+            return;
+        }
+
+        std::vector<Vertex> backdropVertices;
+        backdropVertices.reserve(6);
+        appendQuad(backdropVertices,
+                   quad.x0,
+                   quad.y0,
+                   quad.x1,
+                   quad.y1,
+                   quad.u0,
+                   quad.v0,
+                   quad.u1,
+                   quad.v1,
+                   SDL_Color{255, 255, 255, 255});
+        drawTexturedTriangles(textureId, backdropVertices, screenWidth, screenHeight);
+    };
+
+    switch (stage.backdrop.mode) {
+    case StageBackdropMode::Screen: {
+        const TextureInfo texture = resolveBackdropTexture(stage.backdrop.imagePath, "stage:backdrop");
+        drawBackdropQuad(texture.id, makeFullscreenBackdropQuad(screenWidth, screenHeight));
+        break;
+    }
+    case StageBackdropMode::Parallax: {
+        const TextureInfo texture = resolveBackdropTexture(stage.backdrop.imagePath, "stage:backdrop");
+        drawBackdropQuad(texture.id,
+                         computeParallaxBackdropQuad(snapshot.camera,
+                                                     screenWidth,
+                                                     screenHeight,
+                                                     stage.backdrop.parallaxStrengthX,
+                                                     stage.backdrop.parallaxStrengthY));
+        break;
+    }
+    case StageBackdropMode::Panorama: {
+        const TextureInfo texture = resolveBackdropTexture(stage.backdrop.imagePath, "stage:backdrop");
+        if (texture.id != 0) {
+            const std::vector<BackdropQuad> quads =
+                buildPanoramaBackdropQuads(snapshot.camera, screenWidth, screenHeight);
+            for (const BackdropQuad& quad : quads) {
+                drawBackdropQuad(texture.id, quad);
+            }
+        }
+        break;
+    }
+    case StageBackdropMode::Skybox: {
+        const SkyboxBackdropBatches skyboxBatches =
+            buildSkyboxBackdropBatches(snapshot.camera, screenWidth, screenHeight);
+        for (size_t faceIndex = 0; faceIndex < skyboxBatches.size(); ++faceIndex) {
+            const StageSkyboxFace face = static_cast<StageSkyboxFace>(faceIndex);
+            const TextureInfo texture =
+                resolveBackdropTexture(stageSkyboxFacePath(stage.backdrop.skybox, face), "stage:skybox");
+            if (texture.id == 0 || skyboxBatches[faceIndex].empty()) {
+                continue;
+            }
+
+            std::vector<Vertex> skyboxVertices;
+            skyboxVertices.reserve(skyboxBatches[faceIndex].size());
+            for (const SkyboxBackdropVertex& vertex : skyboxBatches[faceIndex]) {
+                skyboxVertices.push_back(Vertex{
+                    vertex.x,
+                    vertex.y,
+                    vertex.u,
+                    vertex.v,
+                    1.0f,
+                    1.0f,
+                    1.0f,
+                    1.0f
+                });
+            }
+            drawTexturedTriangles(texture.id, skyboxVertices, screenWidth, screenHeight);
+        }
+        break;
+    }
+    }
+
     if (snapshot.renderFloor) {
         const float floorZ = 0.0f;
-        const float centerX = -300.0f;
-        const float centerY = 510.0f;
-        const float tileSize = 200.0f;
-        const int tilesX = 14;
-        const int tilesY = 16;
-        const float startX = centerX - (tilesX * tileSize * 0.5f);
-        const float startY = centerY - (tilesY * tileSize * 0.30f);
+        const float floorWidth = std::max(64.0f, stage.floor.width);
+        const float floorDepth = std::max(64.0f, stage.floor.depth);
+        const float requestedTileSize = std::max(16.0f, stage.floor.tileSize);
+        const int tilesX = std::clamp(static_cast<int>(std::ceil(floorWidth / requestedTileSize)), 1, kMaxFloorTilesX);
+        const int tilesY = std::clamp(static_cast<int>(std::ceil(floorDepth / requestedTileSize)), 1, kMaxFloorTilesY);
+        const float tileWidth = floorWidth / static_cast<float>(tilesX);
+        const float tileDepth = floorDepth / static_cast<float>(tilesY);
+        const float startX = stage.floor.centerX - floorWidth * 0.5f;
+        const float startY = stage.floor.centerY - floorDepth * 0.5f;
+
+        TextureInfo floorTexture;
+        if (!stage.floor.texturePath.empty()) {
+            const std::string resolvedFloorPath = platform::path::resolvePath(stage.floor.texturePath);
+            floorTexture = ensureSpecialTexture(makeStageTextureKey("stage:floor", resolvedFloorPath),
+                                                resolvedFloorPath);
+        }
+        if (floorTexture.id == 0) {
+            floorTexture = ensureGeneratedFloorTexture(stage.floor.baseColor, stage.floor.accentColor);
+        }
 
         std::vector<Vertex> floorVertices;
         floorVertices.reserve(static_cast<size_t>(tilesX * tilesY * 6));
         for (int ty = 0; ty < tilesY; ++ty) {
             for (int tx = 0; tx < tilesX; ++tx) {
-                const float x0 = startX + tx * tileSize;
-                const float y0 = startY + ty * tileSize;
-                const float x1 = x0 + tileSize;
-                const float y1 = y0 + tileSize;
+                const float x0 = startX + tx * tileWidth;
+                const float y0 = startY + ty * tileDepth;
+                const float x1 = x0 + tileWidth;
+                const float y1 = y0 + tileDepth;
 
                 const float d00 = snapshot.camera.getDepth(x0, y0, floorZ);
                 const float d10 = snapshot.camera.getDepth(x1, y0, floorZ);
@@ -675,7 +934,96 @@ void GlBattleSceneRenderer::renderWorld(const battle::BattleSessionCore::BattleF
                 }
             }
         }
-        drawTexturedTriangles(ensureGeneratedFloorTexture().id, floorVertices, screenWidth, screenHeight);
+        drawTexturedTriangles(floorTexture.id, floorVertices, screenWidth, screenHeight);
+    }
+}
+
+void GlBattleSceneRenderer::renderWorld(const battle::BattleSessionCore::BattleFrameSnapshot& snapshot,
+                                        int screenWidth,
+                                        int screenHeight) {
+    if (program_ == 0) {
+        return;
+    }
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    const StageDefinition fallbackStage{};
+    const StageDefinition& stage = snapshot.stage != nullptr ? *snapshot.stage : fallbackStage;
+
+    {
+        struct PropDrawCall {
+            const StagePropDefinition* prop = nullptr;
+            TextureInfo texture{};
+            float depth = 0.0f;
+            SDL_FPoint screen{};
+        };
+
+        std::vector<PropDrawCall> props;
+        props.reserve(stage.props.size());
+        for (const StagePropDefinition& prop : stage.props) {
+            if (prop.texturePath.empty()) {
+                continue;
+            }
+
+            const std::string resolvedPropPath = platform::path::resolvePath(prop.texturePath);
+            const TextureInfo texture = ensureSpecialTexture(makeStageTextureKey("stage:prop", resolvedPropPath),
+                                                             resolvedPropPath);
+            if (texture.id == 0) {
+                continue;
+            }
+
+            const float depth = snapshot.camera.getDepth(prop.worldX, prop.worldY, prop.worldZ);
+            if (depth <= kFloorNearClipDepth) {
+                continue;
+            }
+
+            props.push_back(PropDrawCall{
+                &prop,
+                texture,
+                depth,
+                snapshot.camera.worldToScreen(prop.worldX, prop.worldY, prop.worldZ)
+            });
+        }
+
+        std::sort(props.begin(), props.end(), [](const PropDrawCall& lhs, const PropDrawCall& rhs) {
+            return lhs.depth > rhs.depth;
+        });
+
+        for (const PropDrawCall& drawCall : props) {
+            const float scale = snapshot.camera.getPerspectiveScale(drawCall.prop->worldX,
+                                                                    drawCall.prop->worldY,
+                                                                    drawCall.prop->worldZ);
+            const float drawWidth =
+                std::max(1.0f, std::round(static_cast<float>(drawCall.prop->pixelWidth) * scale));
+            const float drawHeight =
+                std::max(1.0f, std::round(static_cast<float>(drawCall.prop->pixelHeight) * scale));
+            const float x = drawCall.screen.x - drawWidth * 0.5f;
+            const float y = drawCall.screen.y - drawHeight;
+            if (isOffscreen(x, y, drawWidth, drawHeight, screenWidth, screenHeight, 240.0f)) {
+                continue;
+            }
+
+            const Uint8 alpha = static_cast<Uint8>(std::clamp(drawCall.prop->alpha, 0.0f, 1.0f) * 255.0f);
+            std::vector<Vertex> propVertices;
+            propVertices.reserve(6);
+            appendQuad(propVertices,
+                       x,
+                       y,
+                       x + drawWidth,
+                       y + drawHeight,
+                       0.0f,
+                       0.0f,
+                       1.0f,
+                       1.0f,
+                       SDL_Color{
+                           drawCall.prop->tint.r,
+                           drawCall.prop->tint.g,
+                           drawCall.prop->tint.b,
+                           alpha
+                       });
+            drawTexturedTriangles(drawCall.texture.id, propVertices, screenWidth, screenHeight);
+        }
     }
 
     struct DrawCall {

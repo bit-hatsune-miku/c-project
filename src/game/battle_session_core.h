@@ -19,6 +19,7 @@
 #include "render/battle_combat_begin_animation.h"
 #include "render/battle_feedback.h"
 #include "render/battle_scene_types.h"
+#include "render/battle_stage.h"
 #include "render/battle_ui.h"
 #include "render/camera_3d.h"
 #include "render/free_view_camera_debug_log.h"
@@ -32,6 +33,7 @@ class BattleSessionCore {
 public:
     struct BattleFrameSnapshot {
         Camera3D camera{};
+        const render::StageDefinition* stage = nullptr;
         std::vector<render::SceneEntity> entities;
         std::vector<render::FeedbackEntityAnchor> feedbackAnchors;
         std::vector<float> shakeOffsetsX;
@@ -111,7 +113,7 @@ public:
     };
 
     bool initialize(SDL_Renderer* renderer,
-                    const std::string& bossKey,
+                    const BattleDefinition& battleDefinition,
                     const std::vector<std::string>& partyKeys,
                     Hooks hooks = {});
 
@@ -161,7 +163,7 @@ private:
     std::vector<render::SceneEntity> entities_;
     std::map<std::string, SDL_Texture*> textureByAsset_;
     std::map<std::string, SDL_Texture*> iconByAsset_;
-    SDL_Texture* floorTileTexture_ = nullptr;
+    render::StageRenderData stageRenderData_{};
 
     ui::BattleHud hud_;
     Camera3D camera_;

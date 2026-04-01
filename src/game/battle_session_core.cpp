@@ -36,7 +36,7 @@ using WorldEntity = render::SceneEntity;
 // ---------------------------------------------------------------------------
 
 bool BattleSessionCore::initialize(SDL_Renderer* renderer,
-                                   const std::string& bossKey,
+                                   const BattleDefinition& battleDefinition,
                                    const std::vector<std::string>& partyKeys,
                                    Hooks hooks) {
     shutdown();
@@ -47,7 +47,7 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
         return runPresentationInteraction(context);
     });
 
-    if (!manager_.initialize(bossKey, partyKeys)) {
+    if (!manager_.initialize(battleDefinition, partyKeys)) {
         std::cerr << "[BattleSessionCore] Battle initialization failed\n";
         return false;
     }
@@ -109,7 +109,13 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
         }
     }
 
-    floorTileTexture_ = render::createBattleWorldFloorTileTexture(renderer);
+    if (!render::loadStageRenderData(renderer, battleDefinition.stageKey, stageRenderData_)) {
+        std::cerr << "[BattleSessionCore] Stage initialization failed\n";
+        return false;
+    }
+    Camera3D goalCamera = render::makeDefaultBattleCamera();
+    render::applyStageCameraOverride(stageRenderData_.definition.camera, goalCamera);
+    cameraStaging_.setGoalCamera(goalCamera);
     cameraStaging_.reset(camera_);
 
     SDL_Texture* mikuSprite = nullptr;
@@ -149,10 +155,7 @@ void BattleSessionCore::shutdown() {
     }
     iconByAsset_.clear();
 
-    if (floorTileTexture_ != nullptr) {
-        SDL_DestroyTexture(floorTileTexture_);
-        floorTileTexture_ = nullptr;
-    }
+    render::destroyStageRenderData(stageRenderData_);
 
     feedback_.shutdown();
     hud_.reset();
@@ -379,14 +382,29 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
                            255);
     SDL_RenderClear(renderer);
 
+    render::renderBattleBackdrop(
+        renderer,
+        screenWidth,
+        screenHeight,
+        snapshot.camera,
+        stageRenderData_
+    );
     render::renderBattleFloor(
         renderer,
         screenWidth,
         screenHeight,
         snapshot.camera,
-        snapshot.renderFloor ? floorTileTexture_ : nullptr
+        stageRenderData_.definition.floor,
+        snapshot.renderFloor ? stageRenderData_.floorTexture : nullptr
     );
     renderCompatibilityBelowWorld(renderer, screenWidth, screenHeight);
+    render::renderBattleProps(
+        renderer,
+        screenWidth,
+        screenHeight,
+        snapshot.camera,
+        stageRenderData_.props
+    );
 
     render::renderBattleEntities(
         renderer,
@@ -436,6 +454,7 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
 BattleSessionCore::BattleFrameSnapshot BattleSessionCore::buildFrameSnapshot(int screenWidth, int screenHeight) const {
     BattleFrameSnapshot snapshot;
     snapshot.camera = camera_;
+    snapshot.stage = &stageRenderData_.definition;
     snapshot.camera.screenCenterX = screenWidth * 0.5f;
     snapshot.camera.screenCenterY = screenHeight * 0.5f;
     snapshot.entities = entities_;
