@@ -1,5 +1,6 @@
 #include "vn_script.h"
 
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -43,6 +44,9 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
         outScript.chapter = j.value("chapter", 0);
         outScript.title = j.value("title", "");
         outScript.scriptId = j.value("scriptId", "");
+        if (outScript.scriptId.empty()) {
+            outScript.scriptId = std::filesystem::path(jsonPath).stem().string();
+        }
         outScript.endReturnScreen = j.value("endReturnScreen", "");
         outScript.entries.clear();
 
