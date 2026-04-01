@@ -25,6 +25,7 @@ enum class ScreenState {
     LoadConfirmDelete,
     BattleDemo,
     Playing,
+    Credits,
     PauseMenu,
     PauseConfirmExit,
     PauseConfirmOverwriteSave

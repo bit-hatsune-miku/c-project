@@ -718,24 +718,6 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
     );
 }
 
-void debugSkipStoryToLastEntry(AppState& state) {
-    if (!state.story.loaded || state.story.script.entries.empty()) {
-        return;
-    }
-
-    const std::size_t lastIndex = state.story.script.entries.size() - 1;
-    if (state.story.entryIndex >= lastIndex) {
-        vn::onSpacePressed();
-        return;
-    }
-
-    state.story.entryIndex = lastIndex;
-    applyCurrentEntry(state.story, state.settings);
-    if (!vn::isLineFinished()) {
-        vn::onSpacePressed();
-    }
-}
-
 bool loadStoryScript(StorySession& story, const std::string& scriptRef) {
     vn::Script script;
     if (!vn::loadScript(storyScriptPathFromReference(scriptRef), script)) {
@@ -896,6 +878,30 @@ void clearPendingBattleState(AppState& state,
     state.pendingBattleReturnScreen = returnScreen;
     state.pendingBattleWinScript.clear();
     state.pendingBattleLoseScript.clear();
+}
+
+bool isFinalCreditsStory(const StorySession& story) {
+    return story.loaded && story.script.scriptId == "finale02";
+}
+
+void beginCredits(AppState& state) {
+#ifdef APP_ENABLE_RMLUI
+    vn::stopVoicePlayback();
+    state.pauseSelection = PauseAction::Continue;
+    state.pauseContext = PauseContext::Story;
+    state.confirmSelection = ConfirmAction::Cancel;
+    state.pauseIntroTime = 0.0f;
+    state.screen = ScreenState::Credits;
+#else
+    state.screen = ScreenState::MainMenu;
+    state.mainSelection = MainMenuAction::Start;
+    state.noticeText = "Credits require an RmlUi-enabled build.";
+    state.noticeTimer = 2.6f;
+#endif
+}
+
+void debugJumpToCredits(AppState& state) {
+    beginCredits(state);
 }
 
 void beginStory(AppState& state, const std::string& scriptRef, ScreenState endReturnScreen) {
@@ -1455,7 +1461,9 @@ bool restoreRendererUi(Window& window, MenuResources& menuResources, const GameS
 }
 
 bool shouldUseFrontUiScreen(const AppState& state) {
-    if (state.screen == ScreenState::MainMenu || state.screen == ScreenState::Playing) {
+    if (state.screen == ScreenState::MainMenu ||
+        state.screen == ScreenState::Playing ||
+        state.screen == ScreenState::Credits) {
         return true;
     }
 
@@ -1487,7 +1495,7 @@ bool shouldDeferBackendRestore(const AppState& state) {
 }
 
 bool shouldKeepStoryBgmPlaying(const AppState& state) {
-    if (state.screen == ScreenState::Playing) {
+    if (state.screen == ScreenState::Playing || state.screen == ScreenState::Credits) {
         return true;
     }
 
@@ -1848,16 +1856,19 @@ int main(int argc, char** argv) {
                     break;
 
                 case ScreenState::Playing:
+                case ScreenState::Credits:
 #ifdef APP_ENABLE_RMLUI
-                    if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_s) {
-                        debugSkipStoryToLastEntry(state);
+                    if (event.type == SDL_KEYDOWN &&
+                        event.key.keysym.sym == SDLK_j &&
+                        (event.key.keysym.mod & KMOD_CTRL) != 0) {
+                        debugJumpToCredits(state);
                     } else if (shouldUseFrontUiScreen(state)) {
                         if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11) {
                             SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
                         } else {
                             frontUi.handleEvent(event, state);
                         }
-                    } else if (event.type == SDL_KEYDOWN) {
+                    } else if (state.screen == ScreenState::Playing && event.type == SDL_KEYDOWN) {
                         if (event.key.keysym.sym == SDLK_ESCAPE) {
                             openPauseMenu(state);
                         } else if (event.key.keysym.sym == SDLK_F11) {
@@ -1868,14 +1879,14 @@ int main(int argc, char** argv) {
                     }
 #else
                     if (event.type == SDL_KEYDOWN) {
-                        if (event.key.keysym.sym == SDLK_ESCAPE) {
+                        if (event.key.keysym.sym == SDLK_j && (event.key.keysym.mod & KMOD_CTRL) != 0) {
+                            debugJumpToCredits(state);
+                        } else if (state.screen == ScreenState::Playing && event.key.keysym.sym == SDLK_ESCAPE) {
                             openPauseMenu(state);
-                        } else if (event.key.keysym.sym == SDLK_F11) {
+                        } else if (state.screen == ScreenState::Playing && event.key.keysym.sym == SDLK_F11) {
                             SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
-                        } else if (event.key.keysym.sym == SDLK_SPACE) {
+                        } else if (state.screen == ScreenState::Playing && event.key.keysym.sym == SDLK_SPACE) {
                             vn::onSpacePressed();
-                        } else if (event.key.keysym.sym == SDLK_s) {
-                            debugSkipStoryToLastEntry(state);
                         }
                     }
 #endif
@@ -2561,7 +2572,9 @@ int main(int argc, char** argv) {
                             });
                     }
                 } else if (state.story.entryIndex >= state.story.script.entries.size()) {
-                    if (state.storyEndReturnScreen == ScreenState::BossSelector) {
+                    if (isFinalCreditsStory(state.story)) {
+                        beginCredits(state);
+                    } else if (state.storyEndReturnScreen == ScreenState::BossSelector) {
                         state.requestStoryReturnToBossSelector = true;
                     } else {
                         state.screen = ScreenState::MainMenu;

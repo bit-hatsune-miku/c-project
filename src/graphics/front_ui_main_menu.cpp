@@ -13,6 +13,7 @@
 #include <RmlUi/Core/Event.h>
 
 #include "../platform/path_resolution.h"
+#include "front_ui_credits.h"
 #include "front_ui_load.h"
 #include "front_ui_pause.h"
 #include "front_ui_settings.h"
@@ -623,6 +624,8 @@ std::unique_ptr<DocumentController> createControllerForScreen(ScreenId screen) {
             return std::make_unique<MainMenuDocumentController>();
         case ScreenId::Story:
             return std::make_unique<StoryDocumentController>();
+        case ScreenId::Credits:
+            return std::make_unique<CreditsDocumentController>();
         case ScreenId::Settings:
             return std::make_unique<SettingsDocumentController>();
         case ScreenId::Pause:
@@ -646,6 +649,8 @@ std::string resolveDocumentPath(ScreenId screen) {
             return "assets/rmlui/front_ui/main_menu.rml";
         case ScreenId::Story:
             return "assets/rmlui/front_ui/story.rml";
+        case ScreenId::Credits:
+            return "assets/rmlui/front_ui/credits.rml";
         case ScreenId::Settings:
             return "assets/rmlui/front_ui/settings.rml";
         case ScreenId::Pause:
@@ -661,6 +666,7 @@ bool isScreenImplemented(ScreenId screen) {
     switch (screen) {
         case ScreenId::MainMenu:
         case ScreenId::Story:
+        case ScreenId::Credits:
         case ScreenId::Settings:
         case ScreenId::Pause:
         case ScreenId::Load:

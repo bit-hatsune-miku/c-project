@@ -1,0 +1,33 @@
+<rml>
+<head>
+    <title>Credits</title>
+    <link type="text/rcss" href="credits.rcss"/>
+</head>
+<body>
+    <div id="credits-screen">
+        <div id="credits-backdrop"></div>
+        <div id="credits-vignette"></div>
+        <div id="credits-grid"></div>
+
+        <div id="credits-disc-layer">
+            <div id="credits-disc-outer"></div>
+            <div id="credits-disc-ring-a"></div>
+            <div id="credits-disc-ring-b"></div>
+            <div id="credits-disc-core"></div>
+            <div id="credits-disc-core-hole"></div>
+        </div>
+
+        <div id="credits-topline">ENDING SIGNAL / STAFF ROLL</div>
+
+        <div id="credits-logo-shell">
+            <img id="credits-logo" src=""/>
+        </div>
+
+        <div id="credits-roll-viewport">
+            <div id="credits-roll-content"></div>
+        </div>
+
+        <div id="credits-return-prompt" class="is-hidden">PRESS ANY KEY OR CLICK TO RETURN TO MAIN MENU</div>
+    </div>
+</body>
+</rml>

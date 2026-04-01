@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include <SDL2/SDL.h>
+
 #include <RmlUi/Core/Element.h>
 #include <RmlUi/Core/ElementDocument.h>
 #include <RmlUi/Core/Event.h>
@@ -17,6 +19,7 @@ namespace graphics::frontui {
 enum class ScreenId {
     MainMenu,
     Story,
+    Credits,
     Settings,
     Pause,
     Load
@@ -66,6 +69,7 @@ public:
     virtual void moveSelection(int delta) = 0;
     virtual void adjustSelection(int delta) { (void)delta; }
     virtual void activateSelection() = 0;
+    virtual void handleKeyDown(const SDL_KeyboardEvent& event) { (void)event; }
     virtual void cancel() {}
     virtual void applyState(AppState& state) { (void)state; }
     virtual std::optional<Command> consumeCommand() = 0;

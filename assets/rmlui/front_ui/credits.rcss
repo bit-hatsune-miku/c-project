@@ -1,0 +1,358 @@
+body {
+    margin: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #070811;
+    color: #f7f7fb;
+    font-family: "Space Mono";
+}
+
+.is-hidden {
+    display: none;
+}
+
+@keyframes credits-prompt-pulse {
+    from {
+        opacity: 0.28;
+    }
+    to {
+        opacity: 1.0;
+    }
+}
+
+#credits-screen {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #070811;
+}
+
+#credits-backdrop,
+#credits-vignette,
+#credits-grid,
+#credits-disc-layer,
+#credits-topline,
+#credits-logo-shell,
+#credits-roll-viewport,
+#credits-return-prompt {
+    position: absolute;
+}
+
+#credits-backdrop {
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #070811;
+}
+
+#credits-vignette {
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(6, 10, 18, 196);
+}
+
+#credits-grid {
+    left: 94dp;
+    top: 70dp;
+    width: 1092dp;
+    height: 580dp;
+    border-left: 1dp rgba(111, 243, 255, 22);
+    border-top: 1dp rgba(255, 103, 182, 20);
+}
+
+#credits-disc-layer {
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#credits-disc-outer {
+    position: absolute;
+    right: -48dp;
+    top: 60dp;
+    width: 620dp;
+    height: 620dp;
+    border: 1dp rgba(111, 243, 255, 16);
+    border-radius: 310dp;
+}
+
+#credits-disc-ring-a {
+    position: absolute;
+    right: 28dp;
+    top: 136dp;
+    width: 472dp;
+    height: 472dp;
+    border: 1dp rgba(255, 255, 255, 10);
+    border-radius: 236dp;
+}
+
+#credits-disc-ring-b {
+    position: absolute;
+    right: 102dp;
+    top: 210dp;
+    width: 324dp;
+    height: 324dp;
+    border: 1dp rgba(255, 103, 182, 52);
+    border-radius: 162dp;
+}
+
+#credits-disc-core {
+    position: absolute;
+    right: 236dp;
+    top: 344dp;
+    width: 58dp;
+    height: 58dp;
+    background-color: rgba(255, 103, 182, 12);
+    border: 1dp rgba(255, 103, 182, 70);
+    border-radius: 29dp;
+}
+
+#credits-disc-core-hole {
+    position: absolute;
+    right: 258dp;
+    top: 366dp;
+    width: 14dp;
+    height: 14dp;
+    background-color: rgba(255, 255, 255, 36);
+    border: 1dp rgba(255, 255, 255, 18);
+    border-radius: 7dp;
+}
+
+#credits-topline {
+    left: 96dp;
+    top: 46dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: rgba(255, 103, 182, 224);
+}
+
+#credits-logo-shell {
+    right: 96dp;
+    top: 26dp;
+    width: 296dp;
+    height: 92dp;
+}
+
+#credits-logo {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 296dp;
+    height: 92dp;
+}
+
+#credits-roll-viewport {
+    left: 88dp;
+    right: 88dp;
+    top: 96dp;
+    bottom: 76dp;
+    overflow: hidden;
+}
+
+#credits-roll-content {
+    position: absolute;
+    left: 50%;
+    top: 0dp;
+    width: 920dp;
+    margin-left: -460dp;
+}
+
+.credits-roll-lead {
+    display: block;
+    width: 760dp;
+    margin-left: 80dp;
+    margin-bottom: 120dp;
+    text-align: center;
+}
+
+.credits-roll-kicker {
+    display: block;
+    font-size: 12dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: rgba(255, 103, 182, 228);
+}
+
+.credits-roll-title {
+    display: block;
+    margin-top: 14dp;
+    font-size: 42dp;
+    font-weight: bold;
+    letter-spacing: 4dp;
+    color: #f7f7fb;
+}
+
+.credits-roll-subtitle {
+    display: block;
+    width: 540dp;
+    margin-left: 110dp;
+    margin-top: 18dp;
+    font-size: 11dp;
+    line-height: 20dp;
+    letter-spacing: 0.45dp;
+    color: rgba(226, 236, 255, 142);
+}
+
+.credits-block {
+    display: block;
+    margin-bottom: 110dp;
+}
+
+.credits-block-center {
+    width: 760dp;
+    margin-left: 80dp;
+    text-align: center;
+}
+
+.credits-block-split {
+    position: relative;
+    width: 920dp;
+    height: 360dp;
+    text-align: left;
+}
+
+.credits-block-split-copy,
+.credits-block-split-visual {
+    position: absolute;
+    top: 0;
+}
+
+.credits-block-split-copy {
+    left: 0;
+    width: 420dp;
+}
+
+.credits-block-split-visual {
+    right: 0;
+    width: 408dp;
+}
+
+.credits-block-kicker {
+    display: block;
+    margin-bottom: 12dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: rgba(111, 243, 255, 204);
+}
+
+.credits-section-heading {
+    display: block;
+    margin-bottom: 20dp;
+    font-size: 13dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: rgba(255, 103, 182, 228);
+}
+
+.credits-entry {
+    display: block;
+    margin-top: 14dp;
+    font-size: 18dp;
+    font-weight: bold;
+    letter-spacing: 1.2dp;
+    color: #f7f7fb;
+}
+
+.credits-visual-label {
+    display: block;
+    margin-bottom: 10dp;
+    font-size: 10dp;
+    font-weight: bold;
+    letter-spacing: 2.4dp;
+    color: rgba(111, 243, 255, 188);
+}
+
+.credits-visual-image,
+.credits-visual-fallback {
+    display: block;
+    width: 408dp;
+    height: 230dp;
+    background-color: rgba(9, 14, 24, 230);
+    border: 1dp rgba(111, 243, 255, 112);
+}
+
+.credits-visual-caption {
+    display: block;
+    width: 376dp;
+    margin-top: 16dp;
+    font-size: 11dp;
+    line-height: 18dp;
+    letter-spacing: 0.35dp;
+    color: rgba(226, 236, 255, 138);
+}
+
+.credits-group-block {
+    display: block;
+    width: 760dp;
+    margin-left: 80dp;
+    margin-top: 140dp;
+    padding-bottom: 40dp;
+    text-align: center;
+}
+
+.credits-group-heading {
+    display: block;
+    margin-bottom: 20dp;
+    font-size: 12dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: rgba(111, 243, 255, 204);
+}
+
+.credits-group-image,
+.credits-group-placeholder {
+    display: block;
+    width: 760dp;
+    height: 430dp;
+    background-color: rgba(10, 14, 24, 236);
+    border: 1dp rgba(111, 243, 255, 120);
+}
+
+.credits-group-placeholder-title {
+    display: block;
+    margin-top: 138dp;
+    font-size: 20dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    color: #f7f7fb;
+}
+
+.credits-group-placeholder-copy {
+    display: block;
+    width: 520dp;
+    margin: 18dp auto 0 auto;
+    font-size: 11dp;
+    line-height: 20dp;
+    letter-spacing: 0.35dp;
+    color: rgba(226, 236, 255, 138);
+}
+
+.credits-group-caption {
+    display: block;
+    width: 620dp;
+    margin: 18dp auto 0 auto;
+    font-size: 10dp;
+    line-height: 18dp;
+    letter-spacing: 0.35dp;
+    color: rgba(226, 236, 255, 120);
+}
+
+#credits-return-prompt {
+    right: 72dp;
+    bottom: 30dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 3dp;
+    color: rgba(255, 103, 182, 214);
+    animation: 1.2s infinite alternate credits-prompt-pulse;
+}
