@@ -1736,7 +1736,7 @@ private:
             narrativeInitialized_ = true;
         }
 
-        if (!core_.initialize(renderer, battleDefinition_.bossKey, lineup, std::move(hooks))) {
+        if (!core_.initialize(renderer, battleDefinition_, lineup, std::move(hooks))) {
             narrative_.shutdown();
             return false;
         }

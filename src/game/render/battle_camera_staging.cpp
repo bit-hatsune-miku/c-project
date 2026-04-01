@@ -20,7 +20,29 @@ constexpr float kActionIntroOffsetY = -110.0f;
 constexpr float kActionIntroOffsetZ = 28.0f;
 constexpr float kActionIntroDurationSeconds = 0.22f;
 
+Camera3D makeDefaultGoalCamera() {
+    Camera3D camera;
+    camera.posX = kGoalCameraPosX;
+    camera.posY = kGoalCameraPosY;
+    camera.posZ = kGoalCameraPosZ;
+    camera.pitchDegrees = kGoalCameraPitch;
+    camera.yawDegrees = kGoalCameraYaw;
+    camera.focalLength = kGoalCameraFocal;
+    return camera;
+}
+
 } // namespace
+
+Camera3D makeDefaultBattleCamera() {
+    return makeDefaultGoalCamera();
+}
+
+BattleCameraStaging::BattleCameraStaging()
+    : goalCamera_(makeDefaultGoalCamera()) {}
+
+void BattleCameraStaging::setGoalCamera(const Camera3D& camera) {
+    goalCamera_ = camera;
+}
 
 void BattleCameraStaging::reset(Camera3D& camera) {
     intro_ = IntroAnimation{};
@@ -36,30 +58,25 @@ void BattleCameraStaging::snapToGoalCamera(Camera3D& camera) const {
 }
 
 void BattleCameraStaging::applyGoalCamera(Camera3D& camera) const {
-    camera.posX = kGoalCameraPosX;
-    camera.posY = kGoalCameraPosY;
-    camera.posZ = kGoalCameraPosZ;
-    camera.pitchDegrees = kGoalCameraPitch;
-    camera.yawDegrees = kGoalCameraYaw;
-    camera.focalLength = kGoalCameraFocal;
+    camera = goalCamera_;
 }
 
 void BattleCameraStaging::startActionIntro(Camera3D& camera) {
     intro_.active = true;
     intro_.elapsed = 0.0f;
     intro_.duration = kActionIntroDurationSeconds;
-    intro_.startX = kGoalCameraPosX + kActionIntroOffsetX;
-    intro_.startY = kGoalCameraPosY + kActionIntroOffsetY;
-    intro_.startZ = kGoalCameraPosZ + kActionIntroOffsetZ;
-    intro_.startPitch = kGoalCameraPitch;
-    intro_.startYaw = kGoalCameraYaw;
-    intro_.startFocal = kGoalCameraFocal;
-    intro_.goalX = kGoalCameraPosX;
-    intro_.goalY = kGoalCameraPosY;
-    intro_.goalZ = kGoalCameraPosZ;
-    intro_.goalPitch = kGoalCameraPitch;
-    intro_.goalYaw = kGoalCameraYaw;
-    intro_.goalFocal = kGoalCameraFocal;
+    intro_.startX = goalCamera_.posX + kActionIntroOffsetX;
+    intro_.startY = goalCamera_.posY + kActionIntroOffsetY;
+    intro_.startZ = goalCamera_.posZ + kActionIntroOffsetZ;
+    intro_.startPitch = goalCamera_.pitchDegrees;
+    intro_.startYaw = goalCamera_.yawDegrees;
+    intro_.startFocal = goalCamera_.focalLength;
+    intro_.goalX = goalCamera_.posX;
+    intro_.goalY = goalCamera_.posY;
+    intro_.goalZ = goalCamera_.posZ;
+    intro_.goalPitch = goalCamera_.pitchDegrees;
+    intro_.goalYaw = goalCamera_.yawDegrees;
+    intro_.goalFocal = goalCamera_.focalLength;
 
     camera.posX = intro_.startX;
     camera.posY = intro_.startY;
@@ -155,7 +172,7 @@ void BattleCameraStaging::update(Camera3D& camera, float deltaSeconds, bool free
     if (!freeViewEnabled && !intro_.active) {
         applyGoalCamera(camera);
         cameraOscillationTime_ += deltaSeconds;
-        camera.yawDegrees = kGoalCameraYaw + std::sin(cameraOscillationTime_ * 0.55f) * 1.8f;
+        camera.yawDegrees = goalCamera_.yawDegrees + std::sin(cameraOscillationTime_ * 0.55f) * 1.8f;
     }
 }
 

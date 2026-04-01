@@ -14,7 +14,7 @@
         "miku",
         "cupcakke"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "tutorial_test_stage"
     },
     "test_ground": {
       "id": 1,
@@ -30,7 +30,8 @@
     },
     "wild_scent_flowers": {
       "id": 2,
-      "name": "野花香",
+      "name": "The smell of Wildflowers",
+      "description": "The queen of Floptropica invites you to a duel",
       "bossKey": "jiafeiBoss",
       "storyScript": "ch0200",
       "victoryStoryScript": "ch0201",
@@ -41,11 +42,12 @@
         "cupcakke",
         "lyoo"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "wildflower_stage"
     },
     "scan_to_pay": {
       "id": 100,
       "name": "Scan To Pay",
+      "description": "WeChat and AliPay are trying to take your money",
       "bossKey": "wechatalipayBoss",
       "storyScript": "ch0300",
       "victoryStoryScript": "ch0301",
@@ -57,11 +59,12 @@
         "jiafei",
         "lyoo"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "scan_to_pay_stage"
     },
     "ari_boss_demo": {
       "id": 101,
-      "name": "Whistle Note",
+      "name": "Break Free",
+      "description": "Goddess Ariana Grande humbly invites you to a duel",
       "bossKey": "ariBoss",
       "storyScript": "ch0400",
       "victoryStoryScript": "ch0401",
@@ -73,11 +76,12 @@
         "miku",
         "jiafei"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "whistle_note_stage"
     },
     "luotianyi_boss_demo": {
       "id": 102,
-      "name": "音龙",
+      "name": "听力考试现在开始",
+      "description": "Is this a singing contest or a Chinese exam?",
       "bossKey": "luotianyiBoss",
       "storyScript": "ch0500",
       "victoryStoryScript": "ch0501",
@@ -89,11 +93,12 @@
         "cupcakke",
         "wechatalipay"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "yinlong_stage"
     },
     "lyoo_plot_twist": {
       "id": 99,
-      "name": "Lyoo is able to one shot characters. It is recommended to pair a shielder AND a healer.",
+      "name": "The Broken River of Dreams",
+      "description": "Lyoo is able to one shot characters. It is recommended to pair a shielder AND a healer.",
       "bossKey": "lyooPlotTwist",
       "storyScript": "finale",
       "isLineupFixed": false,
@@ -104,7 +109,7 @@
         "jiafei",
         "ari"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "twilight_stage"
     },
     "miku_plot_twist": {
       "id": 101,
@@ -128,7 +133,7 @@
         "revivePartyToFull": true,
         "bossSelfKnockoutIsDefeat": true
       },
-      "stageKey": "default_stage"
+      "stageKey": "corruption_stage"
     }
   }
 }

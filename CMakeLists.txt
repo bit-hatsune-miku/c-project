@@ -81,6 +81,8 @@ set(BATTLE_CORE_SOURCES
     src/game/render/battle_party_staging.cpp
     src/game/render/battle_party_staging.h
     src/game/render/battle_scene_types.h
+    src/game/render/battle_stage.cpp
+    src/game/render/battle_stage.h
     src/game/render/battle_world_renderer.cpp
     src/game/render/battle_world_renderer.h
     src/game/core/easing.cpp

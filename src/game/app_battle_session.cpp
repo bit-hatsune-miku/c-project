@@ -1024,6 +1024,10 @@ public:
             shutdown();
             return false;
         }
+        if (!battle::render::loadStageDefinition(battleDefinition_.stageKey, stageDefinition_)) {
+            std::cerr << "[Battle] Failed to resolve stage definition, using built-in fallback.\n";
+            stageDefinition_ = battle::render::StageDefinition{};
+        }
 
         activePartyLineup_ = resolveBattlePartyLineup(battleDefinition_, progression, std::move(initialPartyLineup));
         if (activePartyLineup_.empty()) {
@@ -1083,6 +1087,7 @@ public:
             return false;
         }
         (void)glSceneRenderer_.ensureWorldAssets(worldAssets_);
+        (void)glSceneRenderer_.ensureStageAssets(stageDefinition_);
 
         if (narrativeEnabled_) {
             if (!vn::initialize(presentationOverlayRenderer_.renderer, sceneWidth(), sceneHeight())) {
@@ -1226,6 +1231,9 @@ public:
             }
         });
 
+        battle::Camera3D goalCamera = battle::render::makeDefaultBattleCamera();
+        battle::render::applyStageCameraOverride(stageDefinition_.camera, goalCamera);
+        cameraStaging_.setGoalCamera(goalCamera);
         camera_.screenCenterX = sceneWidth() / 2;
         camera_.screenCenterY = sceneHeight() / 2;
         cameraStaging_.reset(camera_);
@@ -1319,6 +1327,7 @@ public:
         frameAccumulator_ = 0.0f;
         discardNextUpdateDelta_ = false;
         battleDefinition_ = battle::BattleDefinition{};
+        stageDefinition_ = battle::render::StageDefinition{};
         activePartyLineup_.clear();
         loadingOverlayState_ = graphics::RmlUiLoadingOverlayState{};
         drawableWidth_ = kWindowWidth;
@@ -1666,6 +1675,8 @@ public:
         const bool nativePresentation =
             activePresentation_ != nullptr &&
             glSceneRenderer_.rendersPresentationNatively(activePresentation_);
+
+        glSceneRenderer_.renderStageBase(snapshot, sceneWidth(), sceneHeight());
 
         if (!nativePresentation && activePresentation_ != nullptr) {
             SDL_SetRenderDrawBlendMode(sceneRenderer_.renderer, SDL_BLENDMODE_BLEND);
@@ -2533,6 +2544,7 @@ private:
     battle::BattleSessionCore::BattleFrameSnapshot buildFrameSnapshot(int focusedIndex) const {
         battle::BattleSessionCore::BattleFrameSnapshot snapshot;
         snapshot.camera = camera_;
+        snapshot.stage = &stageDefinition_;
         snapshot.entities = entities_;
         snapshot.focusedEntityIndex = focusedIndex;
         snapshot.frameAccumulator = frameAccumulator_;
@@ -3426,6 +3438,7 @@ private:
     PauseSelection pauseSelection_ = PauseSelection::Continue;
     SettingsSelection settingsSelection_ = SettingsSelection::DisplayMode;
     battle::BattleDefinition battleDefinition_{};
+    battle::render::StageDefinition stageDefinition_{};
     std::vector<std::string> activePartyLineup_;
     battle::BattleManager manager_;
     battle::demo::DemoNarrativeFlow narrative_;

@@ -26,6 +26,10 @@ public:
     void destroy();
 
     bool ensureWorldAssets(const std::vector<std::string>& assetNames);
+    bool ensureStageAssets(const StageDefinition& stage);
+    void renderStageBase(const battle::BattleSessionCore::BattleFrameSnapshot& snapshot,
+                         int screenWidth,
+                         int screenHeight);
     void renderWorld(const battle::BattleSessionCore::BattleFrameSnapshot& snapshot,
                      int screenWidth,
                      int screenHeight);
@@ -59,6 +63,7 @@ private:
     TextureInfo ensureWorldTexture(const std::string& assetName);
     TextureInfo ensureSpecialTexture(const std::string& key, const std::string& resolvedPath);
     TextureInfo ensureGeneratedFloorTexture();
+    TextureInfo ensureGeneratedFloorTexture(SDL_Color baseColor, SDL_Color accentColor);
     TextureInfo ensureSolidWhiteTexture();
 
     void drawTexturedTriangles(GLuint textureId,
@@ -99,6 +104,13 @@ private:
                           float width,
                           float height,
                           SDL_Color color) const;
+    void appendVerticalGradientRect(std::vector<Vertex>& vertices,
+                                    float x,
+                                    float y,
+                                    float width,
+                                    float height,
+                                    SDL_Color topColor,
+                                    SDL_Color bottomColor) const;
 
     GLuint program_ = 0;
     GLuint vao_ = 0;
