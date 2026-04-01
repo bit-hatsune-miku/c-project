@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VN Dialogue Box Revamp Prototype</title>
+  <style>
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+
+    :root {
+      --ink: #17141f;
+      --ink-soft: rgba(23, 20, 31, 0.48);
+      --panel: rgba(255, 255, 255, 0.92);
+      --panel-line: rgba(23, 20, 31, 0.18);
+      --pink: #ff63b0;
+      --pink-shadow: rgba(255, 99, 176, 0.28);
+      --cyan: #5fd3f4;
+      --purple: #c471ed;
+      --green: #6dd5a8;
+      --orange: #ff9a56;
+      --motion: cubic-bezier(0.22, 1, 0.36, 1);
+      --ui-font: "Space Mono", "Noto Sans CJK SC", "Noto Sans CJK JP", "PingFang SC", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 72% 46%, rgba(255, 99, 176, 0.08), transparent 24%),
+        linear-gradient(180deg, #ffffff 0%, #fff8fc 100%);
+      color: var(--ink);
+      font-family: var(--ui-font);
+    }
+
+    body {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+    }
+
+    .demo-container {
+      position: relative;
+      width: 100%;
+      max-width: 1400px;
+      height: 600px;
+      background: linear-gradient(135deg, #f5f0f8 0%, #f0f5fb 100%);
+      border-radius: 2rem;
+      border: 1px solid var(--panel-line);
+      box-shadow: 0 2rem 6rem rgba(23, 20, 31, 0.1);
+      overflow: hidden;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      padding-bottom: 2rem;
+    }
+
+    /* Main dialogue box container */
+    .dialogue-box-container {
+      position: relative;
+      width: min(100% - 4rem, 900px);
+      height: auto;
+    }
+
+    /* The main parallelogram dialogue shell (left-tilted) */
+    .dialogue-shell {
+      position: relative;
+      background: rgba(23, 20, 31, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 1rem 3rem 1rem 1.5rem;
+      border-radius: 1.2rem;
+      transform: skewX(14deg);
+      box-shadow:
+        0 1.5rem 4rem rgba(23, 20, 31, 0.15),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+      transition: all 280ms var(--motion);
+    }
+
+    /* Inner content unskew */
+    .dialogue-inner {
+      position: relative;
+      transform: skewX(-14deg);
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1.2rem;
+      align-items: flex-start;
+    }
+
+    /* Character title box (top-left corner) - small parallelogram */
+    .character-title {
+      position: absolute;
+      left: -0.8rem;
+      top: -3rem;
+      background: var(--pink);
+      padding: 0.6rem 1.2rem;
+      border-radius: 0.6rem;
+      transform: skewX(14deg);
+      z-index: 10;
+      box-shadow:
+        0 0.6rem 1.8rem var(--pink-shadow),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+      transition: all 280ms var(--motion);
+    }
+
+    .character-title.style-cyan {
+      background: var(--cyan);
+      box-shadow:
+        0 0.6rem 1.8rem rgba(95, 211, 244, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .character-title.style-purple {
+      background: var(--purple);
+      box-shadow:
+        0 0.6rem 1.8rem rgba(196, 113, 237, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .character-title.style-green {
+      background: var(--green);
+      box-shadow:
+        0 0.6rem 1.8rem rgba(109, 213, 168, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .character-title.style-orange {
+      background: var(--orange);
+      box-shadow:
+        0 0.6rem 1.8rem rgba(255, 154, 86, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .character-title-inner {
+      transform: skewX(-14deg);
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.08rem;
+      color: #ffffff;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    /* Character icon area */
+    .character-icon-frame {
+      position: relative;
+      width: 124px;
+      height: 124px;
+      margin-left: -3rem;
+      border-radius: 1rem;
+      background: #ffffff;
+      border: 3px solid var(--pink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      box-shadow:
+        0 0.8rem 2.2rem rgba(23, 20, 31, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+        0 0 0 1px var(--pink);
+      z-index: 5;
+      flex-shrink: 0;
+      transition: border-color 280ms var(--motion);
+    }
+
+    .character-icon-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      padding: 0.6rem;
+      background: linear-gradient(135deg, #f9f8fb 0%, #f5f0f8 100%);
+    }
+
+    /* Dialogue text area */
+    .dialogue-text-area {
+      display: flex;
+      flex-direction: column;
+      gap: 1.2rem;
+    }
+
+
+
+    .dialogue-text {
+      font-size: 1.1rem;
+      line-height: 1.6;
+      color: #f4f6fb;
+      max-height: 180px;
+      overflow-y: auto;
+      padding-right: 1rem;
+    }
+
+    .dialogue-text::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .dialogue-text::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 2px;
+    }
+
+    .dialogue-text::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.25);
+      border-radius: 2px;
+    }
+
+    .dialogue-text::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.4);
+    }
+
+    /* Advance arrow button - triangle pointing down */
+    .dialogue-advance {
+      position: absolute;
+      right: 2.2rem;
+      bottom: 1.8rem;
+      width: 0;
+      height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-top: 18px solid var(--pink);
+      cursor: pointer;
+      z-index: 12;
+      transition: all 280ms var(--motion);
+      animation: arrow-bounce 2s ease-in-out infinite;
+    }
+
+    .dialogue-advance.style-cyan {
+      border-top-color: var(--cyan);
+    }
+
+    .dialogue-advance.style-purple {
+      border-top-color: var(--purple);
+    }
+
+    .dialogue-advance.style-green {
+      border-top-color: var(--green);
+    }
+
+    .dialogue-advance.style-orange {
+      border-top-color: var(--orange);
+    }
+
+    .dialogue-advance:hover {
+      transform: scale(1.1);
+      filter: brightness(1.15);
+    }
+
+    @keyframes arrow-bounce {
+      0%, 100% {
+        transform: translateY(0);
+      }
+      40% {
+        transform: translateY(8px);
+      }
+      50% {
+        transform: translateY(8px);
+      }
+      90% {
+        transform: translateY(0);
+      }
+    }
+
+    /* Variant styles for character colors */
+    .dialogue-box-container.miku .character-title {
+      background: var(--cyan);
+      box-shadow:
+        0 0.6rem 1.8rem rgba(95, 211, 244, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .dialogue-box-container.miku .character-title-inner {
+      color: #ffffff;
+    }
+
+    .dialogue-box-container.miku .dialogue-advance {
+      border-top-color: var(--cyan);
+    }
+
+    .dialogue-box-container.miku .character-icon-frame {
+      border-color: var(--cyan);
+      box-shadow:
+        0 0.8rem 2.2rem rgba(23, 20, 31, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+        0 0 0 1px var(--cyan);
+    }
+
+    .dialogue-box-container.jiafei .character-title {
+      background: var(--purple);
+      box-shadow:
+        0 0.6rem 1.8rem rgba(196, 113, 237, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .dialogue-box-container.jiafei .dialogue-advance {
+      border-top-color: var(--purple);
+    }
+
+    .dialogue-box-container.jiafei .character-icon-frame {
+      border-color: var(--purple);
+      box-shadow:
+        0 0.8rem 2.2rem rgba(23, 20, 31, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+        0 0 0 1px var(--purple);
+    }
+
+    .dialogue-box-container.luotianyi .character-title {
+      background: var(--green);
+      box-shadow:
+        0 0.6rem 1.8rem rgba(109, 213, 168, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .dialogue-box-container.luotianyi .dialogue-advance {
+      border-top-color: var(--green);
+    }
+
+    .dialogue-box-container.luotianyi .character-icon-frame {
+      border-color: var(--green);
+      box-shadow:
+        0 0.8rem 2.2rem rgba(23, 20, 31, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+        0 0 0 1px var(--green);
+    }
+
+    .dialogue-box-container.ari .character-title {
+      background: var(--orange);
+      box-shadow:
+        0 0.6rem 1.8rem rgba(255, 154, 86, 0.28),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+    }
+
+    .dialogue-box-container.ari .dialogue-advance {
+      border-top-color: var(--orange);
+    }
+
+    .dialogue-box-container.ari .character-icon-frame {
+      border-color: var(--orange);
+      box-shadow:
+        0 0.8rem 2.2rem rgba(23, 20, 31, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.6),
+        0 0 0 1px var(--orange);
+    }
+
+    /* Demo controls */
+    .demo-controls {
+      position: absolute;
+      top: 2rem;
+      right: 2rem;
+      display: flex;
+      gap: 1rem;
+      z-index: 20;
+    }
+
+    .style-selector {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 0.6rem;
+      background: rgba(255, 255, 255, 0.85);
+      color: var(--ink);
+      font-weight: 700;
+      font-size: 0.85rem;
+      cursor: pointer;
+      border: 1px solid var(--panel-line);
+      transition: all 160ms ease;
+    }
+
+    .style-selector:hover {
+      background: #ffffff;
+      border-color: var(--pink);
+      box-shadow: 0 0.4rem 1rem var(--pink-shadow);
+    }
+
+    .style-selector.active {
+      background: var(--pink);
+      color: #ffffff;
+      border-color: var(--pink);
+    }
+
+    .style-selector.cyan.active {
+      background: var(--cyan);
+      border-color: var(--cyan);
+    }
+
+    .style-selector.purple.active {
+      background: var(--purple);
+      border-color: var(--purple);
+    }
+
+    .style-selector.green.active {
+      background: var(--green);
+      border-color: var(--green);
+    }
+
+    .style-selector.orange.active {
+      background: var(--orange);
+      border-color: var(--orange);
+    }
+
+    .info-text {
+      position: absolute;
+      bottom: 2rem;
+      left: 2rem;
+      font-size: 0.8rem;
+      color: rgba(23, 20, 31, 0.6);
+      max-width: 300px;
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-container">
+    <div class="demo-controls">
+      <button class="style-selector active pink" onclick="setCharacterStyle('pink')">Miku Default</button>
+      <button class="style-selector cyan" onclick="setCharacterStyle('cyan')">Miku Alt</button>
+      <button class="style-selector purple" onclick="setCharacterStyle('purple')">Jiafei</button>
+      <button class="style-selector green" onclick="setCharacterStyle('green')">Luotianyi</button>
+      <button class="style-selector orange" onclick="setCharacterStyle('orange')">Ari</button>
+    </div>
+
+    <div class="info-text">
+      ✦ Left-tilted parallelogram shell
+      <br>✦ Character title box (top-left, colorizable)
+      <br>✦ Icon in white rounded square (z-index 5)
+      <br>✦ Arrow with bounce animation (color-synced)
+    </div>
+
+    <div class="dialogue-box-container" id="dialogueContainer">
+      <div class="character-title">
+        <div class="character-title-inner" id="titleText">Hatsune Miku</div>
+      </div>
+
+      <div class="dialogue-shell">
+        <div class="dialogue-inner">
+          <div class="character-icon-frame">
+            <img class="character-icon-img" src="../assets/combat/icons/miku_icon.png" alt="Character Icon">
+          </div>
+
+          <div class="dialogue-text-area">
+            <div class="dialogue-text" id="dialogueText">
+              Well, well, well... Look who finally showed up. I've been waiting for you. 
+              The stage is set, and the spotlight is all mine. Are you ready to witness 
+              something truly spectacular? Let's begin this dance, shall we?
+            </div>
+          </div>
+        </div>
+
+        <div class="dialogue-advance" id="advanceArrow"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const characterData = {
+      pink: {
+        name: "Hatsune Miku",
+        title: "Hatsune Miku",
+        icon: "../assets/combat/icons/miku_icon.png",
+        text: "Well, well, well... Look who finally showed up. I've been waiting for you. The stage is set, and the spotlight is all mine. Are you ready to witness something truly spectacular? Let's begin this dance, shall we?"
+      },
+      cyan: {
+        name: "Hatsune Miku",
+        title: "Miku",
+        icon: "../assets/combat/icons/miku_icon.png",
+        text: "A different approach this time, hm? I like your style. Let's see if you can keep up with my tempo this time around."
+      },
+      purple: {
+        name: "Jiafei",
+        title: "Jiafei",
+        icon: "../assets/combat/icons/jiafei_icon.png",
+        text: "HAHAHAHA! Finally, a worthy opponent! Your determination is quite admirable, but can you truly stand against my power?"
+      },
+      green: {
+        name: "Luotianyi",
+        title: "Luotianyi",
+        icon: "../assets/combat/icons/luotianyi_icon.png",
+        text: "Welcome, challenger. I sense great potential within you. Let us test the limits of our abilities together in this grand arena."
+      },
+      orange: {
+        name: "Ari",
+        title: "Ari",
+        icon: "../assets/combat/icons/ari_icon.png",
+        text: "Tsk! Another one thinking they can take me on? How amusing. Let me show you the true meaning of power!"
+      }
+    };
+
+    let currentStyle = "pink";
+
+    function setCharacterStyle(style) {
+      currentStyle = style;
+      const data = characterData[style];
+      const container = document.getElementById("dialogueContainer");
+      const titleEl = document.getElementById("titleText");
+      const speakerEl = document.getElementById("speakerText");
+      const dialogueEl = document.getElementById("dialogueText");
+      const iconEl = document.querySelector(".character-icon-img");
+      const arrow = document.getElementById("advanceArrow");
+
+      // Update classes
+      container.className = `dialogue-box-container ${getClassNameForStyle(style)}`;
+      container.classList.add(style);
+
+      // Update button active state
+      document.querySelectorAll(".style-selector").forEach(btn => {
+        btn.classList.remove("active");
+      });
+      event.target.classList.add("active");
+
+      // Update content
+      titleEl.textContent = data.title;
+      dialogueEl.textContent = data.text;
+      iconEl.src = data.icon;
+
+      // Update arrow class
+      arrow.className = `dialogue-advance style-${style}`;
+    }
+
+    function getClassNameForStyle(style) {
+      const map = {
+        cyan: "miku",
+        purple: "jiafei",
+        green: "luotianyi",
+        orange: "ari",
+        pink: ""
+      };
+      return map[style] || "";
+    }
+  </script>
+</body>
+</html>

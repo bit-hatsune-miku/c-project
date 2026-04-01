@@ -2,11 +2,13 @@
 
 #include <algorithm>
 #include <array>
+#include <cctype>
 #include <cstdlib>
 #include <cmath>
 #include <filesystem>
 #include <functional>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <string>
@@ -755,6 +757,64 @@ bool ensureStoryLoaded(StorySession& story) {
     return loadStoryScript(story, kChapterScriptPath);
 }
 
+struct StoryModeCandidate {
+    save::SlotInfo slot;
+    save::SaveGame saveGame;
+    int chapterRank = std::numeric_limits<int>::min();
+};
+
+int storyModeChapterRank(const save::SaveGame& saveGame) {
+    int numericRank = 0;
+    bool hasDigits = false;
+    for (const unsigned char c : saveGame.chapter) {
+        if (!std::isdigit(c)) {
+            continue;
+        }
+        hasDigits = true;
+        numericRank = numericRank * 10 + static_cast<int>(c - '0');
+    }
+
+    if (saveGame.chapter.rfind("finale", 0) == 0) {
+        return 1'000'000 + numericRank;
+    }
+
+    return hasDigits ? numericRank : std::numeric_limits<int>::min();
+}
+
+std::vector<StoryModeCandidate> collectStoryModeCandidates() {
+    std::vector<StoryModeCandidate> candidates;
+    for (const save::SlotInfo& slot : save::listSlots()) {
+        const std::optional<save::SaveGame> saveGame = save::load(slot.path);
+        if (!saveGame.has_value()) {
+            continue;
+        }
+
+        StoryModeCandidate candidate;
+        candidate.slot = slot;
+        candidate.chapterRank = storyModeChapterRank(*saveGame);
+        candidate.saveGame = *saveGame;
+        candidates.push_back(std::move(candidate));
+    }
+
+    std::sort(candidates.begin(), candidates.end(), [](const StoryModeCandidate& lhs, const StoryModeCandidate& rhs) {
+        if (lhs.saveGame.timestamp != rhs.saveGame.timestamp) {
+            return lhs.saveGame.timestamp > rhs.saveGame.timestamp;
+        }
+        if (lhs.slot.isAutosave != rhs.slot.isAutosave) {
+            return lhs.slot.isAutosave;
+        }
+        if (lhs.chapterRank != rhs.chapterRank) {
+            return lhs.chapterRank > rhs.chapterRank;
+        }
+        if (lhs.saveGame.entryIndex != rhs.saveGame.entryIndex) {
+            return lhs.saveGame.entryIndex > rhs.saveGame.entryIndex;
+        }
+        return lhs.slot.path.generic_string() < rhs.slot.path.generic_string();
+    });
+
+    return candidates;
+}
+
 /**
  * @brief Builds a SaveGame snapshot capturing the current story position and relevant player settings.
  *
@@ -932,6 +992,20 @@ void beginStory(AppState& state, const std::string& scriptRef, ScreenState endRe
     vn::setTypewriterSpeed(state.settings.textSpeed);
     applyCurrentEntry(state.story, state.settings);
     (void)save::autosave(buildStorySaveGame(state));
+}
+
+bool beginStoryMode(AppState& state, Window& window) {
+    for (const StoryModeCandidate& candidate : collectStoryModeCandidates()) {
+        if (!restoreStorySave(state, candidate.saveGame)) {
+            continue;
+        }
+
+        SettingsMenuController::applyDisplayMode(window, state.settings, candidate.saveGame.settings.fullscreen);
+        return true;
+    }
+
+    beginStory(state);
+    return state.screen == ScreenState::Playing;
 }
 
 /**
@@ -1919,8 +1993,7 @@ int main(int argc, char** argv) {
                                 LoadingTransitionPresentation::RmlUi,
                                 std::function<bool()>{},
                                 [&]() -> bool {
-                                    beginStory(state);
-                                    return state.screen == ScreenState::Playing;
+                                    return beginStoryMode(state, window);
                                 });
                         } else if (command->mainMenuAction == MainMenuAction::Battle) {
                             state.mainSelection = MainMenuAction::Battle;
