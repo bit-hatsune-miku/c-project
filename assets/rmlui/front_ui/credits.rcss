@@ -3,8 +3,8 @@ body {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: #070811;
-    color: #f7f7fb;
+    background-color: #000000;
+    color: #f6f7fb;
     font-family: "Space Mono";
 }
 
@@ -28,15 +28,16 @@ body {
     width: 100%;
     height: 100%;
     overflow: hidden;
-    background-color: #070811;
+    background-color: #000000;
 }
 
 #credits-backdrop,
 #credits-vignette,
+#credits-ui-layer,
+#credits-chrome-layer,
 #credits-grid,
 #credits-disc-layer,
 #credits-topline,
-#credits-logo-shell,
 #credits-roll-viewport,
 #credits-return-prompt {
     position: absolute;
@@ -47,7 +48,7 @@ body {
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: #070811;
+    background-color: #000000;
 }
 
 #credits-vignette {
@@ -55,15 +56,31 @@ body {
     top: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(6, 10, 18, 196);
+    background-color: rgba(0, 0, 0, 208);
+}
+
+#credits-ui-layer {
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 1.0;
+}
+
+#credits-chrome-layer {
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0.0;
 }
 
 #credits-grid {
-    left: 94dp;
-    top: 70dp;
-    width: 1092dp;
-    height: 580dp;
-    border-left: 1dp rgba(111, 243, 255, 22);
+    left: 88dp;
+    top: 84dp;
+    width: 1100dp;
+    height: 540dp;
+    border-left: 1dp rgba(255, 255, 255, 16);
     border-top: 1dp rgba(255, 103, 182, 20);
 }
 
@@ -76,49 +93,49 @@ body {
 
 #credits-disc-outer {
     position: absolute;
-    right: -48dp;
-    top: 60dp;
-    width: 620dp;
-    height: 620dp;
-    border: 1dp rgba(111, 243, 255, 16);
-    border-radius: 310dp;
+    right: -24dp;
+    top: 82dp;
+    width: 560dp;
+    height: 560dp;
+    border: 1dp rgba(111, 243, 255, 14);
+    border-radius: 280dp;
 }
 
 #credits-disc-ring-a {
     position: absolute;
-    right: 28dp;
-    top: 136dp;
-    width: 472dp;
-    height: 472dp;
+    right: 34dp;
+    top: 140dp;
+    width: 444dp;
+    height: 444dp;
     border: 1dp rgba(255, 255, 255, 10);
-    border-radius: 236dp;
+    border-radius: 222dp;
 }
 
 #credits-disc-ring-b {
     position: absolute;
-    right: 102dp;
-    top: 210dp;
-    width: 324dp;
-    height: 324dp;
-    border: 1dp rgba(255, 103, 182, 52);
-    border-radius: 162dp;
+    right: 92dp;
+    top: 198dp;
+    width: 328dp;
+    height: 328dp;
+    border: 1dp rgba(255, 103, 182, 42);
+    border-radius: 164dp;
 }
 
 #credits-disc-core {
     position: absolute;
-    right: 236dp;
-    top: 344dp;
-    width: 58dp;
-    height: 58dp;
+    right: 228dp;
+    top: 334dp;
+    width: 56dp;
+    height: 56dp;
     background-color: rgba(255, 103, 182, 12);
-    border: 1dp rgba(255, 103, 182, 70);
-    border-radius: 29dp;
+    border: 1dp rgba(255, 103, 182, 74);
+    border-radius: 28dp;
 }
 
 #credits-disc-core-hole {
     position: absolute;
-    right: 258dp;
-    top: 366dp;
+    right: 249dp;
+    top: 355dp;
     width: 14dp;
     height: 14dp;
     background-color: rgba(255, 255, 255, 36);
@@ -127,34 +144,19 @@ body {
 }
 
 #credits-topline {
-    left: 96dp;
-    top: 46dp;
-    font-size: 11dp;
+    left: 92dp;
+    top: 56dp;
+    font-size: 12dp;
     font-weight: bold;
     letter-spacing: 3dp;
     color: rgba(255, 103, 182, 224);
 }
 
-#credits-logo-shell {
-    right: 96dp;
-    top: 26dp;
-    width: 296dp;
-    height: 92dp;
-}
-
-#credits-logo {
-    position: absolute;
-    right: 0;
-    top: 0;
-    width: 296dp;
-    height: 92dp;
-}
-
 #credits-roll-viewport {
-    left: 88dp;
-    right: 88dp;
-    top: 96dp;
-    bottom: 76dp;
+    left: 72dp;
+    right: 72dp;
+    top: 128dp;
+    bottom: 72dp;
     overflow: hidden;
 }
 
@@ -162,14 +164,32 @@ body {
     position: absolute;
     left: 50%;
     top: 0dp;
-    width: 920dp;
-    margin-left: -460dp;
+    width: 960dp;
+    margin-left: -480dp;
+}
+
+.credits-title-card {
+    display: block;
+    width: 960dp;
+    margin-bottom: 84dp;
+    opacity: 0.0;
+}
+
+.credits-title-gap {
+    display: block;
+    height: 0dp;
+}
+
+.credits-title-card-image {
+    display: block;
+    width: 960dp;
+    height: 290dp;
 }
 
 .credits-roll-lead {
     display: block;
-    width: 760dp;
-    margin-left: 80dp;
+    width: 640dp;
+    margin-left: 160dp;
     margin-bottom: 120dp;
     text-align: center;
 }
@@ -185,16 +205,16 @@ body {
 .credits-roll-title {
     display: block;
     margin-top: 14dp;
-    font-size: 42dp;
+    font-size: 38dp;
     font-weight: bold;
-    letter-spacing: 4dp;
+    letter-spacing: 3.2dp;
     color: #f7f7fb;
 }
 
 .credits-roll-subtitle {
     display: block;
-    width: 540dp;
-    margin-left: 110dp;
+    width: 520dp;
+    margin-left: 60dp;
     margin-top: 18dp;
     font-size: 11dp;
     line-height: 20dp;
@@ -204,20 +224,21 @@ body {
 
 .credits-block {
     display: block;
-    margin-bottom: 110dp;
+    margin-bottom: 120dp;
 }
 
 .credits-block-center {
-    width: 760dp;
-    margin-left: 80dp;
+    width: 640dp;
+    margin-left: 160dp;
     text-align: center;
 }
 
 .credits-block-split {
     position: relative;
-    width: 920dp;
-    height: 360dp;
-    text-align: left;
+    width: 1040dp;
+    margin-left: -40dp;
+    margin-bottom: 84dp;
+    text-align: center;
 }
 
 .credits-block-split-copy,
@@ -227,13 +248,17 @@ body {
 }
 
 .credits-block-split-copy {
-    left: 0;
-    width: 420dp;
+    left: 280dp;
+    width: 480dp;
 }
 
 .credits-block-split-visual {
     right: 0;
-    width: 408dp;
+    width: 332dp;
+}
+
+.credits-block-center-copy {
+    text-align: center;
 }
 
 .credits-block-kicker {
@@ -242,7 +267,7 @@ body {
     font-size: 11dp;
     font-weight: bold;
     letter-spacing: 3dp;
-    color: rgba(111, 243, 255, 204);
+    color: rgba(0, 153, 188, 216);
 }
 
 .credits-section-heading {
@@ -269,34 +294,35 @@ body {
     font-size: 10dp;
     font-weight: bold;
     letter-spacing: 2.4dp;
-    color: rgba(111, 243, 255, 188);
+    color: rgba(0, 153, 188, 216);
+    opacity: 0.0;
 }
 
 .credits-visual-image,
 .credits-visual-fallback {
     display: block;
-    width: 408dp;
-    height: 230dp;
-    background-color: rgba(9, 14, 24, 230);
-    border: 1dp rgba(111, 243, 255, 112);
+    width: 332dp;
+    height: 188dp;
+    background-color: rgba(0, 0, 0, 0);
+    opacity: 0.0;
 }
 
 .credits-visual-caption {
     display: block;
-    width: 376dp;
+    width: 320dp;
     margin-top: 16dp;
     font-size: 11dp;
     line-height: 18dp;
     letter-spacing: 0.35dp;
     color: rgba(226, 236, 255, 138);
+    opacity: 0.0;
 }
 
 .credits-group-block {
     display: block;
-    width: 760dp;
-    margin-left: 80dp;
+    width: 640dp;
+    margin-left: 160dp;
     margin-top: 140dp;
-    padding-bottom: 40dp;
     text-align: center;
 }
 
@@ -306,21 +332,21 @@ body {
     font-size: 12dp;
     font-weight: bold;
     letter-spacing: 3dp;
-    color: rgba(111, 243, 255, 204);
+    color: rgba(0, 153, 188, 216);
 }
 
 .credits-group-image,
 .credits-group-placeholder {
     display: block;
-    width: 760dp;
-    height: 430dp;
-    background-color: rgba(10, 14, 24, 236);
-    border: 1dp rgba(111, 243, 255, 120);
+    width: 640dp;
+    height: 360dp;
+    background-color: rgba(255, 255, 255, 236);
+    border: 1dp rgba(23, 20, 31, 54);
 }
 
 .credits-group-placeholder-title {
     display: block;
-    margin-top: 138dp;
+    margin-top: 112dp;
     font-size: 20dp;
     font-weight: bold;
     letter-spacing: 2dp;
@@ -329,7 +355,7 @@ body {
 
 .credits-group-placeholder-copy {
     display: block;
-    width: 520dp;
+    width: 460dp;
     margin: 18dp auto 0 auto;
     font-size: 11dp;
     line-height: 20dp;
@@ -339,7 +365,7 @@ body {
 
 .credits-group-caption {
     display: block;
-    width: 620dp;
+    width: 540dp;
     margin: 18dp auto 0 auto;
     font-size: 10dp;
     line-height: 18dp;

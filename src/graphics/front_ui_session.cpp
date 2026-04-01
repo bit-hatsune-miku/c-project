@@ -282,6 +282,11 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
                 break;
         }
     }
+    if (event.type == SDL_KEYUP) {
+        if (DocumentController* controller = topController()) {
+            controller->handleKeyUp(event.key);
+        }
+    }
 
     syncState(state);
     playQueuedControllerSounds();
