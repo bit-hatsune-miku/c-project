@@ -20,6 +20,8 @@ enum class ProgressionFallbackPolicy {
 PlayerProgression makeDefaultPlayerProgression();
 bool loadAllCharacterKeys(std::vector<std::string>& outCharacterKeys);
 std::vector<std::string> sanitizeCharacterKeyList(const std::vector<std::string>& keys);
+bool hasUnlockedCharacter(const PlayerProgression& progression, const std::string& characterKey);
+bool hasClearedBattle(const PlayerProgression& progression, const std::string& battleKey);
 void normalizePlayerProgression(PlayerProgression& progression,
                                 ProgressionFallbackPolicy fallbackPolicy = ProgressionFallbackPolicy::StarterRoster);
 

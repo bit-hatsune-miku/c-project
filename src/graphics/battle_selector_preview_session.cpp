@@ -9,10 +9,8 @@
 #include <iomanip>
 #include <iostream>
 #include <optional>
-#include <set>
 #include <sstream>
 #include <string>
-#include <unordered_set>
 #include <utility>
 
 #include <SDL2/SDL_opengl.h>
@@ -220,14 +218,15 @@ void BattleSelectorPreviewSession::shutdown() {
     positiveHeld_ = false;
     holdNegativeElapsed_ = 0.0f;
     holdPositiveElapsed_ = 0.0f;
-    toastTimer_ = 0.0f;
-    visualSelectionIndex_ = 0.0f;
-    targetVisualSelectionIndex_ = 0.0f;
-    focusZone_ = FocusZone::Carousel;
+        toastTimer_ = 0.0f;
+        visualSelectionIndex_ = 0.0f;
+        targetVisualSelectionIndex_ = 0.0f;
+        focusZone_ = FocusZone::Carousel;
+        footerSelection_ = FooterAction::ReplayStory;
 
-    sfxPlayer_.shutdown();
-    scrollSfxPath_.clear();
-    confirmSfxPath_.clear();
+        sfxPlayer_.shutdown();
+        scrollSfxPath_.clear();
+        confirmSfxPath_.clear();
     audioReady_ = false;
 
     detachEventListeners();
@@ -244,15 +243,16 @@ void BattleSelectorPreviewSession::shutdown() {
     infoNameElement_ = nullptr;
     infoBattleElement_ = nullptr;
     infoCopyElement_ = nullptr;
-    infoHpElement_ = nullptr;
-    infoAtkElement_ = nullptr;
-    infoSpdElement_ = nullptr;
-    infoHintElement_ = nullptr;
-    finaleButtonElement_ = nullptr;
-    toastElement_ = nullptr;
-    cardElements_.clear();
-    cardPortraitImageElements_.clear();
-    entries_.clear();
+        infoHpElement_ = nullptr;
+        infoAtkElement_ = nullptr;
+        infoSpdElement_ = nullptr;
+        infoHintElement_ = nullptr;
+        replayStoryButtonElement_ = nullptr;
+        straightToBattleButtonElement_ = nullptr;
+        toastElement_ = nullptr;
+        cardElements_.clear();
+        cardPortraitImageElements_.clear();
+        entries_.clear();
 
     if (context_ != nullptr) {
         context_->UnloadAllDocuments();
@@ -301,6 +301,8 @@ void BattleSelectorPreviewSession::handleEvent(const SDL_Event& event) {
                     negativeHeld_ = true;
                     holdNegativeElapsed_ = 0.0f;
                     moveSelection(-1, true);
+                } else {
+                    moveFooterSelection(-1, true);
                 }
                 break;
 
@@ -309,6 +311,8 @@ void BattleSelectorPreviewSession::handleEvent(const SDL_Event& event) {
                     positiveHeld_ = true;
                     holdPositiveElapsed_ = 0.0f;
                     moveSelection(1, true);
+                } else {
+                    moveFooterSelection(1, true);
                 }
                 break;
 
@@ -317,14 +321,16 @@ void BattleSelectorPreviewSession::handleEvent(const SDL_Event& event) {
                 break;
 
             case SDLK_DOWN:
-                setFocusZone(FocusZone::Finale, true);
+                if (focusZone_ == FocusZone::Carousel) {
+                    setFocusZone(FocusZone::Footer, true);
+                }
                 break;
 
             case SDLK_RETURN:
             case SDLK_KP_ENTER:
             case SDLK_SPACE:
-                if (focusZone_ == FocusZone::Finale) {
-                    activateFinale();
+                if (focusZone_ == FocusZone::Footer) {
+                    activateFooterAction();
                 } else {
                     activateSelected();
                 }
@@ -457,16 +463,8 @@ bool BattleSelectorPreviewSession::loadEntries() {
     const std::string bossPath = battle::loader::resolveAssetPath("assets/combat/boss.json");
     const bool loadedBossMeta = battle::loader::readJsonRoot(bossPath, bossRoot, "boss");
 
-    std::sort(battles.begin(), battles.end(), [](const battle::BattleDefinition& lhs, const battle::BattleDefinition& rhs) {
-        return lhs.id < rhs.id;
-    });
-
-    const std::unordered_set<std::string> clearedKeys(
-        progression_.clearedBattleKeys.begin(),
-        progression_.clearedBattleKeys.end());
-
     for (const battle::BattleDefinition& battle : battles) {
-        if (!battle.selectorVisible) {
+        if (!battle.selectorVisible || !::battle::hasClearedBattle(progression_, battle.key)) {
             continue;
         }
 
@@ -480,7 +478,7 @@ bool BattleSelectorPreviewSession::loadEntries() {
         entry.boss = boss;
         entry.spritePath = resolvePreviewSpritePath(boss.assets);
         entry.tag = battleTag(battle);
-        entry.defeated = clearedKeys.find(battle.key) != clearedKeys.end();
+        entry.defeated = true;
         entry.instructionHint = "Preview interaction hint not available yet.";
 
         if (loadedBossMeta && bossRoot.is_object()) {
@@ -543,7 +541,8 @@ void BattleSelectorPreviewSession::cacheElements() {
     infoAtkElement_ = document_->GetElementById("info-atk");
     infoSpdElement_ = document_->GetElementById("info-spd");
     infoHintElement_ = document_->GetElementById("info-hint");
-    finaleButtonElement_ = document_->GetElementById("finale-button");
+    replayStoryButtonElement_ = document_->GetElementById("replay-story-button");
+    straightToBattleButtonElement_ = document_->GetElementById("straight-to-battle-button");
     toastElement_ = document_->GetElementById("selector-toast");
 }
 
@@ -559,11 +558,7 @@ void BattleSelectorPreviewSession::buildTrack() {
                << "<div class=\"boss-card-frame\">"
                << "<div class=\"boss-card-topline\">"
                << "<div class=\"boss-card-code\">" << escapeRml((i + 1 < 10 ? "0" : "") + std::to_string(i + 1)) << "</div>"
-               << "<div class=\"boss-card-state";
-        if (entry.defeated) {
-            markup << " is-cleared";
-        }
-        markup << "\">" << escapeRml(entry.defeated ? "Cleared" : "Open") << "</div>"
+               << "<div class=\"boss-card-state is-cleared\">Cleared</div>"
                << "</div>"
                << "<div class=\"boss-card-tag\">" << escapeRml(entry.tag) << "</div>"
                << "<div class=\"boss-card-portrait\">"
@@ -598,13 +593,28 @@ void BattleSelectorPreviewSession::attachListeners() {
         return;
     }
 
-    if (Rml::Element* finaleElement = finaleButtonElement_) {
+    if (Rml::Element* replayElement = replayStoryButtonElement_) {
         auto clickListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-            activateFinale();
+            selectFooterAction(FooterAction::ReplayStory, false);
+            activateFooterAction();
         });
-        finaleElement->AddEventListener(Rml::EventId::Click, clickListener.get());
+        replayElement->AddEventListener(Rml::EventId::Click, clickListener.get());
         listeners_.push_back(EventListenerBinding{
-            finaleElement,
+            replayElement,
+            Rml::EventId::Click,
+            false,
+            std::move(clickListener),
+        });
+    }
+
+    if (Rml::Element* battleElement = straightToBattleButtonElement_) {
+        auto clickListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
+            selectFooterAction(FooterAction::StraightToBattle, false);
+            activateFooterAction();
+        });
+        battleElement->AddEventListener(Rml::EventId::Click, clickListener.get());
+        listeners_.push_back(EventListenerBinding{
+            battleElement,
             Rml::EventId::Click,
             false,
             std::move(clickListener),
@@ -619,8 +629,15 @@ void BattleSelectorPreviewSession::applySelection() {
 
     updateAnimatedLayout();
 
-    if (finaleButtonElement_ != nullptr) {
-        finaleButtonElement_->SetClass("is-focused", focusZone_ == FocusZone::Finale);
+    if (replayStoryButtonElement_ != nullptr) {
+        replayStoryButtonElement_->SetClass("is-focused",
+                                           focusZone_ == FocusZone::Footer &&
+                                               footerSelection_ == FooterAction::ReplayStory);
+    }
+    if (straightToBattleButtonElement_ != nullptr) {
+        straightToBattleButtonElement_->SetClass("is-focused",
+                                                 focusZone_ == FocusZone::Footer &&
+                                                     footerSelection_ == FooterAction::StraightToBattle);
     }
 
     for (std::size_t i = 0; i < cardElements_.size(); ++i) {
@@ -629,15 +646,7 @@ void BattleSelectorPreviewSession::applySelection() {
         }
     }
 
-    const std::set<std::string> clearedVisibleKeys(
-        progression_.clearedBattleKeys.begin(),
-        progression_.clearedBattleKeys.end());
-    int idolRank = 0;
-    for (const Entry& entry : entries_) {
-        if (clearedVisibleKeys.find(entry.battle.key) != clearedVisibleKeys.end()) {
-            ++idolRank;
-        }
-    }
+    const int idolRank = static_cast<int>(entries_.size());
     if (rankValueElement_ != nullptr) {
         rankValueElement_->SetInnerRML(std::to_string(idolRank));
     }
@@ -775,6 +784,37 @@ void BattleSelectorPreviewSession::setFocusZone(FocusZone zone, bool shouldPlayS
     }
 }
 
+void BattleSelectorPreviewSession::selectFooterAction(FooterAction action, bool shouldPlayScrollSfx) {
+    if (footerSelection_ == action && focusZone_ == FocusZone::Footer) {
+        return;
+    }
+
+    footerSelection_ = action;
+    focusZone_ = FocusZone::Footer;
+    applySelection();
+    if (shouldPlayScrollSfx) {
+        playScrollSfx();
+    }
+}
+
+void BattleSelectorPreviewSession::moveFooterSelection(int delta, bool shouldPlayScrollSfx) {
+    if (delta == 0) {
+        return;
+    }
+
+    if (delta > 0) {
+        selectFooterAction(footerSelection_ == FooterAction::ReplayStory
+                               ? FooterAction::StraightToBattle
+                               : FooterAction::ReplayStory,
+                           shouldPlayScrollSfx);
+    } else {
+        selectFooterAction(footerSelection_ == FooterAction::StraightToBattle
+                               ? FooterAction::ReplayStory
+                               : FooterAction::StraightToBattle,
+                           shouldPlayScrollSfx);
+    }
+}
+
 void BattleSelectorPreviewSession::activateSelected() {
     if (entries_.empty()) {
         return;
@@ -784,9 +824,16 @@ void BattleSelectorPreviewSession::activateSelected() {
     showToast("Preview Confirm: " + entries_[selectedIndex_].battle.name);
 }
 
-void BattleSelectorPreviewSession::activateFinale() {
+void BattleSelectorPreviewSession::activateFooterAction() {
+    if (entries_.empty()) {
+        return;
+    }
+
     playConfirmSfx();
-    showToast("Preview Confirm: Become an Idol");
+    const std::string& actionLabel = footerSelection_ == FooterAction::ReplayStory
+        ? "REPLAY STORY"
+        : "STRAIGHT TO BATTLE";
+    showToast("Preview Confirm: " + actionLabel + " - " + entries_[selectedIndex_].battle.name);
 }
 
 void BattleSelectorPreviewSession::updateHeldInput(float deltaSeconds) {

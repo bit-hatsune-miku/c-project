@@ -134,6 +134,21 @@ std::string translateScale(float x, float y, float scale) {
     return "translate(" + formatDp(x) + ", " + formatDp(y) + ") scale(" + formatNumber(scale) + ")";
 }
 
+std::string escapeRmlText(const std::string& text) {
+    std::string escaped;
+    escaped.reserve(text.size() + 8);
+    for (const char ch : text) {
+        switch (ch) {
+            case '&': escaped += "&amp;"; break;
+            case '<': escaped += "&lt;"; break;
+            case '>': escaped += "&gt;"; break;
+            case '"': escaped += "&quot;"; break;
+            default: escaped.push_back(ch); break;
+        }
+    }
+    return escaped;
+}
+
 }  /**
  * @brief Binds this controller to an Rml document and initializes UI, selection, overlay,
  * and animation state from the provided application state.
@@ -162,12 +177,14 @@ bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppS
     submenuTarget_ = submenuCurrent_;
     introElapsedSeconds_ = 0.0f;
     introActive_ = false;
+    noticeText_ = state.noticeTimer > 0.0f ? state.noticeText : std::string();
 
     cacheElements();
     applyButtonCopy();
     attachListeners();
     applySelectionStyles();
     updateStatusCopy();
+    updateNoticeCopy();
     menuStackActive_ = isMenuStackActive(state);
     if (state.screen == ScreenState::MainMenu) {
         restartIntroAnimation();
@@ -191,6 +208,8 @@ void MainMenuDocumentController::unbind() {
     logoLayerElement_ = nullptr;
     uiLayerElement_ = nullptr;
     fixedLayerElement_ = nullptr;
+    noticeElement_ = nullptr;
+    noticeText_.clear();
     introActive_ = false;
     menuStackActive_ = false;
     overlayMode_ = MainMenuOverlayMode::None;
@@ -218,6 +237,8 @@ void MainMenuDocumentController::sync(const AppState& state) {
 
     overlayMode_ = overlayModeForState(state);
     submenuTarget_ = overlayMode_ == MainMenuOverlayMode::None ? 0.0f : 1.0f;
+    noticeText_ = state.noticeTimer > 0.0f ? state.noticeText : std::string();
+    updateNoticeCopy();
 }
 
 /**
@@ -248,6 +269,8 @@ void MainMenuDocumentController::update(const AppState& state, float deltaSecond
     updateDrift(deltaSeconds);
     updateIntro(deltaSeconds);
     updateSubmenu(deltaSeconds);
+    noticeText_ = state.noticeTimer > 0.0f ? state.noticeText : std::string();
+    updateNoticeCopy();
     applyVisualState();
 }
 
@@ -383,6 +406,7 @@ void MainMenuDocumentController::cacheElements() {
     logoLayerElement_ = document_->GetElementById("main-menu-logo-layer");
     uiLayerElement_ = document_->GetElementById("main-menu-ui-layer");
     fixedLayerElement_ = document_->GetElementById("main-menu-fixed-layer");
+    noticeElement_ = document_->GetElementById("menu-notice");
 }
 
 void MainMenuDocumentController::applyButtonCopy() const {
@@ -439,6 +463,21 @@ void MainMenuDocumentController::updateStatusCopy() const {
     if (Rml::Element* element = document_->GetElementById("menu-status-copy")) {
         element->SetInnerRML(definition.statusBody);
     }
+}
+
+void MainMenuDocumentController::updateNoticeCopy() const {
+    if (noticeElement_ == nullptr) {
+        return;
+    }
+
+    if (noticeText_.empty()) {
+        noticeElement_->SetInnerRML("");
+        noticeElement_->SetClass("is-visible", false);
+        return;
+    }
+
+    noticeElement_->SetInnerRML(escapeRmlText(noticeText_));
+    noticeElement_->SetClass("is-visible", true);
 }
 
 void MainMenuDocumentController::restartIntroAnimation() {

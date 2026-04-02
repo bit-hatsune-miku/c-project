@@ -29,6 +29,15 @@ constexpr float kMenuIntroDuration = 0.52f;
 constexpr float kMenuIntroStagger = 0.09f;
 constexpr float kMenuIntroTravel = 230.0f;
 
+bool practiceModeUnlocked(const AppState& state) {
+    return ::battle::hasUnlockedCharacter(state.progression, "lyoo");
+}
+
+void showPracticeModeLockedNotice(AppState& state) {
+    state.noticeText = kPracticeModeLockedNotice;
+    state.noticeTimer = 2.6f;
+}
+
 struct MenuButton {
     MainMenuAction action;
     const char* label;
@@ -145,6 +154,10 @@ private:
                 openLoadMenu(state, ScreenState::MainMenu);
                 break;
             case MainMenuAction::Battle:
+                if (!practiceModeUnlocked(state)) {
+                    showPracticeModeLockedNotice(state);
+                    break;
+                }
                 beginBossSelector(state);
                 break;
             case MainMenuAction::Settings:
@@ -313,6 +326,10 @@ void applyMainMenuAction(AppState& state, Window& window, MainMenuAction action)
             openLoadMenu(state, ScreenState::MainMenu);
             break;
         case MainMenuAction::Battle:
+            if (!practiceModeUnlocked(state)) {
+                showPracticeModeLockedNotice(state);
+                break;
+            }
             beginBossSelector(state);
             break;
         case MainMenuAction::Settings:

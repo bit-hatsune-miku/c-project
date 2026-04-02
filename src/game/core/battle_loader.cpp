@@ -224,6 +224,7 @@ bool fillBattleDefinitionFromJson(const std::string& battleKey,
     BattleDefinition battle;
     battle.key = battleKey.empty() ? battleJson.value("key", "") : battleKey;
     battle.id = battleJson.value("id", -1);
+    battle.storyOrder = battleJson.value("storyOrder", battle.id);
     battle.name = battleJson.value("name", battle.key);
     battle.description = battleJson.value("description", "");
     battle.type = battleJson.value("type", "");
@@ -232,6 +233,7 @@ bool fillBattleDefinitionFromJson(const std::string& battleKey,
     battle.storyScript = battleJson.value("storyScript", "");
     battle.victoryStoryScript = battleJson.value("victoryStoryScript", "");
     battle.defeatStoryScript = battleJson.value("defeatStoryScript", "");
+    battle.nextStoryScript = battleJson.value("nextStoryScript", "");
     battle.selectorVisible = battleJson.value("selectorVisible", false);
     battle.isLineupFixed = battleJson.value("isLineupFixed", true);
     battle.lineup = battleJson.value("lineup", std::vector<std::string>{});
@@ -520,6 +522,9 @@ bool loadAllBattleDefinitions(std::vector<BattleDefinition>& outBattles) {
     }
 
     std::sort(outBattles.begin(), outBattles.end(), [](const BattleDefinition& lhs, const BattleDefinition& rhs) {
+        if (lhs.storyOrder != rhs.storyOrder) {
+            return lhs.storyOrder < rhs.storyOrder;
+        }
         if (lhs.id != rhs.id) {
             return lhs.id < rhs.id;
         }

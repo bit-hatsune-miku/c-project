@@ -9,10 +9,8 @@
 #include <iomanip>
 #include <iostream>
 #include <optional>
-#include <set>
 #include <sstream>
 #include <string>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -52,8 +50,6 @@ constexpr const char* kDocumentPath = "assets/rmlui/previews/battle_selector_pre
 constexpr const char* kLoadingOverlayDocumentPath = "assets/rmlui/shared/loading_overlay.rml";
 constexpr const char* kScrollSfxRelativePath = "assets/ui/sfx/Selection_roulette-3.wav";
 constexpr const char* kConfirmSfxRelativePath = "assets/ui/sfx/SongSelect_confirm-selection.wav";
-constexpr const char* kFinaleBattleKey = "lyoo_plot_twist";
-
 class CallbackEventListener final : public Rml::EventListener {
 public:
     explicit CallbackEventListener(std::function<void(Rml::Event&)> callback)
@@ -253,8 +249,8 @@ public:
         visualSelectionIndex_ = 0.0f;
         targetVisualSelectionIndex_ = 0.0f;
         focusZone_ = FocusZone::Carousel;
+        footerSelection_ = FooterAction::ReplayStory;
         launchRequest_.reset();
-        finaleBattle_.reset();
 
         sfxPlayer_.shutdown();
         scrollSfxPath_.clear();
@@ -278,7 +274,8 @@ public:
         infoAtkElement_ = nullptr;
         infoSpdElement_ = nullptr;
         infoHintElement_ = nullptr;
-        finaleButtonElement_ = nullptr;
+        replayStoryButtonElement_ = nullptr;
+        straightToBattleButtonElement_ = nullptr;
         toastElement_ = nullptr;
         cardElements_.clear();
         cardPortraitImageElements_.clear();
@@ -339,6 +336,8 @@ public:
                         negativeHeld_ = true;
                         holdNegativeElapsed_ = 0.0f;
                         moveSelection(-1, true);
+                    } else {
+                        moveFooterSelection(-1, true);
                     }
                     break;
 
@@ -347,6 +346,8 @@ public:
                         positiveHeld_ = true;
                         holdPositiveElapsed_ = 0.0f;
                         moveSelection(1, true);
+                    } else {
+                        moveFooterSelection(1, true);
                     }
                     break;
 
@@ -355,14 +356,16 @@ public:
                     break;
 
                 case SDLK_DOWN:
-                    setFocusZone(FocusZone::Finale, true);
+                    if (focusZone_ == FocusZone::Carousel) {
+                        setFocusZone(FocusZone::Footer, true);
+                    }
                     break;
 
                 case SDLK_RETURN:
                 case SDLK_KP_ENTER:
                 case SDLK_SPACE:
-                    if (focusZone_ == FocusZone::Finale) {
-                        activateFinale();
+                    if (focusZone_ == FocusZone::Footer) {
+                        activateFooterAction();
                     } else {
                         activateSelected();
                     }
@@ -460,7 +463,12 @@ public:
 private:
     enum class FocusZone {
         Carousel,
-        Finale,
+        Footer,
+    };
+
+    enum class FooterAction {
+        ReplayStory,
+        StraightToBattle,
     };
 
     struct EventListenerBinding {
@@ -557,21 +565,8 @@ private:
         const std::string bossPath = battle::loader::resolveAssetPath("assets/combat/boss.json");
         const bool loadedBossMeta = battle::loader::readJsonRoot(bossPath, bossRoot, "boss");
 
-        std::sort(battles.begin(), battles.end(), [](const battle::BattleDefinition& lhs,
-                                                     const battle::BattleDefinition& rhs) {
-            return lhs.id < rhs.id;
-        });
-
-        const std::unordered_set<std::string> clearedKeys(
-            progression_.clearedBattleKeys.begin(),
-            progression_.clearedBattleKeys.end());
-
         for (const battle::BattleDefinition& battle : battles) {
-            if (battle.key == kFinaleBattleKey) {
-                finaleBattle_ = battle;
-            }
-
-            if (!battle.selectorVisible) {
+            if (!battle.selectorVisible || !::battle::hasClearedBattle(progression_, battle.key)) {
                 continue;
             }
 
@@ -585,7 +580,7 @@ private:
             entry.boss = boss;
             entry.spritePath = resolveSelectorSpritePath(boss.assets);
             entry.tag = battleTag(battle);
-            entry.defeated = clearedKeys.find(battle.key) != clearedKeys.end();
+            entry.defeated = true;
             entry.instructionHint = "Preview interaction hint not available yet.";
 
             if (loadedBossMeta && bossRoot.is_object()) {
@@ -659,7 +654,8 @@ private:
         infoAtkElement_ = document_->GetElementById("info-atk");
         infoSpdElement_ = document_->GetElementById("info-spd");
         infoHintElement_ = document_->GetElementById("info-hint");
-        finaleButtonElement_ = document_->GetElementById("finale-button");
+        replayStoryButtonElement_ = document_->GetElementById("replay-story-button");
+        straightToBattleButtonElement_ = document_->GetElementById("straight-to-battle-button");
         toastElement_ = document_->GetElementById("selector-toast");
     }
 
@@ -675,11 +671,7 @@ private:
                    << "<div class=\"boss-card-frame\">"
                    << "<div class=\"boss-card-topline\">"
                    << "<div class=\"boss-card-code\">" << escapeRml((i + 1 < 10 ? "0" : "") + std::to_string(i + 1)) << "</div>"
-                   << "<div class=\"boss-card-state";
-            if (entry.defeated) {
-                markup << " is-cleared";
-            }
-            markup << "\">" << escapeRml(entry.defeated ? "Cleared" : "Open") << "</div>"
+                   << "<div class=\"boss-card-state is-cleared\">Cleared</div>"
                    << "</div>"
                    << "<div class=\"boss-card-tag\">" << escapeRml(entry.tag) << "</div>"
                    << "<div class=\"boss-card-portrait\">"
@@ -732,26 +724,33 @@ private:
             }
         }
 
-        if (Rml::Element* finaleElement = finaleButtonElement_) {
+        if (Rml::Element* replayElement = replayStoryButtonElement_) {
             auto clickListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-                focusZone_ = FocusZone::Finale;
-                applySelection();
-                activateFinale();
+                selectFooterAction(FooterAction::ReplayStory, false);
+                activateFooterAction();
             });
-            finaleElement->AddEventListener(Rml::EventId::Click, clickListener.get());
+            replayElement->AddEventListener(Rml::EventId::Click, clickListener.get());
             listeners_.push_back(EventListenerBinding{
-                finaleElement,
+                replayElement,
                 Rml::EventId::Click,
                 false,
                 std::move(clickListener),
             });
         }
-    }
 
-    bool isFinaleUnlocked() const {
-        const std::size_t clearedVisibleCount = static_cast<std::size_t>(std::count_if(
-            entries_.begin(), entries_.end(), [](const Entry& entry) { return entry.defeated; }));
-        return !entries_.empty() && clearedVisibleCount == entries_.size();
+        if (Rml::Element* battleElement = straightToBattleButtonElement_) {
+            auto clickListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
+                selectFooterAction(FooterAction::StraightToBattle, false);
+                activateFooterAction();
+            });
+            battleElement->AddEventListener(Rml::EventId::Click, clickListener.get());
+            listeners_.push_back(EventListenerBinding{
+                battleElement,
+                Rml::EventId::Click,
+                false,
+                std::move(clickListener),
+            });
+        }
     }
 
     void applySelection() {
@@ -761,9 +760,15 @@ private:
 
         updateAnimatedLayout();
 
-        if (finaleButtonElement_ != nullptr) {
-            finaleButtonElement_->SetClass("is-focused", focusZone_ == FocusZone::Finale);
-            finaleButtonElement_->SetClass("is-locked", !isFinaleUnlocked());
+        if (replayStoryButtonElement_ != nullptr) {
+            replayStoryButtonElement_->SetClass(
+                "is-focused",
+                focusZone_ == FocusZone::Footer && footerSelection_ == FooterAction::ReplayStory);
+        }
+        if (straightToBattleButtonElement_ != nullptr) {
+            straightToBattleButtonElement_->SetClass(
+                "is-focused",
+                focusZone_ == FocusZone::Footer && footerSelection_ == FooterAction::StraightToBattle);
         }
 
         for (std::size_t i = 0; i < cardElements_.size(); ++i) {
@@ -772,19 +777,7 @@ private:
             }
         }
 
-        const std::set<std::string> clearedKeys(
-            progression_.clearedBattleKeys.begin(),
-            progression_.clearedBattleKeys.end());
-        int idolRank = 0;
-        for (const Entry& entry : entries_) {
-            if (clearedKeys.find(entry.battle.key) != clearedKeys.end()) {
-                ++idolRank;
-            }
-        }
-        if (finaleBattle_.has_value() &&
-            clearedKeys.find(finaleBattle_->key) != clearedKeys.end()) {
-            ++idolRank;
-        }
+        const int idolRank = static_cast<int>(entries_.size());
         if (rankValueElement_ != nullptr) {
             rankValueElement_->SetInnerRML(std::to_string(idolRank));
         }
@@ -930,6 +923,37 @@ private:
         }
     }
 
+    void selectFooterAction(FooterAction action, bool shouldPlayScrollSfx) {
+        if (focusZone_ == FocusZone::Footer && footerSelection_ == action) {
+            return;
+        }
+
+        footerSelection_ = action;
+        focusZone_ = FocusZone::Footer;
+        applySelection();
+        if (shouldPlayScrollSfx) {
+            playScrollSfx();
+        }
+    }
+
+    void moveFooterSelection(int delta, bool shouldPlayScrollSfx) {
+        if (delta == 0) {
+            return;
+        }
+
+        if (delta > 0) {
+            selectFooterAction(footerSelection_ == FooterAction::ReplayStory
+                                   ? FooterAction::StraightToBattle
+                                   : FooterAction::ReplayStory,
+                               shouldPlayScrollSfx);
+        } else {
+            selectFooterAction(footerSelection_ == FooterAction::StraightToBattle
+                                   ? FooterAction::ReplayStory
+                                   : FooterAction::StraightToBattle,
+                               shouldPlayScrollSfx);
+        }
+    }
+
     void activateSelected() {
         if (entries_.empty()) {
             return;
@@ -943,20 +967,20 @@ private:
         };
     }
 
-    void activateFinale() {
-        if (!isFinaleUnlocked()) {
-            showToast("Defeat every rival before becoming an idol.");
-            return;
-        }
-        if (!finaleBattle_.has_value()) {
-            showToast("Finale battle is not configured.");
+    void activateFooterAction() {
+        if (entries_.empty()) {
             return;
         }
 
+        const Entry& entry = entries_[selectedIndex_];
         playConfirmSfx();
         launchRequest_ = LaunchRequest{
-            finaleBattle_->storyScript.empty() ? LaunchRequest::Type::Battle : LaunchRequest::Type::Story,
-            finaleBattle_->storyScript.empty() ? finaleBattle_->key : finaleBattle_->storyScript,
+            footerSelection_ == FooterAction::ReplayStory && !entry.battle.storyScript.empty()
+                ? LaunchRequest::Type::Story
+                : LaunchRequest::Type::Battle,
+            footerSelection_ == FooterAction::ReplayStory && !entry.battle.storyScript.empty()
+                ? entry.battle.storyScript
+                : entry.battle.key,
         };
     }
 
@@ -1074,12 +1098,12 @@ private:
     game::audio::WavOneShotPlayer sfxPlayer_;
     std::vector<Entry> entries_;
     battle::PlayerProgression progression_;
-    std::optional<battle::BattleDefinition> finaleBattle_;
     std::optional<LaunchRequest> launchRequest_;
     std::size_t selectedIndex_ = 0;
     float visualSelectionIndex_ = 0.0f;
     float targetVisualSelectionIndex_ = 0.0f;
     FocusZone focusZone_ = FocusZone::Carousel;
+    FooterAction footerSelection_ = FooterAction::ReplayStory;
     bool negativeHeld_ = false;
     bool positiveHeld_ = false;
     float holdNegativeElapsed_ = 0.0f;
@@ -1102,7 +1126,8 @@ private:
     Rml::Element* infoAtkElement_ = nullptr;
     Rml::Element* infoSpdElement_ = nullptr;
     Rml::Element* infoHintElement_ = nullptr;
-    Rml::Element* finaleButtonElement_ = nullptr;
+    Rml::Element* replayStoryButtonElement_ = nullptr;
+    Rml::Element* straightToBattleButtonElement_ = nullptr;
     Rml::Element* toastElement_ = nullptr;
     std::vector<Rml::Element*> cardElements_;
     std::vector<Rml::Element*> cardPortraitImageElements_;

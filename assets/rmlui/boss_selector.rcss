@@ -301,46 +301,74 @@ body {
     font-size: 15px;
 }
 
-#finale-button {
+#selector-actions {
     position: absolute;
     left: 50%;
-    bottom: 30px;
-    width: 436px;
-    height: 92px;
-    margin-left: -218px;
-    padding: 16px 22px 16px 22px;
+    bottom: 28px;
+    width: 438px;
+    height: 68px;
+    margin-left: -219px;
+}
+
+.selector-action-button {
+    position: absolute;
+    top: 0;
+    width: 214px;
+    height: 68px;
+}
+
+#replay-story-button {
+    left: 0;
+}
+
+#straight-to-battle-button {
+    right: 0;
+}
+
+.selector-action-frame {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
     background-color: rgba(10, 29, 37, 214);
     border: 1px rgba(84, 219, 244, 82);
     box-shadow: 0 0 18px rgba(24, 209, 255, 0.08);
 }
 
-#finale-button.focused {
+.selector-action-button.focused .selector-action-frame {
     background-color: rgba(15, 43, 53, 232);
     border: 1px rgba(131, 247, 255, 178);
     box-shadow: 0 0 30px rgba(24, 209, 255, 0.18);
 }
 
-#finale-button.locked {
-    opacity: 0.68;
+.selector-action-inner {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
 }
 
-.finale-kicker {
-    color: #8cdde5;
-    font-size: 13px;
-    letter-spacing: 3px;
+.selector-action-accent {
+    position: absolute;
+    left: 18px;
+    top: 18px;
+    width: 10px;
+    height: 32px;
+    background-color: rgba(255, 255, 255, 72);
+    border-radius: 999px;
 }
 
-.finale-title {
-    margin-top: 4px;
+.selector-action-label {
+    position: absolute;
+    left: 42px;
+    top: 24px;
     color: #ffffff;
-    font-size: 27px;
+    font-size: 12px;
     font-weight: bold;
-}
-
-.finale-subtitle {
-    margin-top: 2px;
-    color: #7abac2;
-    font-size: 14px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
 }
 
 #selector-toast {

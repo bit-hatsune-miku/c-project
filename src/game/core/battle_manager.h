@@ -59,6 +59,7 @@ struct BattleSpecialRules {
 struct BattleDefinition {
     std::string key;
     int id = -1;
+    int storyOrder = -1;
     std::string name;
     std::string description;
     std::string type;
@@ -67,6 +68,7 @@ struct BattleDefinition {
     std::string storyScript;
     std::string victoryStoryScript;
     std::string defeatStoryScript;
+    std::string nextStoryScript;
     bool selectorVisible = false;
     bool isLineupFixed = true;
     int partySize = 4;

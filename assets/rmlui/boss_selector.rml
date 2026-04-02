@@ -46,10 +46,21 @@
             <div id="selector-footer">
                 <div id="selector-footer-copy">Replay any cleared story or jump straight into a boss battle.</div>
             </div>
-            <div id="finale-button">
-                <div class="finale-kicker">SPECIAL STORY</div>
-                <div class="finale-title">Become an Idol</div>
-                <div class="finale-subtitle" id="finale-subtitle">Defeat every boss to unlock the finale.</div>
+            <div id="selector-actions">
+                <button id="replay-story-button" class="selector-action-button">
+                    <div class="selector-action-frame"></div>
+                    <div class="selector-action-inner">
+                        <div class="selector-action-accent"></div>
+                        <div class="selector-action-label">REPLAY STORY</div>
+                    </div>
+                </button>
+                <button id="straight-to-battle-button" class="selector-action-button">
+                    <div class="selector-action-frame"></div>
+                    <div class="selector-action-inner">
+                        <div class="selector-action-accent"></div>
+                        <div class="selector-action-label">STRAIGHT TO BATTLE</div>
+                    </div>
+                </button>
             </div>
         </div>
 

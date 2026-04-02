@@ -289,6 +289,31 @@ button {
     color: rgba(24, 24, 32, 154);
 }
 
+#menu-notice {
+    position: absolute;
+    left: 50%;
+    bottom: 20dp;
+    width: 410dp;
+    height: 34dp;
+    margin-left: -205dp;
+    padding-top: 10dp;
+    background-color: rgba(23, 20, 31, 224);
+    border-radius: 999dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    text-align: center;
+    color: #ffffff;
+    opacity: 0;
+    transform: translate(0dp, 10dp);
+    transition: opacity 0.22s cubic-out, transform 0.22s cubic-out;
+}
+
+#menu-notice.is-visible {
+    opacity: 1;
+    transform: translate(0dp, 0dp);
+}
+
 #corner-kicker {
     position: absolute;
     right: 72dp;
