@@ -146,6 +146,8 @@ set(BATTLE_PRESENTATION_SOURCES
 set(BATTLE_DEMO_SOURCES
     src/game/demo_battle_session.cpp
     src/game/demo_battle_session.h
+    src/game/audio/battle_bgm_controller.cpp
+    src/game/audio/battle_bgm_controller.h
     src/game/battle_session_core.cpp
     src/game/battle_session_core.h
     src/game/demo/battle_party_setup.cpp

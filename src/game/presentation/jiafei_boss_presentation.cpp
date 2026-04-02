@@ -4,7 +4,6 @@
 #include <algorithm>
 #include <cmath>
 #include <filesystem>
-#include <iostream>
 
 #ifdef BATTLE_ENABLE_IMAGE
 #include <SDL2/SDL_image.h>
@@ -36,8 +35,6 @@ constexpr float kHeadFadeInDepthRatio = 0.18f;
 constexpr float kMinHeadSize = 138.0f;
 constexpr float kMaxHeadSize = 220.0f;
 constexpr float kDodgeDistanceWorld = 220.0f;
-constexpr float kPerfectDodgeTravelSeconds = 0.11f;
-constexpr float kDodgeReturnSeconds = 0.06f;
 constexpr float kRequiredDodgeCoverageRatio = 0.40f;
 constexpr float kPi = 3.14159265f;
 constexpr float kHeadImpactRatio =
@@ -60,6 +57,7 @@ JiafeiBossPresentation::JiafeiBossPresentation(
     successfulDodges_ = 0;
     waveElapsed_ = 0.0f;
     sideFromLeft_ = (std::rand() % 2) == 0;
+    chooseNextSafeLane();
     damageMultiplier_ = 1.0f;
     inputReceived_ = false;
     inputCorrect_ = false;
@@ -89,6 +87,7 @@ void JiafeiBossPresentation::start() {
     successfulDodges_ = 0;
     waveElapsed_ = 0.0f;
     sideFromLeft_ = (std::rand() % 2) == 0;
+    chooseNextSafeLane();
     inputReceived_ = false;
     inputCorrect_ = false;
     canReceiveInput_ = false;
@@ -98,6 +97,7 @@ void JiafeiBossPresentation::start() {
     waveImpactResolved_ = false;
     pendingAbilityAudioCues_ = 0;
     pendingHitEvents_ = 0;
+    pendingFeedbackEvents_.clear();
     dodgeMotionState_ = DodgeMotionState::Idle;
 }
 
@@ -163,7 +163,7 @@ void JiafeiBossPresentation::update(float deltaTime) {
         }
 
         // next wave setup
-        sideFromLeft_ = !sideFromLeft_;
+        chooseNextSafeLane();
         waveElapsed_ -= waveDuration_;
         inputReceived_ = false;
         inputCorrect_ = false;
@@ -190,10 +190,36 @@ void JiafeiBossPresentation::renderBelowWorld(SDL_Renderer* renderer, int screen
 }
 
 bool JiafeiBossPresentation::isComplete() const {
-    if (phase_ == Phase::Complete) {
-        std::cout << "[Jiafei] beat presentation complete; dodges=" << successfulDodges_ << " / " << totalWaves_ << ", multiplier=" << damageMultiplier_ << "\n";
-    }
     return phase_ == Phase::Complete;
+}
+
+void JiafeiBossPresentation::setTuningProfile(const PresentationTuningProfile& profile) {
+    if (const auto it = profile.intParams.find("totalWaves"); it != profile.intParams.end()) {
+        totalWaves_ = std::max(1, it->second);
+    }
+    if (const auto it = profile.intParams.find("patternMode"); it != profile.intParams.end()) {
+        switch (it->second) {
+            case 1:
+                patternMode_ = PatternMode::RandomSideSafe;
+                break;
+            case 2:
+                patternMode_ = PatternMode::RandomAnySafe;
+                break;
+            case 0:
+            default:
+                patternMode_ = PatternMode::AlternateSideSafe;
+                break;
+        }
+    }
+    if (const auto it = profile.floatParams.find("waveDurationSeconds"); it != profile.floatParams.end()) {
+        waveDuration_ = std::max(0.15f, it->second);
+    }
+    if (const auto it = profile.floatParams.find("dodgeTravelSeconds"); it != profile.floatParams.end()) {
+        dodgeTravelSeconds_ = std::max(0.01f, it->second);
+    }
+    if (const auto it = profile.floatParams.find("dodgeReturnSeconds"); it != profile.floatParams.end()) {
+        dodgeReturnSeconds_ = std::max(0.01f, it->second);
+    }
 }
 
 bool JiafeiBossPresentation::onKeyPressed(SDL_Keycode key) {
@@ -357,12 +383,7 @@ void JiafeiBossPresentation::ensureTexturesLoaded(SDL_Renderer* renderer) {
         if (surf) {
             middleHeadTexture_ = SDL_CreateTextureFromSurface(renderer, surf);
             SDL_FreeSurface(surf);
-            std::cout << "[Jiafei] Loaded middle head texture: " << midPath << "\n";
-        } else {
-            std::cout << "[Jiafei] IMG_Load failed for " << midPath << "\n";
         }
-    } else {
-        std::cout << "[Jiafei] Missing file: " << midPath << "\n";
     }
 
     if (std::filesystem::exists(sidePath)) {
@@ -370,22 +391,9 @@ void JiafeiBossPresentation::ensureTexturesLoaded(SDL_Renderer* renderer) {
         if (surf) {
             sideHeadTexture_ = SDL_CreateTextureFromSurface(renderer, surf);
             SDL_FreeSurface(surf);
-            std::cout << "[Jiafei] Loaded side head texture: " << sidePath << "\n";
-        } else {
-            std::cout << "[Jiafei] IMG_Load failed for " << sidePath << "\n";
         }
-    } else {
-        std::cout << "[Jiafei] Missing file: " << sidePath << "\n";
     }
 #endif
-
-    // If image support was disabled at compile-time or loading failed, log fallback use.
-    if (!middleHeadTexture_ || !sideHeadTexture_) {
-        std::cout << "[Jiafei] head textures not available; using fallback rectangles."
-                  << " middleTex=" << (middleHeadTexture_?"OK":"NULL")
-                  << " sideTex=" << (sideHeadTexture_?"OK":"NULL")
-                  << " paths=(" << midPath << ", " << sidePath << ")\n";
-    }
 
     texturesLoaded_ = true;
 }
@@ -399,24 +407,49 @@ float JiafeiBossPresentation::waveImpactTimeSeconds() const {
 }
 
 bool JiafeiBossPresentation::isCorrectDodgeDirection(int direction) const {
-    const int safeDirection = sideFromLeft_ ? 1 : -1;
-    return direction == safeDirection;
+    return safeLane_ != 0 && direction == safeLane_;
 }
 
-int JiafeiBossPresentation::resolveWaveHeadHits() const {
+void JiafeiBossPresentation::chooseNextSafeLane() {
+    switch (patternMode_) {
+    case PatternMode::AlternateSideSafe:
+        safeLane_ = sideFromLeft_ ? -1 : 1;
+        sideFromLeft_ = !sideFromLeft_;
+        return;
+    case PatternMode::RandomSideSafe:
+        safeLane_ = (std::rand() % 2 == 0) ? -1 : 1;
+        return;
+    case PatternMode::RandomAnySafe: {
+        constexpr int kSafeLanes[3] = {-1, 0, 1};
+        safeLane_ = kSafeLanes[std::rand() % 3];
+        return;
+    }
+    }
+}
+
+int JiafeiBossPresentation::resolvePlayerLane() const {
     const float dodgeCoverage = std::clamp(
         currentDodgeOffsetWorld() / std::max(0.001f, kDodgeDistanceWorld),
         0.0f,
         1.0f
     );
-    const bool dodgedMiddleHead = dodgeCoverage >= kRequiredDodgeCoverageRatio;
-    const bool dodgedSideHead = dodgedMiddleHead && inputReceived_ && isCorrectDodgeDirection(dodgeDirection_);
+    if (dodgeCoverage < kRequiredDodgeCoverageRatio) {
+        return 0;
+    }
+    return dodgeDirection_;
+}
+
+int JiafeiBossPresentation::resolveWaveHeadHits() const {
+    const int playerLane = resolvePlayerLane();
+    if (safeLane_ == 0) {
+        return playerLane == 0 ? 0 : 1;
+    }
 
     int landedHits = 0;
-    if (!dodgedMiddleHead) {
+    if (playerLane == 0) {
         ++landedHits;
     }
-    if (!dodgedSideHead) {
+    if (playerLane != safeLane_) {
         ++landedHits;
     }
     return landedHits;
@@ -428,7 +461,7 @@ void JiafeiBossPresentation::updateDodgeMotion(float deltaTime) {
         return;
     case DodgeMotionState::Outbound:
         dodgeElapsed_ += deltaTime;
-        if (dodgeElapsed_ >= kPerfectDodgeTravelSeconds) {
+        if (dodgeElapsed_ >= dodgeTravelSeconds_) {
             dodgeElapsed_ = 0.0f;
             dodgeMotionState_ = waveElapsed_ >= waveImpactTimeSeconds()
                 ? DodgeMotionState::Return
@@ -443,7 +476,7 @@ void JiafeiBossPresentation::updateDodgeMotion(float deltaTime) {
         return;
     case DodgeMotionState::Return:
         dodgeElapsed_ += deltaTime;
-        if (dodgeElapsed_ >= kDodgeReturnSeconds) {
+        if (dodgeElapsed_ >= dodgeReturnSeconds_) {
             dodgeElapsed_ = 0.0f;
             dodgeDirection_ = 0;
             dodgeMotionState_ = DodgeMotionState::Idle;
@@ -457,13 +490,13 @@ float JiafeiBossPresentation::currentDodgeOffsetWorld() const {
     case DodgeMotionState::Idle:
         return 0.0f;
     case DodgeMotionState::Outbound: {
-        const float t = easing::clamp01(dodgeElapsed_ / std::max(0.001f, kPerfectDodgeTravelSeconds));
+        const float t = easing::clamp01(dodgeElapsed_ / std::max(0.001f, dodgeTravelSeconds_));
         return kDodgeDistanceWorld * easing::easeOutQuint(t);
     }
     case DodgeMotionState::Hold:
         return kDodgeDistanceWorld;
     case DodgeMotionState::Return: {
-        const float t = easing::clamp01(dodgeElapsed_ / std::max(0.001f, kDodgeReturnSeconds));
+        const float t = easing::clamp01(dodgeElapsed_ / std::max(0.001f, dodgeReturnSeconds_));
         return kDodgeDistanceWorld * (1.0f - easing::easeOutQuint(t));
     }
     }
@@ -473,8 +506,9 @@ float JiafeiBossPresentation::currentDodgeOffsetWorld() const {
 
 bool JiafeiBossPresentation::computeHeadRenderState(const Camera3D& camera,
                                                     bool& outBehindTarget,
+                                                    SDL_FPoint& outLeftScreen,
                                                     SDL_FPoint& outMidScreen,
-                                                    SDL_FPoint& outSideScreen,
+                                                    SDL_FPoint& outRightScreen,
                                                     float& outHeadSize,
                                                     Uint8& outAlpha) const {
     if (phase_ != Phase::Attack && phase_ != Phase::Complete) {
@@ -523,38 +557,24 @@ bool JiafeiBossPresentation::computeHeadRenderState(const Camera3D& camera,
         kHeadMaxRenderSize
     );
     outBehindTarget = currentDepth > targetDepth;
+    outLeftScreen = SDL_FPoint{targetFeet.x - sideLaneOffset, chestY};
     outMidScreen = SDL_FPoint{targetFeet.x, chestY};
-    outSideScreen = SDL_FPoint{
-        targetFeet.x + (sideFromLeft_ ? -sideLaneOffset : sideLaneOffset),
-        chestY
-    };
+    outRightScreen = SDL_FPoint{targetFeet.x + sideLaneOffset, chestY};
     outAlpha = static_cast<Uint8>(std::clamp(alphaT, 0.0f, 1.0f) * 255.0f);
     return outAlpha > 0;
 }
 
 void JiafeiBossPresentation::renderHeads(SDL_Renderer* renderer, const Camera3D& camera, bool behindTargetPass) {
     bool behindTarget = false;
+    SDL_FPoint leftScreen{};
     SDL_FPoint midScreen{};
-    SDL_FPoint sideScreen{};
+    SDL_FPoint rightScreen{};
     float headSize = 0.0f;
     Uint8 alpha = 255;
-    if (!computeHeadRenderState(camera, behindTarget, midScreen, sideScreen, headSize, alpha) ||
+    if (!computeHeadRenderState(camera, behindTarget, leftScreen, midScreen, rightScreen, headSize, alpha) ||
         behindTarget != behindTargetPass) {
         return;
     }
-
-    SDL_Rect midRect = {
-        static_cast<int>(midScreen.x - headSize * 0.5f),
-        static_cast<int>(midScreen.y - headSize * 0.5f),
-        static_cast<int>(headSize),
-        static_cast<int>(headSize)
-    };
-    SDL_Rect sideRect = {
-        static_cast<int>(sideScreen.x - headSize * 0.5f),
-        static_cast<int>(sideScreen.y - headSize * 0.5f),
-        static_cast<int>(headSize),
-        static_cast<int>(headSize)
-    };
 
     auto drawHead = [&](SDL_Texture* texture, const SDL_Rect& rect, SDL_Color fallbackColor) {
         if (texture != nullptr) {
@@ -569,8 +589,27 @@ void JiafeiBossPresentation::renderHeads(SDL_Renderer* renderer, const Camera3D&
         SDL_RenderFillRect(renderer, &rect);
     };
 
-    drawHead(middleHeadTexture_, midRect, SDL_Color{255, 180, 180, 255});
-    drawHead(sideHeadTexture_, sideRect, SDL_Color{255, 100, 100, 255});
+    auto makeRect = [&](const SDL_FPoint& point) {
+        return SDL_Rect{
+            static_cast<int>(point.x - headSize * 0.5f),
+            static_cast<int>(point.y - headSize * 0.5f),
+            static_cast<int>(headSize),
+            static_cast<int>(headSize)
+        };
+    };
+
+    const bool attackLeft = safeLane_ != -1;
+    const bool attackMid = safeLane_ != 0;
+    const bool attackRight = safeLane_ != 1;
+    if (attackLeft) {
+        drawHead(sideHeadTexture_, makeRect(leftScreen), SDL_Color{255, 100, 100, 255});
+    }
+    if (attackMid) {
+        drawHead(middleHeadTexture_, makeRect(midScreen), SDL_Color{255, 180, 180, 255});
+    }
+    if (attackRight) {
+        drawHead(sideHeadTexture_, makeRect(rightScreen), SDL_Color{255, 100, 100, 255});
+    }
 }
 
 } // namespace battle

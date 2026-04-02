@@ -97,6 +97,71 @@ bool loadNestedAbilityDefinitionsFromFile(const std::string& relativePath,
     return true;
 }
 
+void parsePresentationTuningProfile(const json& tuningJson,
+                                    const std::string& profileId,
+                                    int phaseIndex,
+                                    PresentationTuningProfile& outProfile) {
+    outProfile = PresentationTuningProfile{};
+    outProfile.profileId = profileId;
+    outProfile.phaseIndex = phaseIndex;
+
+    if (!tuningJson.is_object()) {
+        return;
+    }
+
+    if (const auto intParamsIt = tuningJson.find("intParams");
+        intParamsIt != tuningJson.end() && intParamsIt->is_object()) {
+        for (auto it = intParamsIt->begin(); it != intParamsIt->end(); ++it) {
+            if (!it.value().is_number_integer()) {
+                continue;
+            }
+            outProfile.intParams[it.key()] = it.value().get<int>();
+        }
+    }
+
+    if (const auto floatParamsIt = tuningJson.find("floatParams");
+        floatParamsIt != tuningJson.end() && floatParamsIt->is_object()) {
+        for (auto it = floatParamsIt->begin(); it != floatParamsIt->end(); ++it) {
+            if (!it.value().is_number()) {
+                continue;
+            }
+            outProfile.floatParams[it.key()] = it.value().get<float>();
+        }
+    }
+}
+
+void parseBossPhaseDefinition(const json& phaseJson,
+                              const std::string& bossKey,
+                              int phaseIndex,
+                              BossDefinition::PhaseDefinition& outPhase) {
+    outPhase = BossDefinition::PhaseDefinition{};
+    if (!phaseJson.is_object()) {
+        return;
+    }
+
+    outPhase.configured = true;
+    outPhase.atkBonusPercent = phaseJson.value("atkBonusPercent", 0);
+    outPhase.bgm = phaseJson.value("bgm", "");
+    if (const auto bgmVolumeIt = phaseJson.find("bgmVolume");
+        bgmVolumeIt != phaseJson.end() && bgmVolumeIt->is_number()) {
+        outPhase.bgmVolume = bgmVolumeIt->get<float>();
+    }
+
+    if (const auto presentationIt = phaseJson.find("presentation");
+        presentationIt != phaseJson.end()) {
+        parsePresentationTuningProfile(
+            *presentationIt,
+            bossKey + ".phase" + std::to_string(phaseIndex + 1),
+            phaseIndex,
+            outPhase.tuningProfile
+        );
+    } else {
+        outPhase.tuningProfile = PresentationTuningProfile{};
+        outPhase.tuningProfile.profileId = bossKey + ".phase" + std::to_string(phaseIndex + 1);
+        outPhase.tuningProfile.phaseIndex = phaseIndex;
+    }
+}
+
 bool parseBossDefinition(const json& bossJson, const std::string& key, BossDefinition& outBoss) {
     if (!bossJson.is_object()) {
         return false;
@@ -118,6 +183,20 @@ bool parseBossDefinition(const json& bossJson, const std::string& key, BossDefin
     outBoss.bgm = bossJson.value("bgm", "");
     outBoss.bgmVolume = bossJson.value("bgmVolume", 1.0f);
     outBoss.ability = outBoss.skillAbility;
+
+    if (const auto phasesIt = bossJson.find("phases"); phasesIt != bossJson.end() && phasesIt->is_object()) {
+        static constexpr std::array<const char*, 3> kPhaseKeys = {"phase1", "phase2", "phase3"};
+        bool anyConfigured = false;
+        for (size_t phaseIndex = 0; phaseIndex < kPhaseKeys.size(); ++phaseIndex) {
+            const auto phaseIt = phasesIt->find(kPhaseKeys[phaseIndex]);
+            if (phaseIt == phasesIt->end()) {
+                continue;
+            }
+            parseBossPhaseDefinition(*phaseIt, key, static_cast<int>(phaseIndex), outBoss.phases[phaseIndex]);
+            anyConfigured = anyConfigured || outBoss.phases[phaseIndex].configured;
+        }
+        outBoss.hasPhaseData = anyConfigured;
+    }
     return true;
 }
 

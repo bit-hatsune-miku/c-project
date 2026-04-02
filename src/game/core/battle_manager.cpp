@@ -26,6 +26,7 @@ namespace {
 
 constexpr const char* kDefaultCharacterStandardAbilityId = "BasicAttack";
 constexpr const char* kDefaultBossStandardAbilityId = "BossStandardAttack";
+constexpr float kActionValueEpsilon = 0.0001f;
 
 std::string getCharacterRegularAbilityId(const CharacterDefinition& definition) {
     if (!definition.ability.empty()) {
@@ -246,6 +247,9 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     state_ = BattleState{};
     turnState_ = TurnState{};
     bossCurrentHp_ = 0;
+    bossAtkBuffBonus_ = 0;
+    bossPhaseIndex_ = 0;
+    pendingBossPhaseTransition_.reset();
     bossUltimateCharge_ = 0;
     characters_.clear();
     recentActionEvents_.clear();
@@ -277,6 +281,7 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     }
 
     bossCurrentHp_ = state_.boss.hp;
+    bossAtkBuffBonus_ = currentBossPhaseDefinition().atkBonusPercent;
     bossUltimateCharge_ = std::clamp(state_.boss.startingOrbs, 0, std::max(1, state_.boss.ultimatePoints));
     for (size_t i = 0; i < state_.party.size(); ++i) {
         characters_.emplace_back(state_.party[i], static_cast<int>(i));
@@ -374,6 +379,38 @@ int BattleManager::getBossCurrentHp() const {
 
 int BattleManager::getBossMaxHp() const {
     return state_.boss.hp;
+}
+
+int BattleManager::getBossEffectiveAtk() const {
+    const float scaled = static_cast<float>(state_.boss.atk) *
+        (1.0f + static_cast<float>(bossAtkBuffBonus_) / 100.0f);
+    return std::max(0, static_cast<int>(scaled));
+}
+
+int BattleManager::getBossPhaseIndex() const {
+    return bossPhaseIndex_;
+}
+
+std::optional<BossPhaseTransition> BattleManager::consumeBossPhaseTransition() {
+    const std::optional<BossPhaseTransition> transition = pendingBossPhaseTransition_;
+    pendingBossPhaseTransition_.reset();
+    return transition;
+}
+
+std::string BattleManager::getCurrentBossBgm() const {
+    const BossDefinition::PhaseDefinition& phase = currentBossPhaseDefinition();
+    if (!phase.bgm.empty()) {
+        return phase.bgm;
+    }
+    return state_.boss.bgm;
+}
+
+float BattleManager::getCurrentBossBgmVolume() const {
+    const BossDefinition::PhaseDefinition& phase = currentBossPhaseDefinition();
+    if (phase.bgmVolume.has_value()) {
+        return *phase.bgmVolume;
+    }
+    return state_.boss.bgmVolume;
 }
 
 int BattleManager::getBossUltimateCharge() const {
@@ -550,6 +587,7 @@ void BattleManager::applyBossDamage(int amount) {
         return;
     }
     bossCurrentHp_ = std::max(0, bossCurrentHp_ - amount);
+    applyBossPhaseTransitionIfNeeded();
 }
 
 void BattleManager::applyBossHealing(int amount) {
@@ -1366,6 +1404,7 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
         presContext.targetIndex = -1;
         presContext.isBoss = true;
         presContext.isUltimate = action == BattleAction::Ultimate;
+        presContext.tuningProfile = currentBossPhaseDefinition().tuningProfile;
         int presentationTargetHpBefore = -1;
 
         // For Jiafei boss parry interaction, pick a random alive character to focus.
@@ -1408,7 +1447,7 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
                 actionEvent.targetPartyIndices.push_back(c.partyIndex());
                 actionEvent.targetHpBefore.push_back(c.hp());
                 const int finalDamage = normalizeDamage(static_cast<int>(
-                    state_.boss.atk * abilityDef->multiplier * multiplier
+                    getBossEffectiveAtk() * abilityDef->multiplier * multiplier
                 ));
                 c.receiveDamage(finalDamage);
                 actionEvent.targetHpAfter.push_back(c.hp());
@@ -1420,7 +1459,7 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
                 actionEvent.targetPartyIndices.push_back(targetIndex);
                 actionEvent.targetHpBefore.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
                 const int finalDamage = normalizeDamage(static_cast<int>(
-                    state_.boss.atk * abilityDef->multiplier * multiplier
+                    getBossEffectiveAtk() * abilityDef->multiplier * multiplier
                 ));
                 characters_[static_cast<size_t>(targetIndex)].receiveDamage(finalDamage);
                 actionEvent.targetHpAfter.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
@@ -1432,7 +1471,7 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
         if (targetIndex >= 0) {
             actionEvent.targetPartyIndices.push_back(targetIndex);
             actionEvent.targetHpBefore.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
-            characters_[static_cast<size_t>(targetIndex)].receiveDamage(normalizeDamage(state_.boss.atk));
+            characters_[static_cast<size_t>(targetIndex)].receiveDamage(normalizeDamage(getBossEffectiveAtk()));
             actionEvent.targetHpAfter.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
             syncCharacterTurnParticipation(targetIndex);
         }
@@ -1690,13 +1729,72 @@ void BattleManager::applyAllAlliesActionAdvance(float fraction) {
     for (size_t rank = 0; rank < candidates.size(); ++rank) {
         TurnActor& actor = turnState_.actors[candidates[rank].actorIndex];
         actor.currentActionValue = std::max(0.0f, actor.currentActionValue * (1.0f - clampedFraction));
-        if (std::fabs(actor.currentActionValue) <= 0.0001f) {
+        if (std::fabs(actor.currentActionValue) <= kActionValueEpsilon) {
             actor.currentActionValue = 0.0f;
         }
         actor.priority = (actor.currentActionValue <= 0.0001f)
             ? (kActionAdvancePriorityBase + static_cast<int>(candidates.size() - rank))
             : 0;
     }
+}
+
+const BossDefinition::PhaseDefinition& BattleManager::currentBossPhaseDefinition() const {
+    static const BossDefinition::PhaseDefinition kDefaultPhase{};
+    if (!state_.boss.hasPhaseData ||
+        bossPhaseIndex_ < 0 ||
+        static_cast<size_t>(bossPhaseIndex_) >= state_.boss.phases.size()) {
+        return kDefaultPhase;
+    }
+    return state_.boss.phases[static_cast<size_t>(bossPhaseIndex_)];
+}
+
+void BattleManager::advanceBossActionByFraction(float fraction) {
+    const float clampedFraction = std::clamp(fraction, 0.0f, 1.0f);
+    if (clampedFraction <= 0.0f) {
+        return;
+    }
+
+    for (TurnActor& actor : turnState_.actors) {
+        if (actor.type != ParticipantType::Boss) {
+            continue;
+        }
+        actor.currentActionValue = std::max(0.0f, actor.currentActionValue * (1.0f - clampedFraction));
+        if (std::fabs(actor.currentActionValue) <= kActionValueEpsilon) {
+            actor.currentActionValue = 0.0f;
+        }
+        actor.priority = 0;
+        return;
+    }
+}
+
+void BattleManager::applyBossPhaseTransitionIfNeeded() {
+    if (!state_.boss.hasPhaseData || bossCurrentHp_ <= 0 || state_.boss.hp <= 0) {
+        return;
+    }
+
+    int targetPhaseIndex = 0;
+    const long long hpScaled = static_cast<long long>(bossCurrentHp_) * 100LL;
+    const long long maxScaled = static_cast<long long>(state_.boss.hp);
+    if (hpScaled <= maxScaled * 33LL) {
+        targetPhaseIndex = 2;
+    } else if (hpScaled <= maxScaled * 66LL) {
+        targetPhaseIndex = 1;
+    }
+
+    if (targetPhaseIndex <= bossPhaseIndex_) {
+        return;
+    }
+
+    const int previousPhaseIndex = bossPhaseIndex_;
+    bossPhaseIndex_ = targetPhaseIndex;
+    bossAtkBuffBonus_ = currentBossPhaseDefinition().atkBonusPercent;
+    advanceBossActionByFraction(1.0f);
+
+    pendingBossPhaseTransition_ = BossPhaseTransition{
+        true,
+        previousPhaseIndex,
+        bossPhaseIndex_
+    };
 }
 
 void BattleManager::syncCharacterTurnParticipation(int partyIndex) {

@@ -21,6 +21,7 @@ public:
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
     bool onKeyPressed(SDL_Keycode key) override;
+    void setTuningProfile(const PresentationTuningProfile& profile) override;
 
     bool shouldHideNonCasterCharacters() const override;
     bool overridesCamera() const override;
@@ -46,6 +47,8 @@ private:
 
     static std::string resolvePath(const std::string& relativePath);
 
+    void rebuildTotalDuration();
+    void generateToneSequence();
     void queueAudioCommand(PresentationAudioCommandType type, const std::string& id, float volume = 1.0f);
     PresentationFeedbackEvent buildImmediateFeedbackEvent(bool enteredCorrectTone) const;
     void finalizeInput();
@@ -84,6 +87,10 @@ private:
     bool hitQueued_ = false;
     bool resultHitQueued_ = false;
     bool acceptingInput_ = false;
+    float answerDurationSeconds_ = 7.0f;
+    float toneIntervalSeconds_ = 0.90f;
+    float postSequenceDelaySeconds_ = 0.60f;
+    bool exactDuplicatePair_ = false;
 };
 
 } // namespace battle
