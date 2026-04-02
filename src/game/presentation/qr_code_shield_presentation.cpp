@@ -52,6 +52,7 @@ void QrCodeShieldPresentation::start() {
     cursorX_ = static_cast<float>(screenW_) * 0.5f;
     cursorY_ = static_cast<float>(screenH_) * 0.58f;
     pendingAudioCommands_.clear();
+    pendingFeedbackEvents_.clear();
     spawnQrCode();
 }
 
@@ -62,11 +63,13 @@ void QrCodeShieldPresentation::update(float deltaTime) {
     if (cursorTouchesQr()) {
         // The faster, the higher the multiplier
         shieldMultiplier_ = 1.0f - clamp01(activeTime_ / kMaxDurationSeconds);
+        queueFeedbackEvent();
         phase_ = Phase::Complete;
         return;
     }
     if (activeTime_ >= kMaxDurationSeconds) {
         shieldMultiplier_ = 0.0f;
+        queueFeedbackEvent();
         phase_ = Phase::Complete;
     }
 }
@@ -120,6 +123,14 @@ void QrCodeShieldPresentation::render(SDL_Renderer* renderer, int screenW, int s
 bool QrCodeShieldPresentation::isComplete() const { return phase_ == Phase::Complete; }
 
 float QrCodeShieldPresentation::getInputMultiplier() const { return shieldMultiplier_; }
+PresentationFeedbackSignal QrCodeShieldPresentation::getFeedbackSignal() const {
+    return PresentationFeedbackSignal::graded(shieldMultiplier_);
+}
+std::vector<PresentationFeedbackEvent> QrCodeShieldPresentation::consumeFeedbackEvents() {
+    std::vector<PresentationFeedbackEvent> events;
+    events.swap(pendingFeedbackEvents_);
+    return events;
+}
 float QrCodeShieldPresentation::consumeHitDamageMultiplier() { return getInputMultiplier(); }
 int QrCodeShieldPresentation::consumeAbilityAudioCues() { return 0; }
 int QrCodeShieldPresentation::consumeHitEvents() { return 0; }
@@ -135,6 +146,13 @@ std::vector<PresentationAudioCommand> QrCodeShieldPresentation::consumeAudioComm
 }
 std::string QrCodeShieldPresentation::resolvePath(const std::string& relativePath) {
     return platform::path::resolvePath(relativePath);
+}
+void QrCodeShieldPresentation::queueFeedbackEvent() {
+    PresentationFeedbackEvent event;
+    event.signal = PresentationFeedbackSignal::graded(shieldMultiplier_);
+    event.multiplier = shieldMultiplier_;
+    event.comboEligible = true;
+    pendingFeedbackEvents_.push_back(event);
 }
 void QrCodeShieldPresentation::ensureTexturesLoaded(SDL_Renderer* renderer) {
     if (attemptedTextureLoad_ || renderer == nullptr) return;

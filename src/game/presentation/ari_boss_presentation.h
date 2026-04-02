@@ -41,6 +41,8 @@ public:
     NativeRenderState buildNativeRenderState() const;
 
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
+    std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     float consumeHitDamageMultiplier() override;
     int consumeAbilityAudioCues() override;
     int consumeHitEvents() override;
@@ -62,6 +64,7 @@ private:
     float randomWaitDuration() const;
     float averageDamageMultiplier() const;
     float damageMultiplierForReaction(bool pressed, float reactionSeconds) const;
+    PresentationFeedbackEvent buildAttackFeedbackEvent(bool pressed, float reactionSeconds) const;
     int currentFrameIndex() const;
     void renderAnimatedBoss(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) const;
 
@@ -83,9 +86,11 @@ private:
     float currentWaitDuration_ = 0.0f;
     bool attackInputCaptured_ = false;
     float attackReactionSeconds_ = 0.0f;
+    bool attackFeedbackQueued_ = false;
 
     std::vector<float> resolvedHitDamageMultipliers_;
     std::vector<float> pendingHitDamageMultipliers_;
+    std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
     int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;
 };

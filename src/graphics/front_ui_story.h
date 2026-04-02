@@ -36,6 +36,7 @@ private:
     std::string fadingOutBackground_;
     std::string lastPortrait_;
     std::string lastSpeaker_;
+    std::string lastAccentColor_;
     std::string lastText_;
     std::size_t lastVisibleCharacters_ = 0;
     std::size_t lastTotalVisibleCharacters_ = 0;

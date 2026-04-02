@@ -20,6 +20,13 @@ struct HudFeedbackState {
     Uint64 hintUntilMs = 0;
     std::string toastText;
     Uint64 toastUntilMs = 0;
+    int comboCount = 0;
+    float comboBonusFraction = 0.0f;
+    std::string judgementText;
+    std::string judgementRewardText;
+    std::string judgementClassName;
+    Uint64 judgementStartedMs = 0;
+    Uint64 judgementUntilMs = 0;
     int blinkUnitIndex = -1;
     int blinkMissingFrom = 0;
     int blinkMissingTo = 0;

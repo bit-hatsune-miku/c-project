@@ -218,6 +218,7 @@ namespace vn {
 
 struct PresentationState {
     std::string speakerName;
+    std::string accentColor;
     std::string visibleTextRml;
     std::string fullTextRml;
     std::string iconPath;
@@ -267,7 +268,8 @@ void showLine(
     const std::string& bgmPath = "",
     float bgmVolume = -1.0f,
     bool bgmStop = false,
-    std::optional<bool> bgmPause = std::nullopt
+    std::optional<bool> bgmPause = std::nullopt,
+    const std::string& accentColor = ""
 );
 
 void update(float deltaSeconds);

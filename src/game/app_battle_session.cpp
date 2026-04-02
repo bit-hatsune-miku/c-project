@@ -94,9 +94,14 @@ constexpr float kBossTurnCharacterBaseY = 420.0f;
 constexpr float kCharacterSpacingWorld = 400.0f;
 constexpr float kBossTurnCharacterSpacingWorld = 260.0f;
 constexpr Uint64 kHitFlashDurationMs = 320;
+constexpr Uint64 kJudgementPopupDurationMs = 1320;
 constexpr const char* kLoadingOverlayDocumentPath = "assets/rmlui/shared/loading_overlay.rml";
 constexpr float kCharacterVisibilityAnimSeconds = 0.22f;
 constexpr float kCharacterVisibilityOffsetPx = 70.0f;
+constexpr const char* kPerfectJudgementSfxPath = "assets/ui/sfx/SongSelect_select-random.wav";
+constexpr const char* kGoodJudgementSfxPath = "assets/ui/sfx/Selection_roulette-4.wav";
+constexpr const char* kOkayJudgementSfxPath = "assets/ui/sfx/Selection_roulette-0.wav";
+constexpr const char* kFlopJudgementSfxPath = "assets/ui/sfx/UI_notification-error.wav";
 
 struct CameraIntroAnimation {
     bool active = false;
@@ -443,6 +448,46 @@ void clearHint(HudFeedbackState& feedback) {
     feedback.hintUntilMs = 0;
 }
 
+void showJudgement(HudFeedbackState& feedback,
+                   battle::CombatJudgement judgement,
+                   std::string rewardText,
+                   Uint64 nowMs,
+                   Uint64 durationMs = kJudgementPopupDurationMs) {
+    feedback.judgementText = battle::combatJudgementLabel(judgement);
+    feedback.judgementRewardText = std::move(rewardText);
+    feedback.judgementClassName = battle::combatJudgementClassName(judgement);
+    feedback.judgementStartedMs = nowMs;
+    feedback.judgementUntilMs = nowMs + durationMs;
+}
+
+void clearJudgement(HudFeedbackState& feedback) {
+    feedback.judgementText.clear();
+    feedback.judgementRewardText.clear();
+    feedback.judgementClassName.clear();
+    feedback.judgementStartedMs = 0;
+    feedback.judgementUntilMs = 0;
+}
+
+void playJudgementSfx(battle::CombatJudgement judgement) {
+    const char* relativePath = kPerfectJudgementSfxPath;
+    switch (judgement) {
+        case battle::CombatJudgement::Perfect:
+            relativePath = kPerfectJudgementSfxPath;
+            break;
+        case battle::CombatJudgement::Good:
+            relativePath = kGoodJudgementSfxPath;
+            break;
+        case battle::CombatJudgement::Okay:
+            relativePath = kOkayJudgementSfxPath;
+            break;
+        case battle::CombatJudgement::Flop:
+        default:
+            relativePath = kFlopJudgementSfxPath;
+            break;
+    }
+    (void)gOneShotAudio.playWavOneShot(platform::path::resolvePath(relativePath), 0.92f, false);
+}
+
 void markBossHit(HudFeedbackState& feedback, Uint64 nowMs, Uint64 durationMs = kHitFlashDurationMs) {
     feedback.bossHitUntilMs = std::max(feedback.bossHitUntilMs, nowMs + durationMs);
 }
@@ -478,6 +523,9 @@ void tickHudFeedback(HudFeedbackState& feedback, Uint64 nowMs) {
         feedback.toastText.clear();
         feedback.toastUntilMs = 0;
     }
+    if (feedback.judgementUntilMs != 0 && nowMs >= feedback.judgementUntilMs) {
+        clearJudgement(feedback);
+    }
     if (feedback.blinkUntilMs != 0 && nowMs >= feedback.blinkUntilMs) {
         feedback.blinkUnitIndex = -1;
         feedback.blinkMissingFrom = 0;
@@ -491,6 +539,9 @@ void syncHudFeedbackState(HudFeedbackState& feedback, const battle::BattleManage
     if (feedback.unitHitUntilMs.size() != partySize) {
         feedback.unitHitUntilMs.assign(partySize, 0);
     }
+    const battle::BattleComboState& comboState = manager.getComboState();
+    feedback.comboCount = comboState.comboCount;
+    feedback.comboBonusFraction = comboState.damageBonusFraction;
 }
 
 void resetHudValueAnimation(HudValueAnimationState& state, float value) {
@@ -2105,6 +2156,76 @@ private:
         manager_.markPresentationHitAudioPlayed();
     }
 
+    std::string resolvePresentationRewardText(const battle::PresentationContext& context,
+                                              const battle::AbilityDefinition* abilityDef,
+                                              const battle::PresentationFeedbackEvent& feedback) const {
+        if (!feedback.rewardText.empty()) {
+            return feedback.rewardText;
+        }
+        if (abilityDef == nullptr) {
+            return std::string();
+        }
+
+        auto formatSignedPercent = [](int percent, const std::string& label) {
+            const std::string prefix = percent >= 0 ? "+" : "";
+            return prefix + std::to_string(percent) + "% " + label;
+        };
+
+        const float clampedMultiplier = std::max(0.0f, feedback.multiplier);
+        switch (abilityDef->type) {
+            case battle::AbilityType::Attack:
+            case battle::AbilityType::Debuff: {
+                if (context.isBoss) {
+                    const int reductionPercent = static_cast<int>(std::lround(
+                        (1.0f - std::clamp(feedback.multiplier, 0.0f, 1.0f)) * 100.0f
+                    ));
+                    return "-" + std::to_string(std::max(0, reductionPercent)) + "% DMG TAKEN";
+                }
+                const int damagePercent = static_cast<int>(std::lround((clampedMultiplier - 1.0f) * 100.0f));
+                return formatSignedPercent(damagePercent, "DMG");
+            }
+            case battle::AbilityType::Heal: {
+                const int healPercent = static_cast<int>(std::lround((clampedMultiplier - 1.0f) * 100.0f));
+                return formatSignedPercent(healPercent, "HEAL");
+            }
+            case battle::AbilityType::Shield: {
+                const int shieldPercent = static_cast<int>(std::lround(clampedMultiplier * 100.0f));
+                return formatSignedPercent(shieldPercent, "SHIELD");
+            }
+            case battle::AbilityType::Buff: {
+                if (abilityDef->atkBuff != 0) {
+                    const int atkPercent = static_cast<int>(std::lround(
+                        static_cast<float>(abilityDef->atkBuff) * feedback.multiplier
+                    ));
+                    return formatSignedPercent(atkPercent, "ATK");
+                }
+                if (abilityDef->speedBuff != 0) {
+                    const int spdPercent = static_cast<int>(std::lround(
+                        static_cast<float>(abilityDef->speedBuff) * feedback.multiplier
+                    ));
+                    return formatSignedPercent(spdPercent, "SPD");
+                }
+                return std::string();
+            }
+        }
+
+        return std::string();
+    }
+
+    void applyPresentationFeedbackEvent(const battle::PresentationContext& context,
+                                        const battle::AbilityDefinition* abilityDef,
+                                        const battle::PresentationFeedbackEvent& feedback) {
+        if (!feedback.valid()) {
+            return;
+        }
+
+        const battle::CombatJudgement judgement = battle::classifyCombatJudgement(feedback.signal);
+        const std::string rewardText = resolvePresentationRewardText(context, abilityDef, feedback);
+        manager_.applyPresentationFeedback(context.isBoss, feedback);
+        showJudgement(hudFeedback_, judgement, rewardText, SDL_GetTicks64());
+        playJudgementSfx(judgement);
+    }
+
     float runPresentationInteraction(const battle::PresentationContext& context) {
         if (!initialized_ || finished_) {
             return 1.0f;
@@ -2290,7 +2411,8 @@ private:
                 presentationTargetPartyIndex
             );
         };
-        callbacks.onPostUpdate = [this, &context](float deltaSeconds) {
+        bool consumedPresentationFeedback = false;
+        callbacks.onPostUpdate = [this, &context, abilityDef, &consumedPresentationFeedback](float deltaSeconds) {
             const bool useCenteredPartyLayout =
                 activePresentation_ != nullptr &&
                 activePresentation_->shouldUseCenteredPartyLayout();
@@ -2298,9 +2420,19 @@ private:
             const int actingPartyIndex = bossActingLayout ? -1 : context.casterIndex;
             const Uint64 nowMs = SDL_GetTicks64();
 
+            if (activePresentation_ != nullptr) {
+                const std::vector<battle::PresentationFeedbackEvent> feedbackEvents =
+                    activePresentation_->consumeFeedbackEvents();
+                for (const battle::PresentationFeedbackEvent& feedbackEvent : feedbackEvents) {
+                    applyPresentationFeedbackEvent(context, abilityDef, feedbackEvent);
+                    consumedPresentationFeedback = true;
+                }
+            }
+
             updateSceneEntities(deltaSeconds, bossActingLayout, actingPartyIndex);
             feedback_.syncFromManager(manager_, presentationPlaybackActive_);
             feedback_.update(deltaSeconds);
+            tickHudFeedback(hudFeedback_, nowMs);
             updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
             syncHudDocument(nowMs);
         };
@@ -2357,18 +2489,18 @@ private:
             manager_.addLuotianyiCorrectTones(result.correctToneCount);
         }
 
-        const std::string resultText = result.resultText;
         presentationAudioSequenceId_.clear();
         presentationAudioCueIndex_ = 0;
         if (context.presentationId == "boss_attack_lyoo_plot_twist") {
             stopPresentationAudioPlayback(true);
         }
-        if (context.presentationId == "aesthetic_warning") {
-            clearHint(hudFeedback_);
-        } else if (!resultText.empty() &&
-                   (context.isBoss || context.interactionType != battle::InteractionType::None)) {
-            showHint(hudFeedback_, resultText, SDL_GetTicks64(), 2200);
-        } else if (context.isBoss || context.interactionType != battle::InteractionType::None) {
+        if (!consumedPresentationFeedback && result.feedbackSignal.valid()) {
+            battle::PresentationFeedbackEvent finalFeedback;
+            finalFeedback.signal = result.feedbackSignal;
+            finalFeedback.multiplier = result.multiplier;
+            applyPresentationFeedbackEvent(context, abilityDef, finalFeedback);
+        }
+        if (context.isBoss || context.interactionType != battle::InteractionType::None) {
             clearHint(hudFeedback_);
         }
         syncHudDocument(SDL_GetTicks64());

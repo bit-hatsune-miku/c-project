@@ -69,6 +69,7 @@ JiafeiBossPresentation::JiafeiBossPresentation(
     waveImpactResolved_ = false;
     pendingAbilityAudioCues_ = 0;
     pendingHitEvents_ = 0;
+    pendingFeedbackEvents_.clear();
     dodgeMotionState_ = DodgeMotionState::Idle;
 }
 
@@ -126,8 +127,19 @@ void JiafeiBossPresentation::update(float deltaTime) {
     if (!waveImpactResolved_ && waveElapsed_ >= waveImpactTimeSeconds()) {
         waveImpactResolved_ = true;
         const int landedHeadHits = resolveWaveHeadHits();
+        const int dodgedHeads = std::max(0, 2 - landedHeadHits);
+        const int totalHeadCount = std::max(1, getDamageLabelHitCount());
+        const int projectedSuccessfulDodges = successfulDodges_ + dodgedHeads;
+        const float projectedMultiplier = projectedSuccessfulDodges >= totalHeadCount
+            ? 0.0f
+            : (1.0f - (static_cast<float>(projectedSuccessfulDodges) / static_cast<float>(totalHeadCount)));
+        PresentationFeedbackEvent event;
+        event.signal = PresentationFeedbackSignal::binary(landedHeadHits == 0);
+        event.multiplier = projectedMultiplier;
+        event.comboEligible = true;
+        pendingFeedbackEvents_.push_back(event);
         pendingHitEvents_ += landedHeadHits;
-        successfulDodges_ += std::max(0, 2 - landedHeadHits);
+        successfulDodges_ += dodgedHeads;
         inputCorrect_ = landedHeadHits == 0;
     }
 
@@ -279,6 +291,16 @@ void JiafeiBossPresentation::setTargetWorldPosition(float x, float y, float z) {
 
 float JiafeiBossPresentation::getInputMultiplier() const {
     return damageMultiplier_;
+}
+
+PresentationFeedbackSignal JiafeiBossPresentation::getFeedbackSignal() const {
+    return PresentationFeedbackSignal::binary(damageMultiplier_ <= 0.001f);
+}
+
+std::vector<PresentationFeedbackEvent> JiafeiBossPresentation::consumeFeedbackEvents() {
+    std::vector<PresentationFeedbackEvent> events;
+    events.swap(pendingFeedbackEvents_);
+    return events;
 }
 
 float JiafeiBossPresentation::consumeHitDamageMultiplier() {

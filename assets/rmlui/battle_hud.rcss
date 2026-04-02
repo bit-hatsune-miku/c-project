@@ -32,6 +32,133 @@ body {
     height: 720px;
 }
 
+.battle-combo {
+    position: absolute;
+    right: 18dp;
+    top: 18dp;
+    width: 116dp;
+    padding: 8dp 10dp 10dp;
+    background-color: rgba(18, 14, 24, 176);
+    border: 1dp rgba(255, 255, 255, 24);
+    border-radius: 16dp;
+    box-shadow: 0 12dp 24dp rgba(0, 0, 0, 22);
+}
+
+.battle-combo-count {
+    text-align: right;
+    color: #fff8fb;
+    font-size: 30dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    line-height: 1;
+}
+
+.battle-combo-bonus {
+    margin-top: 6dp;
+    text-align: right;
+    color: rgba(255, 244, 249, 214);
+    font-size: 10dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+}
+
+.battle-combo-meter {
+    position: relative;
+    margin-top: 8dp;
+    width: 100%;
+    height: 6dp;
+    background-color: rgba(255, 255, 255, 18);
+    border-radius: 999dp;
+    overflow: hidden;
+}
+
+.battle-combo-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0%;
+    height: 6dp;
+    background-color: #ff67b6;
+    decorator: linear-gradient(to right, #ff67b6 0%, #f4c06d 52%, #6acff6 100%);
+    border-radius: 999dp;
+    box-shadow: 0 0 12dp rgba(255, 103, 182, 70);
+}
+
+.battle-judgement {
+    position: absolute;
+    right: 42dp;
+    top: 304dp;
+    width: 430dp;
+    opacity: 0;
+    display: none;
+    text-align: right;
+    pointer-events: none;
+}
+
+.battle-judgement-word {
+    width: 100%;
+    height: 86dp;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.battle-judgement-letter {
+    display: inline-block;
+    margin-left: 6dp;
+    font-size: 72dp;
+    line-height: 82dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    text-transform: uppercase;
+}
+
+.battle-judgement-space {
+    display: inline-block;
+    width: 18dp;
+}
+
+.battle-judgement-reward {
+    display: none;
+    margin-top: 2dp;
+    color: rgba(255, 248, 251, 226);
+    font-size: 20dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    text-transform: uppercase;
+}
+
+.battle-judgement.perfect .battle-judgement-letter {
+    font-effect: outline(2dp #541237), shadow(0 10dp rgba(84, 18, 55, 132));
+}
+
+.battle-judgement.good .battle-judgement-letter {
+    font-effect: outline(2dp #0d4230), shadow(0 10dp rgba(13, 66, 48, 132));
+}
+
+.battle-judgement.okay .battle-judgement-letter {
+    font-effect: outline(2dp #653d0d), shadow(0 10dp rgba(101, 61, 13, 132));
+}
+
+.battle-judgement.flop .battle-judgement-letter {
+    font-effect: outline(2dp #6a1621), shadow(0 10dp rgba(106, 22, 33, 132));
+}
+
+.battle-judgement.perfect .battle-judgement-reward {
+    font-effect: outline(1dp #541237);
+}
+
+.battle-judgement.good .battle-judgement-reward {
+    font-effect: outline(1dp #0d4230);
+}
+
+.battle-judgement.okay .battle-judgement-reward {
+    font-effect: outline(1dp #653d0d);
+}
+
+.battle-judgement.flop .battle-judgement-reward {
+    font-effect: outline(1dp #6a1621);
+}
+
 @keyframes active-turn-bounce {
     from {
         transform: translateX(0dp);
@@ -75,6 +202,7 @@ body {
         opacity: 1;
     }
 }
+
 
 .turn-rail {
     position: absolute;

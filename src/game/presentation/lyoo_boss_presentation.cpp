@@ -64,7 +64,9 @@ void LyooBossPresentation::start() {
     pendingHitDamageMultipliers_.clear();
     parryAccuracy_.fill(0.0f);
     parryRegistered_.fill(false);
+    feedbackQueued_.fill(false);
     abilityAudioTriggered_ = false;
+    pendingFeedbackEvents_.clear();
     pendingAbilityAudioCues_ = 0;
     pendingHitEvents_ = 0;
 
@@ -120,6 +122,10 @@ void LyooBossPresentation::update(float deltaTime) {
 
         while (pulsesResolved_ < static_cast<int>(pulseSpawnTimes_.size()) &&
                zoomElapsed_ >= waveImpactTimeSeconds(static_cast<size_t>(pulsesResolved_))) {
+            if (!feedbackQueued_[static_cast<size_t>(pulsesResolved_)]) {
+                feedbackQueued_[static_cast<size_t>(pulsesResolved_)] = true;
+                pendingFeedbackEvents_.push_back(buildWaveFeedbackEvent(static_cast<size_t>(pulsesResolved_)));
+            }
             pendingHitDamageMultipliers_.push_back(waveDamageMultiplier(static_cast<size_t>(pulsesResolved_)));
             ++pendingHitEvents_;
             ++pulsesResolved_;
@@ -203,6 +209,10 @@ void LyooBossPresentation::onSpacePressed() {
 
     parryRegistered_[static_cast<size_t>(bestWave)] = true;
     parryAccuracy_[static_cast<size_t>(bestWave)] = std::max(0.0f, 1.0f - (bestDelta / kParryToleranceSeconds));
+    if (!feedbackQueued_[static_cast<size_t>(bestWave)]) {
+        feedbackQueued_[static_cast<size_t>(bestWave)] = true;
+        pendingFeedbackEvents_.push_back(buildWaveFeedbackEvent(static_cast<size_t>(bestWave)));
+    }
 }
 
 bool LyooBossPresentation::overridesCamera() const {
@@ -388,6 +398,16 @@ float LyooBossPresentation::getInputMultiplier() const {
     return 1.0f - (kMaxDamageReduction * averageAccuracy());
 }
 
+PresentationFeedbackSignal LyooBossPresentation::getFeedbackSignal() const {
+    return PresentationFeedbackSignal::graded(averageAccuracy());
+}
+
+std::vector<PresentationFeedbackEvent> LyooBossPresentation::consumeFeedbackEvents() {
+    std::vector<PresentationFeedbackEvent> events;
+    events.swap(pendingFeedbackEvents_);
+    return events;
+}
+
 float LyooBossPresentation::consumeHitDamageMultiplier() {
     if (pendingHitDamageMultipliers_.empty()) {
         return getInputMultiplier();
@@ -434,6 +454,14 @@ bool LyooBossPresentation::allPulsesFinished() const {
         }
     }
     return true;
+}
+
+PresentationFeedbackEvent LyooBossPresentation::buildWaveFeedbackEvent(size_t waveIndex) const {
+    PresentationFeedbackEvent event;
+    event.signal = PresentationFeedbackSignal::graded(parryAccuracy_[waveIndex]);
+    event.multiplier = waveDamageMultiplier(waveIndex);
+    event.comboEligible = true;
+    return event;
 }
 
 float LyooBossPresentation::waveImpactTimeSeconds(size_t waveIndex) const {

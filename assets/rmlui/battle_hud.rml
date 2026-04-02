@@ -200,6 +200,19 @@
         </div>
 
         <div id="safe-stage">
+            <div class="battle-combo" id="battle-combo">
+                <div class="battle-combo-count" id="battle-combo-count">0</div>
+                <div class="battle-combo-bonus" id="battle-combo-bonus">+0% DMG</div>
+                <div class="battle-combo-meter">
+                    <div class="battle-combo-fill" id="battle-combo-fill"></div>
+                </div>
+            </div>
+
+            <div class="battle-judgement" id="battle-judgement">
+                <div class="battle-judgement-word" id="battle-judgement-word"></div>
+                <div class="battle-judgement-reward" id="battle-judgement-reward"></div>
+            </div>
+
             <div class="battle-tutorial" id="battle-tutorial">
                 <div class="battle-tutorial-card">
                     <div class="battle-tutorial-layout">

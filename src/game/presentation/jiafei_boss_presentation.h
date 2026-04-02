@@ -34,6 +34,8 @@ public:
     void setTargetWorldPosition(float x, float y, float z) override;
 
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
+    std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     float consumeHitDamageMultiplier() override;
     int consumeAbilityAudioCues() override;
     int consumeHitEvents() override;
@@ -88,6 +90,7 @@ private:
     bool waveImpactResolved_ = false;
     int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;
+    std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
 
     float damageMultiplier_ = 1.0f;
 

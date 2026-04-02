@@ -626,71 +626,122 @@ input.settings-slider sliderarrowinc {
     height: 100%;
 }
 
+#story-dialogue-container {
+    position: absolute;
+    left: 50%;
+    bottom: 32dp;
+    width: 920dp;
+    height: 220dp;
+    margin-left: -460dp;
+    overflow: visible;
+}
+
+#story-dialogue-shell {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 168dp;
+    overflow: visible;
+}
+
 #story-dialogue-box {
     position: absolute;
-    left: 40dp;
-    bottom: 40dp;
-    width: 1200dp;
-    height: 200dp;
-    background-color: rgba(0, 0, 0, 168);
-    border: 1dp rgba(232, 236, 244, 180);
+    left: 0;
+    top: 10dp;
+    width: 920dp;
+    height: 150dp;
+    background-color: rgba(23, 20, 31, 234);
+    border: 1dp rgba(255, 255, 255, 38);
+    border-radius: 18dp;
+    transform: skewX(14deg);
+    box-shadow: 0 18dp 42dp rgba(23, 20, 31, 0.18);
+}
+
+#story-dialogue-inner {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    transform: skewX(-14deg);
 }
 
 #story-speaker-name {
     position: absolute;
-    left: 24dp;
-    top: 14dp;
-    width: 1152dp;
-    font-size: 18dp;
-    letter-spacing: 1dp;
+    left: 18dp;
+    top: 0;
+    min-width: 152dp;
+    max-width: 300dp;
+    height: 26dp;
+    padding: 11dp 18dp 0 18dp;
+    border-radius: 9dp;
+    font-size: 14dp;
+    font-weight: bold;
+    letter-spacing: 1.2dp;
+    text-transform: uppercase;
+    white-space: nowrap;
     color: #ffffff;
     text-align: center;
+    transform: skewX(14deg);
 }
 
 #story-portrait-frame {
     position: absolute;
-    left: 16dp;
-    top: 52dp;
-    width: 112dp;
-    height: 112dp;
-    background-color: rgba(255, 255, 255, 14);
-    border: 1dp rgba(222, 232, 246, 96);
+    left: -34dp;
+    top: 14dp;
+    width: 124dp;
+    height: 124dp;
+    background-color: #ffffff;
+    border: 3dp solid #ff63b0;
+    border-radius: 16dp;
+    overflow: hidden;
 }
 
 #story-portrait-img {
     position: absolute;
     left: 0;
     top: 0;
-    width: 112dp;
+    width: 124dp;
+    height: 124dp;
+    background-color: #f7f3f8;
+}
+
+#story-dialogue-text-area {
+    position: absolute;
+    left: 112dp;
+    top: 18dp;
+    width: 760dp;
     height: 112dp;
 }
 
 #story-dialogue-copy {
     position: absolute;
-    left: 154dp;
-    top: 60dp;
-    width: 1018dp;
-    height: 108dp;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
     overflow: auto;
 }
 
 #story-dialogue-copy scrollbarvertical {
-    width: 6dp;
+    width: 5dp;
 }
 
 #story-dialogue-copy scrollbarvertical slidertrack {
-    background-color: rgba(255, 255, 255, 18);
+    background-color: rgba(255, 255, 255, 12);
+    border-radius: 3dp;
 }
 
 #story-dialogue-copy scrollbarvertical sliderbar {
-    width: 6dp;
-    background-color: rgba(232, 236, 244, 120);
+    width: 5dp;
+    background-color: rgba(255, 255, 255, 76);
     border: 0;
-    border-radius: 0;
+    border-radius: 3dp;
 }
 
 #story-dialogue-copy scrollbarvertical sliderbar:hover {
-    background-color: rgba(232, 236, 244, 200);
+    background-color: rgba(255, 255, 255, 120);
 }
 
 #story-dialogue-copy scrollbarvertical sliderarrowdec,
@@ -699,23 +750,46 @@ input.settings-slider sliderarrowinc {
 }
 
 #story-dialogue-text {
-    font-size: 24dp;
-    line-height: 1.35em;
+    font-size: 21dp;
+    line-height: 1.52em;
     color: #f4f6fb;
+}
+
+@keyframes story-dialogue-arrow-bounce {
+    0%, 100% {
+        transform: translate(0dp, 0dp);
+    }
+    40%, 50% {
+        transform: translate(0dp, 8dp);
+    }
+    90% {
+        transform: translate(0dp, 0dp);
+    }
+}
+
+#story-dialogue-advance {
+    position: absolute;
+    right: 26dp;
+    bottom: 18dp;
+    width: 0;
+    height: 0;
+    border-left: 12dp solid transparent;
+    border-right: 12dp solid transparent;
+    border-top: 16dp solid #ff63b0;
+    animation: 2s infinite story-dialogue-arrow-bounce;
 }
 
 #story-dialogue-box.story-no-portrait #story-portrait-frame {
     display: none;
 }
 
-#story-dialogue-box.story-no-portrait #story-dialogue-copy {
-    left: 28dp;
-    width: 1144dp;
+#story-dialogue-box.story-no-portrait #story-dialogue-text-area {
+    left: 26dp;
+    width: 834dp;
 }
 
-#story-dialogue-box.story-no-speaker #story-dialogue-copy {
-    top: 34dp;
-    height: 134dp;
+#story-dialogue-box.story-no-speaker #story-dialogue-text-area {
+    top: 24dp;
 }
 
 #load-shell {

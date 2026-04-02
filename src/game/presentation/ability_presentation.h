@@ -12,6 +12,8 @@
 
 #include <SDL2/SDL.h>
 
+#include "../core/combat_feedback.h"
+#include "../core/presentation_tuning_profile.h"
 #include "../render/camera_3d.h"
 
 namespace battle {
@@ -86,6 +88,8 @@ public:
     virtual void onKeyPressed(SDL_Keycode key) {}
     virtual float getInputMultiplier() const { return 1.0f; }
     virtual float consumeHitDamageMultiplier() { return getInputMultiplier(); }
+    virtual PresentationFeedbackSignal getFeedbackSignal() const { return {}; }
+    virtual std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() { return {}; }
     virtual std::string getInputResultText() const { return {}; }
     virtual int getCorrectToneCount() const { return 0; }
     virtual int consumeAbilityAudioCues() { return 0; }
@@ -121,6 +125,9 @@ public:
     }
     virtual void setPresentationValue(int value) {
         (void)value;
+    }
+    virtual void setTuningProfile(const PresentationTuningProfile& profile) {
+        (void)profile;
     }
     virtual void setPartyAssetNames(const std::vector<std::string>& assetNames) {
         (void)assetNames;

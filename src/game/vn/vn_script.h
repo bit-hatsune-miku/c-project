@@ -15,6 +15,7 @@ enum class EntryType {
 
 struct ScriptEntry {
     std::string speaker;
+    std::string color;
     std::string text;
     EntryType type;
     std::string background;

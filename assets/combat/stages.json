@@ -29,24 +29,17 @@
       "floor": {
         "centerX": -260.0,
         "centerY": 1220.0,
-        "width": 3600.0,
-        "depth": 3900.0,
+        "width": 1600.0,
+        "depth": 1900.0,
         "tileSize": 180.0,
         "baseColor": "#5A2D44",
-        "accentColor": "#2A7C7E"
+        "accentColor": "#5A2D44"
       },
       "backdrop": {
-        "mode": "skybox",
-        "skybox": {
-          "front": "assets/vn/backgrounds/ch0/5.png",
-          "back": "assets/vn/backgrounds/ch3/1.png",
-          "left": "assets/vn/backgrounds/ch4/1.png",
-          "right": "assets/vn/backgrounds/ch5/1.png",
-          "top": "assets/vn/backgrounds/finale/2.png",
-          "bottom": "assets/vn/backgrounds/finale/4.png"
-        },
-        "gradientTopColor": "#181C28",
-        "gradientBottomColor": "#05070B"
+        "mode": "panorama",
+        "image": "assets/combat/skies/panorama1_8192.jpg",
+        "gradientTopColor": "#294766",
+        "gradientBottomColor": "#06111B"
       },
       "props": [
         {
