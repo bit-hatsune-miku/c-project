@@ -167,6 +167,7 @@ bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppS
     document_ = &document;
     detachEventListeners(listeners_);
     pendingCommand_.reset();
+    pressedAction_.reset();
     selection_ = state.mainSelection;
     driftCurrentX_ = driftOffsetX(selection_);
     driftCurrentY_ = driftOffsetY(selection_);
@@ -210,6 +211,7 @@ void MainMenuDocumentController::unbind() {
     introActive_ = false;
     menuStackActive_ = false;
     overlayMode_ = MainMenuOverlayMode::None;
+    pressedAction_.reset();
     document_ = nullptr;
 }
 
@@ -339,6 +341,39 @@ void MainMenuDocumentController::activateSelection() {
     queueActivation(selection_);
 }
 
+void MainMenuDocumentController::handleMouseMotion(const SDL_MouseMotionEvent& event) {
+    if (const std::optional<MainMenuAction> hoveredAction = hitTestButton(
+            static_cast<float>(event.x), static_cast<float>(event.y));
+        hoveredAction.has_value()) {
+        setSelection(*hoveredAction);
+    }
+}
+
+void MainMenuDocumentController::handleMouseButtonDown(const SDL_MouseButtonEvent& event) {
+    if (event.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    pressedAction_ = hitTestButton(static_cast<float>(event.x), static_cast<float>(event.y));
+    if (pressedAction_.has_value()) {
+        setSelection(*pressedAction_);
+    }
+}
+
+void MainMenuDocumentController::handleMouseButtonUp(const SDL_MouseButtonEvent& event) {
+    if (event.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    const std::optional<MainMenuAction> releasedAction = hitTestButton(
+        static_cast<float>(event.x), static_cast<float>(event.y));
+    if (pressedAction_.has_value() && releasedAction == pressedAction_) {
+        setSelection(*releasedAction);
+        queueActivation(*releasedAction);
+    }
+    pressedAction_.reset();
+}
+
 void MainMenuDocumentController::applyState(AppState& state) {
     state.mainSelection = selection_;
 }
@@ -455,6 +490,29 @@ void MainMenuDocumentController::updateStatusCopy() const {
     if (Rml::Element* element = document_->GetElementById("menu-status-copy")) {
         element->SetInnerRML(definition.statusBody);
     }
+}
+
+std::optional<MainMenuAction> MainMenuDocumentController::hitTestButton(float x, float y) const {
+    if (document_ == nullptr) {
+        return std::nullopt;
+    }
+
+    for (const MainMenuPresentation& button : kMainMenuPresentation) {
+        Rml::Element* element = document_->GetElementById(button.buttonId);
+        if (element == nullptr) {
+            continue;
+        }
+
+        Rml::Vector2f point{x, y};
+        if (!element->Project(point)) {
+            continue;
+        }
+        if (element->IsPointWithinElement(point)) {
+            return button.action;
+        }
+    }
+
+    return std::nullopt;
 }
 
 void MainMenuDocumentController::restartIntroAnimation() {

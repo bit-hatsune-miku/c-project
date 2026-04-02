@@ -193,6 +193,12 @@ void StoryDocumentController::activateSelection() {
     requestAdvance();
 }
 
+void StoryDocumentController::handleMouseButtonUp(const SDL_MouseButtonEvent& event) {
+    if (event.button == SDL_BUTTON_LEFT) {
+        requestAdvance();
+    }
+}
+
 void StoryDocumentController::cancel() {
     pendingOpenPause_ = true;
 }

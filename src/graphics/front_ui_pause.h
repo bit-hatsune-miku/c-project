@@ -102,6 +102,9 @@ public:
     void moveSelection(int delta) override;
     void adjustSelection(int delta) override;
     void activateSelection() override;
+    void handleMouseMotion(const SDL_MouseMotionEvent& event) override;
+    void handleMouseButtonDown(const SDL_MouseButtonEvent& event) override;
+    void handleMouseButtonUp(const SDL_MouseButtonEvent& event) override;
     void cancel() override;
     void applyState(AppState& state) override;
     std::optional<Command> consumeCommand() override;
@@ -114,6 +117,10 @@ private:
     bool showingConfirm() const;
     PauseAction nextAction(int delta) const;
     ConfirmAction nextConfirm(int delta) const;
+    void setPauseSelection(PauseAction action, bool playSound);
+    void setConfirmSelection(ConfirmAction action, bool playSound);
+    std::optional<PauseAction> hitTestPauseButton(float x, float y) const;
+    std::optional<ConfirmAction> hitTestConfirmButton(float x, float y) const;
     void queuePauseAction(PauseAction action);
     void queueConfirmAction(ConfirmAction action);
     void exitStoryToMainMenu(AppState& state) const;
@@ -129,8 +136,11 @@ private:
     std::optional<ConfirmAction> pendingConfirmAction_;
     bool pendingDismissConfirm_ = false;
     bool pendingResume_ = false;
+    bool pendingBlockedLoadNotice_ = false;
     std::vector<SoundRequest> pendingSoundRequests_;
     bool needsEntryAnimation_ = false;
+    std::optional<PauseAction> pressedPauseAction_;
+    std::optional<ConfirmAction> pressedConfirmAction_;
 
     void queueSound(const char* path, float volume);
 };

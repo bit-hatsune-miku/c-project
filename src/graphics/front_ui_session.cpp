@@ -288,6 +288,25 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
         }
     }
 
+    if (DocumentController* controller = topController()) {
+        switch (event.type) {
+            case SDL_MOUSEMOTION:
+                controller->handleMouseMotion(event.motion);
+                break;
+
+            case SDL_MOUSEBUTTONDOWN:
+                controller->handleMouseButtonDown(event.button);
+                break;
+
+            case SDL_MOUSEBUTTONUP:
+                controller->handleMouseButtonUp(event.button);
+                break;
+
+            default:
+                break;
+        }
+    }
+
     syncState(state);
     playQueuedControllerSounds();
 

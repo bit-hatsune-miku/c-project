@@ -33,6 +33,7 @@ struct PlaybackCallbacks {
     std::function<void(float deltaSeconds)> onPostUpdate;
     std::function<void()> onBossPresentationFrame;
     std::function<void()> renderAndPresentFrame;
+    std::function<void()> onPauseBlocked;
 
     // Splash art support — populated by BattleSessionCore before calling runAbilityPresentation.
     SDL_Texture* splashSpriteTexture = nullptr;

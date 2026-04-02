@@ -107,6 +107,9 @@ public:
     void moveSelection(int delta) override;
     void adjustSelection(int delta) override;
     void activateSelection() override;
+    void handleMouseMotion(const SDL_MouseMotionEvent& event) override;
+    void handleMouseButtonDown(const SDL_MouseButtonEvent& event) override;
+    void handleMouseButtonUp(const SDL_MouseButtonEvent& event) override;
     void cancel() override;
     void applyState(AppState& state) override;
     std::optional<Command> consumeCommand() override;
@@ -118,12 +121,18 @@ private:
     void applyRowCopy() const;
     void updateFocusCopy() const;
     void syncControlValues() const;
+    std::optional<SettingsItem> hitTestRow(float x, float y) const;
+    std::optional<SettingsItem> hitTestSlider(float x, float y) const;
+    void beginSliderDrag(SettingsItem item, float x, float y);
+    void updateSliderDrag(float x, float y, bool playSound);
+    void endSliderDrag(float x, float y);
+    bool applySliderValueAtPoint(SettingsItem item, float x, float y, bool requireInside, bool playSound);
     void setSelection(SettingsItem selection, bool playSound);
     void queueDisplayMode(bool fullscreen);
     void queueReturn();
-    void setMusicVolume(float value);
-    void setVoiceVolume(float value);
-    void setTextSpeed(float value);
+    void setMusicVolume(float value, bool playSound = true);
+    void setVoiceVolume(float value, bool playSound = true);
+    void setTextSpeed(float value, bool playSound = true);
     void queueSound(const char* path, float volume = 0.9f);
 
     Rml::ElementDocument* document_ = nullptr;
@@ -133,6 +142,8 @@ private:
     std::optional<Command> pendingCommand_;
     std::vector<SoundRequest> pendingSoundRequests_;
     std::vector<EventListenerBinding> listeners_;
+    std::optional<SettingsItem> pressedRowItem_;
+    std::optional<SettingsItem> activeSliderItem_;
 };
 
 }  // namespace graphics::frontui

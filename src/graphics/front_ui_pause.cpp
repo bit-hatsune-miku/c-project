@@ -76,8 +76,9 @@ constexpr std::array<PauseAction, 5> kStoryPauseOrder{{
     PauseAction::ExitToMainMenu,
 }};
 
-constexpr std::array<PauseAction, 3> kBattlePauseOrder{{
+constexpr std::array<PauseAction, 4> kBattlePauseOrder{{
     PauseAction::Continue,
+    PauseAction::Load,
     PauseAction::Settings,
     PauseAction::ExitToMainMenu,
 }};
@@ -117,6 +118,9 @@ bool PauseDocumentController::bind(Rml::ElementDocument& document, const AppStat
     pendingConfirmAction_.reset();
     pendingDismissConfirm_ = false;
     pendingResume_ = false;
+    pendingBlockedLoadNotice_ = false;
+    pressedPauseAction_.reset();
+    pressedConfirmAction_.reset();
     refreshFromState(state);
     attachListeners();
     refreshDocument();
@@ -132,6 +136,8 @@ bool PauseDocumentController::bind(Rml::ElementDocument& document, const AppStat
 
 void PauseDocumentController::unbind() {
     detachEventListeners(listeners_);
+    pressedPauseAction_.reset();
+    pressedConfirmAction_.reset();
     document_ = nullptr;
 }
 
@@ -202,6 +208,72 @@ void PauseDocumentController::adjustSelection(int delta) {
     refreshDocument();
 }
 
+void PauseDocumentController::handleMouseMotion(const SDL_MouseMotionEvent& event) {
+    if (showingConfirm()) {
+        if (const std::optional<ConfirmAction> hoveredAction = hitTestConfirmButton(
+                static_cast<float>(event.x), static_cast<float>(event.y));
+            hoveredAction.has_value()) {
+            setConfirmSelection(*hoveredAction, true);
+        }
+        return;
+    }
+
+    if (const std::optional<PauseAction> hoveredAction = hitTestPauseButton(
+            static_cast<float>(event.x), static_cast<float>(event.y));
+        hoveredAction.has_value()) {
+        setPauseSelection(*hoveredAction, true);
+    }
+}
+
+void PauseDocumentController::handleMouseButtonDown(const SDL_MouseButtonEvent& event) {
+    if (event.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    pressedPauseAction_.reset();
+    pressedConfirmAction_.reset();
+
+    if (showingConfirm()) {
+        pressedConfirmAction_ = hitTestConfirmButton(static_cast<float>(event.x), static_cast<float>(event.y));
+        if (pressedConfirmAction_.has_value()) {
+            setConfirmSelection(*pressedConfirmAction_, true);
+        }
+        return;
+    }
+
+    pressedPauseAction_ = hitTestPauseButton(static_cast<float>(event.x), static_cast<float>(event.y));
+    if (pressedPauseAction_.has_value()) {
+        setPauseSelection(*pressedPauseAction_, true);
+    }
+}
+
+void PauseDocumentController::handleMouseButtonUp(const SDL_MouseButtonEvent& event) {
+    if (event.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    if (showingConfirm()) {
+        const std::optional<ConfirmAction> releasedAction = hitTestConfirmButton(
+            static_cast<float>(event.x), static_cast<float>(event.y));
+        if (pressedConfirmAction_.has_value() && releasedAction == pressedConfirmAction_) {
+            setConfirmSelection(*releasedAction, false);
+            queueConfirmAction(*releasedAction);
+        }
+        pressedConfirmAction_.reset();
+        pressedPauseAction_.reset();
+        return;
+    }
+
+    const std::optional<PauseAction> releasedAction = hitTestPauseButton(
+        static_cast<float>(event.x), static_cast<float>(event.y));
+    if (pressedPauseAction_.has_value() && releasedAction == pressedPauseAction_) {
+        setPauseSelection(*releasedAction, false);
+        activateSelection();
+    }
+    pressedPauseAction_.reset();
+    pressedConfirmAction_.reset();
+}
+
 /**
  * @brief Activate the currently focused pause or confirm selection.
  *
@@ -256,6 +328,14 @@ void PauseDocumentController::applyState(AppState& state) {
         return;
     }
 
+    if (pendingBlockedLoadNotice_) {
+        pendingBlockedLoadNotice_ = false;
+        state.screen = ScreenState::PauseMenu;
+        state.noticeText = "You cannot load during battle.";
+        state.noticeTimer = 2.2f;
+        return;
+    }
+
     if (pendingConfirmAction_.has_value()) {
         const ConfirmAction action = *pendingConfirmAction_;
         pendingConfirmAction_.reset();
@@ -293,6 +373,10 @@ void PauseDocumentController::applyState(AppState& state) {
             break;
 
         case PauseAction::Load:
+            if (pauseContext_ == PauseContext::Battle) {
+                pendingBlockedLoadNotice_ = true;
+                break;
+            }
             state.loadReturnScreen = ScreenState::PauseMenu;
             state.loadSelection = 0;
             state.loadSlotSelection = 0;
@@ -454,8 +538,11 @@ void PauseDocumentController::refreshDocument() const {
             element->SetClass("is-selected", button.action == selection_);
             const bool visible =
                 pauseContext_ != PauseContext::Battle ||
-                (button.action != PauseAction::Save && button.action != PauseAction::Load);
+                button.action != PauseAction::Save;
             element->SetProperty("display", visible ? "block" : "none");
+            element->SetClass(
+                "is-disabled",
+                pauseContext_ == PauseContext::Battle && button.action == PauseAction::Load);
         }
     }
 
@@ -507,6 +594,83 @@ void PauseDocumentController::refreshDocument() const {
 bool PauseDocumentController::showingConfirm() const {
     return screen_ == ScreenState::PauseConfirmExit ||
            screen_ == ScreenState::PauseConfirmOverwriteSave;
+}
+
+void PauseDocumentController::setPauseSelection(PauseAction action, bool playSound) {
+    if (selection_ == action) {
+        return;
+    }
+
+    selection_ = action;
+    refreshDocument();
+    if (playSound) {
+        queueSound(kScrollSfxPath, 0.82f);
+    }
+}
+
+void PauseDocumentController::setConfirmSelection(ConfirmAction action, bool playSound) {
+    if (confirmSelection_ == action) {
+        return;
+    }
+
+    confirmSelection_ = action;
+    refreshDocument();
+    if (playSound) {
+        queueSound(kScrollSfxPath, 0.82f);
+    }
+}
+
+std::optional<PauseAction> PauseDocumentController::hitTestPauseButton(float x, float y) const {
+    if (document_ == nullptr || showingConfirm()) {
+        return std::nullopt;
+    }
+
+    for (const PauseButtonDefinition& button : kPauseButtons) {
+        const bool visible =
+            pauseContext_ != PauseContext::Battle ||
+            button.action != PauseAction::Save;
+        if (!visible) {
+            continue;
+        }
+
+        Rml::Element* element = document_->GetElementById(button.id);
+        if (element == nullptr) {
+            continue;
+        }
+
+        Rml::Vector2f point{x, y};
+        if (!element->Project(point)) {
+            continue;
+        }
+        if (element->IsPointWithinElement(point)) {
+            return button.action;
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<ConfirmAction> PauseDocumentController::hitTestConfirmButton(float x, float y) const {
+    if (document_ == nullptr || !showingConfirm()) {
+        return std::nullopt;
+    }
+
+    for (const ConfirmButtonDefinition& button : kConfirmButtons) {
+        Rml::Element* element = document_->GetElementById(button.id);
+        if (element == nullptr) {
+            continue;
+        }
+
+        Rml::Vector2f point{x, y};
+        if (!element->Project(point)) {
+            continue;
+        }
+        if (element->IsPointWithinElement(point)) {
+            return button.action;
+        }
+    }
+
+    return std::nullopt;
 }
 
 PauseAction PauseDocumentController::nextAction(int delta) const {
