@@ -28,7 +28,7 @@ public:
     bool getCasterWorldOverride(float& outX, float& outY, float& outZ) const override;
     int consumeHitEvents() override;
     int getDamageLabelHitCount() const override;
-    void onKeyPressed(SDL_Keycode key) override;
+    bool onKeyPressed(SDL_Keycode key) override;
     int consumeAbilityAudioCues() override;
     float getInputMultiplier() const override;
     PresentationFeedbackSignal getFeedbackSignal() const override;

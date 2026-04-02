@@ -29,7 +29,7 @@ public:
     void update(float deltaTime) override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
-    void onKeyPressed(SDL_Keycode key) override;
+    bool onKeyPressed(SDL_Keycode key) override;
     float getInputMultiplier() const override;
     PresentationFeedbackSignal getFeedbackSignal() const override;
     std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;

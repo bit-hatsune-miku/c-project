@@ -267,13 +267,13 @@ bool LuotianyiSkillPresentation::isComplete() const {
     return phase_ == Phase::Complete;
 }
 
-void LuotianyiSkillPresentation::onKeyPressed(SDL_Keycode key) {
+bool LuotianyiSkillPresentation::onKeyPressed(SDL_Keycode key) {
     if (phase_ != Phase::Input || !acceptingInput_ || userInputs_.size() >= toneSequence_.size()) {
-        return;
+        return false;
     }
     const int tone = mapToneFromKey(key);
     if (tone <= 0) {
-        return;
+        return false;
     }
     const size_t inputIndex = userInputs_.size();
     const bool enteredCorrectTone = tone == toneSequence_[inputIndex];
@@ -282,6 +282,7 @@ void LuotianyiSkillPresentation::onKeyPressed(SDL_Keycode key) {
         enteredCorrectTone,
         static_cast<int>(userInputs_.size())
     ));
+    return true;
 }
 
 bool LuotianyiSkillPresentation::shouldHideNonCasterCharacters() const {

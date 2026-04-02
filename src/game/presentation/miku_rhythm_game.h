@@ -74,7 +74,7 @@ struct MikuRhythmGame {
     // -----------------------------------------------------------------------
     void        start();
     void        update(float dt);
-    void        onKeyPressed(SDL_Keycode key);
+    bool        onKeyPressed(SDL_Keycode key);
     void        render(SDL_Renderer* renderer, int screenW, int screenH);
 
     bool        isComplete()         const;

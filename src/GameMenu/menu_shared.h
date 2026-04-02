@@ -194,6 +194,7 @@ struct AppState {
     std::string pendingBattleWinScript;
     std::string pendingBattleLoseScript;
     std::string pendingBattleNextStoryScript;
+    std::string pendingStoryNextScript;
     std::string pendingLoadPath;
     std::string pendingOverwriteSavePath;
     std::string pendingDeletePath;
@@ -245,7 +246,8 @@ bool mapWindowPointToReference(float windowX, float windowY, int windowWidth, in
 
 void beginStory(AppState& state,
                 const std::string& scriptRef = std::string(),
-                ScreenState endReturnScreen = ScreenState::MainMenu);
+                ScreenState endReturnScreen = ScreenState::MainMenu,
+                bool autosaveOnStart = true);
 bool beginStoryMode(AppState& state, Window& window);
 void beginBossSelector(AppState& state);
 void beginBattleDemo(AppState& state);

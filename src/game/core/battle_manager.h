@@ -277,6 +277,13 @@ struct BattleActionEvent {
     std::vector<int> targetHpAfter;
 };
 
+enum class ManualUltimateRequestResult {
+    Queued,
+    MeterNotReady,
+    AlreadyQueued,
+    Unavailable
+};
+
 class BattleManager {
 public:
     // Returns the shield value for a party member at the given index, or 0 if out of range.
@@ -298,6 +305,8 @@ public:
     int getCharacterMaxHp(int partyIndex) const;
     bool isCharacterAlive(int partyIndex) const;
     bool reviveCharacter(int partyIndex, int amount);
+    ManualUltimateRequestResult previewManualUltimateTurnRequest(int partyIndex) const;
+    ManualUltimateRequestResult requestManualUltimateTurn(int partyIndex);
     int getCharacterUltimateCharge(int partyIndex) const;
     int getCharacterUltimateRequired(int partyIndex) const;
     void addLuotianyiCorrectTones(int amount);
@@ -411,6 +420,7 @@ private:
     BattleComboState comboState_{};
     std::vector<ActivePartyBuff> activePartyBuffs_;
     std::unordered_map<std::string, int> bossAbilityUseCounts_;
+    int nextManualUltimatePriority_ = 1000;
 };
 
 } // namespace battle

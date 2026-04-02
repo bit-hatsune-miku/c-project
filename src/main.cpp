@@ -917,7 +917,7 @@ bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
     state.story.script = std::move(script);
     state.story.loaded = true;
     state.story.entryIndex = static_cast<std::size_t>(std::clamp(saveGame.entryIndex, 0, static_cast<int>(state.story.script.entries.size() - 1)));
-    state.storyEndReturnScreen = resolveStoryEndReturnScreen(state.story.script, ScreenState::MainMenu);
+    state.storyEndReturnScreen = ScreenState::MainMenu;
     state.requestStoryReturnToBossSelector = false;
 
     vn::reset();
@@ -958,14 +958,17 @@ void clearPendingBattleState(AppState& state,
     state.pendingBattleWinScript.clear();
     state.pendingBattleLoseScript.clear();
     state.pendingBattleNextStoryScript.clear();
+    state.pendingStoryNextScript.clear();
 }
 
-bool startLoadedStoryPlayback(AppState& state, ScreenState endReturnScreen) {
+bool startLoadedStoryPlayback(AppState& state,
+                              ScreenState endReturnScreen,
+                              bool autosaveOnStart = true) {
     if (state.story.script.entries.empty()) {
         return false;
     }
 
-    state.storyEndReturnScreen = resolveStoryEndReturnScreen(state.story.script, endReturnScreen);
+    state.storyEndReturnScreen = endReturnScreen;
     state.requestStoryReturnToBossSelector = false;
     state.pauseSelection = PauseAction::Continue;
     state.pauseContext = PauseContext::Story;
@@ -978,11 +981,17 @@ bool startLoadedStoryPlayback(AppState& state, ScreenState endReturnScreen) {
     vn::setVoiceVolume(state.settings.voiceVolume);
     vn::setTypewriterSpeed(state.settings.textSpeed);
     applyCurrentEntry(state.story, state.settings);
-    (void)save::autosave(buildStorySaveGame(state));
+    if (autosaveOnStart) {
+        (void)save::autosave(buildStorySaveGame(state));
+    }
     return true;
 }
 
-void beginStory(AppState& state, const std::string& scriptRef, ScreenState endReturnScreen) {
+void beginStory(AppState& state,
+                const std::string& scriptRef,
+                ScreenState endReturnScreen,
+                bool autosaveOnStart) {
+    state.pendingStoryNextScript.clear();
     const bool loaded = scriptRef.empty()
         ? ensureStoryLoaded(state.story)
         : loadStoryScript(state.story, scriptRef);
@@ -1003,7 +1012,7 @@ void beginStory(AppState& state, const std::string& scriptRef, ScreenState endRe
     }
 
     state.story.entryIndex = 0;
-    if (!startLoadedStoryPlayback(state, endReturnScreen)) {
+    if (!startLoadedStoryPlayback(state, endReturnScreen, autosaveOnStart)) {
         state.noticeText = scriptRef.empty()
             ? "Chapter 0 has no dialogue entries."
             : "Story has no dialogue entries.";
@@ -1083,7 +1092,9 @@ void beginBattle(AppState& state, const std::string& battleKey) {
 
     state.pendingBattleKey = battleDefinition.key;
     state.pendingBattlePartyLineup.clear();
-    state.pendingBattleNextStoryScript = battleDefinition.nextStoryScript;
+    state.pendingBattleNextStoryScript = state.pendingBattleLaunchedFromStory
+        ? battleDefinition.nextStoryScript
+        : std::string();
     if (state.pendingBattleWinScript.empty()) {
         state.pendingBattleWinScript = battleDefinition.victoryStoryScript;
     }
@@ -2480,7 +2491,7 @@ int main(int argc, char** argv) {
                     const ScreenState battleReturnScreen = state.pendingBattleReturnScreen;
                     const std::string battleWinScript = state.pendingBattleWinScript;
                     const std::string battleLoseScript = state.pendingBattleLoseScript;
-                    const std::string battleNextStoryScript = state.pendingBattleNextStoryScript;
+                    const std::string battleNextStoryScript = state.pendingStoryNextScript;
                     startLoadingTransition(
                         loadingTransition,
                         LoadingTransitionPresentation::RmlUi,
@@ -2533,7 +2544,7 @@ int main(int argc, char** argv) {
                                     return;
                                 }
 
-                                state.pendingBattleNextStoryScript = chainedStoryScript;
+                                state.pendingStoryNextScript = chainedStoryScript;
                             };
 
                             if (outcome == battle::app::BattleOutcome::Victory) {
@@ -2564,7 +2575,7 @@ int main(int argc, char** argv) {
                                         state.noticeTimer = 2.2f;
                                     }
                                 } else if (!battleWinScript.empty()) {
-                                    beginStory(state, battleWinScript, battleReturnScreen);
+                                    beginStory(state, battleWinScript, battleReturnScreen, false);
                                 } else if (battleReturnScreen == ScreenState::BossSelector) {
                                     beginBossSelector(state);
                                 } else {
@@ -2629,6 +2640,7 @@ int main(int argc, char** argv) {
                         state.noticeTimer = 2.6f;
                         state.screen = ScreenState::MainMenu;
                     } else {
+                        state.pendingStoryNextScript = battleDefinition.nextStoryScript;
                         startLoadingTransition(
                             loadingTransition,
                             LoadingTransitionPresentation::RmlUi,
@@ -2651,6 +2663,7 @@ int main(int argc, char** argv) {
                         state.screen = ScreenState::MainMenu;
                     } else {
                         const std::string routedBattleKey = battleDefinition.key;
+                        state.pendingStoryNextScript = battleDefinition.nextStoryScript;
                         startLoadingTransition(
                             loadingTransition,
                             LoadingTransitionPresentation::RmlUi,
@@ -2660,10 +2673,10 @@ int main(int argc, char** argv) {
                                 return true;
                             });
                     }
-                } else if (!state.pendingBattleNextStoryScript.empty() &&
+                } else if (!state.pendingStoryNextScript.empty() &&
                            state.story.entryIndex >= state.story.script.entries.size()) {
-                    const std::string nextStoryScript = state.pendingBattleNextStoryScript;
-                    state.pendingBattleNextStoryScript.clear();
+                    const std::string nextStoryScript = state.pendingStoryNextScript;
+                    state.pendingStoryNextScript.clear();
                     startLoadingTransition(
                         loadingTransition,
                         LoadingTransitionPresentation::RmlUi,

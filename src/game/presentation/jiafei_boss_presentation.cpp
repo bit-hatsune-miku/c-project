@@ -196,16 +196,16 @@ bool JiafeiBossPresentation::isComplete() const {
     return phase_ == Phase::Complete;
 }
 
-void JiafeiBossPresentation::onKeyPressed(SDL_Keycode key) {
+bool JiafeiBossPresentation::onKeyPressed(SDL_Keycode key) {
     if (phase_ != Phase::Attack || !canReceiveInput_ || inputReceived_ ||
         dodgeMotionState_ != DodgeMotionState::Idle) {
-        return;
+        return false;
     }
 
     bool isLeft = (key == SDLK_LEFT);
     bool isRight = (key == SDLK_RIGHT);
     if (!isLeft && !isRight) {
-        return;
+        return false;
     }
 
     inputReceived_ = true;
@@ -213,6 +213,7 @@ void JiafeiBossPresentation::onKeyPressed(SDL_Keycode key) {
     dodgeElapsed_ = 0.0f;
     dodgeMotionState_ = DodgeMotionState::Outbound;
     inputCorrect_ = false;
+    return true;
 }
 
 bool JiafeiBossPresentation::shouldHideNonCasterCharacters() const {

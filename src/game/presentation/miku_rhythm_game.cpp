@@ -69,13 +69,13 @@ void MikuRhythmGame::update(float dt) {
 // ---------------------------------------------------------------------------
 // onKeyPressed
 // ---------------------------------------------------------------------------
-void MikuRhythmGame::onKeyPressed(SDL_Keycode key) {
+bool MikuRhythmGame::onKeyPressed(SDL_Keycode key) {
     // Map key to column index
     int pressedColumn = -1;
     for (int i = 0; i < kLaneCount; ++i) {
         if (kLaneKeys[i] == key) { pressedColumn = i; break; }
     }
-    if (pressedColumn < 0) return;
+    if (pressedColumn < 0) return false;
 
     // Find the unresolved note in this column
     for (Lane& lane : lanes_) {
@@ -88,11 +88,13 @@ void MikuRhythmGame::onKeyPressed(SDL_Keycode key) {
         if      (delta <= kPerfectWindowSec) result = NoteResult::Perfect;
         else if (delta <= kGoodWindowSec)    result = NoteResult::Good;
         else if (delta <= kOkWindowSec)      result = NoteResult::Ok;
-        else return; // outside window — ignore, note will auto-miss later
+        else return true; // outside window — ignore, note will auto-miss later
 
         resolveLane(lane, result);
-        return;
+        return true;
     }
+
+    return true;
 }
 
 // ---------------------------------------------------------------------------

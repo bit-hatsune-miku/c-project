@@ -147,6 +147,7 @@ public:
 private:
     int computeFocusedEntityIndex() const;
     std::vector<render::FeedbackEntityAnchor> buildFeedbackAnchors() const;
+    bool handleManualUltimateHotkey(SDL_Keycode key);
     void maybeStartUltimateTurnSplash(const flow::PreviewActorContext& preview, bool dialogueActive);
     void updateSceneEntities(float deltaSeconds, bool bossActing, int actingPartyIndex);
     void computeCharacterPositions(bool bossActing, int actingPartyIndex);

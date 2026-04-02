@@ -117,7 +117,11 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
                 }
                 if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
                     if (event.key.keysym.sym == SDLK_ESCAPE) { finished = true; break; }
-                    if (event.key.keysym.sym == SDLK_SPACE)  { splash.skip(); }
+                    if (event.key.keysym.sym == SDLK_SPACE)  {
+                        splash.skip();
+                    } else if (callbacks.onUnhandledKeyDown) {
+                        callbacks.onUnhandledKeyDown(event.key.keysym.sym);
+                    }
                 }
             }
             if (finished) break;
@@ -185,7 +189,12 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
                 if (event.key.keysym.sym == SDLK_SPACE) {
                     presentation->onSpacePressed();
                 }
-                presentation->onKeyPressed(event.key.keysym.sym);
+                const bool consumed = presentation->onKeyPressed(event.key.keysym.sym);
+                if (event.key.keysym.sym != SDLK_SPACE &&
+                    !consumed &&
+                    callbacks.onUnhandledKeyDown) {
+                    callbacks.onUnhandledKeyDown(event.key.keysym.sym);
+                }
             }
         }
 

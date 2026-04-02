@@ -85,7 +85,10 @@ public:
     
     // Input handling
     virtual void onSpacePressed() {}
-    virtual void onKeyPressed(SDL_Keycode key) {}
+    virtual bool onKeyPressed(SDL_Keycode key) {
+        (void)key;
+        return false;
+    }
     virtual float getInputMultiplier() const { return 1.0f; }
     virtual float consumeHitDamageMultiplier() { return getInputMultiplier(); }
     virtual PresentationFeedbackSignal getFeedbackSignal() const { return {}; }

@@ -162,9 +162,9 @@ bool LyooHealPresentation::isComplete() const {
     return phase_ == Phase::Complete;
 }
 
-void LyooHealPresentation::onKeyPressed(SDL_Keycode key) {
+bool LyooHealPresentation::onKeyPressed(SDL_Keycode key) {
     if (phase_ != Phase::Input || !inputWindow_.active) {
-        return;
+        return false;
     }
 
     const bool isRecent = std::find(recentKeys_.begin(), recentKeys_.end(), key) != recentKeys_.end();
@@ -177,7 +177,7 @@ void LyooHealPresentation::onKeyPressed(SDL_Keycode key) {
     triggerCameraShake();
 
     if (isRecent) {
-        return;
+        return true;
     }
 
     ++validPressCount_;
@@ -195,7 +195,7 @@ void LyooHealPresentation::onKeyPressed(SDL_Keycode key) {
         "+" + std::to_string(std::max(0, static_cast<int>(std::lround((event.multiplier - 1.0f) * 100.0f)))) +
         "% HEAL";
     pendingFeedbackEvents_.push_back(event);
-
+    return true;
 }
 
 float LyooHealPresentation::getInputMultiplier() const {

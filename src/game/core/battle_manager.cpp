@@ -253,6 +253,7 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     simulatedActions_ = 0;
     activePartyBuffs_.clear();
     bossAbilityUseCounts_.clear();
+    nextManualUltimatePriority_ = 1000;
     luotianyiCorrectTones_ = 0;
     comboState_ = BattleComboState{};
     forcedOutcome_.reset();
@@ -419,6 +420,39 @@ bool BattleManager::reviveCharacter(int partyIndex, int amount) {
     syncCharacterTurnParticipation(partyIndex);
     syncCharacterUltimateTurn(partyIndex);
     return true;
+}
+
+ManualUltimateRequestResult BattleManager::previewManualUltimateTurnRequest(int partyIndex) const {
+    if (isBattleOver() ||
+        partyIndex < 0 ||
+        static_cast<size_t>(partyIndex) >= characters_.size()) {
+        return ManualUltimateRequestResult::Unavailable;
+    }
+
+    const BattleCharacter& character = characters_[static_cast<size_t>(partyIndex)];
+    if (!character.isAlive() || character.definition().ultimate.empty()) {
+        return ManualUltimateRequestResult::Unavailable;
+    }
+
+    if (hasQueuedExtraTurn(partyIndex, BattleAction::Ultimate, false)) {
+        return ManualUltimateRequestResult::AlreadyQueued;
+    }
+
+    if (!character.canUseUltimate()) {
+        return ManualUltimateRequestResult::MeterNotReady;
+    }
+
+    return ManualUltimateRequestResult::Queued;
+}
+
+ManualUltimateRequestResult BattleManager::requestManualUltimateTurn(int partyIndex) {
+    const ManualUltimateRequestResult result = previewManualUltimateTurnRequest(partyIndex);
+    if (result != ManualUltimateRequestResult::Queued) {
+        return result;
+    }
+
+    queueExtraTurnForCharacter(partyIndex);
+    return ManualUltimateRequestResult::Queued;
 }
 
 int BattleManager::getCharacterUltimateCharge(int partyIndex) const {
@@ -891,20 +925,6 @@ bool BattleManager::commitCurrentPlayerSplitAttackTurn() {
     }
 
     character.gainUltimatePoint();
-    if (character.canUseUltimate()) {
-        bool alreadyQueued = false;
-        for (const TurnActor& actorCandidate : turnState_.actors) {
-            if (actorCandidate.type == ParticipantType::Character &&
-                actorCandidate.isExtraTurn &&
-                actorCandidate.partyIndex == character.partyIndex()) {
-                alreadyQueued = true;
-                break;
-            }
-        }
-        if (!alreadyQueued) {
-            queueExtraTurnForCharacter(character.partyIndex());
-        }
-    }
 
     if (event.actingActorIndex >= turnState_.actors.size()) {
         return false;
@@ -1084,7 +1104,7 @@ void BattleManager::queueExtraTurnForCharacter(int partyIndex) {
         BattleAction::Ultimate,
         false,
         false,
-        100
+        nextManualUltimatePriority_--
     );
 }
 
@@ -1739,7 +1759,7 @@ void BattleManager::syncCharacterUltimateTurn(int partyIndex) {
     }
 
     const BattleCharacter& character = characters_[static_cast<size_t>(partyIndex)];
-    const bool shouldHaveExtraTurn = character.isAlive() && character.canUseUltimate();
+    const bool shouldKeepExtraTurn = character.isAlive() && character.canUseUltimate();
     bool hasExtraTurn = false;
 
     for (size_t i = 0; i < turnState_.actors.size();) {
@@ -1755,17 +1775,13 @@ void BattleManager::syncCharacterUltimateTurn(int partyIndex) {
             continue;
         }
 
-        if (!shouldHaveExtraTurn || hasExtraTurn) {
+        if (!shouldKeepExtraTurn || hasExtraTurn) {
             turnState_.actors.erase(turnState_.actors.begin() + static_cast<long>(i));
             continue;
         }
 
         hasExtraTurn = true;
         ++i;
-    }
-
-    if (shouldHaveExtraTurn && !hasExtraTurn) {
-        queueExtraTurnForCharacter(partyIndex);
     }
 }
 

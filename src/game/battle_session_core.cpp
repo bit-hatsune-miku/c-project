@@ -29,6 +29,25 @@ constexpr float kCharacterVisibilityOffsetPx    = 70.0f;
 
 using WorldEntity = render::SceneEntity;
 
+int manualUltimatePartyIndexFromKey(SDL_Keycode key) {
+    switch (key) {
+        case SDLK_1:
+        case SDLK_KP_1:
+            return 0;
+        case SDLK_2:
+        case SDLK_KP_2:
+            return 1;
+        case SDLK_3:
+        case SDLK_KP_3:
+            return 2;
+        case SDLK_4:
+        case SDLK_KP_4:
+            return 3;
+        default:
+            return -1;
+    }
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
@@ -197,6 +216,7 @@ void BattleSessionCore::handleEvent(const SDL_Event& event) {
             if (event.key.keysym.sym == SDLK_SPACE) {
                 activeUltimateTurnSplash_->skip();
             }
+            (void)handleManualUltimateHotkey(event.key.keysym.sym);
             return;
         }
 
@@ -212,6 +232,7 @@ void BattleSessionCore::handleEvent(const SDL_Event& event) {
             }
             return;
         }
+        if (handleManualUltimateHotkey(event.key.keysym.sym)) return;
         if (event.key.keysym.sym != SDLK_SPACE) return;
 
         const flow::PreviewActorContext preview = flow::inspectPreviewActor(manager_);
@@ -617,6 +638,50 @@ std::vector<render::FeedbackEntityAnchor> BattleSessionCore::buildFeedbackAnchor
 // private helpers
 // ---------------------------------------------------------------------------
 
+bool BattleSessionCore::handleManualUltimateHotkey(SDL_Keycode key) {
+    const int partyIndex = manualUltimatePartyIndexFromKey(key);
+    if (partyIndex < 0) {
+        return false;
+    }
+
+    const bool battleInputEnabled = hooks_.isSpaceEnabledForBattle
+        ? hooks_.isSpaceEnabledForBattle()
+        : true;
+    if (!battleInputEnabled || manager_.isBattleOver()) {
+        return true;
+    }
+
+    const ManualUltimateRequestResult result = manager_.requestManualUltimateTurn(partyIndex);
+    switch (result) {
+        case ManualUltimateRequestResult::Queued:
+            break;
+        case ManualUltimateRequestResult::MeterNotReady: {
+            const BattleState& battleState = manager_.getBattleState();
+            const std::string actorLabel =
+                (partyIndex >= 0 && static_cast<size_t>(partyIndex) < battleState.party.size())
+                    ? battleState.party[static_cast<size_t>(partyIndex)].title
+                    : ("ALLY " + std::to_string(partyIndex + 1));
+            const int charge = manager_.getCharacterUltimateCharge(partyIndex);
+            const int required = manager_.getCharacterUltimateRequired(partyIndex);
+            const int missing = std::max(0, required - charge);
+            setHint(
+                actorLabel + " NEEDS " + std::to_string(missing) + " MORE " +
+                (missing == 1 ? "ABILITY." : "ABILITIES."),
+                1800
+            );
+            break;
+        }
+        case ManualUltimateRequestResult::AlreadyQueued:
+            setHint("ULTIMATE ALREADY QUEUED.", 1400);
+            break;
+        case ManualUltimateRequestResult::Unavailable:
+            setHint("ULTIMATE NOT AVAILABLE.", 1400);
+            break;
+    }
+
+    return true;
+}
+
 void BattleSessionCore::maybeStartUltimateTurnSplash(const flow::PreviewActorContext& preview, bool dialogueActive) {
     if (dialogueActive || presentationPlaybackActive_ || activeUltimateTurnSplash_) {
         return;
@@ -775,6 +840,9 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
     callbacks.overlayCasterSpriteTexture = casterSprite;
     callbacks.overlayTargetSpriteTexture = targetSprite;
     callbacks.onWindowResized     = hooks_.onWindowResized;
+    callbacks.onUnhandledKeyDown  = [this](SDL_Keycode key) {
+        (void)handleManualUltimateHotkey(key);
+    };
     callbacks.onAudioCommands     = [&](const std::vector<PresentationAudioCommand>& commands) {
         if (commands.empty()) {
             return;

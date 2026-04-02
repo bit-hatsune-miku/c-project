@@ -21,7 +21,7 @@ public:
     void renderBelowWorld(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
 
-    void onKeyPressed(SDL_Keycode key) override;
+    bool onKeyPressed(SDL_Keycode key) override;
     bool shouldHideNonCasterCharacters() const override;
     bool shouldRenderCasterEntity() const override;
     bool shouldRenderBossEntity() const override;
