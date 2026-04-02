@@ -158,6 +158,18 @@ bool loadAllCharacterKeys(std::vector<std::string>& outCharacterKeys) {
     return true;
 }
 
+bool hasUnlockedCharacter(const PlayerProgression& progression, const std::string& characterKey) {
+    return std::find(progression.unlockedCharacterKeys.begin(),
+                     progression.unlockedCharacterKeys.end(),
+                     characterKey) != progression.unlockedCharacterKeys.end();
+}
+
+bool hasClearedBattle(const PlayerProgression& progression, const std::string& battleKey) {
+    return std::find(progression.clearedBattleKeys.begin(),
+                     progression.clearedBattleKeys.end(),
+                     battleKey) != progression.clearedBattleKeys.end();
+}
+
 std::vector<std::string> sanitizeCharacterKeyList(const std::vector<std::string>& keys) {
     std::vector<std::string> allCharacterKeys;
     if (!loadAllCharacterKeys(allCharacterKeys)) {

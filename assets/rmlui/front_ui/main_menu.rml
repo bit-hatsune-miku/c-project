@@ -82,6 +82,7 @@
                 <div id="menu-status-copy"></div>
             </div>
 
+            <div id="menu-notice"></div>
             <div id="corner-kicker">ARROWS OR WASD TO MOVE. ENTER, SPACE, OR CLICK TO CHOOSE.</div>
         </div>
 

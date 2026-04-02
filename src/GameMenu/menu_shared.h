@@ -40,6 +40,7 @@ enum class MainMenuAction {
 
 inline constexpr const char* kMainMenuBackgroundArtPath = "assets/vn/backgrounds/General_Art/mainmenu art.png";
 inline constexpr const char* kMainMenuTitleLogoPath = "assets/vn/backgrounds/General_Art/MainMenuTitle.png";
+inline constexpr const char* kPracticeModeLockedNotice = "Practice Mode unlocks after the tutorial.";
 
 struct MainMenuPresentation {
     MainMenuAction action;
@@ -192,6 +193,7 @@ struct AppState {
     ScreenState pendingBattleReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleWinScript;
     std::string pendingBattleLoseScript;
+    std::string pendingBattleNextStoryScript;
     std::string pendingLoadPath;
     std::string pendingOverwriteSavePath;
     std::string pendingDeletePath;

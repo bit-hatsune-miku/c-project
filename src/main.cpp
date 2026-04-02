@@ -957,6 +957,29 @@ void clearPendingBattleState(AppState& state,
     state.pendingBattleReturnScreen = returnScreen;
     state.pendingBattleWinScript.clear();
     state.pendingBattleLoseScript.clear();
+    state.pendingBattleNextStoryScript.clear();
+}
+
+bool startLoadedStoryPlayback(AppState& state, ScreenState endReturnScreen) {
+    if (state.story.script.entries.empty()) {
+        return false;
+    }
+
+    state.storyEndReturnScreen = resolveStoryEndReturnScreen(state.story.script, endReturnScreen);
+    state.requestStoryReturnToBossSelector = false;
+    state.pauseSelection = PauseAction::Continue;
+    state.pauseContext = PauseContext::Story;
+    state.confirmSelection = ConfirmAction::Cancel;
+    state.pauseIntroTime = 0.0f;
+    state.screen = ScreenState::Playing;
+    clearPendingBattleState(state);
+    vn::reset();
+    vn::setMusicVolume(state.settings.musicVolume);
+    vn::setVoiceVolume(state.settings.voiceVolume);
+    vn::setTypewriterSpeed(state.settings.textSpeed);
+    applyCurrentEntry(state.story, state.settings);
+    (void)save::autosave(buildStorySaveGame(state));
+    return true;
 }
 
 void beginStory(AppState& state, const std::string& scriptRef, ScreenState endReturnScreen) {
@@ -980,20 +1003,13 @@ void beginStory(AppState& state, const std::string& scriptRef, ScreenState endRe
     }
 
     state.story.entryIndex = 0;
-    state.storyEndReturnScreen = resolveStoryEndReturnScreen(state.story.script, endReturnScreen);
-    state.requestStoryReturnToBossSelector = false;
-    state.pauseSelection = PauseAction::Continue;
-    state.pauseContext = PauseContext::Story;
-    state.confirmSelection = ConfirmAction::Cancel;
-    state.pauseIntroTime = 0.0f;
-    state.screen = ScreenState::Playing;
-    clearPendingBattleState(state);
-    vn::reset();
-    vn::setMusicVolume(state.settings.musicVolume);
-    vn::setVoiceVolume(state.settings.voiceVolume);
-    vn::setTypewriterSpeed(state.settings.textSpeed);
-    applyCurrentEntry(state.story, state.settings);
-    (void)save::autosave(buildStorySaveGame(state));
+    if (!startLoadedStoryPlayback(state, endReturnScreen)) {
+        state.noticeText = scriptRef.empty()
+            ? "Chapter 0 has no dialogue entries."
+            : "Story has no dialogue entries.";
+        state.noticeTimer = 2.6f;
+        state.screen = ScreenState::MainMenu;
+    }
 }
 
 bool beginStoryMode(AppState& state, Window& window) {
@@ -1067,6 +1083,7 @@ void beginBattle(AppState& state, const std::string& battleKey) {
 
     state.pendingBattleKey = battleDefinition.key;
     state.pendingBattlePartyLineup.clear();
+    state.pendingBattleNextStoryScript = battleDefinition.nextStoryScript;
     if (state.pendingBattleWinScript.empty()) {
         state.pendingBattleWinScript = battleDefinition.victoryStoryScript;
     }
@@ -1999,6 +2016,11 @@ int main(int argc, char** argv) {
                                 });
                         } else if (command->mainMenuAction == MainMenuAction::Battle) {
                             state.mainSelection = MainMenuAction::Battle;
+                            if (!::battle::hasUnlockedCharacter(state.progression, "lyoo")) {
+                                state.noticeText = kPracticeModeLockedNotice;
+                                state.noticeTimer = 2.6f;
+                                break;
+                            }
                             startLoadingTransition(
                                 loadingTransition,
                                 LoadingTransitionPresentation::RmlUi,
@@ -2458,11 +2480,19 @@ int main(int argc, char** argv) {
                     const ScreenState battleReturnScreen = state.pendingBattleReturnScreen;
                     const std::string battleWinScript = state.pendingBattleWinScript;
                     const std::string battleLoseScript = state.pendingBattleLoseScript;
+                    const std::string battleNextStoryScript = state.pendingBattleNextStoryScript;
                     startLoadingTransition(
                         loadingTransition,
                         LoadingTransitionPresentation::RmlUi,
                         std::function<bool()>{},
-                        [&, outcome, completedBattleKey, currentPartyLineup, launchedFromStory, battleReturnScreen, battleWinScript, battleLoseScript]() -> bool {
+                        [&, outcome,
+                            completedBattleKey,
+                            currentPartyLineup,
+                            launchedFromStory,
+                            battleReturnScreen,
+                            battleWinScript,
+                            battleLoseScript,
+                            battleNextStoryScript]() -> bool {
                             if (!currentPartyLineup.empty()) {
                                 state.progression.currentPartyLineup = currentPartyLineup;
                                 battle::normalizePlayerProgression(state.progression);
@@ -2482,7 +2512,8 @@ int main(int argc, char** argv) {
 
                             const auto enterLoadedStory = [&](const std::string& scriptRef,
                                                               const char* failureNotice,
-                                                              ScreenState endReturnScreen) {
+                                                              ScreenState endReturnScreen,
+                                                              const std::string& chainedStoryScript = std::string()) {
                                 if (!loadStoryScript(state.story, scriptRef)) {
                                     state.screen = ScreenState::MainMenu;
                                     state.pauseContext = PauseContext::Story;
@@ -2492,25 +2523,28 @@ int main(int argc, char** argv) {
                                     return;
                                 }
 
-                                state.storyEndReturnScreen =
-                                    resolveStoryEndReturnScreen(state.story.script, endReturnScreen);
-                                vn::reset();
-                                vn::setMusicVolume(state.settings.musicVolume);
-                                vn::setVoiceVolume(state.settings.voiceVolume);
-                                vn::setTypewriterSpeed(state.settings.textSpeed);
-                                state.pauseSelection = PauseAction::Continue;
-                                state.pauseContext = PauseContext::Story;
-                                state.confirmSelection = ConfirmAction::Cancel;
-                                state.pauseIntroTime = 0.0f;
-                                state.screen = ScreenState::Playing;
-                                applyCurrentEntry(state.story, state.settings);
-                                (void)save::autosave(buildStorySaveGame(state));
+                                state.story.entryIndex = 0;
+                                if (!startLoadedStoryPlayback(state, endReturnScreen)) {
+                                    state.screen = ScreenState::MainMenu;
+                                    state.pauseContext = PauseContext::Story;
+                                    state.mainSelection = MainMenuAction::Start;
+                                    state.noticeText = failureNotice;
+                                    state.noticeTimer = 2.8f;
+                                    return;
+                                }
+
+                                state.pendingBattleNextStoryScript = chainedStoryScript;
                             };
 
                             if (outcome == battle::app::BattleOutcome::Victory) {
                                 if (launchedFromStory) {
                                     if (!battleWinScript.empty()) {
-                                        enterLoadedStory(battleWinScript, "Post-battle story failed to load.", battleReturnScreen);
+                                        enterLoadedStory(battleWinScript,
+                                                         "Post-battle story failed to load.",
+                                                         battleReturnScreen,
+                                                         battleNextStoryScript);
+                                    } else if (!battleNextStoryScript.empty()) {
+                                        beginStory(state, battleNextStoryScript, battleReturnScreen);
                                     } else if (state.story.loaded &&
                                                state.story.entryIndex < state.story.script.entries.size()) {
                                         state.pauseSelection = PauseAction::Continue;
@@ -2626,6 +2660,18 @@ int main(int argc, char** argv) {
                                 return true;
                             });
                     }
+                } else if (!state.pendingBattleNextStoryScript.empty() &&
+                           state.story.entryIndex >= state.story.script.entries.size()) {
+                    const std::string nextStoryScript = state.pendingBattleNextStoryScript;
+                    state.pendingBattleNextStoryScript.clear();
+                    startLoadingTransition(
+                        loadingTransition,
+                        LoadingTransitionPresentation::RmlUi,
+                        std::function<bool()>{},
+                        [&, nextStoryScript]() -> bool {
+                            beginStory(state, nextStoryScript, state.storyEndReturnScreen);
+                            return true;
+                        });
                 } else if (state.story.entryIndex >= state.story.script.entries.size()) {
                     if (state.storyEndReturnScreen == ScreenState::BossSelector) {
                         state.requestStoryReturnToBossSelector = true;

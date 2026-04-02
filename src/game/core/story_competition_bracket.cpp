@@ -92,7 +92,7 @@ bool buildBracketModel(const PlayerProgression& progression,
         entry.boss = boss;
         entry.spritePath = resolveUiSpritePath(boss.assets);
         entry.instructionHint = resolveInstructionHint(boss);
-        entry.cleared = hasClearedBattle(progression, battle.key);
+        entry.cleared = ::battle::hasClearedBattle(progression, battle.key);
 
         if (!foundUnclearedRound && !entry.cleared) {
             outModel.nextUnclearedIndex = outModel.rounds.size();
