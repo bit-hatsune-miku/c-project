@@ -38,6 +38,13 @@ button {
     height: 100%;
 }
 
+#main-menu-disc-layer,
+#main-menu-logo-layer,
+#main-menu-fixed-layer,
+#menu-intro-whiteout {
+    pointer-events: none;
+}
+
 #disc-outer {
     position: absolute;
     left: 760dp;

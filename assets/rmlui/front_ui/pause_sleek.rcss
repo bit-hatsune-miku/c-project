@@ -152,6 +152,10 @@ body {
     top: 14dp;
 }
 
+#pause-buttons .submenu-row.is-disabled:not(.is-selected) {
+    opacity: 0.52;
+}
+
 /* notice is hidden — toast is used instead */
 #pause-notice {
     display: none;

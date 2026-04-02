@@ -125,6 +125,7 @@ bool LoadDocumentController::bind(Rml::ElementDocument& document, const AppState
     pendingDeleteConfirm_ = false;
     pendingDeletePath_.clear();
     pendingDeleteSelection_ = 0;
+    pressedSelection_.reset();
     refreshFromState(state);
     refreshSlots();
     attachListeners();
@@ -141,6 +142,7 @@ bool LoadDocumentController::bind(Rml::ElementDocument& document, const AppState
 void LoadDocumentController::unbind() {
     detachEventListeners(listeners_);
     pendingSoundRequests_.clear();
+    pressedSelection_.reset();
     document_ = nullptr;
 }
 
@@ -271,6 +273,96 @@ void LoadDocumentController::activateSelection() {
     } else {
         pendingActivateSelection_ = true;
     }
+}
+
+void LoadDocumentController::handleMouseMotion(const SDL_MouseMotionEvent& event) {
+    const float mouseX = static_cast<float>(event.x);
+    const float mouseY = static_cast<float>(event.y);
+
+    if (showingConfirm()) {
+        std::optional<ConfirmAction> hoveredChoice;
+        if (hitTestElement("load-confirm-cancel", mouseX, mouseY)) {
+            hoveredChoice = ConfirmAction::Cancel;
+        } else if (hitTestElement("load-confirm-delete", mouseX, mouseY)) {
+            hoveredChoice = ConfirmAction::ExitToMainMenu;
+        }
+
+        if (hoveredChoice.has_value() && confirmSelection_ != *hoveredChoice) {
+            confirmSelection_ = *hoveredChoice;
+            queueSound(kScrollSfxPath, 0.82f);
+            refreshDocument();
+        }
+        return;
+    }
+
+    if (const std::optional<std::size_t> hoveredSelection = hitTestSelection(mouseX, mouseY);
+        hoveredSelection.has_value()) {
+        const bool syncSlotSelection = *hoveredSelection < cachedSlots_.size();
+        setSelection(*hoveredSelection, syncSlotSelection, true);
+        refreshDocument();
+    }
+}
+
+void LoadDocumentController::handleMouseButtonDown(const SDL_MouseButtonEvent& event) {
+    if (event.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    const float mouseX = static_cast<float>(event.x);
+    const float mouseY = static_cast<float>(event.y);
+
+    if (showingConfirm()) {
+        pressedSelection_ = hitTestElement("load-confirm-delete", mouseX, mouseY)
+            ? std::optional<std::size_t>{1}
+            : (hitTestElement("load-confirm-cancel", mouseX, mouseY) ? std::optional<std::size_t>{0} : std::nullopt);
+        if (pressedSelection_.has_value()) {
+            confirmSelection_ = *pressedSelection_ == 1 ? ConfirmAction::ExitToMainMenu : ConfirmAction::Cancel;
+            refreshDocument();
+        }
+        return;
+    }
+
+    pressedSelection_ = hitTestSelection(mouseX, mouseY);
+
+    if (pressedSelection_.has_value()) {
+        const bool syncSlotSelection = *pressedSelection_ < cachedSlots_.size();
+        setSelection(*pressedSelection_, syncSlotSelection, false);
+        refreshDocument();
+    }
+}
+
+void LoadDocumentController::handleMouseButtonUp(const SDL_MouseButtonEvent& event) {
+    if (event.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    const float mouseX = static_cast<float>(event.x);
+    const float mouseY = static_cast<float>(event.y);
+
+    if (showingConfirm()) {
+        std::optional<std::size_t> releasedSelection =
+            hitTestElement("load-confirm-delete", mouseX, mouseY)
+                ? std::optional<std::size_t>{1}
+                : (hitTestElement("load-confirm-cancel", mouseX, mouseY) ? std::optional<std::size_t>{0} : std::nullopt);
+        if (pressedSelection_.has_value() && releasedSelection == pressedSelection_) {
+            confirmSelection_ = *releasedSelection == 1 ? ConfirmAction::ExitToMainMenu : ConfirmAction::Cancel;
+            pendingDeleteConfirm_ = true;
+            refreshDocument();
+        }
+        pressedSelection_.reset();
+        return;
+    }
+
+    const std::optional<std::size_t> releasedSelection = hitTestSelection(mouseX, mouseY);
+
+    if (pressedSelection_.has_value() && releasedSelection == pressedSelection_) {
+        const bool syncSlotSelection = *releasedSelection < cachedSlots_.size();
+        setSelection(*releasedSelection, syncSlotSelection, false);
+        activateSelection();
+        refreshDocument();
+    }
+
+    pressedSelection_.reset();
 }
 
 /**
@@ -419,124 +511,6 @@ std::vector<SoundRequest> LoadDocumentController::consumeSoundRequests() {
 void LoadDocumentController::attachListeners() {
     if (document_ == nullptr) {
         return;
-    }
-
-    for (std::size_t i = 0; i < kVisibleSlotCount; ++i) {
-        if (Rml::Element* element = document_->GetElementById(kSlotButtonIds[i])) {
-            auto hoverListener = std::make_unique<CallbackEventListener>([this, i](Rml::Event&) {
-                const std::size_t index = visibleWindowStart() + i;
-                if (index < cachedSlots_.size()) {
-                    setSelection(index, true, true);
-                    refreshDocument();
-                }
-            });
-            element->AddEventListener(Rml::EventId::Mouseover, hoverListener.get());
-            listeners_.push_back(EventListenerBinding{
-                element,
-                Rml::EventId::Mouseover,
-                false,
-                std::move(hoverListener),
-            });
-
-            auto clickListener = std::make_unique<CallbackEventListener>([this, i](Rml::Event&) {
-                const std::size_t index = visibleWindowStart() + i;
-                if (index < cachedSlots_.size()) {
-                    setSelection(index, true, false);
-                    pendingActivateSelection_ = true;
-                    queueSound(kLoadConfirmSfxPath, 0.92f);
-                }
-            });
-            element->AddEventListener(Rml::EventId::Click, clickListener.get());
-            listeners_.push_back(EventListenerBinding{
-                element,
-                Rml::EventId::Click,
-                false,
-                std::move(clickListener),
-            });
-        }
-    }
-
-    if (Rml::Element* element = document_->GetElementById("load-footer-delete")) {
-        auto hoverListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-            setSelection(cachedSlots_.size(), false, true);
-            refreshDocument();
-        });
-        element->AddEventListener(Rml::EventId::Mouseover, hoverListener.get());
-        listeners_.push_back(EventListenerBinding{
-            element,
-            Rml::EventId::Mouseover,
-            false,
-            std::move(hoverListener),
-        });
-
-        auto clickListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-            setSelection(cachedSlots_.size(), false, false);
-            pendingActivateSelection_ = true;
-        });
-        element->AddEventListener(Rml::EventId::Click, clickListener.get());
-        listeners_.push_back(EventListenerBinding{
-            element,
-            Rml::EventId::Click,
-            false,
-            std::move(clickListener),
-        });
-    }
-
-    if (Rml::Element* element = document_->GetElementById("load-footer-back")) {
-        auto hoverListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-            setSelection(cachedSlots_.size() + 1, false, true);
-            refreshDocument();
-        });
-        element->AddEventListener(Rml::EventId::Mouseover, hoverListener.get());
-        listeners_.push_back(EventListenerBinding{
-            element,
-            Rml::EventId::Mouseover,
-            false,
-            std::move(hoverListener),
-        });
-
-        auto clickListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-            setSelection(cachedSlots_.size() + 1, false, false);
-            pendingBack_ = true;
-            queueSound(kBackSfxPath, 0.92f);
-        });
-        element->AddEventListener(Rml::EventId::Click, clickListener.get());
-        listeners_.push_back(EventListenerBinding{
-            element,
-            Rml::EventId::Click,
-            false,
-            std::move(clickListener),
-        });
-    }
-
-    for (const ConfirmAction action : {ConfirmAction::Cancel, ConfirmAction::ExitToMainMenu}) {
-        const char* id = action == ConfirmAction::Cancel ? "load-confirm-cancel" : "load-confirm-delete";
-        if (Rml::Element* element = document_->GetElementById(id)) {
-            auto hoverListener = std::make_unique<CallbackEventListener>([this, action](Rml::Event&) {
-                confirmSelection_ = action;
-                queueSound(kScrollSfxPath, 0.82f);
-                refreshDocument();
-            });
-            element->AddEventListener(Rml::EventId::Mouseover, hoverListener.get());
-            listeners_.push_back(EventListenerBinding{
-                element,
-                Rml::EventId::Mouseover,
-                false,
-                std::move(hoverListener),
-            });
-
-            auto clickListener = std::make_unique<CallbackEventListener>([this, action](Rml::Event&) {
-                confirmSelection_ = action;
-                pendingDeleteConfirm_ = true;
-            });
-            element->AddEventListener(Rml::EventId::Click, clickListener.get());
-            listeners_.push_back(EventListenerBinding{
-                element,
-                Rml::EventId::Click,
-                false,
-                std::move(clickListener),
-            });
-        }
     }
 }
 
@@ -691,7 +665,7 @@ void LoadDocumentController::refreshDocument() const {
         element->SetClass("is-selected", backSelected());
     }
     if (Rml::Element* element = document_->GetElementById("load-footer-back-label")) {
-        element->SetInnerRML(returnScreen_ == ScreenState::MainMenu ? "RETURN TO MAIN MENU" : "BACK");
+        element->SetInnerRML(returnScreen_ == ScreenState::MainMenu ? "RETURN TO<br/>MAIN MENU" : "BACK");
     }
     if (Rml::Element* element = document_->GetElementById("load-footer-back-value")) {
         element->SetInnerRML(returnScreen_ == ScreenState::MainMenu ? "RETURN" : "BACK");
@@ -841,6 +815,51 @@ const LoadDocumentController::SlotPresentation* LoadDocumentController::selected
 bool LoadDocumentController::selectedSlotCanDelete() const {
     const SlotPresentation* slot = selectedSlot();
     return slot != nullptr && !slot->slot.isAutosave;
+}
+
+bool LoadDocumentController::hitTestElement(const char* id, float x, float y) const {
+    if (document_ == nullptr || id == nullptr) {
+        return false;
+    }
+
+    Rml::Element* element = document_->GetElementById(id);
+    if (element == nullptr || !element->IsVisible(true)) {
+        return false;
+    }
+
+    Rml::Vector2f point{x, y};
+    if (!element->Project(point)) {
+        return false;
+    }
+
+    return element->IsPointWithinElement(point);
+}
+
+std::optional<std::size_t> LoadDocumentController::hitTestVisibleSlot(float x, float y) const {
+    const std::size_t start = visibleWindowStart();
+    for (std::size_t i = 0; i < kVisibleSlotCount; ++i) {
+        const std::size_t slotIndex = start + i;
+        if (slotIndex >= cachedSlots_.size()) {
+            continue;
+        }
+        if (hitTestElement(kSlotButtonIds[i], x, y)) {
+            return slotIndex;
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<std::size_t> LoadDocumentController::hitTestSelection(float x, float y) const {
+    if (const std::optional<std::size_t> slotIndex = hitTestVisibleSlot(x, y); slotIndex.has_value()) {
+        return slotIndex;
+    }
+    if (hitTestElement("load-footer-delete", x, y)) {
+        return cachedSlots_.size();
+    }
+    if (hitTestElement("load-footer-back", x, y)) {
+        return cachedSlots_.size() + 1;
+    }
+    return std::nullopt;
 }
 
 /**

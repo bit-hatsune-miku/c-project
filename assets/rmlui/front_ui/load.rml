@@ -94,7 +94,7 @@
                         <div class="load-footer-content">
                             <div class="load-footer-accent"></div>
                             <div class="load-footer-code">07</div>
-                            <div id="load-footer-back-label" class="load-footer-label">RETURN TO MAIN MENU</div>
+                            <div id="load-footer-back-label" class="load-footer-label">RETURN TO<br/>MAIN MENU</div>
                             <div id="load-footer-back-value" class="load-footer-value">RETURN</div>
                             <div class="load-footer-tail"></div>
                         </div>

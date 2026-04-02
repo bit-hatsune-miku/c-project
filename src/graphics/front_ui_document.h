@@ -71,6 +71,9 @@ public:
     virtual void activateSelection() = 0;
     virtual void handleKeyDown(const SDL_KeyboardEvent& event) { (void)event; }
     virtual void handleKeyUp(const SDL_KeyboardEvent& event) { (void)event; }
+    virtual void handleMouseMotion(const SDL_MouseMotionEvent& event) { (void)event; }
+    virtual void handleMouseButtonDown(const SDL_MouseButtonEvent& event) { (void)event; }
+    virtual void handleMouseButtonUp(const SDL_MouseButtonEvent& event) { (void)event; }
     virtual void cancel() {}
     virtual void applyState(AppState& state) { (void)state; }
     virtual std::optional<Command> consumeCommand() = 0;
