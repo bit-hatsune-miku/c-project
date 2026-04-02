@@ -242,10 +242,11 @@ int MikuSingPresentation::getDamageLabelHitCount() const {
 // ---------------------------------------------------------------------------
 // Input forwarding
 // ---------------------------------------------------------------------------
-void MikuSingPresentation::onKeyPressed(SDL_Keycode key) {
+bool MikuSingPresentation::onKeyPressed(SDL_Keycode key) {
     if (phase_ == Phase::RhythmGame) {
-        rhythmGame_.onKeyPressed(key);
+        return rhythmGame_.onKeyPressed(key);
     }
+    return false;
 }
 
 int MikuSingPresentation::consumeAbilityAudioCues() {

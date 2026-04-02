@@ -103,6 +103,25 @@ constexpr const char* kGoodJudgementSfxPath = "assets/ui/sfx/Selection_roulette-
 constexpr const char* kOkayJudgementSfxPath = "assets/ui/sfx/Selection_roulette-0.wav";
 constexpr const char* kFlopJudgementSfxPath = "assets/ui/sfx/UI_notification-error.wav";
 
+int manualUltimatePartyIndexFromKey(SDL_Keycode key) {
+    switch (key) {
+        case SDLK_1:
+        case SDLK_KP_1:
+            return 0;
+        case SDLK_2:
+        case SDLK_KP_2:
+            return 1;
+        case SDLK_3:
+        case SDLK_KP_3:
+            return 2;
+        case SDLK_4:
+        case SDLK_KP_4:
+            return 3;
+        default:
+            return -1;
+    }
+}
+
 struct CameraIntroAnimation {
     bool active = false;
     float elapsed = 0.0f;
@@ -1363,6 +1382,7 @@ public:
         hudFeedback_ = HudFeedbackState{};
         hudAnimationState_ = HudAnimationState{};
         rhythmChallenge_ = RhythmChallengeState{};
+        bufferedManualUltimatePartyIndices_.clear();
         presentationPlaybackActive_ = false;
         presentationCasterIsBoss_ = false;
         presentationCasterPartyIndex_ = -1;
@@ -1421,6 +1441,8 @@ public:
                     finished_ = true;
                 } else if (event.key.keysym.sym == SDLK_SPACE) {
                     activeUltimateTurnSplash_->skip();
+                } else {
+                    (void)handleManualUltimateHotkey(event.key.keysym.sym, SDL_GetTicks64());
                 }
             }
             return;
@@ -1474,6 +1496,9 @@ public:
                 gOneShotAudio.shutdown();
                 skipAllTutorials(tutorialOverlay_);
             } else if (rhythmChallenge_.active) {
+                if (handleManualUltimateHotkey(event.key.keysym.sym, nowMs)) {
+                    return;
+                }
                 if (event.key.keysym.sym == SDLK_e) {
                     const Uint64 hitTime = nowMs;
                     const float progress = getRhythmProgress(rhythmChallenge_, hitTime);
@@ -1481,44 +1506,49 @@ public:
                     finalizeSkillChallenge(progress >= rhythmChallenge_.targetCenter - halfWindow &&
                                            progress <= rhythmChallenge_.targetCenter + halfWindow);
                 }
-            } else if (!freeViewEnabled_ && event.key.keysym.sym == SDLK_SPACE) {
-                if (!isBattleSpaceEnabled() || manager_.isBattleOver()) {
+            } else if (!freeViewEnabled_) {
+                if (handleManualUltimateHotkey(event.key.keysym.sym, nowMs)) {
                     return;
                 }
+                if (event.key.keysym.sym == SDLK_SPACE) {
+                    if (!isBattleSpaceEnabled() || manager_.isBattleOver()) {
+                        return;
+                    }
 
-                const battle::flow::PreviewActorContext preview = battle::flow::inspectPreviewActor(manager_);
-                maybeStartUltimateTurnSplash(
-                    preview,
-                    isDialogueInProgress() || tutorialOverlay_.step != TutorialStep::None);
-                if (activeUltimateTurnSplash_ != nullptr) {
+                    const battle::flow::PreviewActorContext preview = battle::flow::inspectPreviewActor(manager_);
+                    maybeStartUltimateTurnSplash(
+                        preview,
+                        isDialogueInProgress() || tutorialOverlay_.step != TutorialStep::None);
+                    if (activeUltimateTurnSplash_ != nullptr) {
+                        return;
+                    }
+
+                    const battle::flow::PlayerTurnExecution turnExecution =
+                        battle::flow::executeDefaultPlayerTurn(manager_);
+                    if (!turnExecution.executed) {
+                        showToast(hudFeedback_, "WAIT FOR AN ALLY TURN.", nowMs);
+                        return;
+                    }
+
+                    const bool allowAutoTurns =
+                        !narrativeEnabled_ ||
+                        !narrativeInitialized_ ||
+                        narrative_.onPlayerTurnExecuted(turnExecution);
+                    if (allowAutoTurns) {
+                        manager_.processAutomaticTurns();
+                    }
+                    consumeBattleActionEvents(
+                        hudFeedback_,
+                        manager_,
+                        settings_ != nullptr ? settings_->voiceVolume : 1.0f,
+                        nowMs,
+                        &cameraStaging_);
                     return;
+                    // Legacy replacement of the multi-action controls:
+                    // attemptAction(battle::BattleAction::Ultimate);
+                    // attemptAction(battle::BattleAction::Standard);
+                    // attemptAction(battle::BattleAction::Skill);
                 }
-
-                const battle::flow::PlayerTurnExecution turnExecution =
-                    battle::flow::executeDefaultPlayerTurn(manager_);
-                if (!turnExecution.executed) {
-                    showToast(hudFeedback_, "WAIT FOR AN ALLY TURN.", nowMs);
-                    return;
-                }
-
-                const bool allowAutoTurns =
-                    !narrativeEnabled_ ||
-                    !narrativeInitialized_ ||
-                    narrative_.onPlayerTurnExecuted(turnExecution);
-                if (allowAutoTurns) {
-                    manager_.processAutomaticTurns();
-                }
-                consumeBattleActionEvents(
-                    hudFeedback_,
-                    manager_,
-                    settings_ != nullptr ? settings_->voiceVolume : 1.0f,
-                    nowMs,
-                    &cameraStaging_);
-                return;
-                // Legacy replacement of the multi-action controls:
-                // attemptAction(battle::BattleAction::Ultimate);
-                // attemptAction(battle::BattleAction::Standard);
-                // attemptAction(battle::BattleAction::Skill);
             }
         } else if (event.type == SDL_MOUSEWHEEL) {
             if (freeViewEnabled_ && !cameraStaging_.isIntroActive()) {
@@ -2308,6 +2338,9 @@ private:
         callbacks.targetSpriteTexture = targetSpriteTexture;
         callbacks.overlayCasterSpriteTexture = overlayCasterSpriteTexture;
         callbacks.overlayTargetSpriteTexture = overlayTargetSpriteTexture;
+        callbacks.onUnhandledKeyDown = [this](SDL_Keycode key) {
+            (void)handleManualUltimateHotkey(key, SDL_GetTicks64());
+        };
         callbacks.onWindowResized = [this](int width, int height) {
             if (windowHost_ != nullptr && window_ != nullptr) {
                 SDL_Event resizeEvent{};
@@ -3360,13 +3393,95 @@ private:
         rhythmChallenge_.startedMs = SDL_GetTicks64();
     }
 
+    void handleManualUltimateRequestResult(int partyIndex,
+                                           battle::ManualUltimateRequestResult result,
+                                           Uint64 nowMs,
+                                           bool buffered) {
+        switch (result) {
+            case battle::ManualUltimateRequestResult::Queued:
+                return;
+            case battle::ManualUltimateRequestResult::MeterNotReady: {
+                const int charge = manager_.getCharacterUltimateCharge(partyIndex);
+                const int required = manager_.getCharacterUltimateRequired(partyIndex);
+                const int missing = std::max(0, required - charge);
+                const std::string message =
+                    "ALLY " + std::to_string(partyIndex + 1) +
+                    " ULTIMATE NEEDS " + std::to_string(missing) +
+                    " MORE " + (missing == 1 ? "ABILITY." : "ABILITIES.");
+                if (buffered) {
+                    showHint(hudFeedback_, message, nowMs, 1800);
+                } else {
+                    showToast(hudFeedback_, message, nowMs);
+                }
+                blinkMissingOrbs(hudFeedback_, partyIndex, charge, required - 1, nowMs);
+                return;
+            }
+            case battle::ManualUltimateRequestResult::AlreadyQueued:
+                if (buffered) {
+                    showHint(hudFeedback_, "ULTIMATE ALREADY QUEUED.", nowMs, 1400);
+                } else {
+                    showToast(hudFeedback_, "ULTIMATE ALREADY QUEUED.", nowMs);
+                }
+                return;
+            case battle::ManualUltimateRequestResult::Unavailable:
+                if (buffered) {
+                    showHint(hudFeedback_, "ULTIMATE NOT AVAILABLE.", nowMs, 1400);
+                } else {
+                    showToast(hudFeedback_, "ULTIMATE NOT AVAILABLE.", nowMs);
+                }
+                return;
+        }
+    }
+
+    void flushBufferedManualUltimateRequests(Uint64 nowMs) {
+        std::vector<int> pendingRequests;
+        pendingRequests.swap(bufferedManualUltimatePartyIndices_);
+        for (int partyIndex : pendingRequests) {
+            handleManualUltimateRequestResult(
+                partyIndex,
+                manager_.requestManualUltimateTurn(partyIndex),
+                nowMs,
+                true
+            );
+        }
+    }
+
+    bool handleManualUltimateHotkey(SDL_Keycode key, Uint64 nowMs) {
+        const int partyIndex = manualUltimatePartyIndexFromKey(key);
+        if (partyIndex < 0) {
+            return false;
+        }
+
+        if (freeViewEnabled_ ||
+            tutorialOverlay_.step != TutorialStep::None ||
+            !isBattleSpaceEnabled() ||
+            isDialogueInProgress() ||
+            manager_.isBattleOver()) {
+            return true;
+        }
+
+        if (rhythmChallenge_.active) {
+            if (std::find(bufferedManualUltimatePartyIndices_.begin(),
+                          bufferedManualUltimatePartyIndices_.end(),
+                          partyIndex) == bufferedManualUltimatePartyIndices_.end()) {
+                bufferedManualUltimatePartyIndices_.push_back(partyIndex);
+                showHint(hudFeedback_, "ULTIMATE WILL QUEUE AFTER THIS SKILL.", nowMs, 1200);
+            }
+            return true;
+        }
+
+        handleManualUltimateRequestResult(
+            partyIndex,
+            manager_.requestManualUltimateTurn(partyIndex),
+            nowMs,
+            false
+        );
+        return true;
+    }
+
     void maybeStartTutorial(Uint64 nowMs) {
         if (!tutorialEnabled_ || !tutorialLibrary_.loaded ||
             tutorialOverlay_.dismissed || rhythmChallenge_.active || tutorialOverlay_.step != TutorialStep::None) {
-            return;
-        }
-        const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager_);
-        if (!activePartyIndex.has_value()) {
             return;
         }
         if (!tutorialOverlay_.standardShown && manager_.isPlayerActionReady(battle::BattleAction::Standard)) {
@@ -3377,9 +3492,15 @@ private:
             startTutorial(tutorialOverlay_, TutorialStep::Skill, tutorialLibrary_.skill, nowMs);
             return;
         }
-        if (!tutorialOverlay_.ultimateShown &&
-            manager_.isPlayerActionReady(battle::BattleAction::Ultimate) &&
-            manager_.getCharacterUltimateCharge(*activePartyIndex) >= manager_.getCharacterUltimateRequired(*activePartyIndex)) {
+        bool hasReadyManualUltimate = false;
+        const battle::BattleState& state = manager_.getBattleState();
+        for (int i = 0; i < static_cast<int>(state.party.size()); ++i) {
+            if (manager_.previewManualUltimateTurnRequest(i) == battle::ManualUltimateRequestResult::Queued) {
+                hasReadyManualUltimate = true;
+                break;
+            }
+        }
+        if (!tutorialOverlay_.ultimateShown && hasReadyManualUltimate) {
             startTutorial(tutorialOverlay_, TutorialStep::Ultimate, tutorialLibrary_.ultimate, nowMs);
         }
     }
@@ -3401,11 +3522,13 @@ private:
         const Uint64 nowMs = SDL_GetTicks64();
         rhythmChallenge_ = RhythmChallengeState{};
         if (!manager_.executePlayerAction(battle::BattleAction::Skill)) {
+            bufferedManualUltimatePartyIndices_.clear();
             showToast(hudFeedback_, "ACTION NOT AVAILABLE.", nowMs);
             return;
         }
         showToast(hudFeedback_, onBeat ? "ON-BEAT INPUT." : "LATE INPUT.", nowMs, 1100);
         completeTutorialForAction(battle::BattleAction::Skill);
+        flushBufferedManualUltimateRequests(nowMs);
         manager_.processAutomaticTurns();
         consumeBattleActionEvents(
             hudFeedback_,
@@ -3579,6 +3702,7 @@ private:
     HudAnimationState hudAnimationState_;
     TutorialOverlayState tutorialOverlay_;
     RhythmChallengeState rhythmChallenge_;
+    std::vector<int> bufferedManualUltimatePartyIndices_;
     std::vector<std::unique_ptr<Rml::EventListener>> uiListeners_;
     std::vector<std::string> worldAssets_;
     std::vector<SceneEntity> entities_;
