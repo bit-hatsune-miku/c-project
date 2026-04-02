@@ -1078,10 +1078,15 @@ public:
             shutdown();
             return false;
         }
-        if (!presentationOverlayRenderer_.initialize(sceneWidth(), sceneHeight(), worldAssets_, resolveBattleSpritePath)) {
+        if (!presentationOverlayRenderer_.initialize(
+                presentationOverlayWidth(),
+                presentationOverlayHeight(),
+                worldAssets_,
+                resolveBattleSpritePath)) {
             shutdown();
             return false;
         }
+        configurePresentationOverlayRenderer();
         (void)glSceneRenderer_.ensureWorldAssets(worldAssets_);
 
         if (narrativeEnabled_) {
@@ -1395,6 +1400,11 @@ public:
             } else if (event.key.keysym.sym == SDLK_SPACE && isDialogueInProgress()) {
                 narrative_.onDialogueSpacePressed();
                 return;
+            } else if (event.key.keysym.sym == SDLK_s &&
+                       (event.key.keysym.mod & KMOD_CTRL) != 0 &&
+                       isDialogueInProgress()) {
+                narrative_.skipDialogueSequence();
+                return;
             } else if (event.key.keysym.sym == SDLK_SPACE && tutorialOverlay_.step != TutorialStep::None) {
                 const float textSpeed = settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond;
                 const std::string revealed = revealNarrationText(
@@ -1409,6 +1419,12 @@ public:
                     gOneShotAudio.shutdown();
                     completeTutorialStep(tutorialOverlay_);
                 }
+                return;
+            } else if (event.key.keysym.sym == SDLK_s &&
+                       (event.key.keysym.mod & KMOD_CTRL) != 0 &&
+                       tutorialOverlay_.step != TutorialStep::None) {
+                gOneShotAudio.shutdown();
+                completeTutorialStep(tutorialOverlay_);
                 return;
             } else if (event.key.keysym.sym == SDLK_BACKSPACE && tutorialOverlay_.step != TutorialStep::None) {
                 gOneShotAudio.shutdown();
@@ -2383,6 +2399,51 @@ private:
         return kWindowHeight;
     }
 
+    float referenceSceneScale() const {
+        const float scaleX = windowWidth_ > 0
+            ? static_cast<float>(windowWidth_) / static_cast<float>(sceneWidth())
+            : 1.0f;
+        const float scaleY = windowHeight_ > 0
+            ? static_cast<float>(windowHeight_) / static_cast<float>(sceneHeight())
+            : 1.0f;
+        return std::max(0.01f, std::min(scaleX, scaleY));
+    }
+
+    float presentationOverlayScale() const {
+        const float scaleX = drawableWidth_ > 0
+            ? static_cast<float>(drawableWidth_) / static_cast<float>(sceneWidth())
+            : 1.0f;
+        const float scaleY = drawableHeight_ > 0
+            ? static_cast<float>(drawableHeight_) / static_cast<float>(sceneHeight())
+            : 1.0f;
+        return std::max(1.0f, std::min(scaleX, scaleY));
+    }
+
+    int presentationOverlayWidth() const {
+        return std::max(1, static_cast<int>(std::lround(static_cast<float>(sceneWidth()) * presentationOverlayScale())));
+    }
+
+    int presentationOverlayHeight() const {
+        return std::max(1, static_cast<int>(std::lround(static_cast<float>(sceneHeight()) * presentationOverlayScale())));
+    }
+
+    void applyContextScale() {
+        if (context_ == nullptr) {
+            return;
+        }
+
+        context_->SetDensityIndependentPixelRatio(referenceSceneScale());
+    }
+
+    void configurePresentationOverlayRenderer() {
+        if (presentationOverlayRenderer_.renderer == nullptr) {
+            return;
+        }
+
+        const float scale = presentationOverlayScale();
+        SDL_RenderSetScale(presentationOverlayRenderer_.renderer, scale, scale);
+    }
+
     void syncBattleHudStageTransform() {
         if (document_ == nullptr) {
             return;
@@ -2392,87 +2453,40 @@ private:
         Rml::Element* bossBand = document_->GetElementById("boss-band");
         Rml::Element* bossMeterShell = document_->GetElementById("boss-meter-shell");
         Rml::Element* bossHitFlash = document_->GetElementById("boss-hit-flash");
-        Rml::Element* turnRail = document_->GetElementById("turn-rail");
-        Rml::Element* partyRack = document_->GetElementById("party-rack");
         if (stage == nullptr) {
             return;
         }
 
-        const float scaleX = windowWidth_ > 0
-            ? static_cast<float>(windowWidth_) / static_cast<float>(sceneWidth())
-            : 1.0f;
-        const float scaleY = windowHeight_ > 0
-            ? static_cast<float>(windowHeight_) / static_cast<float>(sceneHeight())
-            : 1.0f;
-        const float scale = std::max(0.01f, std::min(scaleX, scaleY));
+        const float scale = referenceSceneScale();
         const float scaledWidth = static_cast<float>(sceneWidth()) * scale;
         const float scaledHeight = static_cast<float>(sceneHeight()) * scale;
-        const float offsetX = (static_cast<float>(windowWidth_) - scaledWidth) * 0.5f;
-        const float offsetY = (static_cast<float>(windowHeight_) - scaledHeight) * 0.5f;
-        const float hudScale = std::max(0.01f, scale);
+        const float offsetX = scale > 0.0f
+            ? (static_cast<float>(windowWidth_) - scaledWidth) * 0.5f / scale
+            : 0.0f;
+        const float offsetY = scale > 0.0f
+            ? (static_cast<float>(windowHeight_) - scaledHeight) * 0.5f / scale
+            : 0.0f;
 
         auto formatPx = [](float value) {
             return std::to_string(static_cast<int>(std::lround(value))) + "px";
         };
-
-        auto formatScale = [](float value) {
-            std::ostringstream stream;
-            stream.setf(std::ios::fixed);
-            stream.precision(6);
-            stream << "scale(" << value << ")";
-            return stream.str();
-        };
-
-        const std::string safeStageTransform = formatScale(scale);
-        const std::string hudScaleTransform = formatScale(hudScale);
 
         stage->SetProperty("position", "absolute");
         stage->SetProperty("left", formatPx(offsetX));
         stage->SetProperty("top", formatPx(offsetY));
         stage->SetProperty("width", std::to_string(sceneWidth()) + "px");
         stage->SetProperty("height", std::to_string(sceneHeight()) + "px");
-        stage->SetProperty("transform-origin", "0px 0px");
-        stage->SetProperty("transform", safeStageTransform);
-
-        auto setScaledTransform = [](Rml::Element* element,
-                                     const char* origin,
-                                     const std::string& transformValue) {
-            if (element == nullptr) {
-                return;
-            }
-            element->SetProperty("transform-origin", origin);
-            element->SetProperty("transform", transformValue);
-        };
-
-        if (turnRail != nullptr) {
-            turnRail->SetProperty("left", formatPx(12.0f * hudScale));
-            turnRail->SetProperty("top", formatPx(14.0f * hudScale));
-            setScaledTransform(turnRail, "0px 0px", hudScaleTransform);
-        }
-
-        if (partyRack != nullptr) {
-            partyRack->SetProperty("left", formatPx(16.0f * hudScale));
-            partyRack->SetProperty("bottom", formatPx(12.0f * hudScale));
-            const std::size_t partyCount = manager_.getBattleState().party.size();
-            const float rackWidth = 186.0f +
-                std::max(0.0f, static_cast<float>(partyCount > 0 ? partyCount - 1 : 0)) * 198.0f;
-            partyRack->SetProperty("width", formatPx(rackWidth));
-            setScaledTransform(partyRack, "0px 100%", hudScaleTransform);
-        }
+        stage->RemoveProperty("transform-origin");
+        stage->RemoveProperty("transform");
 
         if (bossBand != nullptr) {
-            const float bossLeft = 110.0f * hudScale;
-            const float bossRight = 24.0f * hudScale;
-            const float physicalWidth =
-                std::max(0.0f, static_cast<float>(windowWidth_) - bossLeft - bossRight);
-            const float unscaledWidth = physicalWidth / hudScale;
-
-            bossBand->SetProperty("left", formatPx(bossLeft));
-            bossBand->SetProperty("top", formatPx(8.0f * hudScale));
+            bossBand->SetProperty("left", "0px");
             bossBand->SetProperty("right", "auto");
-            bossBand->SetProperty("width", formatPx(unscaledWidth));
+            bossBand->SetProperty("top", "8px");
+            bossBand->SetProperty("width", std::to_string(sceneWidth()) + "px");
             bossBand->SetProperty("height", "80px");
-            setScaledTransform(bossBand, "0px 0px", hudScaleTransform);
+            bossBand->RemoveProperty("transform-origin");
+            bossBand->RemoveProperty("transform");
         }
 
         if (bossMeterShell != nullptr) {
@@ -2493,6 +2507,7 @@ private:
         if (context_ != nullptr) {
             context_->SetDimensions(Rml::Vector2i(windowWidth_, windowHeight_));
         }
+        applyContextScale();
         syncBattleHudStageTransform();
         camera_.screenCenterX = sceneWidth() / 2;
         camera_.screenCenterY = sceneHeight() / 2;
@@ -2634,9 +2649,14 @@ private:
         if (!sceneRenderer_.initialize(sceneWidth(), sceneHeight(), worldAssets_, resolveBattleSpritePath)) {
             return false;
         }
-        if (!presentationOverlayRenderer_.initialize(sceneWidth(), sceneHeight(), worldAssets_, resolveBattleSpritePath)) {
+        if (!presentationOverlayRenderer_.initialize(
+                presentationOverlayWidth(),
+                presentationOverlayHeight(),
+                worldAssets_,
+                resolveBattleSpritePath)) {
             return false;
         }
+        configurePresentationOverlayRenderer();
         (void)glSceneRenderer_.ensureWorldAssets(worldAssets_);
         if (narrativeEnabled_) {
             if (!vn::initialize(presentationOverlayRenderer_.renderer, sceneWidth(), sceneHeight())) {

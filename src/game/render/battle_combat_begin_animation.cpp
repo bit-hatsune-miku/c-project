@@ -3,6 +3,7 @@
 #include <algorithm>
 
 #include "../core/easing.h"
+#include "../../platform/runtime_flags.h"
 
 namespace battle::render {
 namespace {
@@ -21,6 +22,11 @@ constexpr int kOffscreenMargin = 56;
 void BattleCombatBeginAnimation::reset(SDL_Texture* mikuSprite, SDL_Texture* bossSprite) {
     mikuSprite_ = mikuSprite;
     bossSprite_ = bossSprite;
+    if (platform::runtime::skipAnimationsAndWaitsEnabled()) {
+        phase_ = Phase::Complete;
+        phaseTimer_ = 0.0f;
+        return;
+    }
     phase_ = Phase::Enter;
     phaseTimer_ = 0.0f;
 }

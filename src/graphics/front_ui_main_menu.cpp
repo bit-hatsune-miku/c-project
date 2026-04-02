@@ -13,6 +13,7 @@
 #include <RmlUi/Core/Event.h>
 
 #include "../platform/path_resolution.h"
+#include "../platform/runtime_flags.h"
 #include "front_ui_credits.h"
 #include "front_ui_load.h"
 #include "front_ui_pause.h"
@@ -458,8 +459,13 @@ void MainMenuDocumentController::updateStatusCopy() const {
 }
 
 void MainMenuDocumentController::restartIntroAnimation() {
-    introElapsedSeconds_ = 0.0f;
-    introActive_ = true;
+    if (platform::runtime::skipAnimationsAndWaitsEnabled()) {
+        introElapsedSeconds_ = kIntroDurationSeconds;
+        introActive_ = false;
+    } else {
+        introElapsedSeconds_ = 0.0f;
+        introActive_ = true;
+    }
     applyVisualState();
 }
 

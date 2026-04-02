@@ -278,6 +278,7 @@ bool isVoicePlaying();
 void reset();
 void render();
 void onSpacePressed();
+void onSkipPressed();
 
 bool isLineFinished();
 bool isWaitingForAdvance();

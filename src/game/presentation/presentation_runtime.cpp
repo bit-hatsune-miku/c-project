@@ -6,6 +6,7 @@
 
 #include "splash_art_animation.h"
 #include "../core/ability_system.h"
+#include "../../platform/runtime_flags.h"
 
 namespace battle::presentation_runtime {
 PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
@@ -87,7 +88,8 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     }
 
     const bool allowSplash = context.isBoss || !context.isUltimate;
-    if (allowSplash && splashCfg && callbacks.setRenderOverlay && callbacks.clearRenderOverlay) {
+    if (!platform::runtime::skipAnimationsAndWaitsEnabled() &&
+        allowSplash && splashCfg && callbacks.setRenderOverlay && callbacks.clearRenderOverlay) {
         if (!context.abilityName.empty()) {
             splashCfg->abilityName = context.abilityName;
         } else if (!context.abilityId.empty()) {

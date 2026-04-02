@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "../core/easing.h"
+#include "../../platform/runtime_flags.h"
 
 namespace battle::render {
 namespace {
@@ -45,6 +46,12 @@ void BattleCameraStaging::applyGoalCamera(Camera3D& camera) const {
 }
 
 void BattleCameraStaging::startActionIntro(Camera3D& camera) {
+    if (platform::runtime::skipAnimationsAndWaitsEnabled()) {
+        intro_ = IntroAnimation{};
+        applyGoalCamera(camera);
+        return;
+    }
+
     intro_.active = true;
     intro_.elapsed = 0.0f;
     intro_.duration = kActionIntroDurationSeconds;

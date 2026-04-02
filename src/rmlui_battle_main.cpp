@@ -1,11 +1,47 @@
 #include <iostream>
+#include <optional>
+#include <string>
+#include <vector>
 
 #include <SDL2/SDL.h>
 
 #include "window.h"
 #include "game/app_battle_session.h"
+#include "platform/runtime_flags.h"
+
+namespace {
+
+struct StartupArguments {
+    bool skipAnimationsAndWaits = false;
+    std::optional<std::string> battleKey;
+};
+
+StartupArguments parseStartupArguments(int argc, char** argv) {
+    StartupArguments parsed;
+    for (int i = 1; i < argc; ++i) {
+        if (argv[i] == nullptr || argv[i][0] == '\0') {
+            continue;
+        }
+
+        const std::string arg = argv[i];
+        if (arg == "--skip-animations" || arg == "--fast") {
+            parsed.skipAnimationsAndWaits = true;
+            continue;
+        }
+
+        if (!parsed.battleKey.has_value()) {
+            parsed.battleKey = arg;
+        }
+    }
+    return parsed;
+}
+
+} // namespace
 
 int main(int argc, char** argv) {
+    const StartupArguments startupArgs = parseStartupArguments(argc, argv);
+    platform::runtime::setSkipAnimationsAndWaitsEnabled(startupArgs.skipAnimationsAndWaits);
+
     Window window("Battle Testing - RmlUi HUD Smoke", 1280, 720);
     if (!window.isOpen()) {
         std::cerr << "Failed to initialize window\n";
@@ -22,9 +58,7 @@ int main(int argc, char** argv) {
     battle::PlayerProgression progression = battle::makeDefaultPlayerProgression();
     battle::normalizePlayerProgression(progression, battle::ProgressionFallbackPolicy::FullRoster);
 
-    const std::string battleKey = (argc > 1 && argv[1] != nullptr && argv[1][0] != '\0')
-        ? argv[1]
-        : "scan_to_pay";
+    const std::string battleKey = startupArgs.battleKey.value_or("scan_to_pay");
     const std::vector<std::string> fallbackLineup = {
         "miku",
         "cupcakke",

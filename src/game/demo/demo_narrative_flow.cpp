@@ -83,6 +83,28 @@ void DemoNarrativeFlow::onDialogueSpacePressed() {
     finishDialogueSequence();
 }
 
+void DemoNarrativeFlow::skipDialogueSequence() {
+    if (!dialogueInProgress_) {
+        return;
+    }
+
+    if (activeDialogueLines_ == nullptr || activeDialogueLines_->empty()) {
+        vn::reset();
+        finishDialogueSequence();
+        return;
+    }
+
+    const int lastIndex = static_cast<int>(activeDialogueLines_->size()) - 1;
+    if (currentDialogueLine_ >= lastIndex) {
+        vn::reset();
+        finishDialogueSequence();
+        return;
+    }
+
+    currentDialogueLine_ = lastIndex;
+    showDialogueLine((*activeDialogueLines_)[static_cast<size_t>(currentDialogueLine_)]);
+}
+
 bool DemoNarrativeFlow::onPlayerTurnExecuted(const flow::PlayerTurnExecution& turnExecution) {
     if (turnExecution.actorWasMikuUltimateExtra && !hasShownMikuFirstUltimateTutorial_) {
         hasShownMikuFirstUltimateTutorial_ = true;

@@ -37,6 +37,7 @@
 #include "graphics/front_ui_session.h"
 #endif
 #include "platform/path_resolution.h"
+#include "platform/runtime_flags.h"
 #include "platform/text_fallback.h"
 
 #ifdef VN_SCRIPT_PATH
@@ -668,6 +669,42 @@ ScreenState resolveStoryEndReturnScreen(const vn::Script& script, ScreenState fa
     return fallback;
 }
 
+void applyCurrentEntry(const StorySession& story, const GameSettings& settings);
+
+bool storyEntryTriggersBattle(const vn::ScriptEntry& entry) {
+    return !entry.battleKey.empty() || entry.battleId >= 0;
+}
+
+std::size_t findStoryDialogueSkipTarget(const StorySession& story) {
+    if (!story.loaded || story.script.entries.empty()) {
+        return 0;
+    }
+
+    const std::size_t currentIndex = std::min(story.entryIndex, story.script.entries.size() - 1);
+    std::size_t targetIndex = currentIndex;
+    while (targetIndex + 1 < story.script.entries.size() &&
+           !storyEntryTriggersBattle(story.script.entries[targetIndex])) {
+        ++targetIndex;
+    }
+    return targetIndex;
+}
+
+void skipStoryDialogueChunk(AppState& state) {
+    if (!state.story.loaded || state.story.script.entries.empty() ||
+        state.story.entryIndex >= state.story.script.entries.size()) {
+        return;
+    }
+
+    const std::size_t targetIndex = findStoryDialogueSkipTarget(state.story);
+    if (targetIndex > state.story.entryIndex) {
+        state.story.entryIndex = targetIndex;
+        applyCurrentEntry(state.story, state.settings);
+        return;
+    }
+
+    vn::onSkipPressed();
+}
+
 /**
  * @brief Apply the currently indexed script entry to the VN runtime.
  *
@@ -1045,8 +1082,66 @@ std::string shellQuote(const std::string& value) {
     return escaped;
 }
 
-int launchDefaultBattleMode(int argc, char** argv) {
-    std::filesystem::path executablePath = std::filesystem::absolute(argv[0]);
+struct StartupArguments {
+    bool skipAnimationsAndWaits = false;
+    bool startupBossSelector = false;
+    bool launchBattleMode = false;
+    std::optional<std::string> startupStoryRef;
+    std::optional<std::string> startupBattleKey;
+    std::vector<std::string> battleModeArgs;
+};
+
+bool isSkipAnimationsArgument(const std::string& arg) {
+    return arg == "--skip-animations" || arg == "--fast";
+}
+
+StartupArguments parseStartupArguments(int argc, char** argv) {
+    StartupArguments parsed;
+    std::vector<std::string> positionalArgs;
+    positionalArgs.reserve(std::max(0, argc - 1));
+
+    for (int i = 1; i < argc; ++i) {
+        if (argv[i] == nullptr || argv[i][0] == '\0') {
+            continue;
+        }
+
+        const std::string arg = argv[i];
+        if (isSkipAnimationsArgument(arg)) {
+            parsed.skipAnimationsAndWaits = true;
+            continue;
+        }
+
+        positionalArgs.push_back(arg);
+    }
+
+    if (positionalArgs.size() >= 2 &&
+        positionalArgs[0] == "battle" &&
+        positionalArgs[1] == "mode") {
+        parsed.launchBattleMode = true;
+        parsed.battleModeArgs.assign(positionalArgs.begin() + 2, positionalArgs.end());
+        return parsed;
+    }
+
+    if (positionalArgs.empty()) {
+        return parsed;
+    }
+
+    const std::string& command = positionalArgs.front();
+    if (command == "selector") {
+        parsed.startupBossSelector = true;
+    } else if (command == "story" && positionalArgs.size() >= 2) {
+        parsed.startupStoryRef = positionalArgs[1];
+    } else if (command == "battle" && positionalArgs.size() >= 2) {
+        parsed.startupBattleKey = positionalArgs[1];
+    }
+
+    return parsed;
+}
+
+int launchDefaultBattleMode(const char* executableArg0,
+                            const std::vector<std::string>& forwardedArgs,
+                            bool skipAnimationsAndWaits) {
+    std::filesystem::path executablePath = std::filesystem::absolute(executableArg0);
     const std::string siblingName =
 #ifdef _WIN32
         "battle_testing.exe";
@@ -1060,8 +1155,11 @@ int launchDefaultBattleMode(int argc, char** argv) {
     }
 
     std::string command = shellQuote(battlePath.string());
-    for (int i = 3; i < argc; ++i) {
-        command += " " + shellQuote(argv[i]);
+    if (skipAnimationsAndWaits) {
+        command += " " + shellQuote("--skip-animations");
+    }
+    for (const std::string& arg : forwardedArgs) {
+        command += " " + shellQuote(arg);
     }
     return std::system(command.c_str());
 }
@@ -1218,6 +1316,19 @@ void startLoadingTransition(LoadingTransitionState& transition,
                             LoadingTransitionPresentation presentation,
                             std::function<bool()> prepareHold,
                             std::function<bool()> commit) {
+    if (platform::runtime::skipAnimationsAndWaitsEnabled()) {
+        if (prepareHold && !prepareHold()) {
+            clearLoadingTransition(transition);
+            return;
+        }
+        if (commit && !commit()) {
+            clearLoadingTransition(transition);
+            return;
+        }
+        clearLoadingTransition(transition);
+        return;
+    }
+
     transition.active = true;
     transition.holdPrepared = false;
     transition.committed = false;
@@ -1604,22 +1715,11 @@ bool applyFrontMenuAction(AppState& state,
  * @return int 0 on normal exit, non-zero on initialization or fatal runtime failure.
  */
 int main(int argc, char** argv) {
-    if (argc >= 3 && std::string(argv[1]) == "battle" && std::string(argv[2]) == "mode") {
-        return launchDefaultBattleMode(argc, argv);
-    }
+    const StartupArguments startupArgs = parseStartupArguments(argc, argv);
+    platform::runtime::setSkipAnimationsAndWaitsEnabled(startupArgs.skipAnimationsAndWaits);
 
-    std::optional<std::string> startupStoryRef;
-    std::optional<std::string> startupBattleKey;
-    bool startupBossSelector = false;
-    if (argc >= 2) {
-        const std::string command = argv[1];
-        if (command == "selector") {
-            startupBossSelector = true;
-        } else if (command == "story" && argc >= 3) {
-            startupStoryRef = std::string(argv[2]);
-        } else if (command == "battle" && argc >= 3) {
-            startupBattleKey = std::string(argv[2]);
-        }
+    if (startupArgs.launchBattleMode) {
+        return launchDefaultBattleMode(argv[0], startupArgs.battleModeArgs, startupArgs.skipAnimationsAndWaits);
     }
 
     Window window("Hatsune Miku: Our Underground BIT Idol", kStartupWindowWidth, kStartupWindowHeight, false);
@@ -1683,13 +1783,13 @@ int main(int argc, char** argv) {
 #ifdef VN_AUTO_START_STORY
     beginStory(state);
 #elif !defined(VN_AUTO_START_STORY)
-    if (startupBossSelector) {
+    if (startupArgs.startupBossSelector) {
         beginBossSelector(state);
-    } else if (startupStoryRef.has_value()) {
-        beginStory(state, *startupStoryRef);
-    } else if (startupBattleKey.has_value()) {
+    } else if (startupArgs.startupStoryRef.has_value()) {
+        beginStory(state, *startupArgs.startupStoryRef);
+    } else if (startupArgs.startupBattleKey.has_value()) {
         state.pendingBattleReturnScreen = ScreenState::MainMenu;
-        beginBattle(state, *startupBattleKey);
+        beginBattle(state, *startupArgs.startupBattleKey);
     }
 #endif
 
@@ -1800,7 +1900,7 @@ int main(int argc, char** argv) {
 #ifdef APP_ENABLE_RMLUI
                     frontUi.handleEvent(event, state);
 #else
-                    handleMainMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+                    handleMainMenuEvent(state, window, event, window.getWindowWidth(), window.getWindowHeight());
 #endif
                     break;
 
@@ -1825,10 +1925,10 @@ int main(int argc, char** argv) {
                     if (shouldUseFrontUiScreen(state)) {
                         frontUi.handleEvent(event, state);
                     } else {
-                        settingsMenu.handleEvent(state, window, event, window.getWidth(), window.getHeight());
+                        settingsMenu.handleEvent(state, window, event, window.getWindowWidth(), window.getWindowHeight());
                     }
 #else
-                    settingsMenu.handleEvent(state, window, event, window.getWidth(), window.getHeight());
+                    settingsMenu.handleEvent(state, window, event, window.getWindowWidth(), window.getWindowHeight());
 #endif
                     break;
 
@@ -1842,10 +1942,10 @@ int main(int argc, char** argv) {
                             frontUi.handleEvent(event, state);
                         }
                     } else {
-                        handleLoadMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+                        handleLoadMenuEvent(state, window, event, window.getWindowWidth(), window.getWindowHeight());
                     }
 #else
-                    handleLoadMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+                    handleLoadMenuEvent(state, window, event, window.getWindowWidth(), window.getWindowHeight());
 #endif
                     break;
 
@@ -1862,15 +1962,22 @@ int main(int argc, char** argv) {
                         event.key.keysym.sym == SDLK_j &&
                         (event.key.keysym.mod & KMOD_CTRL) != 0) {
                         debugJumpToCredits(state);
+                    } else if (event.type == SDL_KEYDOWN &&
+                               event.key.keysym.sym == SDLK_s &&
+                               (event.key.keysym.mod & KMOD_CTRL) != 0) {
+                        skipStoryDialogueChunk(state);
                     } else if (shouldUseFrontUiScreen(state)) {
                         if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_F11) {
                             SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
                         } else {
                             frontUi.handleEvent(event, state);
                         }
-                    } else if (state.screen == ScreenState::Playing && event.type == SDL_KEYDOWN) {
+                    } else if ((state.screen == ScreenState::Playing || state.screen == ScreenState::Credits) &&
+                               event.type == SDL_KEYDOWN) {
                         if (event.key.keysym.sym == SDLK_ESCAPE) {
-                            openPauseMenu(state);
+                            if (state.screen == ScreenState::Playing) {
+                                openPauseMenu(state);
+                            }
                         } else if (event.key.keysym.sym == SDLK_F11) {
                             SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
                         } else if (event.key.keysym.sym == SDLK_SPACE) {
@@ -1883,9 +1990,15 @@ int main(int argc, char** argv) {
                             debugJumpToCredits(state);
                         } else if (state.screen == ScreenState::Playing && event.key.keysym.sym == SDLK_ESCAPE) {
                             openPauseMenu(state);
-                        } else if (state.screen == ScreenState::Playing && event.key.keysym.sym == SDLK_F11) {
+                        } else if ((state.screen == ScreenState::Playing || state.screen == ScreenState::Credits) &&
+                                   event.key.keysym.sym == SDLK_s &&
+                                   (event.key.keysym.mod & KMOD_CTRL) != 0) {
+                            skipStoryDialogueChunk(state);
+                        } else if ((state.screen == ScreenState::Playing || state.screen == ScreenState::Credits) &&
+                                   event.key.keysym.sym == SDLK_F11) {
                             SettingsMenuController::applyDisplayMode(window, state.settings, !state.settings.fullscreen);
-                        } else if (state.screen == ScreenState::Playing && event.key.keysym.sym == SDLK_SPACE) {
+                        } else if ((state.screen == ScreenState::Playing || state.screen == ScreenState::Credits) &&
+                                   event.key.keysym.sym == SDLK_SPACE) {
                             vn::onSpacePressed();
                         }
                     }
@@ -1901,10 +2014,10 @@ int main(int argc, char** argv) {
                             frontUi.handleEvent(event, state);
                         }
                     } else {
-                        handlePauseMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+                        handlePauseMenuEvent(state, window, event, window.getWindowWidth(), window.getWindowHeight());
                     }
 #else
-                    handlePauseMenuEvent(state, window, event, window.getWidth(), window.getHeight());
+                    handlePauseMenuEvent(state, window, event, window.getWindowWidth(), window.getWindowHeight());
 #endif
                     break;
 
@@ -1918,10 +2031,10 @@ int main(int argc, char** argv) {
                             frontUi.handleEvent(event, state);
                         }
                     } else {
-                        handlePauseConfirmEvent(state, window, event, window.getWidth(), window.getHeight());
+                        handlePauseConfirmEvent(state, window, event, window.getWindowWidth(), window.getWindowHeight());
                     }
 #else
-                    handlePauseConfirmEvent(state, window, event, window.getWidth(), window.getHeight());
+                    handlePauseConfirmEvent(state, window, event, window.getWindowWidth(), window.getWindowHeight());
 #endif
                     break;
             }

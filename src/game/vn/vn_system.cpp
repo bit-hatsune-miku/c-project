@@ -16,6 +16,7 @@
 
 #include "../audio/bgm_player.h"
 #include "../../platform/path_resolution.h"
+#include "../../platform/runtime_flags.h"
 #include "../../platform/text_fallback.h"
 
 namespace vn {
@@ -1527,6 +1528,9 @@ void startLine() {
     gTypeAccumulator = 0.0f;
     gAdvanceRequested = false;
     playVoiceIfAny();
+    if (platform::runtime::skipAnimationsAndWaitsEnabled()) {
+        gVisibleChars = gTotalVisibleChars;
+    }
 }
 
 void showLine(
@@ -1552,7 +1556,11 @@ void showLine(
     setVoice(voicePath);
     requestBgmTransition(bgmPath, hasBgmVolume, bgmVolume, bgmStop, bgmPause);
     if (!fontPath.empty()) {
+#ifdef VN_ENABLE_TTF
+        setFont(fontPath, gBaseFontSize);
+#else
         setFont(fontPath);
+#endif
     }
     if (!backgroundPath.empty()) {
         setBackground(backgroundPath);
@@ -1812,6 +1820,11 @@ void onSpacePressed() {
         return;
     }
 
+    gAdvanceRequested = true;
+}
+
+void onSkipPressed() {
+    gVisibleChars = gTotalVisibleChars;
     gAdvanceRequested = true;
 }
 

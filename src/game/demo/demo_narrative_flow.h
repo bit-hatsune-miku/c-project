@@ -19,6 +19,7 @@ public:
     bool isSpaceEnabledForBattle() const;
 
     void onDialogueSpacePressed();
+    void skipDialogueSequence();
     bool onPlayerTurnExecuted(const flow::PlayerTurnExecution& turnExecution);
 
     void maybeStartBossDefeatedDialogue(const BattleManager& manager);

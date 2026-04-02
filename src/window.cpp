@@ -2,6 +2,8 @@
 #include <SDL2/SDL_opengl.h>
 #include <iostream>
 
+#include "platform/dpi_awareness.h"
+
 Window::Window(const std::string& title, int windowWidth, int windowHeight, bool windowResizable)
     : title(title),
       width(windowWidth),
@@ -10,6 +12,8 @@ Window::Window(const std::string& title, int windowWidth, int windowHeight, bool
       windowedHeight(windowHeight),
       resizable(windowResizable),
       open(true) {
+
+    platform::dpi::prepareSdlForHighDpiWindows();
 
     if (SDL_Init(SDL_INIT_VIDEO) < 0) {
         std::cerr << "SDL initialization failed: " << SDL_GetError() << std::endl;
@@ -57,8 +61,8 @@ void Window::handleEvent(const SDL_Event& event) {
                 event.window.event == SDL_WINDOWEVENT_RESIZED) {
                 refreshSize();
                 if (!fullscreen) {
-                    windowedWidth = width;
-                    windowedHeight = height;
+                    windowedWidth = windowWidth;
+                    windowedHeight = windowHeight;
                 }
             }
             break;
@@ -125,6 +129,7 @@ bool Window::recreateWindow(bool enableOpenGLFlag) {
     if (enableOpenGLFlag) {
         windowFlags |= SDL_WINDOW_OPENGL;
     }
+    windowFlags = platform::dpi::addHighDpiWindowFlag(windowFlags);
 
     window = SDL_CreateWindow(
         title.c_str(),
@@ -218,8 +223,8 @@ bool Window::setFullscreen(bool enabled) {
     }
 
     if (enabled) {
-        windowedWidth = width;
-        windowedHeight = height;
+        windowedWidth = windowWidth;
+        windowedHeight = windowHeight;
     }
 
     const Uint32 flags = enabled ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0;
@@ -252,7 +257,7 @@ void Window::refreshSize() {
             SDL_GL_GetDrawableSize(window, &drawableWidth, &drawableHeight);
         }
 
-        width = renderer != nullptr ? drawableWidth : windowWidth;
-        height = renderer != nullptr ? drawableHeight : windowHeight;
+        width = windowWidth;
+        height = windowHeight;
     }
 }
