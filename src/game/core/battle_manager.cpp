@@ -254,6 +254,7 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     activePartyBuffs_.clear();
     bossAbilityUseCounts_.clear();
     luotianyiCorrectTones_ = 0;
+    comboState_ = BattleComboState{};
     forcedOutcome_.reset();
 
     if (battleDefinition_.bossKey.empty()) {
@@ -445,6 +446,49 @@ int BattleManager::getLuotianyiCorrectTones() const {
     return std::max(0, luotianyiCorrectTones_);
 }
 
+const BattleComboState& BattleManager::getComboState() const {
+    return comboState_;
+}
+
+ComboResolution BattleManager::applyPresentationFeedback(bool isBossCaster,
+                                                         const PresentationFeedbackEvent& feedback) {
+    ComboResolution result;
+    (void)isBossCaster;
+    if (!feedback.valid() || !feedback.comboEligible) {
+        return result;
+    }
+
+    result.applied = true;
+    result.judgement = classifyCombatJudgement(feedback.signal);
+    result.previousComboCount = comboState_.comboCount;
+
+    if (judgementNaturallyIncreasesCombo(result.judgement)) {
+        ++comboState_.comboCount;
+    } else {
+        result.brokeCombo = comboState_.comboCount > 0;
+        result.comboBreakHealPerAlly = comboBreakHealPerAlly(comboState_.comboCount);
+        if (result.comboBreakHealPerAlly > 0) {
+            bool healed = false;
+            for (BattleCharacter& character : characters_) {
+                if (!character.isAlive()) {
+                    continue;
+                }
+                character.receiveHealing(result.comboBreakHealPerAlly);
+                healed = true;
+            }
+            if (healed) {
+                syncAllCharacterTurnParticipation();
+            }
+        }
+        comboState_.comboCount = 0;
+    }
+
+    refreshComboState();
+    result.comboCount = comboState_.comboCount;
+    result.damageBonusFraction = comboState_.damageBonusFraction;
+    return result;
+}
+
 BattleResolvedOutcome BattleManager::computeDerivedOutcome() const {
     if (forcedOutcome_.has_value()) {
         return *forcedOutcome_;
@@ -492,6 +536,11 @@ void BattleManager::applyPlayerOffenseToBoss(int amount) {
     }
 
     applyBossDamage(amount);
+}
+
+void BattleManager::refreshComboState() {
+    comboState_.comboCount = std::max(0, comboState_.comboCount);
+    comboState_.damageBonusFraction = comboDamageBonusFraction(comboState_.comboCount);
 }
 
 void BattleManager::reviveDefeatedPartyMembersIfNeeded() {
@@ -550,7 +599,7 @@ void BattleManager::applyPresentationHitDamage(bool isBossCaster,
         return;
     }
 
-    const int totalDamage = std::max(1, perHitDamage) * std::max(1, hitEvents);
+    int totalDamage = std::max(1, perHitDamage) * std::max(1, hitEvents);
     if (isBossCaster) {
         if (targetPartyIndex >= 0 && static_cast<size_t>(targetPartyIndex) < characters_.size()) {
             BattleCharacter& target = characters_[static_cast<size_t>(targetPartyIndex)];
@@ -585,6 +634,9 @@ void BattleManager::applyPresentationHitDamage(bool isBossCaster,
     }
 
     if (bossCurrentHp_ > 0) {
+        totalDamage = std::max(1, static_cast<int>(std::lround(
+            static_cast<float>(totalDamage) * comboDamageMultiplier(comboState_.comboCount)
+        )));
         applyPlayerOffenseToBoss(totalDamage);
         presentationHitDamageApplied_ = true;
     }
@@ -773,7 +825,10 @@ bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vecto
 
     const float multiplier = runPresentationInteraction(presContext);
     const int totalDamage = normalizeDamage(static_cast<int>(
-        character.effectiveAtk() * abilityDef->multiplier * multiplier
+        character.effectiveAtk() *
+        abilityDef->multiplier *
+        multiplier *
+        comboDamageMultiplier(comboState_.comboCount)
     ));
 
     const int base = totalDamage / hitCount;
@@ -1214,6 +1269,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
             execContext.baseDamage = character.effectiveAtk();
             execContext.baseHeal = abilityDef->flatHeal;
             execContext.presentationMultiplier = presentationMultiplier;
+            execContext.comboMultiplier = comboDamageMultiplier(comboState_.comboCount);
             execContext.bossMaxHp = state_.boss.hp;
             executeAbilityEffect(execContext);
         }

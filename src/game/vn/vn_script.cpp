@@ -55,6 +55,7 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
             ScriptEntry entry;
 
             entry.speaker = entryJson.value("speaker", "");
+            entry.color = entryJson.value("color", "");
             entry.text = entryJson.value("text", "");
             
             // Parse entry type

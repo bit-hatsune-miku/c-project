@@ -31,6 +31,8 @@ public:
     bool isComplete() const override;
     void onKeyPressed(SDL_Keycode key) override;
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
+    std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     std::string getInputResultText() const override;
     int consumeAbilityAudioCues() override;
     int consumeHitEvents() override;
@@ -95,6 +97,7 @@ private:
     int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;
     bool healEventTriggered_ = false;
+    std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
     std::deque<SDL_Keycode> recentKeys_;
     std::vector<HeartParticle> hearts_;
     mutable Camera3D inputCamera_{};

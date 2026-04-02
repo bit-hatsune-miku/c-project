@@ -24,6 +24,8 @@ public:
     bool shouldRenderAboveHud() const override;
 
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
+    std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     float consumeHitDamageMultiplier() override;
     int consumeAbilityAudioCues() override;
     int consumeHitEvents() override;
@@ -69,6 +71,7 @@ private:
     SDL_FRect cursorRect() const;
     void drawTexture(SDL_Renderer* renderer, const LoadedTexture& texture, const SDL_FRect& rect) const;
     void queueAudioCommand(PresentationAudioCommandType type, const std::string& id, float volume = 1.0f);
+    void queueFeedbackEvent();
     const LoadedTexture& textureFor(CodeType type) const;
     float casterX_ = 0.0f;
     float casterY_ = 0.0f;
@@ -99,6 +102,7 @@ private:
     int screenH_ = 720;
 
     std::vector<PresentationAudioCommand> pendingAudioCommands_;
+    std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
 };
 
 } // namespace battle

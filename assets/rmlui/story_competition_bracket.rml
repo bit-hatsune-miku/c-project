@@ -1,0 +1,62 @@
+<rml>
+<head>
+    <title>Story Competition Bracket</title>
+    <link type="text/rcss" href="shared/ui_music_bars.rcss"/>
+    <link type="text/rcss" href="story_competition_bracket.rcss" />
+</head>
+<body>
+    <div id="page-artboard">
+        <div id="ui-music-bars-root" class="ui-music-bars-root">
+            <div id="ui-music-bars-track" class="ui-music-bars-track"></div>
+        </div>
+
+        <div id="topbar-rank">IDOL RANK: <span id="idol-rank-value">0</span></div>
+        <img id="menu-logo" src="../vn/backgrounds/General_Art/MainMenuTitle.png"/>
+
+        <div id="selector-stage">
+            <div id="selector-stage-outline"></div>
+            <div id="stage-kicker">IDOL COMPETITION</div>
+            <div id="stage-title">STORY COMPETITION BRACKET</div>
+            <div id="stage-subtitle">The competition bracket is now the backbone of Story Mode.</div>
+
+            <div id="bracket-shell">
+                <div id="bracket-canvas"></div>
+            </div>
+
+            <div id="stage-footer">
+                <div id="helper-copy">Story Mode auto-targets the first uncleared rival.</div>
+                <button id="stage-action">
+                    <div id="stage-action-frame"></div>
+                    <div id="stage-action-inner">
+                        <div id="stage-action-accent"></div>
+                        <div id="stage-action-label">Continue Story</div>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <div id="selector-divider"></div>
+
+        <div id="detail-panel">
+            <div id="detail-kicker">MATCH FILE</div>
+            <div id="info-portrait">
+                <img id="info-portrait-image"/>
+            </div>
+            <div id="info-name"></div>
+            <div id="info-battle"></div>
+            <div id="info-copy"></div>
+
+            <div class="info-row-label" id="info-status-label">STATUS</div>
+            <div class="info-row-value info-row-value-strong" id="info-status"></div>
+
+            <div class="info-row-label" id="info-progress-label">STORY PROGRESS</div>
+            <div class="info-row-value" id="info-progress"></div>
+
+            <div class="info-row-label" id="info-hint-label">INTERACTION HINT</div>
+            <div class="info-row-value" id="info-hint"></div>
+        </div>
+
+        <div id="selector-toast"></div>
+    </div>
+</body>
+</rml>

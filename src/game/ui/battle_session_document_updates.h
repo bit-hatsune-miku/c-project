@@ -290,6 +290,326 @@ inline void updateHintDocument(Rml::ElementDocument* document, const HudFeedback
     }
 }
 
+inline std::string comboBonusText(float comboBonusFraction) {
+    const float percent = std::max(0.0f, comboBonusFraction) * 100.0f;
+    const float roundedTenth = std::round(percent * 10.0f) / 10.0f;
+    const int wholePercent = static_cast<int>(std::lround(roundedTenth));
+    if (std::fabs(roundedTenth - static_cast<float>(wholePercent)) <= 0.05f) {
+        return "+" + std::to_string(wholePercent) + "% DMG";
+    }
+
+    std::ostringstream stream;
+    stream.setf(std::ios::fixed);
+    stream.precision(1);
+    stream << "+" << roundedTenth << "% DMG";
+    return stream.str();
+}
+
+struct JudgementColor {
+    unsigned char red = 255;
+    unsigned char green = 255;
+    unsigned char blue = 255;
+};
+
+struct JudgementPalette {
+    JudgementColor dark;
+    JudgementColor mid;
+    JudgementColor bright;
+    JudgementColor final;
+    JudgementColor shadow;
+    JudgementColor reward;
+};
+
+inline float lerpValue(float from, float to, float t) {
+    return from + (to - from) * t;
+}
+
+inline float easeOutCubic(float value) {
+    const float t = std::clamp(value, 0.0f, 1.0f);
+    const float inverse = 1.0f - t;
+    return 1.0f - (inverse * inverse * inverse);
+}
+
+inline float easeInCubic(float value) {
+    const float t = std::clamp(value, 0.0f, 1.0f);
+    return t * t * t;
+}
+
+inline JudgementColor lerpColor(const JudgementColor& from, const JudgementColor& to, float t) {
+    return JudgementColor{
+        static_cast<unsigned char>(std::lround(lerpValue(static_cast<float>(from.red), static_cast<float>(to.red), t))),
+        static_cast<unsigned char>(std::lround(lerpValue(static_cast<float>(from.green), static_cast<float>(to.green), t))),
+        static_cast<unsigned char>(std::lround(lerpValue(static_cast<float>(from.blue), static_cast<float>(to.blue), t)))
+    };
+}
+
+inline std::string rgbaText(const JudgementColor& color, float alpha) {
+    char buffer[48];
+    std::snprintf(buffer,
+                  sizeof(buffer),
+                  "rgba(%u, %u, %u, %u)",
+                  static_cast<unsigned int>(color.red),
+                  static_cast<unsigned int>(color.green),
+                  static_cast<unsigned int>(color.blue),
+                  static_cast<unsigned int>(std::clamp(std::lround(alpha * 255.0f), 0l, 255l)));
+    return buffer;
+}
+
+inline std::string decimalText(float value, int precision = 3) {
+    char buffer[64];
+    std::snprintf(buffer, sizeof(buffer), "%.*f", precision, static_cast<double>(value));
+    return buffer;
+}
+
+inline const JudgementPalette& judgementPalette(const std::string& judgementClassName) {
+    static const JudgementPalette perfect{
+        {92, 23, 63},
+        {255, 233, 244},
+        {255, 243, 249},
+        {255, 249, 252},
+        {84, 18, 55},
+        {255, 194, 228}
+    };
+    static const JudgementPalette good{
+        {21, 77, 57},
+        {234, 255, 246},
+        {243, 255, 250},
+        {248, 255, 252},
+        {13, 66, 48},
+        {184, 255, 226}
+    };
+    static const JudgementPalette okay{
+        {106, 66, 16},
+        {255, 243, 222},
+        {255, 249, 239},
+        {255, 252, 247},
+        {101, 61, 13},
+        {255, 230, 184}
+    };
+    static const JudgementPalette flop{
+        {111, 26, 36},
+        {255, 232, 236},
+        {255, 242, 245},
+        {255, 248, 249},
+        {106, 22, 33},
+        {255, 193, 197}
+    };
+
+    if (judgementClassName == "perfect") {
+        return perfect;
+    }
+    if (judgementClassName == "good") {
+        return good;
+    }
+    if (judgementClassName == "okay") {
+        return okay;
+    }
+    return flop;
+}
+
+inline std::string judgementLetterStyle(const JudgementPalette& palette, float elapsedSeconds) {
+    constexpr float kLetterDurationSeconds = 0.44f;
+    const float progress = std::clamp(elapsedSeconds / kLetterDurationSeconds, 0.0f, 1.0f);
+
+    float opacity = 1.0f;
+    float translateYDp = 0.0f;
+    float scale = 1.0f;
+    JudgementColor color = palette.final;
+
+    if (progress < 0.54f) {
+        const float t = easeOutCubic(progress / 0.54f);
+        opacity = t;
+        translateYDp = lerpValue(-54.0f, 8.0f, t);
+        scale = lerpValue(1.62f, 0.94f, t);
+        color = lerpColor(palette.dark, palette.mid, t);
+    } else if (progress < 0.78f) {
+        const float t = easeOutCubic((progress - 0.54f) / 0.24f);
+        opacity = 1.0f;
+        translateYDp = lerpValue(8.0f, -2.0f, t);
+        scale = lerpValue(0.94f, 1.06f, t);
+        color = lerpColor(palette.mid, palette.bright, t);
+    } else {
+        const float t = easeOutCubic((progress - 0.78f) / 0.22f);
+        opacity = 1.0f;
+        translateYDp = lerpValue(-2.0f, 0.0f, t);
+        scale = lerpValue(1.06f, 1.0f, t);
+        color = lerpColor(palette.bright, palette.final, t);
+    }
+
+    std::string style = "opacity: ";
+    style += decimalText(opacity);
+    style += "; transform: translateY(";
+    style += decimalText(translateYDp);
+    style += "dp) scale(";
+    style += decimalText(scale);
+    style += "); color: ";
+    style += rgbaText(color, 1.0f);
+    style += ";";
+    return style;
+}
+
+inline std::string judgementMarkup(const HudFeedbackState& feedback, Uint64 nowMs) {
+    constexpr float kLetterIntervalSeconds = 0.024f;
+    const JudgementPalette& palette = judgementPalette(feedback.judgementClassName);
+    const float elapsedSeconds = feedback.judgementStartedMs == 0
+        ? 0.0f
+        : static_cast<float>(nowMs - feedback.judgementStartedMs) / 1000.0f;
+
+    std::string markup;
+    markup.reserve(feedback.judgementText.size() * 200);
+
+    int visibleLetterIndex = 0;
+    for (char glyph : feedback.judgementText) {
+        if (glyph == ' ') {
+            markup += "<span class=\"battle-judgement-space\"></span>";
+            continue;
+        }
+
+        const float letterElapsedSeconds = elapsedSeconds - (static_cast<float>(visibleLetterIndex) * kLetterIntervalSeconds);
+        if (letterElapsedSeconds < 0.0f) {
+            ++visibleLetterIndex;
+            continue;
+        }
+
+        markup += "<span class=\"battle-judgement-letter\" style=\"";
+        markup += judgementLetterStyle(palette, letterElapsedSeconds);
+        markup += "\">";
+        markup.push_back(glyph);
+        markup += "</span>";
+        ++visibleLetterIndex;
+    }
+
+    return markup;
+}
+
+inline std::string judgementContainerTransform(const HudFeedbackState& feedback, Uint64 nowMs) {
+    const Uint64 durationMs = feedback.judgementUntilMs > feedback.judgementStartedMs
+        ? (feedback.judgementUntilMs - feedback.judgementStartedMs)
+        : 1;
+    const float progress = std::clamp(
+        static_cast<float>(nowMs - feedback.judgementStartedMs) / static_cast<float>(durationMs),
+        0.0f,
+        1.0f
+    );
+
+    float translateXDp = 0.0f;
+    float scale = 1.0f;
+    if (progress < 0.14f) {
+        const float t = easeOutCubic(progress / 0.14f);
+        translateXDp = lerpValue(28.0f, 0.0f, t);
+        scale = lerpValue(0.96f, 1.02f, t);
+    } else if (progress < 0.70f) {
+        const float t = (progress - 0.14f) / 0.56f;
+        translateXDp = 0.0f;
+        scale = lerpValue(1.02f, 1.0f, t);
+    } else {
+        const float t = easeInCubic((progress - 0.70f) / 0.30f);
+        translateXDp = lerpValue(0.0f, 10.0f, t);
+        scale = lerpValue(1.0f, 0.99f, t);
+    }
+
+    return "translateX(" + decimalText(translateXDp) + "dp) scale(" + decimalText(scale) + ")";
+}
+
+inline float judgementContainerOpacity(const HudFeedbackState& feedback, Uint64 nowMs) {
+    const Uint64 durationMs = feedback.judgementUntilMs > feedback.judgementStartedMs
+        ? (feedback.judgementUntilMs - feedback.judgementStartedMs)
+        : 1;
+    const float progress = std::clamp(
+        static_cast<float>(nowMs - feedback.judgementStartedMs) / static_cast<float>(durationMs),
+        0.0f,
+        1.0f
+    );
+
+    if (progress < 0.14f) {
+        return easeOutCubic(progress / 0.14f);
+    }
+    if (progress < 0.70f) {
+        return 1.0f;
+    }
+    return 1.0f - easeInCubic((progress - 0.70f) / 0.30f);
+}
+
+inline float judgementRewardOpacity(const HudFeedbackState& feedback, Uint64 nowMs) {
+    constexpr float kLetterIntervalSeconds = 0.024f;
+    constexpr float kRewardDelaySeconds = 0.08f;
+    constexpr float kRewardDurationSeconds = 0.26f;
+    const float visibleLetters = static_cast<float>(std::max<std::size_t>(feedback.judgementText.size(), 1));
+    const float rewardStartSeconds =
+        ((visibleLetters - 1.0f) * kLetterIntervalSeconds) + kRewardDelaySeconds;
+    const float elapsedSeconds = feedback.judgementStartedMs == 0
+        ? 0.0f
+        : static_cast<float>(nowMs - feedback.judgementStartedMs) / 1000.0f;
+    const float rewardElapsedSeconds = elapsedSeconds - rewardStartSeconds;
+    if (rewardElapsedSeconds <= 0.0f) {
+        return 0.0f;
+    }
+    return easeOutCubic(std::clamp(rewardElapsedSeconds / kRewardDurationSeconds, 0.0f, 1.0f));
+}
+
+inline void updateComboDocument(Rml::ElementDocument* document, const HudFeedbackState& feedback) {
+    if (document == nullptr) {
+        return;
+    }
+
+    setElementText(document, "battle-combo-count", std::to_string(std::max(0, feedback.comboCount)));
+    setElementText(document, "battle-combo-bonus", comboBonusText(feedback.comboBonusFraction));
+
+    if (Rml::Element* fill = document->GetElementById("battle-combo-fill")) {
+        const float fillRatio = comboMeterFillRatio(feedback.comboCount);
+        fill->SetProperty("width", decimalText(fillRatio * 100.0f, 1) + "%");
+    }
+}
+
+inline void updateJudgementDocument(Rml::ElementDocument* document, const HudFeedbackState& feedback, Uint64 nowMs) {
+    if (document == nullptr) {
+        return;
+    }
+
+    const bool visible = !feedback.judgementText.empty();
+    setElementDisplay(document, "battle-judgement", visible);
+    setElementClass(document, "battle-judgement", "perfect", feedback.judgementClassName == "perfect");
+    setElementClass(document, "battle-judgement", "good", feedback.judgementClassName == "good");
+    setElementClass(document, "battle-judgement", "okay", feedback.judgementClassName == "okay");
+    setElementClass(document, "battle-judgement", "flop", feedback.judgementClassName == "flop");
+
+    if (Rml::Element* judgement = document->GetElementById("battle-judgement")) {
+        if (!visible) {
+            judgement->SetProperty("opacity", "0");
+            judgement->SetProperty("transform", "translateX(0dp) scale(1)");
+        } else {
+            judgement->SetProperty("opacity", decimalText(judgementContainerOpacity(feedback, nowMs)));
+            judgement->SetProperty("transform", judgementContainerTransform(feedback, nowMs));
+        }
+    }
+
+    if (Rml::Element* word = document->GetElementById("battle-judgement-word")) {
+        if (!visible) {
+            word->SetInnerRML("");
+        } else {
+            word->SetInnerRML(judgementMarkup(feedback, nowMs));
+        }
+    }
+
+    setElementText(document, "battle-judgement-reward", feedback.judgementRewardText);
+    const bool rewardVisible = visible && !feedback.judgementRewardText.empty();
+    setElementDisplay(document, "battle-judgement-reward", rewardVisible);
+    if (Rml::Element* reward = document->GetElementById("battle-judgement-reward")) {
+        if (!rewardVisible) {
+            reward->SetProperty("opacity", "0");
+            reward->SetProperty("transform", "translateY(10dp)");
+        } else {
+            const float rewardOpacity = judgementRewardOpacity(feedback, nowMs);
+            reward->SetProperty("opacity", decimalText(rewardOpacity));
+            reward->SetProperty("transform",
+                                "translateY(" + decimalText(lerpValue(10.0f, 0.0f, rewardOpacity)) + "dp)");
+
+            const JudgementPalette& palette = judgementPalette(feedback.judgementClassName);
+            reward->SetProperty("color", rgbaText(palette.reward, 1.0f));
+        }
+    }
+}
+
 inline void updateTutorialDocument(Rml::ElementDocument* document,
                                    const TutorialOverlayState& tutorial,
                                    Uint64 nowMs,
@@ -415,6 +735,8 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
     const int activeActorIndex = manager.getPreviewNextActorIndex();
 
     detail::ensurePartyRackDocument(document, battleState.party.size());
+    detail::updateComboDocument(document, feedback);
+    detail::updateJudgementDocument(document, feedback, nowMs);
 
     const std::string bossDisplayName = !battleState.boss.title.empty() ? battleState.boss.title : battleState.boss.key;
     detail::setElementText(document,

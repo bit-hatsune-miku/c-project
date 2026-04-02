@@ -57,7 +57,10 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
     switch (ability.type) {
         case AbilityType::Attack: {
             const int finalDamage = normalizeDamage(static_cast<int>(
-                context.baseDamage * ability.multiplier * context.presentationMultiplier
+                context.baseDamage *
+                ability.multiplier *
+                context.presentationMultiplier *
+                context.comboMultiplier
             ));
             applyBossOffenseResult(context, finalDamage, bossCurrentHp);
             break;
@@ -109,7 +112,10 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
         case AbilityType::Debuff:
             if (ability.multiplier > 0.0f) {
                 const int finalDamage = normalizeDamage(static_cast<int>(
-                    context.baseDamage * ability.multiplier * context.presentationMultiplier
+                    context.baseDamage *
+                    ability.multiplier *
+                    context.presentationMultiplier *
+                    context.comboMultiplier
                 ));
                 applyBossOffenseResult(context, finalDamage, bossCurrentHp);
             }

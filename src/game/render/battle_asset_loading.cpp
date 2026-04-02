@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <iostream>
 #include <vector>
 
 #include "../../platform/path_resolution.h"
@@ -37,11 +38,26 @@ std::optional<SDL_Texture*> tryLoadTextureFromPath(SDL_Renderer* renderer, const
 
     SDL_Surface* surface = IMG_Load(resolvedPath.c_str());
     if (surface == nullptr) {
+        std::cerr << "[Battle] IMG_Load failed for '" << path << "': " << IMG_GetError() << "\n";
         return std::nullopt;
     }
+
+    SDL_RendererInfo rendererInfo{};
+    if (SDL_GetRendererInfo(renderer, &rendererInfo) == 0 && rendererInfo.max_texture_width > 0
+        && rendererInfo.max_texture_height > 0) {
+        if (surface->w > rendererInfo.max_texture_width || surface->h > rendererInfo.max_texture_height) {
+            std::cerr << "[Battle] Texture too large for renderer: '" << path << "' (" << surface->w << "x" << surface->h
+                      << "), max is " << rendererInfo.max_texture_width << "x" << rendererInfo.max_texture_height
+                      << ". Resize the image and try again.\n";
+            SDL_FreeSurface(surface);
+            return std::nullopt;
+        }
+    }
+
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_FreeSurface(surface);
     if (texture == nullptr) {
+        std::cerr << "[Battle] SDL_CreateTextureFromSurface failed for '" << path << "': " << SDL_GetError() << "\n";
         return std::nullopt;
     }
     return texture;

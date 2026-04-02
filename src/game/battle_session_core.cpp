@@ -867,12 +867,22 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             presentationTargetPartyIndex
         );
     };
+    bool consumedPresentationFeedback = false;
     callbacks.onPostUpdate = [&](float deltaSeconds) {
         const bool useCenteredPartyLayout =
             activePresentation_ != nullptr &&
             activePresentation_->shouldUseCenteredPartyLayout();
         const bool bossActingLayout = context.isBoss || useCenteredPartyLayout;
         const int actingPartyIndex = bossActingLayout ? -1 : context.casterIndex;
+
+        if (activePresentation_ != nullptr) {
+            const std::vector<PresentationFeedbackEvent> feedbackEvents =
+                activePresentation_->consumeFeedbackEvents();
+            for (const PresentationFeedbackEvent& feedbackEvent : feedbackEvents) {
+                manager_.applyPresentationFeedback(context.isBoss, feedbackEvent);
+                consumedPresentationFeedback = true;
+            }
+        }
 
         updateSceneEntities(deltaSeconds, bossActingLayout, actingPartyIndex);
         feedback_.syncFromManager(manager_, presentationPlaybackActive_);
@@ -937,6 +947,13 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         context.presentationId == "rang_wo_men_shuo_zhong_wen" &&
         result.correctToneCount > 0) {
         manager_.addLuotianyiCorrectTones(result.correctToneCount);
+    }
+
+    if (!consumedPresentationFeedback && result.feedbackSignal.valid()) {
+        PresentationFeedbackEvent finalFeedback;
+        finalFeedback.signal = result.feedbackSignal;
+        finalFeedback.multiplier = result.multiplier;
+        manager_.applyPresentationFeedback(context.isBoss, finalFeedback);
     }
 
     if (hooks_.onPresentationEnd) {

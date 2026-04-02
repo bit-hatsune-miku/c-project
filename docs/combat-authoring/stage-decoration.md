@@ -427,13 +427,14 @@ For the current system, prefer:
 - low visual noise behind the combat lane
 - `screen` or `parallax` for most fights
 - `panorama` or `skybox` only when the art really benefits from camera-reactive background motion
+- keep backdrop images within GPU texture limits (as a rule of thumb, make panorama/skybox faces `<= 8192px` on the longest edge)
 
 ## Useful Test Stages
 
 `assets/combat/stages.json` now includes a few quick test entries:
 
 - `default_stage` for fixed `screen` backdrop behavior
-- `tutorial_test_stage` for `parallax`
+- `tutorial_test_stage` for quick iteration on backdrops + props
 - `debug_panorama_stage` for `panorama`
 - `debug_skybox_stage` for `skybox`
 

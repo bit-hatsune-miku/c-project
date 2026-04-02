@@ -93,6 +93,7 @@ void QrCodeAttackPresentation::start() {
     pendingHitEvents_ = 0;
     hitQueued_ = false;
     pendingAudioCommands_.clear();
+    pendingFeedbackEvents_.clear();
     activeCodes_.clear();
     // Spawn the initial QR code
     spawnQrCode();
@@ -131,12 +132,14 @@ void QrCodeAttackPresentation::update(float deltaTime) {
         damageMultiplier_ = 1.0f - survivedRatio_;
         freezeTime_ = 0.0f;
         pendingAbilityAudioCues_ = 1;
+        queueFeedbackEvent();
         phase_ = Phase::Frozen;
         return;
     }
 
     if (activeTime_ >= kSurvivalDurationSeconds) {
         damageMultiplier_ = 0.0f;
+        queueFeedbackEvent();
         phase_ = Phase::Complete;
     }
 }
@@ -224,6 +227,16 @@ float QrCodeAttackPresentation::getInputMultiplier() const {
     return damageMultiplier_;
 }
 
+PresentationFeedbackSignal QrCodeAttackPresentation::getFeedbackSignal() const {
+    return PresentationFeedbackSignal::graded(1.0f - damageMultiplier_);
+}
+
+std::vector<PresentationFeedbackEvent> QrCodeAttackPresentation::consumeFeedbackEvents() {
+    std::vector<PresentationFeedbackEvent> events;
+    events.swap(pendingFeedbackEvents_);
+    return events;
+}
+
 float QrCodeAttackPresentation::consumeHitDamageMultiplier() {
     return getInputMultiplier();
 }
@@ -262,6 +275,14 @@ std::vector<PresentationAudioCommand> QrCodeAttackPresentation::consumeAudioComm
 
 std::string QrCodeAttackPresentation::resolvePath(const std::string& relativePath) {
     return platform::path::resolvePath(relativePath);
+}
+
+void QrCodeAttackPresentation::queueFeedbackEvent() {
+    PresentationFeedbackEvent event;
+    event.signal = PresentationFeedbackSignal::graded(1.0f - damageMultiplier_);
+    event.multiplier = damageMultiplier_;
+    event.comboEligible = true;
+    pendingFeedbackEvents_.push_back(event);
 }
 
 void QrCodeAttackPresentation::ensureTexturesLoaded(SDL_Renderer* renderer) {

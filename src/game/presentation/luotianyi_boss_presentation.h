@@ -29,6 +29,8 @@ public:
     bool shouldRenderAboveHud() const override;
 
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
+    std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     float consumeHitDamageMultiplier() override;
     int consumeHitEvents() override;
     int getDamageLabelHitCount() const override;
@@ -45,6 +47,7 @@ private:
     static std::string resolvePath(const std::string& relativePath);
 
     void queueAudioCommand(PresentationAudioCommandType type, const std::string& id, float volume = 1.0f);
+    PresentationFeedbackEvent buildImmediateFeedbackEvent(bool enteredCorrectTone) const;
     void finalizeInput();
     void drawToneSlot(SDL_Renderer* renderer,
                       const SDL_FRect& rect,
@@ -66,6 +69,7 @@ private:
     std::array<int, 4> toneSequence_{{1, 2, 3, 4}};
     std::vector<int> userInputs_;
     std::vector<PresentationAudioCommand> pendingAudioCommands_;
+    std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
     std::mt19937 rng_;
 
     Phase phase_ = Phase::Input;

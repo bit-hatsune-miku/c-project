@@ -64,8 +64,10 @@ void AriBossPresentation::start() {
     currentWaitDuration_ = 0.0f;
     attackInputCaptured_ = false;
     attackReactionSeconds_ = 0.0f;
+    attackFeedbackQueued_ = false;
     resolvedHitDamageMultipliers_.clear();
     pendingHitDamageMultipliers_.clear();
+    pendingFeedbackEvents_.clear();
     pendingAbilityAudioCues_ = 0;
     pendingHitEvents_ = 0;
     beginAttack();
@@ -88,6 +90,10 @@ void AriBossPresentation::update(float deltaTime) {
             attackInputCaptured_,
             attackReactionSeconds_
         );
+        if (!attackFeedbackQueued_) {
+            attackFeedbackQueued_ = true;
+            pendingFeedbackEvents_.push_back(buildAttackFeedbackEvent(attackInputCaptured_, attackReactionSeconds_));
+        }
         resolvedHitDamageMultipliers_.push_back(hitDamageMultiplier);
         pendingHitDamageMultipliers_.push_back(hitDamageMultiplier);
         ++pendingHitEvents_;
@@ -146,6 +152,8 @@ void AriBossPresentation::onSpacePressed() {
 
     attackInputCaptured_ = true;
     attackReactionSeconds_ = phaseElapsed_;
+    attackFeedbackQueued_ = true;
+    pendingFeedbackEvents_.push_back(buildAttackFeedbackEvent(true, attackReactionSeconds_));
 }
 
 bool AriBossPresentation::shouldHideNonCasterCharacters() const {
@@ -223,6 +231,21 @@ void AriBossPresentation::renderAnimatedBoss(SDL_Renderer* renderer,
 
 float AriBossPresentation::getInputMultiplier() const {
     return averageDamageMultiplier();
+}
+
+PresentationFeedbackSignal AriBossPresentation::getFeedbackSignal() const {
+    const float normalized = std::clamp(
+        (1.0f - averageDamageMultiplier()) / (1.0f - kPerfectDamageMultiplier),
+        0.0f,
+        1.0f
+    );
+    return PresentationFeedbackSignal::graded(normalized);
+}
+
+std::vector<PresentationFeedbackEvent> AriBossPresentation::consumeFeedbackEvents() {
+    std::vector<PresentationFeedbackEvent> events;
+    events.swap(pendingFeedbackEvents_);
+    return events;
 }
 
 float AriBossPresentation::consumeHitDamageMultiplier() {
@@ -331,6 +354,7 @@ void AriBossPresentation::beginAttack() {
     currentWaitDuration_ = 0.0f;
     attackInputCaptured_ = false;
     attackReactionSeconds_ = 0.0f;
+    attackFeedbackQueued_ = false;
     ++pendingAbilityAudioCues_;
 }
 
@@ -368,6 +392,21 @@ float AriBossPresentation::damageMultiplierForReaction(bool pressed, float react
         std::max(0.001f, kLateReactionStartSeconds - kPerfectReactionWindowSeconds)
     );
     return easing::lerp(kPerfectDamageMultiplier, 1.0f, easing::easeInCubic(t));
+}
+
+PresentationFeedbackEvent AriBossPresentation::buildAttackFeedbackEvent(bool pressed, float reactionSeconds) const {
+    const float multiplier = damageMultiplierForReaction(pressed, reactionSeconds);
+    const float normalized = std::clamp(
+        (1.0f - multiplier) / (1.0f - kPerfectDamageMultiplier),
+        0.0f,
+        1.0f
+    );
+
+    PresentationFeedbackEvent event;
+    event.signal = PresentationFeedbackSignal::graded(normalized);
+    event.multiplier = multiplier;
+    event.comboEligible = true;
+    return event;
 }
 
 int AriBossPresentation::currentFrameIndex() const {

@@ -7,6 +7,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include "combat_feedback.h"
+#include "presentation_tuning_profile.h"
+
 namespace battle {
 
 using namespace std;
@@ -134,6 +137,7 @@ struct PresentationContext {
     int presentationValue = 0;
     bool isBoss = false;
     bool isUltimate = false;
+    PresentationTuningProfile tuningProfile{};
 };
 
 struct AbilityExecutionContext {
@@ -144,7 +148,23 @@ struct AbilityExecutionContext {
     int baseDamage = 0;
     int baseHeal = 0;
     float presentationMultiplier = 1.0f;
+    float comboMultiplier = 1.0f;
     int bossMaxHp = 1;
+};
+
+struct BattleComboState {
+    int comboCount = 0;
+    float damageBonusFraction = 0.0f;
+};
+
+struct ComboResolution {
+    bool applied = false;
+    CombatJudgement judgement = CombatJudgement::Flop;
+    int previousComboCount = 0;
+    int comboCount = 0;
+    int comboBreakHealPerAlly = 0;
+    float damageBonusFraction = 0.0f;
+    bool brokeCombo = false;
 };
 
 class BattleCharacter {
@@ -280,6 +300,8 @@ public:
     int getCharacterUltimateRequired(int partyIndex) const;
     void addLuotianyiCorrectTones(int amount);
     int getLuotianyiCorrectTones() const;
+    const BattleComboState& getComboState() const;
+    ComboResolution applyPresentationFeedback(bool isBossCaster, const PresentationFeedbackEvent& feedback);
     void applyPresentationHitDamage(bool isBossCaster,
                                     int perHitDamage,
                                     int hitEvents,
@@ -365,6 +387,7 @@ private:
     void refreshTurnActorSpeed(int partyIndex);
     void refreshAllTurnActorSpeeds();
     void applyAllAlliesActionAdvance(float fraction);
+    void refreshComboState();
 
     BattleState state_;
     BattleDefinition battleDefinition_{};
@@ -383,6 +406,7 @@ private:
     std::optional<BattleResolvedOutcome> forcedOutcome_;
     BossStatusState bossStatus_;
     int luotianyiCorrectTones_ = 0;
+    BattleComboState comboState_{};
     std::vector<ActivePartyBuff> activePartyBuffs_;
     std::unordered_map<std::string, int> bossAbilityUseCounts_;
 };

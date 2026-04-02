@@ -60,6 +60,8 @@ public:
     bool shouldRenderAboveHud() const override;
     bool shouldRenderFloor() const override;
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
+    std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     float consumeHitDamageMultiplier() override;
     std::string getInputResultText() const override;
     int consumeAbilityAudioCues() override;
@@ -97,6 +99,7 @@ private:
     void spawnPulse();
     void updatePulses(float deltaTime);
     bool allPulsesFinished() const;
+    PresentationFeedbackEvent buildWaveFeedbackEvent(size_t waveIndex) const;
     float waveImpactTimeSeconds(size_t waveIndex) const;
     float waveDamageMultiplier(size_t waveIndex) const;
     float averageAccuracy() const;
@@ -134,10 +137,12 @@ private:
     std::array<float, 4> pulseSpawnTimes_{{0.12f, 0.36f, 0.62f, 0.86f}};
     std::array<float, 4> parryAccuracy_{{0.0f, 0.0f, 0.0f, 0.0f}};
     std::array<bool, 4> parryRegistered_{{false, false, false, false}};
+    std::array<bool, 4> feedbackQueued_{{false, false, false, false}};
     int pulsesSpawned_ = 0;
     int pulsesResolved_ = 0;
     std::vector<RedPulse> pulses_;
     std::vector<float> pendingHitDamageMultipliers_;
+    std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
     int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;
 };

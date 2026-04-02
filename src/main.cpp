@@ -701,6 +701,7 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
     const std::string backgroundPath = backgroundRef.empty()
         ? std::string{}
         : (vn::isHexColorString(backgroundRef) ? backgroundRef : platform::path::resolvePath(backgroundRef));
+    const std::string accentColor = vn::isHexColorString(entry.color) ? entry.color : std::string{};
 
     vn::showLine(
         entry.text,
@@ -715,7 +716,8 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
         bgmPath,
         entry.bgmVolume,
         entry.bgmStop,
-        entry.bgmPause
+        entry.bgmPause,
+        accentColor
     );
 }
 

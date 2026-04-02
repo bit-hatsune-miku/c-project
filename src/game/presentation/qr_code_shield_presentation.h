@@ -23,6 +23,8 @@ public:
     bool shouldRenderAboveHud() const override { return true; }
 
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
+    std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     float consumeHitDamageMultiplier() override;
     int consumeAbilityAudioCues() override;
     int consumeHitEvents() override;
@@ -53,6 +55,7 @@ private:
     void spawnQrCode();
     void updateCursor(float deltaTime);
     bool cursorTouchesQr() const;
+    void queueFeedbackEvent();
     SDL_FRect phoneRect() const;
     SDL_FRect qrRect() const;
     SDL_FRect qrScanRect() const;
@@ -79,6 +82,7 @@ private:
     int screenW_ = 1280;
     int screenH_ = 720;
     std::vector<PresentationAudioCommand> pendingAudioCommands_;
+    std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
 };
 
 } // namespace battle

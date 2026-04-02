@@ -17,7 +17,6 @@ constexpr float kToneIntervalSeconds = 0.90f;
 constexpr float kToneHighlightSeconds = 0.26f;
 constexpr float kPostSequenceDelaySeconds = 0.60f;
 constexpr float kPerfectDamageMultiplier = 0.10f;
-constexpr float kWorstDamageMultiplier = 0.40f;
 
 constexpr float kCameraPosYOffset = -675.0f;
 constexpr float kCameraPosZ = -175.0f;
@@ -35,10 +34,6 @@ SDL_Color toneColor(int tone) {
         case 4: return SDL_Color{96, 162, 255, 255};
         default: return SDL_Color{120, 126, 138, 255};
     }
-}
-
-float lerpF(float a, float b, float t) {
-    return a + ((b - a) * t);
 }
 
 SDL_FRect centeredRect(float centerX, float centerY, float width, float height) {
@@ -89,6 +84,7 @@ void LuotianyiBossPresentation::start() {
     phase_ = Phase::Input;
     userInputs_.clear();
     pendingAudioCommands_.clear();
+    pendingFeedbackEvents_.clear();
     toneSequence_ = {1, 2, 3, 4};
     std::shuffle(toneSequence_.begin(), toneSequence_.end(), rng_);
     nextTonePlaybackIndex_ = 0;
@@ -234,10 +230,8 @@ void LuotianyiBossPresentation::render(SDL_Renderer* renderer,
         const Uint8 resultAlpha = static_cast<Uint8>(std::lround(255.0f * (1.0f - easing::clamp01(resultElapsed_ / kResultDurationSeconds))));
         if (correctCount_ == 4) {
             SDL_SetRenderDrawColor(renderer, 124, 232, 170, resultAlpha);
-        } else if (correctCount_ == 0) {
-            SDL_SetRenderDrawColor(renderer, 236, 112, 112, resultAlpha);
         } else {
-            SDL_SetRenderDrawColor(renderer, 235, 198, 100, resultAlpha);
+            SDL_SetRenderDrawColor(renderer, 236, 112, 112, resultAlpha);
         }
     } else {
         SDL_SetRenderDrawColor(renderer, 120, 188, 255, 255);
@@ -250,7 +244,7 @@ bool LuotianyiBossPresentation::isComplete() const {
 }
 
 void LuotianyiBossPresentation::onKeyPressed(SDL_Keycode key) {
-    if (phase_ != Phase::Input || userInputs_.size() >= toneSequence_.size()) {
+    if (phase_ != Phase::Input || !acceptingInput_ || userInputs_.size() >= toneSequence_.size()) {
         return;
     }
 
@@ -259,7 +253,10 @@ void LuotianyiBossPresentation::onKeyPressed(SDL_Keycode key) {
         return;
     }
 
+    const size_t inputIndex = userInputs_.size();
+    const bool enteredCorrectTone = tone == toneSequence_[inputIndex];
     userInputs_.push_back(tone);
+    pendingFeedbackEvents_.push_back(buildImmediateFeedbackEvent(enteredCorrectTone));
 }
 
 bool LuotianyiBossPresentation::shouldHideNonCasterCharacters() const {
@@ -291,6 +288,16 @@ float LuotianyiBossPresentation::getInputMultiplier() const {
     return damageMultiplier_;
 }
 
+PresentationFeedbackSignal LuotianyiBossPresentation::getFeedbackSignal() const {
+    return {};
+}
+
+std::vector<PresentationFeedbackEvent> LuotianyiBossPresentation::consumeFeedbackEvents() {
+    std::vector<PresentationFeedbackEvent> events;
+    events.swap(pendingFeedbackEvents_);
+    return events;
+}
+
 float LuotianyiBossPresentation::consumeHitDamageMultiplier() {
     return damageMultiplier_;
 }
@@ -308,14 +315,10 @@ int LuotianyiBossPresentation::getDamageLabelHitCount() const {
 }
 
 std::string LuotianyiBossPresentation::getInputResultText() const {
-    const int wrongCount = 4 - correctCount_;
-    const int reductionPercent = std::max(
-        0,
-        static_cast<int>(std::lround((1.0f - damageMultiplier_) * 100.0f))
-    );
-    return "Correct tones: " + std::to_string(correctCount_) +
-        "/4. Wrong tones: " + std::to_string(wrongCount) +
-        ". Damage reduced " + std::to_string(reductionPercent) + "%.";
+    if (correctCount_ == 4) {
+        return "All tones matched. Damage reduced 90%.";
+    }
+    return "Sequence broken. Damage reduced 0%.";
 }
 
 std::vector<PresentationAudioCommand> LuotianyiBossPresentation::consumeAudioCommands() {
@@ -334,6 +337,23 @@ void LuotianyiBossPresentation::queueAudioCommand(PresentationAudioCommandType t
     pendingAudioCommands_.push_back(PresentationAudioCommand{type, resolvePath(id), volume});
 }
 
+PresentationFeedbackEvent LuotianyiBossPresentation::buildImmediateFeedbackEvent(bool enteredCorrectTone) const {
+    bool perfectChainIntact = true;
+    for (size_t i = 0; i < userInputs_.size(); ++i) {
+        if (userInputs_[i] != toneSequence_[i]) {
+            perfectChainIntact = false;
+            break;
+        }
+    }
+
+    PresentationFeedbackEvent event;
+    event.signal = PresentationFeedbackSignal::binary(enteredCorrectTone);
+    event.multiplier = perfectChainIntact ? kPerfectDamageMultiplier : 1.0f;
+    event.comboEligible = true;
+    event.rewardText = perfectChainIntact ? "-90% DMG TAKEN" : "-0% DMG TAKEN";
+    return event;
+}
+
 void LuotianyiBossPresentation::finalizeInput() {
     correctCount_ = 0;
     for (size_t i = 0; i < toneSequence_.size(); ++i) {
@@ -343,8 +363,7 @@ void LuotianyiBossPresentation::finalizeInput() {
         }
     }
 
-    const float wrongRatio = static_cast<float>(4 - correctCount_) / 4.0f;
-    damageMultiplier_ = lerpF(kPerfectDamageMultiplier, kWorstDamageMultiplier, easing::clamp01(wrongRatio));
+    damageMultiplier_ = correctCount_ == 4 ? kPerfectDamageMultiplier : 1.0f;
 
     const bool allCorrect = correctCount_ == 4;
     queueAudioCommand(

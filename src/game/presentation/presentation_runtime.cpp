@@ -145,6 +145,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     presentation->setTargetPartyIndex(context.targetIndex);
     presentation->setTargetWorldPosition(targetX, targetY, targetZ);
     presentation->setPresentationValue(context.presentationValue);
+    presentation->setTuningProfile(context.tuningProfile);
     {
         std::vector<std::string> partyAssetNames;
         partyAssetNames.reserve(entities.size());
@@ -330,6 +331,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     result.multiplier = presentation->getInputMultiplier();
     result.resultText = presentation->getInputResultText();
     result.correctToneCount = presentation->getCorrectToneCount();
+    result.feedbackSignal = presentation->getFeedbackSignal();
     return result;
 }
 
