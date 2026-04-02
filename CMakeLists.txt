@@ -872,3 +872,62 @@ if (TARGET party_loader_preview)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
 endif()
+
+if (WIN32)
+    get_filename_component(WINDOWS_RUNTIME_SEARCH_DIR "${CMAKE_CXX_COMPILER}" DIRECTORY)
+    file(GLOB WINDOWS_RUNTIME_DLLS "${WINDOWS_RUNTIME_SEARCH_DIR}/*.dll")
+
+    function(add_windows_runtime_bundle_target bundle_target_name runtime_target_name)
+        set(bundle_commands
+            COMMAND "${CMAKE_COMMAND}" -E make_directory "$<TARGET_FILE_DIR:${runtime_target_name}>"
+        )
+
+        if (ENABLE_RMLUI)
+            list(APPEND bundle_commands
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                    "${CMAKE_BINARY_DIR}/librmlui.dll"
+                    "$<TARGET_FILE_DIR:${runtime_target_name}>"
+            )
+        endif()
+
+        foreach(runtime_dll IN LISTS WINDOWS_RUNTIME_DLLS)
+            list(APPEND bundle_commands
+                COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+                    "${runtime_dll}"
+                    "$<TARGET_FILE_DIR:${runtime_target_name}>"
+            )
+        endforeach()
+
+        add_custom_target(${bundle_target_name}
+            ${bundle_commands}
+            DEPENDS ${runtime_target_name}
+            VERBATIM
+        )
+    endfunction()
+
+    add_windows_runtime_bundle_target(bundle_runtime_main OurUndergroundBITIdol)
+    add_windows_runtime_bundle_target(bundle_runtime_battle battle_testing)
+    add_custom_target(bundle_runtime_all
+        DEPENDS bundle_runtime_main bundle_runtime_battle
+    )
+
+    add_custom_target(check_runtime_main
+        COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_SOURCE_DIR}/tools/windows/check_runtime_deps.ps1"
+            -ExePath "$<TARGET_FILE:OurUndergroundBITIdol>"
+            -ObjdumpPath "${WINDOWS_RUNTIME_SEARCH_DIR}/objdump.exe"
+            -SearchDirectories "${WINDOWS_RUNTIME_SEARCH_DIR}"
+        DEPENDS OurUndergroundBITIdol
+        VERBATIM
+    )
+
+    add_custom_target(check_runtime_battle
+        COMMAND powershell -NoProfile -ExecutionPolicy Bypass
+            -File "${CMAKE_SOURCE_DIR}/tools/windows/check_runtime_deps.ps1"
+            -ExePath "$<TARGET_FILE:battle_testing>"
+            -ObjdumpPath "${WINDOWS_RUNTIME_SEARCH_DIR}/objdump.exe"
+            -SearchDirectories "${WINDOWS_RUNTIME_SEARCH_DIR}"
+        DEPENDS battle_testing
+        VERBATIM
+    )
+endif()
