@@ -19,6 +19,7 @@ public:
     void update(float deltaTime) override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
+    void setTuningProfile(const PresentationTuningProfile& profile) override;
 
     bool shouldHideNonCasterCharacters() const override;
     bool shouldRenderAboveHud() const override;
@@ -100,6 +101,13 @@ private:
     bool hitQueued_ = false;
     int screenW_ = 1280;
     int screenH_ = 720;
+    int initialSpawnCount_ = 2;
+    float survivalDurationSeconds_ = 5.0f;
+    float freezeDurationSeconds_ = 2.0f;
+    float qrRespawnIntervalSeconds_ = 1.5f;
+    float qrChaseSpeedPixels_ = 320.0f;
+    float qrScanWidthRatio_ = 0.42f;
+    float qrScanHeightRatio_ = 0.42f;
 
     std::vector<PresentationAudioCommand> pendingAudioCommands_;
     std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;

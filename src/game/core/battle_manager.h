@@ -3,6 +3,7 @@
 
 #include <string>
 #include <iostream>
+#include <array>
 #include <optional>
 #include <unordered_map>
 #include <vector>
@@ -15,6 +16,14 @@ namespace battle {
 using namespace std;
 
 struct BossDefinition {
+    struct PhaseDefinition {
+        bool configured = false;
+        int atkBonusPercent = 0;
+        std::string bgm;
+        std::optional<float> bgmVolume;
+        PresentationTuningProfile tuningProfile{};
+    };
+
     std::string key;
     std::string title;
     std::string assets;
@@ -30,6 +39,8 @@ struct BossDefinition {
     int startingOrbs = 1;
     std::string bgm;
     float bgmVolume = 1.0f;
+    std::array<PhaseDefinition, 3> phases{};
+    bool hasPhaseData = false;
 };
 
 struct CharacterDefinition {
@@ -277,6 +288,12 @@ struct BattleActionEvent {
     std::vector<int> targetHpAfter;
 };
 
+struct BossPhaseTransition {
+    bool valid = false;
+    int fromPhaseIndex = 0;
+    int toPhaseIndex = 0;
+};
+
 enum class ManualUltimateRequestResult {
     Queued,
     MeterNotReady,
@@ -299,6 +316,11 @@ public:
     int getPreviewNextActorIndex() const;
     int getBossCurrentHp() const;
     int getBossMaxHp() const;
+    int getBossEffectiveAtk() const;
+    int getBossPhaseIndex() const;
+    std::optional<BossPhaseTransition> consumeBossPhaseTransition();
+    std::string getCurrentBossBgm() const;
+    float getCurrentBossBgmVolume() const;
     int getBossUltimateCharge() const;
     int getBossUltimateRequired() const;
     int getCharacterCurrentHp(int partyIndex) const;
@@ -376,6 +398,9 @@ private:
     void applyBossDamage(int amount);
     void applyBossHealing(int amount);
     void applyPlayerOffenseToBoss(int amount);
+    void applyBossPhaseTransitionIfNeeded();
+    void advanceBossActionByFraction(float fraction);
+    const BossDefinition::PhaseDefinition& currentBossPhaseDefinition() const;
     void applyBossAbilitySelfCost(const AbilityDefinition& ability);
     void reviveDefeatedPartyMembersIfNeeded();
     bool canUseBossAction(BattleAction action) const;
@@ -404,6 +429,9 @@ private:
     BattleDefinition battleDefinition_{};
     TurnState turnState_;
     int bossCurrentHp_ = 0;
+    int bossAtkBuffBonus_ = 0;
+    int bossPhaseIndex_ = 0;
+    std::optional<BossPhaseTransition> pendingBossPhaseTransition_;
     int bossUltimateCharge_ = 0;
     std::vector<BattleCharacter> characters_;
     int simulatedActions_ = 0;

@@ -32,6 +32,7 @@ public:
     void renderBelowWorld(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
     void onSpacePressed() override;
+    void setTuningProfile(const PresentationTuningProfile& profile) override;
 
     bool shouldHideNonCasterCharacters() const override;
     bool overridesCamera() const override;
@@ -93,6 +94,11 @@ private:
     std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
     int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;
+    int attackCount_ = 3;
+    float waitDurationMinSeconds_ = 1.0f;
+    float waitDurationMaxSeconds_ = 2.5f;
+    float perfectReactionWindowSeconds_ = 0.12f;
+    float lateReactionStartSeconds_ = 0.40f;
 };
 
 } // namespace battle

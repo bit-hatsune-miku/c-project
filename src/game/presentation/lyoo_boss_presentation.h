@@ -53,6 +53,7 @@ public:
     void renderBelowWorld(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
     void onSpacePressed() override;
+    void setTuningProfile(const PresentationTuningProfile& profile) override;
     bool overridesCamera() const override;
     void applyCameraState(Camera3D& camera) const override;
     bool shouldHideNonCasterCharacters() const override;
@@ -94,6 +95,7 @@ private:
     static std::string resolvePath(const std::string& relativePath);
     void ensureFramesLoaded(SDL_Renderer* renderer);
     void releaseFrames();
+    void rebuildPulseTimeline();
     void updateUiFrameStepper(float deltaTime);
     void enterZoomOutPhase(const Camera3D& referenceCamera, int screenW, int screenH);
     void spawnPulse();
@@ -134,10 +136,10 @@ private:
     Camera3D frontCamera_{};
     Camera3D gameplayCamera_{};
 
-    std::array<float, 4> pulseSpawnTimes_{{0.12f, 0.36f, 0.62f, 0.86f}};
-    std::array<float, 4> parryAccuracy_{{0.0f, 0.0f, 0.0f, 0.0f}};
-    std::array<bool, 4> parryRegistered_{{false, false, false, false}};
-    std::array<bool, 4> feedbackQueued_{{false, false, false, false}};
+    std::vector<float> pulseSpawnTimes_{0.12f, 0.36f, 0.62f, 0.86f};
+    std::vector<float> parryAccuracy_;
+    std::vector<bool> parryRegistered_;
+    std::vector<bool> feedbackQueued_;
     int pulsesSpawned_ = 0;
     int pulsesResolved_ = 0;
     std::vector<RedPulse> pulses_;
@@ -145,6 +147,10 @@ private:
     std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
     int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;
+    int pulseCount_ = 4;
+    float zoomDurationSeconds_ = 1.55f;
+    float pulseTravelSeconds_ = 0.52f;
+    float parryToleranceSeconds_ = 0.20f;
 };
 
 } // namespace battle

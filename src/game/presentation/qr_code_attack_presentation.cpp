@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 
 #ifdef BATTLE_ENABLE_IMAGE
@@ -14,18 +15,12 @@
 namespace battle {
 namespace {
 
-constexpr float kSurvivalDurationSeconds = 5.0f;
-constexpr float kFreezeDurationSeconds = 2.0f;
-constexpr float kQrRespawnIntervalSeconds = 1.5f;
 constexpr float kPhoneMoveSpeedPixels = 680.0f;
-constexpr float kQrChaseSpeedPixels = 320.0f;
 constexpr float kPhoneTargetHeight = 330.0f;
 constexpr float kPhoneFallbackWidth = 250.0f;
 constexpr float kQrTargetHeight = 220.0f;
 constexpr float kQrFallbackWidth = 220.0f;
 constexpr float kCursorSizePixels = 6.0f;
-constexpr float kQrScanWidthRatio = 0.42f;
-constexpr float kQrScanHeightRatio = 0.42f;
 constexpr float kBackdropAlpha = 92.0f;
 constexpr float kFreezeBackdropAlpha = 148.0f;
 constexpr float kProgressBarWidth = 340.0f;
@@ -71,7 +66,7 @@ QrCodeAttackPresentation::QrCodeAttackPresentation(
     , targetX_(targetWorldX)
     , targetY_(targetWorldY)
     , targetZ_(targetWorldZ) {
-    totalDuration_ = kSurvivalDurationSeconds + kFreezeDurationSeconds;
+    totalDuration_ = survivalDurationSeconds_ + freezeDurationSeconds_;
 }
 
 QrCodeAttackPresentation::~QrCodeAttackPresentation() {
@@ -84,7 +79,7 @@ void QrCodeAttackPresentation::start() {
     spawnCount_ = 0;
     activeTime_ = 0.0f;
     freezeTime_ = 0.0f;
-    nextSpawnTime_ = kQrRespawnIntervalSeconds;
+    nextSpawnTime_ = qrRespawnIntervalSeconds_;
     cursorX_ = static_cast<float>(screenW_) * 0.5f;
     cursorY_ = static_cast<float>(screenH_) * 0.58f;
     damageMultiplier_ = 1.0f;
@@ -95,9 +90,10 @@ void QrCodeAttackPresentation::start() {
     pendingAudioCommands_.clear();
     pendingFeedbackEvents_.clear();
     activeCodes_.clear();
-    // Spawn the initial QR code
-    spawnQrCode();
-    spawnQrCode();
+    totalDuration_ = survivalDurationSeconds_ + freezeDurationSeconds_;
+    for (int index = 0; index < std::max(1, initialSpawnCount_); ++index) {
+        spawnQrCode();
+    }
 }
 
 void QrCodeAttackPresentation::update(float deltaTime) {
@@ -109,7 +105,7 @@ void QrCodeAttackPresentation::update(float deltaTime) {
 
     if (phase_ == Phase::Frozen) {
         freezeTime_ += deltaTime;
-        if (!hitQueued_ && freezeTime_ >= kFreezeDurationSeconds) {
+        if (!hitQueued_ && freezeTime_ >= freezeDurationSeconds_) {
             pendingHitEvents_ = 1;
             hitQueued_ = true;
             phase_ = Phase::Complete;
@@ -117,15 +113,15 @@ void QrCodeAttackPresentation::update(float deltaTime) {
         return;
     }
 
-    activeTime_ = std::min(kSurvivalDurationSeconds, activeTime_ + deltaTime);
-    survivedRatio_ = clamp01(activeTime_ / kSurvivalDurationSeconds);
+    activeTime_ = std::min(survivalDurationSeconds_, activeTime_ + deltaTime);
+    survivedRatio_ = clamp01(activeTime_ / std::max(0.001f, survivalDurationSeconds_));
 
     updateCursor(deltaTime);
     updateQrCodes(deltaTime);
 
     while (activeTime_ >= nextSpawnTime_ && phase_ == Phase::Active) {
         spawnQrCode();
-        nextSpawnTime_ += kQrRespawnIntervalSeconds;
+        nextSpawnTime_ += qrRespawnIntervalSeconds_;
     }
 
     if (cursorTouchesAnyQr()) {
@@ -137,7 +133,7 @@ void QrCodeAttackPresentation::update(float deltaTime) {
         return;
     }
 
-    if (activeTime_ >= kSurvivalDurationSeconds) {
+    if (activeTime_ >= survivalDurationSeconds_) {
         damageMultiplier_ = 0.0f;
         queueFeedbackEvent();
         phase_ = Phase::Complete;
@@ -187,7 +183,9 @@ void QrCodeAttackPresentation::render(SDL_Renderer* renderer, int screenW, int s
     SDL_RenderFillRectF(renderer, &horizontalBar);
     SDL_RenderFillRectF(renderer, &verticalBar);
 
-    const float progress = phase_ == Phase::Frozen ? survivedRatio_ : clamp01(activeTime_ / kSurvivalDurationSeconds);
+    const float progress = phase_ == Phase::Frozen
+        ? survivedRatio_
+        : clamp01(activeTime_ / std::max(0.001f, survivalDurationSeconds_));
     const SDL_FRect progressBg{
         static_cast<float>(screenW_) * 0.5f - kProgressBarWidth * 0.5f,
         34.0f,
@@ -213,6 +211,31 @@ void QrCodeAttackPresentation::render(SDL_Renderer* renderer, int screenW, int s
 
 bool QrCodeAttackPresentation::isComplete() const {
     return phase_ == Phase::Complete;
+}
+
+void QrCodeAttackPresentation::setTuningProfile(const PresentationTuningProfile& profile) {
+    if (const auto it = profile.intParams.find("initialSpawnCount"); it != profile.intParams.end()) {
+        initialSpawnCount_ = std::max(1, it->second);
+    }
+    if (const auto it = profile.floatParams.find("survivalDurationSeconds"); it != profile.floatParams.end()) {
+        survivalDurationSeconds_ = std::max(0.5f, it->second);
+    }
+    if (const auto it = profile.floatParams.find("freezeDurationSeconds"); it != profile.floatParams.end()) {
+        freezeDurationSeconds_ = std::max(0.0f, it->second);
+    }
+    if (const auto it = profile.floatParams.find("qrRespawnIntervalSeconds"); it != profile.floatParams.end()) {
+        qrRespawnIntervalSeconds_ = std::max(0.05f, it->second);
+    }
+    if (const auto it = profile.floatParams.find("qrChaseSpeedPixels"); it != profile.floatParams.end()) {
+        qrChaseSpeedPixels_ = std::max(1.0f, it->second);
+    }
+    if (const auto it = profile.floatParams.find("qrScanWidthRatio"); it != profile.floatParams.end()) {
+        qrScanWidthRatio_ = clamp01(it->second);
+    }
+    if (const auto it = profile.floatParams.find("qrScanHeightRatio"); it != profile.floatParams.end()) {
+        qrScanHeightRatio_ = clamp01(it->second);
+    }
+    totalDuration_ = survivalDurationSeconds_ + freezeDurationSeconds_;
 }
 
 bool QrCodeAttackPresentation::shouldHideNonCasterCharacters() const {
@@ -261,7 +284,9 @@ std::string QrCodeAttackPresentation::getInputResultText() const {
     const int survivedPercent = static_cast<int>(std::lround(survivedRatio_ * 100.0f));
     const int reductionPercent = static_cast<int>(std::lround((1.0f - damageMultiplier_) * 100.0f));
     if (damageMultiplier_ <= 0.0f) {
-        return "Avoided every QR code for 5.0s. Damage reduced 100%.";
+        char buffer[160];
+        std::snprintf(buffer, sizeof(buffer), "Avoided every QR code for %.1fs. Damage reduced 100%%.", survivalDurationSeconds_);
+        return std::string(buffer);
     }
     return "Avoided the scan for " + std::to_string(survivedPercent) +
         "% of the timer. Damage reduced " + std::to_string(reductionPercent) + "%.";
@@ -383,7 +408,7 @@ void QrCodeAttackPresentation::updateQrCodes(float deltaTime) {
         const float deltaY = cursorY_ - code.y;
         const float distance = std::sqrt(deltaX * deltaX + deltaY * deltaY);
         if (distance > 0.001f) {
-            const float step = std::min(distance, kQrChaseSpeedPixels * deltaTime);
+            const float step = std::min(distance, qrChaseSpeedPixels_ * deltaTime);
             code.x += (deltaX / distance) * step;
             code.y += (deltaY / distance) * step;
         }
@@ -421,10 +446,10 @@ SDL_FRect QrCodeAttackPresentation::qrRect(const QrCodeInstance& code) const {
 SDL_FRect QrCodeAttackPresentation::qrScanRect(const QrCodeInstance& code) const {
     const SDL_FRect codeRect = qrRect(code);
     return SDL_FRect{
-        codeRect.x + codeRect.w * (1.0f - kQrScanWidthRatio) * 0.5f,
-        codeRect.y + codeRect.h * (1.0f - kQrScanHeightRatio) * 0.5f,
-        codeRect.w * kQrScanWidthRatio,
-        codeRect.h * kQrScanHeightRatio
+        codeRect.x + codeRect.w * (1.0f - qrScanWidthRatio_) * 0.5f,
+        codeRect.y + codeRect.h * (1.0f - qrScanHeightRatio_) * 0.5f,
+        codeRect.w * qrScanWidthRatio_,
+        codeRect.h * qrScanHeightRatio_
     };
 }
 const QrCodeAttackPresentation::LoadedTexture& QrCodeAttackPresentation::textureFor(CodeType type) const {

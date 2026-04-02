@@ -9,13 +9,10 @@
 namespace battle {
 namespace {
 
-constexpr float kAnswerDurationSeconds = 7.0f;
 constexpr float kResultLeadSeconds = 0.55f;
 constexpr float kResultDurationSeconds = 0.80f;
 constexpr float kToneInitialDelaySeconds = 0.50f;
-constexpr float kToneIntervalSeconds = 0.90f;
 constexpr float kToneHighlightSeconds = 0.26f;
-constexpr float kPostSequenceDelaySeconds = 0.60f;
 constexpr float kPerfectDamageMultiplier = 0.10f;
 
 constexpr float kCameraPosYOffset = -675.0f;
@@ -68,12 +65,7 @@ LuotianyiBossPresentation::LuotianyiBossPresentation(
     , targetY_(targetWorldY)
     , targetZ_(targetWorldZ)
     , rng_(std::random_device{}()) {
-    totalDuration_ =
-        kToneInitialDelaySeconds +
-        (kToneIntervalSeconds * 3.0f) +
-        kPostSequenceDelaySeconds +
-        kAnswerDurationSeconds +
-        kResultDurationSeconds;
+    rebuildTotalDuration();
 }
 
 void LuotianyiBossPresentation::start() {
@@ -85,8 +77,7 @@ void LuotianyiBossPresentation::start() {
     userInputs_.clear();
     pendingAudioCommands_.clear();
     pendingFeedbackEvents_.clear();
-    toneSequence_ = {1, 2, 3, 4};
-    std::shuffle(toneSequence_.begin(), toneSequence_.end(), rng_);
+    generateToneSequence();
     nextTonePlaybackIndex_ = 0;
     highlightedToneIndex_ = -1;
     highlightedToneElapsed_ = 0.0f;
@@ -117,7 +108,7 @@ void LuotianyiBossPresentation::update(float deltaTime) {
 
         while (nextTonePlaybackIndex_ < toneSequence_.size()) {
             const float playbackTime =
-                kToneInitialDelaySeconds + (static_cast<float>(nextTonePlaybackIndex_) * kToneIntervalSeconds);
+                kToneInitialDelaySeconds + (static_cast<float>(nextTonePlaybackIndex_) * toneIntervalSeconds_);
             if (inputElapsed_ < playbackTime) {
                 break;
             }
@@ -134,8 +125,8 @@ void LuotianyiBossPresentation::update(float deltaTime) {
 
         const float answerStartTime =
             kToneInitialDelaySeconds +
-            (kToneIntervalSeconds * static_cast<float>(toneSequence_.size() - 1)) +
-            kPostSequenceDelaySeconds;
+            (toneIntervalSeconds_ * static_cast<float>(toneSequence_.size() - 1)) +
+            postSequenceDelaySeconds_;
         if (!acceptingInput_ && inputElapsed_ >= answerStartTime) {
             acceptingInput_ = true;
             responseElapsed_ = 0.0f;
@@ -146,7 +137,7 @@ void LuotianyiBossPresentation::update(float deltaTime) {
         }
 
         if (acceptingInput_ &&
-            (responseElapsed_ >= kAnswerDurationSeconds || userInputs_.size() >= toneSequence_.size())) {
+            (responseElapsed_ >= answerDurationSeconds_ || userInputs_.size() >= toneSequence_.size())) {
             finalizeInput();
         }
         return;
@@ -172,7 +163,7 @@ void LuotianyiBossPresentation::render(SDL_Renderer* renderer,
     }
 
     const float progress = (phase_ == Phase::Input)
-        ? (acceptingInput_ ? easing::clamp01(responseElapsed_ / kAnswerDurationSeconds) : 0.0f)
+        ? (acceptingInput_ ? easing::clamp01(responseElapsed_ / std::max(0.001f, answerDurationSeconds_)) : 0.0f)
         : 1.0f;
     const bool showResult = phase_ != Phase::Input;
 
@@ -228,7 +219,7 @@ void LuotianyiBossPresentation::render(SDL_Renderer* renderer,
     };
     if (showResult) {
         const Uint8 resultAlpha = static_cast<Uint8>(std::lround(255.0f * (1.0f - easing::clamp01(resultElapsed_ / kResultDurationSeconds))));
-        if (correctCount_ == 4) {
+        if (correctCount_ == static_cast<int>(toneSequence_.size())) {
             SDL_SetRenderDrawColor(renderer, 124, 232, 170, resultAlpha);
         } else {
             SDL_SetRenderDrawColor(renderer, 236, 112, 112, resultAlpha);
@@ -258,6 +249,23 @@ bool LuotianyiBossPresentation::onKeyPressed(SDL_Keycode key) {
     userInputs_.push_back(tone);
     pendingFeedbackEvents_.push_back(buildImmediateFeedbackEvent(enteredCorrectTone));
     return true;
+}
+
+void LuotianyiBossPresentation::setTuningProfile(const PresentationTuningProfile& profile) {
+    if (const auto it = profile.floatParams.find("answerDurationSeconds"); it != profile.floatParams.end()) {
+        answerDurationSeconds_ = std::max(0.5f, it->second);
+    }
+    if (const auto it = profile.floatParams.find("toneIntervalSeconds"); it != profile.floatParams.end()) {
+        toneIntervalSeconds_ = std::max(0.05f, it->second);
+    }
+    if (const auto it = profile.floatParams.find("postSequenceDelaySeconds"); it != profile.floatParams.end()) {
+        postSequenceDelaySeconds_ = std::max(0.0f, it->second);
+    }
+    exactDuplicatePair_ = false;
+    if (const auto it = profile.intParams.find("exactDuplicatePair"); it != profile.intParams.end()) {
+        exactDuplicatePair_ = it->second != 0;
+    }
+    rebuildTotalDuration();
 }
 
 bool LuotianyiBossPresentation::shouldHideNonCasterCharacters() const {
@@ -316,7 +324,7 @@ int LuotianyiBossPresentation::getDamageLabelHitCount() const {
 }
 
 std::string LuotianyiBossPresentation::getInputResultText() const {
-    if (correctCount_ == 4) {
+    if (correctCount_ == static_cast<int>(toneSequence_.size())) {
         return "All tones matched. Damage reduced 90%.";
     }
     return "Sequence broken. Damage reduced 0%.";
@@ -330,6 +338,35 @@ std::vector<PresentationAudioCommand> LuotianyiBossPresentation::consumeAudioCom
 
 std::string LuotianyiBossPresentation::resolvePath(const std::string& relativePath) {
     return platform::path::resolvePath(relativePath);
+}
+
+void LuotianyiBossPresentation::rebuildTotalDuration() {
+    totalDuration_ =
+        kToneInitialDelaySeconds +
+        (toneIntervalSeconds_ * static_cast<float>(toneSequence_.size() - 1)) +
+        postSequenceDelaySeconds_ +
+        answerDurationSeconds_ +
+        kResultDurationSeconds;
+}
+
+void LuotianyiBossPresentation::generateToneSequence() {
+    if (!exactDuplicatePair_) {
+        toneSequence_ = {1, 2, 3, 4};
+        std::shuffle(toneSequence_.begin(), toneSequence_.end(), rng_);
+        rebuildTotalDuration();
+        return;
+    }
+
+    std::array<int, 4> availableTones{{1, 2, 3, 4}};
+    std::shuffle(availableTones.begin(), availableTones.end(), rng_);
+    toneSequence_ = {
+        availableTones[0],
+        availableTones[0],
+        availableTones[1],
+        availableTones[2]
+    };
+    std::shuffle(toneSequence_.begin(), toneSequence_.end(), rng_);
+    rebuildTotalDuration();
 }
 
 void LuotianyiBossPresentation::queueAudioCommand(PresentationAudioCommandType type,
@@ -364,9 +401,9 @@ void LuotianyiBossPresentation::finalizeInput() {
         }
     }
 
-    damageMultiplier_ = correctCount_ == 4 ? kPerfectDamageMultiplier : 1.0f;
+    damageMultiplier_ = correctCount_ == static_cast<int>(toneSequence_.size()) ? kPerfectDamageMultiplier : 1.0f;
 
-    const bool allCorrect = correctCount_ == 4;
+    const bool allCorrect = correctCount_ == static_cast<int>(toneSequence_.size());
     queueAudioCommand(
         PresentationAudioCommandType::PlayOneShot,
         std::string(kToneVoiceDirectory) + (allCorrect ? "correct.wav" : "false.wav"),

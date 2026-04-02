@@ -18,10 +18,7 @@ constexpr float kLoopFpsBoost = 1.24f;
 constexpr float kMaxLoopFps = 72.0f;
 constexpr int kLoopCyclesBeforeSwitch = 24;
 constexpr float kHoldFrame13Seconds = 0.34f;
-constexpr float kZoomDurationSeconds = 1.55f;
 constexpr float kPostZoomHoldSeconds = 0.25f;
-constexpr float kPulseTravelSeconds = 0.52f;
-constexpr float kParryToleranceSeconds = 0.20f;
 constexpr float kMaxDamageReduction = 0.50f;
 
 float lerpF(float a, float b, float t) {
@@ -62,9 +59,6 @@ void LyooBossPresentation::start() {
     pulsesResolved_ = 0;
     pulses_.clear();
     pendingHitDamageMultipliers_.clear();
-    parryAccuracy_.fill(0.0f);
-    parryRegistered_.fill(false);
-    feedbackQueued_.fill(false);
     abilityAudioTriggered_ = false;
     pendingFeedbackEvents_.clear();
     pendingAbilityAudioCues_ = 0;
@@ -89,6 +83,10 @@ void LyooBossPresentation::start() {
     gameplayCamera_.pitchDegrees = frontCamera_.pitchDegrees;
     gameplayCamera_.yawDegrees = frontCamera_.yawDegrees;
     gameplayCamera_.focalLength = 32000.0f;
+
+    parryAccuracy_.assign(pulseSpawnTimes_.size(), 0.0f);
+    parryRegistered_.assign(pulseSpawnTimes_.size(), false);
+    feedbackQueued_.assign(pulseSpawnTimes_.size(), false);
 }
 
 void LyooBossPresentation::update(float deltaTime) {
@@ -113,7 +111,7 @@ void LyooBossPresentation::update(float deltaTime) {
         zoomElapsed_ += deltaTime;
 
         while (pulsesSpawned_ < static_cast<int>(pulseSpawnTimes_.size()) &&
-               (zoomElapsed_ / kZoomDurationSeconds) >= pulseSpawnTimes_[static_cast<size_t>(pulsesSpawned_)]) {
+               (zoomElapsed_ / zoomDurationSeconds_) >= pulseSpawnTimes_[static_cast<size_t>(pulsesSpawned_)]) {
             spawnPulse();
             ++pulsesSpawned_;
         }
@@ -131,7 +129,7 @@ void LyooBossPresentation::update(float deltaTime) {
             ++pulsesResolved_;
         }
 
-        if (zoomElapsed_ >= kZoomDurationSeconds) {
+        if (zoomElapsed_ >= zoomDurationSeconds_) {
             postZoomHold_ += deltaTime;
             if (postZoomHold_ >= kPostZoomHoldSeconds && allPulsesFinished()) {
                 phase_ = Phase::Complete;
@@ -184,7 +182,7 @@ void LyooBossPresentation::onSpacePressed() {
 
     const float pressTime = zoomElapsed_;
     int bestWave = -1;
-    float bestDelta = kParryToleranceSeconds + 1.0f;
+    float bestDelta = parryToleranceSeconds_ + 1.0f;
 
     for (size_t waveIndex = 0; waveIndex < pulseSpawnTimes_.size(); ++waveIndex) {
         if (parryRegistered_[waveIndex] || static_cast<int>(waveIndex) < pulsesResolved_) {
@@ -197,7 +195,7 @@ void LyooBossPresentation::onSpacePressed() {
         }
 
         const float delta = std::fabs(pressTime - impactTime);
-        if (delta <= kParryToleranceSeconds && delta < bestDelta) {
+        if (delta <= parryToleranceSeconds_ && delta < bestDelta) {
             bestDelta = delta;
             bestWave = static_cast<int>(waveIndex);
         }
@@ -208,11 +206,27 @@ void LyooBossPresentation::onSpacePressed() {
     }
 
     parryRegistered_[static_cast<size_t>(bestWave)] = true;
-    parryAccuracy_[static_cast<size_t>(bestWave)] = std::max(0.0f, 1.0f - (bestDelta / kParryToleranceSeconds));
+    parryAccuracy_[static_cast<size_t>(bestWave)] = std::max(0.0f, 1.0f - (bestDelta / parryToleranceSeconds_));
     if (!feedbackQueued_[static_cast<size_t>(bestWave)]) {
         feedbackQueued_[static_cast<size_t>(bestWave)] = true;
         pendingFeedbackEvents_.push_back(buildWaveFeedbackEvent(static_cast<size_t>(bestWave)));
     }
+}
+
+void LyooBossPresentation::setTuningProfile(const PresentationTuningProfile& profile) {
+    if (const auto it = profile.intParams.find("pulseCount"); it != profile.intParams.end()) {
+        pulseCount_ = std::max(1, it->second);
+    }
+    if (const auto it = profile.floatParams.find("zoomDurationSeconds"); it != profile.floatParams.end()) {
+        zoomDurationSeconds_ = std::max(0.2f, it->second);
+    }
+    if (const auto it = profile.floatParams.find("pulseTravelSeconds"); it != profile.floatParams.end()) {
+        pulseTravelSeconds_ = std::max(0.05f, it->second);
+    }
+    if (const auto it = profile.floatParams.find("parryToleranceSeconds"); it != profile.floatParams.end()) {
+        parryToleranceSeconds_ = std::max(0.01f, it->second);
+    }
+    rebuildPulseTimeline();
 }
 
 bool LyooBossPresentation::overridesCamera() const {
@@ -226,7 +240,7 @@ void LyooBossPresentation::applyCameraState(Camera3D& camera) const {
     }
 
     if (phase_ == Phase::ZoomOut) {
-        const float t = easing::clamp01(zoomElapsed_ / std::max(0.001f, kZoomDurationSeconds));
+        const float t = easing::clamp01(zoomElapsed_ / std::max(0.001f, zoomDurationSeconds_));
         const float eased = easing::easeOutCubic(t);
 
         camera.posX = lerpF(frontCamera_.posX, gameplayCamera_.posX, eased);
@@ -318,6 +332,28 @@ void LyooBossPresentation::releaseFrames() {
     frames_.clear();
 }
 
+void LyooBossPresentation::rebuildPulseTimeline() {
+    pulseSpawnTimes_.clear();
+    pulseSpawnTimes_.reserve(static_cast<size_t>(std::max(1, pulseCount_)));
+
+    if (pulseCount_ == 4) {
+        pulseSpawnTimes_ = {0.12f, 0.36f, 0.62f, 0.86f};
+        return;
+    }
+
+    if (pulseCount_ <= 1) {
+        pulseSpawnTimes_.push_back(0.50f);
+        return;
+    }
+
+    constexpr float kPulseStart = 0.12f;
+    constexpr float kPulseEnd = 0.86f;
+    const float step = (kPulseEnd - kPulseStart) / static_cast<float>(pulseCount_ - 1);
+    for (int index = 0; index < pulseCount_; ++index) {
+        pulseSpawnTimes_.push_back(kPulseStart + step * static_cast<float>(index));
+    }
+}
+
 void LyooBossPresentation::updateUiFrameStepper(float deltaTime) {
     const float fps = (phase_ == Phase::IntroFrames) ? kLowFps : currentLoopFps_;
     const float frameDuration = 1.0f / std::max(1.0f, fps);
@@ -379,7 +415,7 @@ void LyooBossPresentation::spawnPulse() {
         pulse.targetX = targetX;
         pulse.targetY = targetY_ + 100.0f;
         pulse.targetZ = targetZ_ - 110.0f;
-        pulse.duration = 0.52f;
+        pulse.duration = pulseTravelSeconds_;
         pulse.elapsed = 0.0f;
         pulse.active = true;
         pulses_.push_back(pulse);
@@ -465,7 +501,7 @@ PresentationFeedbackEvent LyooBossPresentation::buildWaveFeedbackEvent(size_t wa
 }
 
 float LyooBossPresentation::waveImpactTimeSeconds(size_t waveIndex) const {
-    return (pulseSpawnTimes_[waveIndex] * kZoomDurationSeconds) + kPulseTravelSeconds;
+    return (pulseSpawnTimes_[waveIndex] * zoomDurationSeconds_) + pulseTravelSeconds_;
 }
 
 float LyooBossPresentation::waveDamageMultiplier(size_t waveIndex) const {
@@ -473,6 +509,10 @@ float LyooBossPresentation::waveDamageMultiplier(size_t waveIndex) const {
 }
 
 float LyooBossPresentation::averageAccuracy() const {
+    if (parryAccuracy_.empty()) {
+        return 0.0f;
+    }
+
     float sum = 0.0f;
     for (float accuracy : parryAccuracy_) {
         sum += accuracy;

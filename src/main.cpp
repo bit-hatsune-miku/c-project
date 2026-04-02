@@ -2491,7 +2491,7 @@ int main(int argc, char** argv) {
                     const ScreenState battleReturnScreen = state.pendingBattleReturnScreen;
                     const std::string battleWinScript = state.pendingBattleWinScript;
                     const std::string battleLoseScript = state.pendingBattleLoseScript;
-                    const std::string battleNextStoryScript = state.pendingStoryNextScript;
+                    const std::string battleNextStoryScript = state.pendingBattleNextStoryScript;
                     startLoadingTransition(
                         loadingTransition,
                         LoadingTransitionPresentation::RmlUi,

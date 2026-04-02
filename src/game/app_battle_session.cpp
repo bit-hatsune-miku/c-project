@@ -35,6 +35,7 @@
 
 #include "RmlUi_Platform_SDL.h"
 #include "RmlUi_Renderer_GL3.h"
+#include "audio/battle_bgm_controller.h"
 #include "audio/bgm_player.h"
 #include "core/ability_system.h"
 #include "core/battle_loader.h"
@@ -158,6 +159,7 @@ private:
 game::audio::WavOneShotPlayer gOneShotAudio;
 game::audio::WavOneShotPlayer gPresentationSfxAudio;
 game::audio::BgmPlayer gBgmPlayer;
+game::audio::BattleBgmController gBattleBgmController;
 game::audio::BgmPlayer gPresentationLoopAudio;
 game::audio::BgmPlayer gPauseMenuBgmPlayer;
 
@@ -304,7 +306,7 @@ void stopPresentationAudioPlayback(bool resumeBgm = false) {
     gPresentationLoopAudio.stop();
     gPresentationSfxAudio.stopAllPlayback();
     if (resumeBgm) {
-        gBgmPlayer.resume();
+        gBattleBgmController.resume();
     }
 }
 
@@ -1130,12 +1132,15 @@ public:
         battle::ability::setPresentationInteractionRunner([this](const battle::PresentationContext& context) {
             return runPresentationInteraction(context);
         });
+        gBattleBgmController.attach(gBgmPlayer);
+        gBattleBgmController.setMasterVolume(currentMusicMasterVolume());
 
         const battle::BattleState& state = manager_.getBattleState();
-        battleBgmBaseVolume_ = std::clamp(state.boss.bgmVolume, 0.0f, 1.0f);
-        if (!state.boss.bgm.empty()) {
-            if (const auto bgmPath = platform::path::resolveCombatBgmPath(state.boss.bgm); bgmPath.has_value()) {
-                gBgmPlayer.play(*bgmPath, battleBgmBaseVolume_ * currentMusicMasterVolume());
+        battleBgmBaseVolume_ = std::clamp(manager_.getCurrentBossBgmVolume(), 0.0f, 1.0f);
+        const std::string initialBgmName = manager_.getCurrentBossBgm();
+        if (!initialBgmName.empty()) {
+            if (const auto bgmPath = platform::path::resolveCombatBgmPath(initialBgmName); bgmPath.has_value()) {
+                gBattleBgmController.playImmediate(*bgmPath, battleBgmBaseVolume_);
             }
         }
         worldAssets_.clear();
@@ -1353,7 +1358,8 @@ public:
 #endif
         stopPresentationAudioPlayback(false);
         gPresentationSfxAudio.shutdown();
-        gBgmPlayer.stop();
+        gBattleBgmController.stop();
+        gBattleBgmController.detach();
         gOneShotAudio.shutdown();
         gOneShotAudio.cleanupFinishedPlayback();
 #ifdef BATTLE_ENABLE_IMAGE
@@ -1567,6 +1573,7 @@ public:
         tickHudFeedback(hudFeedback_, nowMs);
         gOneShotAudio.cleanupFinishedPlayback();
         gPresentationSfxAudio.cleanupFinishedPlayback();
+        gBattleBgmController.update(deltaSeconds);
 
         if (discardNextUpdateDelta_) {
             discardNextUpdateDelta_ = false;
@@ -1597,6 +1604,18 @@ public:
             narrative_.handleAutomaticProgression(manager_);
         } else {
             manager_.processAutomaticTurns();
+        }
+
+        while (const std::optional<battle::BossPhaseTransition> transition = manager_.consumeBossPhaseTransition()) {
+            (void)transition;
+            battleBgmBaseVolume_ = std::clamp(manager_.getCurrentBossBgmVolume(), 0.0f, 1.0f);
+            const std::string bgmName = manager_.getCurrentBossBgm();
+            if (bgmName.empty()) {
+                continue;
+            }
+            if (const auto bgmPath = platform::path::resolveCombatBgmPath(bgmName); bgmPath.has_value()) {
+                gBattleBgmController.requestTrack(*bgmPath, battleBgmBaseVolume_);
+            }
         }
 
         consumeBattleActionEvents(
@@ -2009,10 +2028,10 @@ private:
                     stopPresentationAudioPlayback(false);
                     break;
                 case battle::PresentationAudioCommandType::PauseBgm:
-                    gBgmPlayer.pause();
+                    gBattleBgmController.pause();
                     break;
                 case battle::PresentationAudioCommandType::ResumeBgm:
-                    gBgmPlayer.resume();
+                    gBattleBgmController.resume();
                     break;
             }
         }
@@ -2398,7 +2417,7 @@ private:
 
             int baseAtk = 0;
             if (context.isBoss) {
-                baseAtk = manager_.getBattleState().boss.atk;
+                baseAtk = manager_.getBossEffectiveAtk();
             } else {
                 const battle::BattleState& state = manager_.getBattleState();
                 if (context.casterIndex >= 0 &&
@@ -3060,7 +3079,7 @@ private:
         *settings_ = state.settings;
         const float musicMasterVolume = currentMusicMasterVolume();
         gPauseMenuBgmPlayer.setVolume(musicMasterVolume);
-        gBgmPlayer.setVolume(battleBgmBaseVolume_ * musicMasterVolume);
+        gBattleBgmController.setMasterVolume(musicMasterVolume);
         gPresentationLoopAudio.setVolume(presentationLoopBaseVolume_ * musicMasterVolume);
         syncNarrativeSettings();
     }
@@ -3165,10 +3184,10 @@ private:
     void startPauseMenuMusic() {
         stopPauseMenuMusic();
 
-        battleBgmWasPlayingBeforePause_ = gBgmPlayer.isPlaying();
-        battleBgmWasPausedBeforePause_ = gBgmPlayer.isPaused();
+        battleBgmWasPlayingBeforePause_ = gBattleBgmController.isPlaying();
+        battleBgmWasPausedBeforePause_ = gBattleBgmController.isPaused();
         if (battleBgmWasPlayingBeforePause_ && !battleBgmWasPausedBeforePause_) {
-            gBgmPlayer.pause();
+            gBattleBgmController.pause();
         }
 
         const std::string trackPath = choosePauseMenuTrack();
@@ -3187,7 +3206,7 @@ private:
         closePauseMenuDocument();
         stopPauseMenuMusic();
         if (resumeBattleMusic && battleBgmWasPlayingBeforePause_ && !battleBgmWasPausedBeforePause_) {
-            gBgmPlayer.resume();
+            gBattleBgmController.resume();
         }
         battleBgmWasPlayingBeforePause_ = false;
         battleBgmWasPausedBeforePause_ = false;

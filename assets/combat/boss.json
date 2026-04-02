@@ -25,7 +25,48 @@
         "ultimatePoints": 6,
         "startingOrbs": 1,
         "bgm": "lyooBoss",
-        "bgmVolume": 0.1
+        "bgmVolume": 0.1,
+        "phases": {
+            "phase1": {
+                "atkBonusPercent": 0,
+                "presentation": {
+                    "intParams": {
+                        "pulseCount": 4
+                    },
+                    "floatParams": {
+                        "zoomDurationSeconds": 1.55,
+                        "pulseTravelSeconds": 0.52,
+                        "parryToleranceSeconds": 0.20
+                    }
+                }
+            },
+            "phase2": {
+                "atkBonusPercent": 15,
+                "presentation": {
+                    "intParams": {
+                        "pulseCount": 7
+                    },
+                    "floatParams": {
+                        "zoomDurationSeconds": 1.35,
+                        "pulseTravelSeconds": 0.46,
+                        "parryToleranceSeconds": 0.17
+                    }
+                }
+            },
+            "phase3": {
+                "atkBonusPercent": 30,
+                "presentation": {
+                    "intParams": {
+                        "pulseCount": 12
+                    },
+                    "floatParams": {
+                        "zoomDurationSeconds": 1.15,
+                        "pulseTravelSeconds": 0.40,
+                        "parryToleranceSeconds": 0.14
+                    }
+                }
+            }
+        }
     },
     "lyooPlotTwist":  {
         "title": "断川 | CaiNiao Reinforcement Learning Assistant",
@@ -112,7 +153,51 @@
         "ultimatePoints": 6,
         "startingOrbs": 1,
         "bgm": "yehuaxiang",
-        "bgmVolume": 0.4
+        "bgmVolume": 0.4,
+        "phases": {
+            "phase1": {
+                "atkBonusPercent": 0,
+                "presentation": {
+                    "intParams": {
+                        "totalWaves": 8,
+                        "patternMode": 0
+                    },
+                    "floatParams": {
+                        "waveDurationSeconds": 1.35,
+                        "dodgeTravelSeconds": 0.11,
+                        "dodgeReturnSeconds": 0.06
+                    }
+                }
+            },
+            "phase2": {
+                "atkBonusPercent": 10,
+                "presentation": {
+                    "intParams": {
+                        "totalWaves": 13,
+                        "patternMode": 1
+                    },
+                    "floatParams": {
+                        "waveDurationSeconds": 1.00,
+                        "dodgeTravelSeconds": 0.095,
+                        "dodgeReturnSeconds": 0.055
+                    }
+                }
+            },
+            "phase3": {
+                "atkBonusPercent": 20,
+                "presentation": {
+                    "intParams": {
+                        "totalWaves": 17,
+                        "patternMode": 2
+                    },
+                    "floatParams": {
+                        "waveDurationSeconds": 0.82,
+                        "dodgeTravelSeconds": 0.08,
+                        "dodgeReturnSeconds": 0.05
+                    }
+                }
+            }
+        }
     },
     "luotianyiBoss": {
         "title": "洛天依",
@@ -140,7 +225,48 @@
         "ultimatePoints": 6,
         "startingOrbs": 1,
         "bgm": "sunquantianxia",
-        "bgmVolume": 0.2
+        "bgmVolume": 0.2,
+        "phases": {
+            "phase1": {
+                "atkBonusPercent": 0,
+                "presentation": {
+                    "intParams": {
+                        "exactDuplicatePair": 0
+                    },
+                    "floatParams": {
+                        "toneIntervalSeconds": 0.90,
+                        "answerDurationSeconds": 7.0,
+                        "postSequenceDelaySeconds": 0.60
+                    }
+                }
+            },
+            "phase2": {
+                "atkBonusPercent": 15,
+                "presentation": {
+                    "intParams": {
+                        "exactDuplicatePair": 0
+                    },
+                    "floatParams": {
+                        "toneIntervalSeconds": 0.60,
+                        "answerDurationSeconds": 5.0,
+                        "postSequenceDelaySeconds": 0.35
+                    }
+                }
+            },
+            "phase3": {
+                "atkBonusPercent": 30,
+                "presentation": {
+                    "intParams": {
+                        "exactDuplicatePair": 1
+                    },
+                    "floatParams": {
+                        "toneIntervalSeconds": 0.35,
+                        "answerDurationSeconds": 3.5,
+                        "postSequenceDelaySeconds": 0.20
+                    }
+                }
+            }
+        }
     },
     "wechatalipayBoss": {
         "title": "微信姐 & 支付宝姐",
@@ -168,7 +294,57 @@
         "ultimatePoints": 6,
         "startingOrbs": 1,
         "bgm": "weizhi",
-        "bgmVolume": 0.4
+        "bgmVolume": 0.4,
+        "phases": {
+            "phase1": {
+                "atkBonusPercent": 0,
+                "presentation": {
+                    "intParams": {
+                        "initialSpawnCount": 1
+                    },
+                    "floatParams": {
+                        "survivalDurationSeconds": 4.5,
+                        "freezeDurationSeconds": 2.0,
+                        "qrRespawnIntervalSeconds": 1.90,
+                        "qrChaseSpeedPixels": 240.0,
+                        "qrScanWidthRatio": 0.32,
+                        "qrScanHeightRatio": 0.32
+                    }
+                }
+            },
+            "phase2": {
+                "atkBonusPercent": 10,
+                "presentation": {
+                    "intParams": {
+                        "initialSpawnCount": 2
+                    },
+                    "floatParams": {
+                        "survivalDurationSeconds": 6.0,
+                        "freezeDurationSeconds": 2.0,
+                        "qrRespawnIntervalSeconds": 1.20,
+                        "qrChaseSpeedPixels": 300.0,
+                        "qrScanWidthRatio": 0.32,
+                        "qrScanHeightRatio": 0.32
+                    }
+                }
+            },
+            "phase3": {
+                "atkBonusPercent": 20,
+                "presentation": {
+                    "intParams": {
+                        "initialSpawnCount": 2
+                    },
+                    "floatParams": {
+                        "survivalDurationSeconds": 7.5,
+                        "freezeDurationSeconds": 2.0,
+                        "qrRespawnIntervalSeconds": 0.90,
+                        "qrChaseSpeedPixels": 350.0,
+                        "qrScanWidthRatio": 0.32,
+                        "qrScanHeightRatio": 0.32
+                    }
+                }
+            }
+        }
     },
     "ariBoss": {
         "title": "Ariana Grande",
@@ -196,7 +372,51 @@
         "ultimatePoints": 6,
         "startingOrbs": 1,
         "bgm": "ari",
-        "bgmVolume": 0.4
+        "bgmVolume": 0.4,
+        "phases": {
+            "phase1": {
+                "atkBonusPercent": 0,
+                "presentation": {
+                    "intParams": {
+                        "attackCount": 3
+                    },
+                    "floatParams": {
+                        "waitDurationMinSeconds": 1.0,
+                        "waitDurationMaxSeconds": 2.5,
+                        "perfectReactionWindowSeconds": 0.12,
+                        "lateReactionStartSeconds": 0.40
+                    }
+                }
+            },
+            "phase2": {
+                "atkBonusPercent": 15,
+                "presentation": {
+                    "intParams": {
+                        "attackCount": 5
+                    },
+                    "floatParams": {
+                        "waitDurationMinSeconds": 0.70,
+                        "waitDurationMaxSeconds": 1.80,
+                        "perfectReactionWindowSeconds": 0.10,
+                        "lateReactionStartSeconds": 0.32
+                    }
+                }
+            },
+            "phase3": {
+                "atkBonusPercent": 30,
+                "presentation": {
+                    "intParams": {
+                        "attackCount": 7
+                    },
+                    "floatParams": {
+                        "waitDurationMinSeconds": 0.50,
+                        "waitDurationMaxSeconds": 1.30,
+                        "perfectReactionWindowSeconds": 0.085,
+                        "lateReactionStartSeconds": 0.26
+                    }
+                }
+            }
+        }
     },
     "sansBoss": {
         "title": "Sans",

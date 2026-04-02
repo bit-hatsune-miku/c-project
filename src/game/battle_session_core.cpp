@@ -292,6 +292,11 @@ void BattleSessionCore::update(float deltaSeconds) {
     }
 
     if (hooks_.onPreUpdate) hooks_.onPreUpdate(manager_, deltaSeconds);
+    while (const std::optional<BossPhaseTransition> transition = manager_.consumeBossPhaseTransition()) {
+        if (hooks_.onBossPhaseTransition) {
+            hooks_.onBossPhaseTransition(*transition, manager_);
+        }
+    }
 
     const bool dialogueActive = hooks_.isDialogueInProgress && hooks_.isDialogueInProgress();
     const bool bossDefeated = manager_.getBossCurrentHp() <= 0;
@@ -893,7 +898,7 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
 
         int baseAtk = 0;
         if (context.isBoss) {
-            baseAtk = manager_.getBattleState().boss.atk;
+            baseAtk = manager_.getBossEffectiveAtk();
         } else {
             const BattleState& state = manager_.getBattleState();
             if (context.casterIndex >= 0 &&
@@ -912,10 +917,6 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         const int totalDamage = std::max(1, static_cast<int>(totalDamageRaw));
         const int perHitDamage = std::max(1, totalDamage / std::max(1, damageLabelHitCount));
         const int presentationTargetPartyIndex = context.isBoss ? context.targetIndex : -1;
-
-        // DEBUG LOGGING
-        printf("[LuotianyiBossPresentation DEBUG] baseAtk=%.2f, abilityMult=%.2f, hitDamageMultiplier=%.2f, totalDamageRaw=%.2f, totalDamage=%d, perHitDamage=%d, hitEvents=%d, damageLabelHitCount=%d\n",
-            (float)baseAtk, abilityMult, hitDamageMultiplier, totalDamageRaw, totalDamage, perHitDamage, hitEvents, damageLabelHitCount);
 
         manager_.applyPresentationHitDamage(
             context.isBoss,

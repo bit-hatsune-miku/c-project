@@ -69,6 +69,9 @@ public:
         // Use for narrative state updates, vn::update, etc.
         std::function<void(BattleManager&, float)> onPreUpdate;
 
+        // Called once per boss phase transition after manager state has been updated.
+        std::function<void(const BossPhaseTransition&, BattleManager&)> onBossPhaseTransition;
+
         // Return true to keep the battle session alive after the manager reports
         // battle over, for host-managed timing such as death voice playback.
         std::function<bool(const BattleManager&)> isBattleFinishBlocked;
