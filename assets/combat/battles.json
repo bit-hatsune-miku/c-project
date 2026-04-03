@@ -12,6 +12,11 @@
       "selectorVisible": true,
       "isLineupFixed": true,
       "partySize": 4,
+      "buffs": {
+        "hp": 4,
+        "atk": 1,
+        "spd": 1
+      },
       "lineup": [
         "miku",
         "cupcakke"
@@ -24,6 +29,11 @@
       "name": "Test Ground",
       "bossKey": "lyooBoss",
       "isLineupFixed": true,
+      "buffs": {
+        "hp": 0,
+        "atk": 0,
+        "spd": 0
+      },
       "lineup": [
         "luotianyi",
         "jiafei",
@@ -42,6 +52,11 @@
       "nextStoryScript": "ch0300",
       "selectorVisible": true,
       "isLineupFixed": false,
+      "buffs": {
+        "hp": 6,
+        "atk": 2,
+        "spd": 1
+      },
       "lineup": [
         "miku",
         "cupcakke",
@@ -60,6 +75,11 @@
       "nextStoryScript": "ch0400",
       "selectorVisible": true,
       "isLineupFixed": false,
+      "buffs": {
+        "hp": 8,
+        "atk": 2,
+        "spd": 1
+      },
       "lineup": [
         "miku",
         "cupcakke",
@@ -79,6 +99,11 @@
       "nextStoryScript": "ch0500",
       "selectorVisible": true,
       "isLineupFixed": false,
+      "buffs": {
+        "hp": 10,
+        "atk": 3,
+        "spd": 2
+      },
       "lineup": [
         "cupcakke",
         "wechatalipay",
@@ -98,6 +123,11 @@
       "nextStoryScript": "finale",
       "selectorVisible": true,
       "isLineupFixed": false,
+      "buffs": {
+        "hp": 12,
+        "atk": 4,
+        "spd": 2
+      },
       "lineup": [
         "miku",
         "ari",
@@ -116,6 +146,11 @@
       "isLineupFixed": false,
       "selectorVisible": true,
       "victoryStoryScript": "finale02",
+      "buffs": {
+        "hp": 0,
+        "atk": 0,
+        "spd": 0
+      },
       "lineup": [
         "miku",
         "cupcakke",
@@ -134,6 +169,11 @@
       "selectorVisible": true,
       "victoryStoryScript": "finale02",
       "defeatStoryScript": "finale02",
+      "buffs": {
+        "hp": 0,
+        "atk": 0,
+        "spd": 0
+      },
       "lineup": [
         "cupcakke",
         "jiafei",

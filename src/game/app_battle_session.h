@@ -11,6 +11,7 @@
 #include "../GameMenu/menu_shared.h"
 #include "../graphics/rmlui_loading_overlay.h"
 #include "core/player_progression.h"
+#include "post_battle_types.h"
 
 class Window;
 
@@ -57,6 +58,7 @@ public:
     bool exitedToMainMenu() const;
     BattleOutcome outcome() const;
     const std::vector<std::string>& currentPartyLineup() const;
+    const battle::postbattle::Summary& postBattleSummary() const;
 
 private:
     std::unique_ptr<SessionImpl> impl_;

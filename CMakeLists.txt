@@ -170,6 +170,9 @@ set(RMLUI_SELECTOR_SOURCES
     src/game/boss_selector_session.h
     src/game/party_loader_session.cpp
     src/game/party_loader_session.h
+    src/game/post_battle_session.cpp
+    src/game/post_battle_session.h
+    src/game/post_battle_types.h
 )
 
 set(FRONT_UI_SOURCES

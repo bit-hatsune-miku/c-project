@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "timestamp": "2026-04-03T10:00:00Z",
+  "label": "Finale Post-Battle Recovery",
+  "chapter": "finale01",
+  "saveContext": "campaign",
+  "entryIndex": 0,
+  "settings": {
+    "fullscreen": false,
+    "musicVolume": 100,
+    "voiceVolume": 82,
+    "textSpeed": 42
+  },
+  "progression": {
+    "unlockedCharacterKeys": [
+      "miku",
+      "cupcakke",
+      "lyoo",
+      "jiafei",
+      "wechatalipay",
+      "ari"
+    ],
+    "currentPartyLineup": [
+      "miku",
+      "cupcakke",
+      "jiafei",
+      "wechatalipay"
+    ],
+    "clearedBattleKeys": [
+      "tutorial_vs_lyoo",
+      "wild_scent_flowers",
+      "scan_to_pay",
+      "ari_boss_demo",
+      "lyoo_plot_twist"
+    ],
+    "stageBuffAssignments": {
+      "ari_boss_demo": {
+        "cupcakke": 4
+      },
+      "scan_to_pay": {
+        "jiafei": 3,
+        "miku": 1
+      },
+      "tutorial_vs_lyoo": {
+        "cupcakke": 3,
+        "miku": 1
+      },
+      "wild_scent_flowers": {
+        "miku": 4
+      }
+    }
+  }
+}

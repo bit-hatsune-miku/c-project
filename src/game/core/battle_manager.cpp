@@ -233,15 +233,18 @@ void BattleCharacter::setAtkBuffBonus(int percentBonus) {
     atkBuffBonus_ = percentBonus;
 }
 
-bool BattleManager::initialize(const std::string& bossKey, const std::vector<std::string>& characterKeys) {
+bool BattleManager::initialize(const std::string& bossKey,
+                               const std::vector<std::string>& characterKeys,
+                               const PlayerProgression& progression) {
     BattleDefinition battleDefinition;
     battleDefinition.key = bossKey;
     battleDefinition.bossKey = bossKey;
-    return initialize(battleDefinition, characterKeys);
+    return initialize(battleDefinition, characterKeys, progression);
 }
 
 bool BattleManager::initialize(const BattleDefinition& battleDefinition,
-                               const std::vector<std::string>& characterKeys) {
+                               const std::vector<std::string>& characterKeys,
+                               const PlayerProgression& progression) {
     initialized_ = false;
     battleDefinition_ = battleDefinition;
     state_ = BattleState{};
@@ -253,6 +256,7 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     bossUltimateCharge_ = 0;
     characters_.clear();
     recentActionEvents_.clear();
+    telemetry_ = BattleTelemetry{};
     bossStatus_ = BossStatusState{};
     simulatedActions_ = 0;
     activePartyBuffs_.clear();
@@ -261,6 +265,8 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     luotianyiCorrectTones_ = 0;
     comboState_ = BattleComboState{};
     forcedOutcome_.reset();
+    currentActionOutgoingDamage_ = 0;
+    pendingSplitAttackActorKey_.clear();
 
     if (battleDefinition_.bossKey.empty()) {
         std::cerr << "[Battle] Missing boss key.\n";
@@ -277,6 +283,7 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
         if (!loader::loadCharacterDefinition(key, character)) {
             return false;
         }
+        applyCharacterProgressionBonuses(character, progression);
         state_.party.push_back(character);
     }
 
@@ -582,6 +589,10 @@ bool BattleManager::playerDamageHealsBoss() const {
     return battleDefinition_.specialRules.playerDamageHealsBoss;
 }
 
+const BattleTelemetry& BattleManager::getBattleTelemetry() const {
+    return telemetry_;
+}
+
 void BattleManager::applyBossDamage(int amount) {
     if (amount <= 0 || bossCurrentHp_ <= 0) {
         return;
@@ -601,6 +612,8 @@ void BattleManager::applyPlayerOffenseToBoss(int amount) {
     if (amount <= 0) {
         return;
     }
+
+    currentActionOutgoingDamage_ += amount;
 
     if (playerDamageHealsBoss()) {
         applyBossHealing(amount);
@@ -880,6 +893,8 @@ bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vecto
         return false;
     }
 
+    pendingSplitAttackActorKey_ = character.definition().key;
+
     const AbilityDefinition* abilityDef = getAbility(getCharacterRegularAbilityId(character.definition()));
 
     if (abilityDef == nullptr || abilityDef->type != AbilityType::Attack) {
@@ -923,6 +938,9 @@ void BattleManager::applyBossSplitHitDamage(int damage) {
         return;
     }
 
+    if (currentActionOutgoingDamage_ == 0 && !pendingSplitAttackActorKey_.empty()) {
+        telemetry_.characterDamageByKey[pendingSplitAttackActorKey_] += damage;
+    }
     applyPlayerOffenseToBoss(damage);
 }
 
@@ -962,6 +980,7 @@ bool BattleManager::commitCurrentPlayerSplitAttackTurn() {
         return false;
     }
 
+    telemetry_.totalActionValueConsumed += event.consumedActionValue;
     character.gainUltimatePoint();
 
     if (event.actingActorIndex >= turnState_.actors.size()) {
@@ -970,6 +989,7 @@ bool BattleManager::commitCurrentPlayerSplitAttackTurn() {
     turnState_.actors[event.actingActorIndex].currentActionValue = turnState_.actors[event.actingActorIndex].baseActionValue;
     turnState_.actors[event.actingActorIndex].priority = 0;
     syncCharacterUltimateTurn(character.partyIndex());
+    pendingSplitAttackActorKey_.clear();
 
     return true;
 }
@@ -1040,7 +1060,10 @@ bool BattleManager::processAutomaticTurns() {
             break;
         }
 
-        if (!executeCharacterAction(event.actingActorIndex, character, nextActor.extraTurnAction)) {
+        if (!executeCharacterAction(event.actingActorIndex,
+                                    character,
+                                    nextActor.extraTurnAction,
+                                    event.consumedActionValue)) {
             break;
         }
         progressed = true;
@@ -1101,7 +1124,7 @@ void BattleManager::executeTurn(size_t actorIndex) {
 
     TurnActor actor = turnState_.actors[actorIndex];
     if (actor.type == ParticipantType::Boss) {
-        executeBossAction(actorIndex, BattleAction::Standard);
+        executeBossAction(actorIndex, BattleAction::Standard, 0.0f);
     } else {
         if (actor.partyIndex < 0 || static_cast<size_t>(actor.partyIndex) >= characters_.size()) {
             if (actorIndex < turnState_.actors.size()) {
@@ -1132,9 +1155,9 @@ void BattleManager::executeTurn(size_t actorIndex) {
         // - Regular turn: use the character's only non-ultimate ability.
         // - Extra turn: cast ultimate automatically.
         if (actor.isExtraTurn) {
-            executeCharacterAction(actorIndex, character, actor.extraTurnAction);
+            executeCharacterAction(actorIndex, character, actor.extraTurnAction, 0.0f);
         } else {
-            executeCharacterAction(actorIndex, character, BattleAction::Skill);
+            executeCharacterAction(actorIndex, character, BattleAction::Skill, 0.0f);
         }
     }
 }
@@ -1263,11 +1286,10 @@ bool BattleManager::resolvePlayerAction(BattleAction action) {
         return false;
     }
 
-    return executeCharacterAction(
-        event.actingActorIndex,
-        characters_[static_cast<size_t>(previewActor.partyIndex)],
-        action
-    );
+    return executeCharacterAction(event.actingActorIndex,
+                                  characters_[static_cast<size_t>(previewActor.partyIndex)],
+                                  action,
+                                  event.consumedActionValue);
 }
 
 bool BattleManager::resolveBossAction() {
@@ -1288,15 +1310,21 @@ bool BattleManager::resolveBossAction() {
         return false;
     }
 
-    return executeBossAction(event.actingActorIndex, BattleAction::Standard);
+    return executeBossAction(event.actingActorIndex, BattleAction::Standard, event.consumedActionValue);
 }
 
-bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& character, BattleAction action) {
+bool BattleManager::executeCharacterAction(size_t actorIndex,
+                                          BattleCharacter& character,
+                                          BattleAction action,
+                                          float consumedActionValue) {
     if (actorIndex >= turnState_.actors.size()) {
         return false;
     }
 
     ++simulatedActions_;
+    telemetry_.totalActionValueConsumed += std::max(0.0f, consumedActionValue);
+    currentActionOutgoingDamage_ = 0;
+    pendingSplitAttackActorKey_.clear();
 
     const bool wasExtraTurn = turnState_.actors[actorIndex].isExtraTurn;
     const bool grantsUltimatePointOnAction = turnState_.actors[actorIndex].grantsUltimatePointOnAction;
@@ -1321,6 +1349,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
     actionEvent.bossHpBefore = bossCurrentHp_;
     actionEvent.bossHpAfter = bossCurrentHp_;
     actionEvent.hitVoicesHandledDuringPresentation = false;
+    actionEvent.consumedActionValue = std::max(0.0f, consumedActionValue);
 
     if (abilityDef == nullptr) {
         const int fallbackDamage = normalizeDamage(
@@ -1364,8 +1393,13 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
         }
     }
     actionEvent.bossHpAfter = bossCurrentHp_;
+    actionEvent.totalOutgoingDamage = currentActionOutgoingDamage_;
     actionEvent.abilityVoicesHandledDuringPresentation = consumePresentationAbilityAudioPlayed();
     actionEvent.hitVoicesHandledDuringPresentation = consumePresentationHitAudioPlayed();
+    if (!character.definition().key.empty() && currentActionOutgoingDamage_ > 0) {
+        telemetry_.characterDamageByKey[character.definition().key] += currentActionOutgoingDamage_;
+    }
+    currentActionOutgoingDamage_ = 0;
 
     if (abilityDef != nullptr &&
         abilityDef->id == "MeiCiDuXiangZhuang" &&
@@ -1399,7 +1433,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
     return true;
 }
 
-bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
+bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, float consumedActionValue) {
     if (actorIndex >= turnState_.actors.size()) {
         return false;
     }
@@ -1415,6 +1449,7 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
     }
 
     ++simulatedActions_;
+    telemetry_.totalActionValueConsumed += std::max(0.0f, consumedActionValue);
 
     const std::string abilityId = getBossNormalAbilityId(state_.boss);
     const AbilityDefinition* abilityDef = getAbility(abilityId);
@@ -1430,6 +1465,7 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
     actionEvent.bossHpBefore = bossCurrentHp_;
     actionEvent.bossHpAfter = bossCurrentHp_;
     actionEvent.hitVoicesHandledDuringPresentation = false;
+    actionEvent.consumedActionValue = std::max(0.0f, consumedActionValue);
     actionEvent.targetPartyIndices.clear();
     actionEvent.targetHpBefore.clear();
     actionEvent.targetHpAfter.clear();

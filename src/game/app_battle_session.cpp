@@ -1210,7 +1210,7 @@ public:
             return false;
         }
 
-        if (!manager_.initialize(battleDefinition_, activePartyLineup_)) {
+        if (!manager_.initialize(battleDefinition_, activePartyLineup_, progression)) {
             std::cerr << "[Battle] Initialization failed.\n";
             shutdown();
             return false;
@@ -2087,6 +2087,27 @@ public:
 
     const std::vector<std::string>& currentPartyLineup() const {
         return activePartyLineup_;
+    }
+
+    const battle::postbattle::Summary& postBattleSummary() {
+        postBattleSummaryCache_ = battle::postbattle::Summary{};
+        const battle::BattleTelemetry& telemetry = manager_.getBattleTelemetry();
+        postBattleSummaryCache_.totalActionValueConsumed = telemetry.totalActionValueConsumed;
+
+        const battle::BattleState& battleState = manager_.getBattleState();
+        postBattleSummaryCache_.characters.reserve(battleState.party.size());
+        for (const battle::CharacterDefinition& character : battleState.party) {
+            battle::postbattle::CharacterAnalytics analytics;
+            analytics.key = character.key;
+            analytics.title = character.title;
+            if (const auto damageIt = telemetry.characterDamageByKey.find(character.key);
+                damageIt != telemetry.characterDamageByKey.end()) {
+                analytics.totalDamage = damageIt->second;
+            }
+            postBattleSummaryCache_.characters.push_back(std::move(analytics));
+        }
+
+        return postBattleSummaryCache_;
     }
 
 private:
@@ -4029,6 +4050,7 @@ private:
     battle::render::StageDefinition stageDefinition_{};
     std::vector<std::string> activePartyLineup_;
     battle::BattleManager manager_;
+    battle::postbattle::Summary postBattleSummaryCache_{};
     battle::demo::DemoNarrativeFlow narrative_;
     TutorialScriptLibrary tutorialLibrary_;
     HudFeedbackState hudFeedback_;
@@ -4125,5 +4147,6 @@ bool Session::isFinished() const { return impl_->isFinished(); }
 bool Session::exitedToMainMenu() const { return impl_->exitedToMainMenu(); }
 BattleOutcome Session::outcome() const { return impl_->outcome(); }
 const std::vector<std::string>& Session::currentPartyLineup() const { return impl_->currentPartyLineup(); }
+const battle::postbattle::Summary& Session::postBattleSummary() const { return impl_->postBattleSummary(); }
 
 } // namespace battle::app

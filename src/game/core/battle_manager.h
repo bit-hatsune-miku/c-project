@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "combat_feedback.h"
+#include "player_progression.h"
 #include "presentation_tuning_profile.h"
 
 namespace battle {
@@ -85,6 +86,7 @@ struct BattleDefinition {
     int partySize = 4;
     std::vector<std::string> lineup;
     std::vector<std::string> lockedLineup;
+    FlatStatBonuses buffs;
     BattleSpecialRules specialRules;
 };
 
@@ -292,9 +294,16 @@ struct BattleActionEvent {
     int bossHpAfter = 0;
     bool abilityVoicesHandledDuringPresentation = false;
     bool hitVoicesHandledDuringPresentation = false;
+    float consumedActionValue = 0.0f;
+    int totalOutgoingDamage = 0;
     std::vector<int> targetPartyIndices;
     std::vector<int> targetHpBefore;
     std::vector<int> targetHpAfter;
+};
+
+struct BattleTelemetry {
+    float totalActionValueConsumed = 0.0f;
+    std::unordered_map<std::string, int> characterDamageByKey;
 };
 
 struct BossPhaseTransition {
@@ -315,8 +324,12 @@ public:
     // Returns the shield value for a party member at the given index, or 0 if out of range.
     int getCharacterShield(int partyIndex) const;
 public:
-    bool initialize(const BattleDefinition& battleDefinition, const std::vector<std::string>& characterKeys);
-    bool initialize(const std::string& bossKey, const std::vector<std::string>& characterKeys);
+    bool initialize(const BattleDefinition& battleDefinition,
+                    const std::vector<std::string>& characterKeys,
+                    const PlayerProgression& progression = {});
+    bool initialize(const std::string& bossKey,
+                    const std::vector<std::string>& characterKeys,
+                    const PlayerProgression& progression = {});
     void printBattleSummary() const;
     const BattleState& getBattleState() const;
     const BattleDefinition& getBattleDefinition() const;
@@ -371,6 +384,7 @@ public:
     bool isBattleOver() const;
     BattleResolvedOutcome outcome() const;
     bool playerDamageHealsBoss() const;
+    const BattleTelemetry& getBattleTelemetry() const;
 
 private:
     struct ActivePartyBuff {
@@ -415,8 +429,11 @@ private:
     bool canUseBossAction(BattleAction action) const;
     bool resolvePlayerAction(BattleAction action);
     bool resolveBossAction();
-    bool executeCharacterAction(size_t actorIndex, BattleCharacter& character, BattleAction action);
-    bool executeBossAction(size_t actorIndex, BattleAction action);
+    bool executeCharacterAction(size_t actorIndex,
+                                BattleCharacter& character,
+                                BattleAction action,
+                                float consumedActionValue);
+    bool executeBossAction(size_t actorIndex, BattleAction action, float consumedActionValue);
     void applyJiafeiUltimateDebuff();
     void consumeJiafeiUltimateDebuff();
     void tryQueueJiafeiFollowUp(const BattleActionEvent& actionEvent);
@@ -448,6 +465,7 @@ private:
     bool initialized_ = false;
     std::unordered_map<std::string, AbilityDefinition> abilities_;
     std::vector<BattleActionEvent> recentActionEvents_;
+    BattleTelemetry telemetry_{};
     bool presentationHitDamageApplied_ = false;
     bool presentationHealingApplied_ = false;
     bool presentationAbilityAudioPlayed_ = false;
@@ -459,6 +477,8 @@ private:
     std::vector<ActivePartyBuff> activePartyBuffs_;
     std::unordered_map<std::string, int> bossAbilityUseCounts_;
     int nextManualUltimatePriority_ = 1000;
+    int currentActionOutgoingDamage_ = 0;
+    std::string pendingSplitAttackActorKey_;
 };
 
 } // namespace battle
