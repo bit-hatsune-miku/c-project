@@ -876,6 +876,240 @@ body {
     box-shadow: 0 0 16dp rgba(71, 215, 255, 62);
 }
 
+.battle-result {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+}
+
+.battle-result.active {
+    display: block;
+}
+
+.battle-result-dim {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    background-color: rgba(8, 6, 12, 196);
+}
+
+.battle-result-focus {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1040dp;
+    height: 540dp;
+    margin-left: -520dp;
+    margin-top: -270dp;
+}
+
+.battle-result-kicker {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 84dp;
+    color: rgba(255, 243, 249, 136);
+    font-size: 16dp;
+    font-weight: bold;
+    letter-spacing: 8dp;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(10dp);
+}
+
+.battle-result-word-shell {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 148dp;
+    height: 158dp;
+    text-align: center;
+}
+
+.battle-result-word {
+    display: inline-block;
+    width: auto;
+    height: 158dp;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.battle-result-letter {
+    display: inline-block;
+    margin-left: 10dp;
+    font-size: 138dp;
+    line-height: 148dp;
+    font-weight: bold;
+    letter-spacing: 4dp;
+    text-transform: uppercase;
+}
+
+.battle-result-space {
+    display: inline-block;
+    width: 30dp;
+}
+
+.battle-result.victory .battle-result-letter {
+    font-effect: outline(4dp #541237), shadow(0 16dp rgba(84, 18, 55, 142));
+}
+
+.battle-result.defeat .battle-result-letter {
+    font-effect: outline(4dp #6a1621), shadow(0 16dp rgba(106, 22, 33, 146));
+}
+
+.battle-result-button {
+    position: absolute;
+    left: 50%;
+    top: 346dp;
+    width: 410dp;
+    height: 72dp;
+    margin-left: -205dp;
+    padding: 0;
+    background-color: transparent;
+    border: 0;
+    overflow: visible;
+}
+
+.battle-result-button-stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transform: translateY(42dp) scale(0.88);
+}
+
+.battle-result-button-shell {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 22dp;
+    transform: skewX(-18deg);
+}
+
+.battle-result-button-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    transform: skewX(18deg);
+}
+
+.battle-result.victory .battle-result-button-shell {
+    background-color: #ff67b6;
+    border: 2dp #ff67b6;
+    box-shadow: 0 16dp 28dp rgba(255, 103, 182, 34);
+}
+
+.battle-result.defeat .battle-result-button-shell {
+    background-color: rgba(255, 251, 253, 238);
+    border: 2dp rgba(255, 255, 255, 34);
+    box-shadow: 0 16dp 28dp rgba(0, 0, 0, 24);
+}
+
+.battle-result-button-accent {
+    position: absolute;
+    left: 22dp;
+    top: 18dp;
+    width: 10dp;
+    height: 34dp;
+    border-radius: 999dp;
+}
+
+.battle-result.victory .battle-result-button-accent {
+    background-color: rgba(255, 255, 255, 182);
+}
+
+.battle-result.defeat .battle-result-button-accent {
+    background-color: rgba(23, 20, 31, 42);
+}
+
+.battle-result-button-code {
+    position: absolute;
+    left: 48dp;
+    top: 24dp;
+    width: 34dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+}
+
+.battle-result.victory .battle-result-button-code {
+    color: rgba(255, 255, 255, 214);
+}
+
+.battle-result.defeat .battle-result-button-code {
+    color: rgba(23, 20, 31, 132);
+}
+
+.battle-result-button-main {
+    position: absolute;
+    left: 96dp;
+    top: 14dp;
+    right: 124dp;
+}
+
+.battle-result-button-label {
+    font-size: 22dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    text-transform: uppercase;
+}
+
+.battle-result.victory .battle-result-button-label {
+    color: #ffffff;
+}
+
+.battle-result.defeat .battle-result-button-label {
+    color: #17141f;
+}
+
+.battle-result-button-sub {
+    margin-top: 4dp;
+    font-size: 10dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    text-transform: uppercase;
+}
+
+.battle-result.victory .battle-result-button-sub {
+    color: rgba(255, 255, 255, 194);
+}
+
+.battle-result.defeat .battle-result-button-sub {
+    color: rgba(23, 20, 31, 126);
+}
+
+.battle-result-button-tail {
+    position: absolute;
+    right: 22dp;
+    top: 22dp;
+    width: 84dp;
+    height: 24dp;
+    border-radius: 12dp;
+}
+
+.battle-result.victory .battle-result-button-tail {
+    background-color: rgba(255, 255, 255, 28);
+    border: 1dp rgba(255, 255, 255, 116);
+}
+
+.battle-result.defeat .battle-result-button-tail {
+    background-color: rgba(255, 103, 182, 18);
+    border: 1dp rgba(23, 20, 31, 22);
+}
+
 .battle-hint {
     position: absolute;
     left: 50%;

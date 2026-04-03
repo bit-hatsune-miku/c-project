@@ -22,6 +22,16 @@ enum class BattleOutcome {
     Defeat
 };
 
+enum class BattleDefeatResultAction {
+    Return,
+    ContinueStory,
+    RestartStory
+};
+
+struct BattleResultPresentationConfig {
+    BattleDefeatResultAction defeatAction = BattleDefeatResultAction::Return;
+};
+
 class SessionImpl;
 
 class Session {
@@ -36,7 +46,8 @@ public:
                     GameSettings& settings,
                     const std::string& battleKey,
                     const PlayerProgression& progression,
-                    std::optional<std::vector<std::string>> initialPartyLineup = std::nullopt);
+                    std::optional<std::vector<std::string>> initialPartyLineup = std::nullopt,
+                    BattleResultPresentationConfig resultPresentation = {});
     void shutdown();
     void handleEvent(const SDL_Event& event);
     void update(float deltaSeconds);

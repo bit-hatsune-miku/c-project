@@ -109,6 +109,92 @@ enum class SettingsSelection {
     Back
 };
 
+enum class BattleResultOverlayOutcome {
+    None,
+    Victory,
+    Defeat
+};
+
+enum class BattleResultOverlayAction {
+    Continue,
+    RestartStory
+};
+
+struct BattleResultOverlayState {
+    bool active = false;
+    bool inputEnabled = false;
+    bool acknowledged = false;
+    bool revealSfxPlayed = false;
+    bool applausePlayed = false;
+    int nextLetterSfxIndex = 0;
+    BattleResultOverlayOutcome outcome = BattleResultOverlayOutcome::None;
+    BattleResultOverlayAction action = BattleResultOverlayAction::Continue;
+    Uint64 startedMs = 0;
+    float presentationElapsedSeconds = 0.0f;
+    std::string word;
+    std::string buttonLabel;
+    std::string buttonSubcopy;
+};
+
+inline constexpr float kBattleResultDimFadeDurationSeconds = 0.28f;
+inline constexpr float kBattleResultKickerDelaySeconds = 0.06f;
+inline constexpr float kBattleResultKickerDurationSeconds = 0.22f;
+inline constexpr float kBattleResultIntroDelaySeconds = 0.18f;
+inline constexpr float kBattleResultLetterIntervalSeconds = 0.068f;
+inline constexpr float kBattleResultLetterDurationSeconds = 0.52f;
+inline constexpr float kBattleResultSettleDelaySeconds = 0.04f;
+inline constexpr float kBattleResultSettleDurationSeconds = 0.32f;
+inline constexpr float kBattleResultButtonDelaySeconds = 0.08f;
+inline constexpr float kBattleResultButtonDurationSeconds = 0.26f;
+
+inline std::size_t battleResultVisibleGlyphCount(const std::string& text) {
+    return static_cast<std::size_t>(std::count_if(text.begin(), text.end(), [](char glyph) {
+        return glyph != ' ';
+    }));
+}
+
+inline float battleResultElapsedSeconds(const BattleResultOverlayState& overlay) {
+    return std::max(overlay.presentationElapsedSeconds, 0.0f);
+}
+
+inline float battleResultRevealImpactSeconds(const BattleResultOverlayState& overlay) {
+    const float visibleLetters =
+        static_cast<float>(std::max<std::size_t>(battleResultVisibleGlyphCount(overlay.word), 1));
+    return kBattleResultIntroDelaySeconds +
+        ((visibleLetters - 1.0f) * kBattleResultLetterIntervalSeconds) +
+        kBattleResultLetterDurationSeconds;
+}
+
+inline float battleResultSettleStartSeconds(const BattleResultOverlayState& overlay) {
+    return battleResultRevealImpactSeconds(overlay) + kBattleResultSettleDelaySeconds;
+}
+
+inline float battleResultButtonRevealStartSeconds(const BattleResultOverlayState& overlay) {
+    return battleResultSettleStartSeconds(overlay) +
+        kBattleResultSettleDurationSeconds +
+        kBattleResultButtonDelaySeconds;
+}
+
+inline float battleResultButtonInteractiveSeconds(const BattleResultOverlayState& overlay) {
+    return battleResultButtonRevealStartSeconds(overlay) + kBattleResultButtonDurationSeconds;
+}
+
+inline int battleResultVisibleLetterCount(const BattleResultOverlayState& overlay) {
+    const int totalLetters = static_cast<int>(battleResultVisibleGlyphCount(overlay.word));
+    if (totalLetters <= 0) {
+        return 0;
+    }
+
+    const float elapsedSeconds = battleResultElapsedSeconds(overlay);
+    const float revealElapsedSeconds = elapsedSeconds - kBattleResultIntroDelaySeconds;
+    if (revealElapsedSeconds < 0.0f) {
+        return 0;
+    }
+
+    const int visibleLetters = static_cast<int>(std::floor(revealElapsedSeconds / kBattleResultLetterIntervalSeconds)) + 1;
+    return std::clamp(visibleLetters, 0, totalLetters);
+}
+
 struct RhythmChallengeState {
     bool active = false;
     int partyIndex = -1;

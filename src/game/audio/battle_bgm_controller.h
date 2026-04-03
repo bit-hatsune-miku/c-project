@@ -12,6 +12,7 @@ public:
     void detach();
 
     void stop();
+    void fadeOutAndStop(float fadeDurationSeconds = 1.2f);
     void playImmediate(const std::string& trackPath, float baseVolume);
     void requestTrack(const std::string& trackPath, float baseVolume);
     void update(float deltaSeconds);
@@ -39,6 +40,9 @@ private:
     float queuedBaseVolume_ = 1.0f;
     float masterVolume_ = 1.0f;
     float fadeGain_ = 1.0f;
+    float fadeDurationSeconds_ = 0.35f;
+    float transitionElapsedSeconds_ = 0.0f;
+    float transitionStartGain_ = 1.0f;
     bool paused_ = false;
     TransitionState transitionState_ = TransitionState::Idle;
 };

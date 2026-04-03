@@ -669,6 +669,48 @@ ScreenState resolveStoryEndReturnScreen(const vn::Script& script, ScreenState fa
     return fallback;
 }
 
+std::string resolvePendingStoryNextScript(const vn::Script& script) {
+    const std::string scriptId = save::chapterIdFromScript(script);
+    if (scriptId.empty()) {
+        return std::string();
+    }
+
+    std::vector<battle::BattleDefinition> battleDefinitions;
+    if (!battle::loader::loadAllBattleDefinitions(battleDefinitions)) {
+        return std::string();
+    }
+
+    const auto it = std::find_if(
+        battleDefinitions.begin(),
+        battleDefinitions.end(),
+        [&scriptId](const battle::BattleDefinition& battleDefinition) {
+            return battleDefinition.victoryStoryScript == scriptId;
+        });
+    if (it == battleDefinitions.end()) {
+        return std::string();
+    }
+
+    return it->nextStoryScript;
+}
+
+save::SaveContext saveContextForStoryFlow(StoryFlowMode flowMode) {
+    return flowMode == StoryFlowMode::PracticeReplay
+        ? save::SaveContext::Practice
+        : save::SaveContext::Campaign;
+}
+
+StoryFlowMode storyFlowModeForSaveContext(save::SaveContext saveContext) {
+    return saveContext == save::SaveContext::Practice
+        ? StoryFlowMode::PracticeReplay
+        : StoryFlowMode::Campaign;
+}
+
+StoryFlowMode storyFlowModeForBattleFlow(BattleFlowMode flowMode) {
+    return flowMode == BattleFlowMode::PracticeReplayStory
+        ? StoryFlowMode::PracticeReplay
+        : StoryFlowMode::Campaign;
+}
+
 /**
  * @brief Apply the currently indexed script entry to the VN runtime.
  *
@@ -787,7 +829,7 @@ std::vector<StoryModeCandidate> collectStoryModeCandidates() {
     std::vector<StoryModeCandidate> candidates;
     for (const save::SlotInfo& slot : save::listSlots()) {
         const std::optional<save::SaveGame> saveGame = save::load(slot.path);
-        if (!saveGame.has_value()) {
+        if (!saveGame.has_value() || saveGame->saveContext != save::SaveContext::Campaign) {
             continue;
         }
 
@@ -838,6 +880,7 @@ std::vector<StoryModeCandidate> collectStoryModeCandidates() {
 save::SaveGame buildStorySaveGame(const AppState& state) {
     save::SaveGame saveGame;
     saveGame.chapter = save::chapterIdFromScript(state.story.script);
+    saveGame.saveContext = saveContextForStoryFlow(state.storyFlowMode);
     saveGame.entryIndex = static_cast<int>(state.story.entryIndex);
     saveGame.label = save::generateLabel(state.story.script, state.story.entryIndex);
     saveGame.settings.fullscreen = state.settings.fullscreen;
@@ -916,9 +959,21 @@ bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
 
     state.story.script = std::move(script);
     state.story.loaded = true;
+    state.storyFlowMode = storyFlowModeForSaveContext(saveGame.saveContext);
     state.story.entryIndex = static_cast<std::size_t>(std::clamp(saveGame.entryIndex, 0, static_cast<int>(state.story.script.entries.size() - 1)));
-    state.storyEndReturnScreen = ScreenState::MainMenu;
+    state.storyEndReturnScreen = resolveStoryEndReturnScreen(state.story.script, ScreenState::MainMenu);
     state.requestStoryReturnToBossSelector = false;
+    state.pendingBattleKey.clear();
+    state.pendingBattlePartyLineup.clear();
+    state.pendingBattleFlowMode = BattleFlowMode::Direct;
+    state.pendingBattleReturnScreen = ScreenState::MainMenu;
+    state.pendingBattleWinScript.clear();
+    state.pendingBattleLoseScript.clear();
+    state.pendingBattleNextStoryScript.clear();
+    state.pendingStoryNextScript =
+        state.storyFlowMode == StoryFlowMode::Campaign
+        ? resolvePendingStoryNextScript(state.story.script)
+        : std::string();
 
     vn::reset();
     vn::setMusicVolume(state.settings.musicVolume);
@@ -953,7 +1008,7 @@ void clearPendingBattleState(AppState& state,
                              ScreenState returnScreen = ScreenState::MainMenu) {
     state.pendingBattleKey.clear();
     state.pendingBattlePartyLineup.clear();
-    state.pendingBattleLaunchedFromStory = false;
+    state.pendingBattleFlowMode = BattleFlowMode::Direct;
     state.pendingBattleReturnScreen = returnScreen;
     state.pendingBattleWinScript.clear();
     state.pendingBattleLoseScript.clear();
@@ -963,11 +1018,13 @@ void clearPendingBattleState(AppState& state,
 
 bool startLoadedStoryPlayback(AppState& state,
                               ScreenState endReturnScreen,
-                              bool autosaveOnStart = true) {
+                              bool autosaveOnStart = true,
+                              StoryFlowMode flowMode = StoryFlowMode::Campaign) {
     if (state.story.script.entries.empty()) {
         return false;
     }
 
+    state.storyFlowMode = flowMode;
     state.storyEndReturnScreen = endReturnScreen;
     state.requestStoryReturnToBossSelector = false;
     state.pauseSelection = PauseAction::Continue;
@@ -990,7 +1047,8 @@ bool startLoadedStoryPlayback(AppState& state,
 void beginStory(AppState& state,
                 const std::string& scriptRef,
                 ScreenState endReturnScreen,
-                bool autosaveOnStart) {
+                bool autosaveOnStart,
+                StoryFlowMode flowMode) {
     state.pendingStoryNextScript.clear();
     const bool loaded = scriptRef.empty()
         ? ensureStoryLoaded(state.story)
@@ -1012,7 +1070,7 @@ void beginStory(AppState& state,
     }
 
     state.story.entryIndex = 0;
-    if (!startLoadedStoryPlayback(state, endReturnScreen, autosaveOnStart)) {
+    if (!startLoadedStoryPlayback(state, endReturnScreen, autosaveOnStart, flowMode)) {
         state.noticeText = scriptRef.empty()
             ? "Chapter 0 has no dialogue entries."
             : "Story has no dialogue entries.";
@@ -1092,13 +1150,15 @@ void beginBattle(AppState& state, const std::string& battleKey) {
 
     state.pendingBattleKey = battleDefinition.key;
     state.pendingBattlePartyLineup.clear();
-    state.pendingBattleNextStoryScript = state.pendingBattleLaunchedFromStory
+    state.pendingBattleNextStoryScript = state.pendingBattleFlowMode == BattleFlowMode::CampaignStory
         ? battleDefinition.nextStoryScript
         : std::string();
-    if (state.pendingBattleWinScript.empty()) {
+    if (state.pendingBattleWinScript.empty() &&
+        state.pendingBattleFlowMode != BattleFlowMode::Direct) {
         state.pendingBattleWinScript = battleDefinition.victoryStoryScript;
     }
-    if (state.pendingBattleLoseScript.empty()) {
+    if (state.pendingBattleLoseScript.empty() &&
+        state.pendingBattleFlowMode == BattleFlowMode::CampaignStory) {
         state.pendingBattleLoseScript = battleDefinition.defeatStoryScript;
     }
 
@@ -2135,7 +2195,7 @@ int main(int argc, char** argv) {
             if (const auto request = bossSelectorSession->consumeLaunchRequest(); request.has_value()) {
                 const battle::selector::LaunchRequest launchRequest = *request;
                 LoadingTransitionPresentation presentation = LoadingTransitionPresentation::RmlUi;
-                if (launchRequest.type == battle::selector::LaunchRequest::Type::Battle) {
+                if (launchRequest.mode == battle::selector::LaunchRequest::Mode::PracticeStraightToBattle) {
                     battle::BattleDefinition battleDefinition;
                     if (!battle::loader::loadBattleDefinition(launchRequest.reference, battleDefinition)) {
                         state.noticeText = "Battle not found: " + launchRequest.reference;
@@ -2149,7 +2209,7 @@ int main(int argc, char** argv) {
                     presentation,
                     std::function<bool()>{},
                     [&, launchRequest]() -> bool {
-                        if (launchRequest.type == battle::selector::LaunchRequest::Type::Story) {
+                        if (launchRequest.mode == battle::selector::LaunchRequest::Mode::PracticeReplayStory) {
 #ifdef APP_ENABLE_RMLUI
                             if (bossSelectorSession != nullptr) {
                                 bossSelectorSession->shutdown();
@@ -2162,7 +2222,11 @@ int main(int argc, char** argv) {
                                 state.noticeTimer = 2.6f;
                                 return false;
                             }
-                            beginStory(state, launchRequest.reference, ScreenState::BossSelector);
+                            beginStory(state,
+                                       launchRequest.reference,
+                                       ScreenState::BossSelector,
+                                       true,
+                                       StoryFlowMode::PracticeReplay);
                             return true;
 #else
                             state.noticeText = "Story launch requires RmlUi front UI.";
@@ -2173,6 +2237,7 @@ int main(int argc, char** argv) {
 
                         destroyLoadingLogoTexture();
                         clearPendingBattleState(state, ScreenState::BossSelector);
+                        state.pendingBattleFlowMode = BattleFlowMode::Direct;
                         beginBattle(state, launchRequest.reference);
                         return true;
                     });
@@ -2332,9 +2397,18 @@ int main(int argc, char** argv) {
             if (!state.pendingBattlePartyLineup.empty()) {
                 initialPartyLineup = state.pendingBattlePartyLineup;
             }
+            battle::app::BattleResultPresentationConfig resultPresentation{};
+            if (state.pendingBattleFlowMode == BattleFlowMode::CampaignStory &&
+                !state.pendingBattleLoseScript.empty()) {
+                resultPresentation.defeatAction = battle::app::BattleDefeatResultAction::ContinueStory;
+            } else if (state.pendingBattleFlowMode == BattleFlowMode::CampaignStory) {
+                resultPresentation.defeatAction = battle::app::BattleDefeatResultAction::RestartStory;
+            } else {
+                resultPresentation.defeatAction = battle::app::BattleDefeatResultAction::Return;
+            }
             state.pendingBattlePartyLineup.clear();
             if (!battleSession->initialize(window, state.settings, battleKey, state.progression,
-                                           std::move(initialPartyLineup))) {
+                                           std::move(initialPartyLineup), resultPresentation)) {
                 battleSession.reset();
                 state.screen = ScreenState::MainMenu;
                 state.pauseContext = PauseContext::Story;
@@ -2487,11 +2561,15 @@ int main(int argc, char** argv) {
                         continue;
                     }
 
-                    const bool launchedFromStory = state.pendingBattleLaunchedFromStory;
+                    const BattleFlowMode battleFlowMode = state.pendingBattleFlowMode;
                     const ScreenState battleReturnScreen = state.pendingBattleReturnScreen;
                     const std::string battleWinScript = state.pendingBattleWinScript;
                     const std::string battleLoseScript = state.pendingBattleLoseScript;
                     const std::string battleNextStoryScript = state.pendingBattleNextStoryScript;
+                    const std::string battleSourceStoryScript =
+                        battleFlowMode == BattleFlowMode::CampaignStory && state.story.loaded
+                        ? save::chapterIdFromScript(state.story.script)
+                        : std::string();
                     startLoadingTransition(
                         loadingTransition,
                         LoadingTransitionPresentation::RmlUi,
@@ -2499,11 +2577,12 @@ int main(int argc, char** argv) {
                         [&, outcome,
                             completedBattleKey,
                             currentPartyLineup,
-                            launchedFromStory,
+                            battleFlowMode,
                             battleReturnScreen,
                             battleWinScript,
                             battleLoseScript,
-                            battleNextStoryScript]() -> bool {
+                            battleNextStoryScript,
+                            battleSourceStoryScript]() -> bool {
                             if (!currentPartyLineup.empty()) {
                                 state.progression.currentPartyLineup = currentPartyLineup;
                                 battle::normalizePlayerProgression(state.progression);
@@ -2524,6 +2603,7 @@ int main(int argc, char** argv) {
                             const auto enterLoadedStory = [&](const std::string& scriptRef,
                                                               const char* failureNotice,
                                                               ScreenState endReturnScreen,
+                                                              StoryFlowMode flowMode,
                                                               const std::string& chainedStoryScript = std::string()) {
                                 if (!loadStoryScript(state.story, scriptRef)) {
                                     state.screen = ScreenState::MainMenu;
@@ -2535,7 +2615,7 @@ int main(int argc, char** argv) {
                                 }
 
                                 state.story.entryIndex = 0;
-                                if (!startLoadedStoryPlayback(state, endReturnScreen)) {
+                                if (!startLoadedStoryPlayback(state, endReturnScreen, true, flowMode)) {
                                     state.screen = ScreenState::MainMenu;
                                     state.pauseContext = PauseContext::Story;
                                     state.mainSelection = MainMenuAction::Start;
@@ -2548,16 +2628,25 @@ int main(int argc, char** argv) {
                             };
 
                             if (outcome == battle::app::BattleOutcome::Victory) {
-                                if (launchedFromStory) {
+                                if (battleFlowMode == BattleFlowMode::CampaignStory ||
+                                    battleFlowMode == BattleFlowMode::PracticeReplayStory) {
+                                    const StoryFlowMode resumedStoryFlow = storyFlowModeForBattleFlow(battleFlowMode);
+                                    const std::string chainedStoryScript =
+                                        battleFlowMode == BattleFlowMode::CampaignStory
+                                        ? battleNextStoryScript
+                                        : std::string();
                                     if (!battleWinScript.empty()) {
                                         enterLoadedStory(battleWinScript,
                                                          "Post-battle story failed to load.",
                                                          battleReturnScreen,
-                                                         battleNextStoryScript);
-                                    } else if (!battleNextStoryScript.empty()) {
+                                                         resumedStoryFlow,
+                                                         chainedStoryScript);
+                                    } else if (battleFlowMode == BattleFlowMode::CampaignStory &&
+                                               !battleNextStoryScript.empty()) {
                                         beginStory(state, battleNextStoryScript, battleReturnScreen);
                                     } else if (state.story.loaded &&
                                                state.story.entryIndex < state.story.script.entries.size()) {
+                                        state.storyFlowMode = resumedStoryFlow;
                                         state.pauseSelection = PauseAction::Continue;
                                         state.pauseContext = PauseContext::Story;
                                         state.confirmSelection = ConfirmAction::Cancel;
@@ -2574,8 +2663,6 @@ int main(int argc, char** argv) {
                                         state.noticeText = "End of story.";
                                         state.noticeTimer = 2.2f;
                                     }
-                                } else if (!battleWinScript.empty()) {
-                                    beginStory(state, battleWinScript, battleReturnScreen, false);
                                 } else if (battleReturnScreen == ScreenState::BossSelector) {
                                     beginBossSelector(state);
                                 } else {
@@ -2583,8 +2670,12 @@ int main(int argc, char** argv) {
                                     state.pauseContext = PauseContext::Story;
                                     state.mainSelection = MainMenuAction::Battle;
                                 }
-                            } else if (!battleLoseScript.empty()) {
+                            } else if (battleFlowMode == BattleFlowMode::CampaignStory &&
+                                       !battleLoseScript.empty()) {
                                 beginStory(state, battleLoseScript, battleReturnScreen);
+                            } else if (battleFlowMode == BattleFlowMode::CampaignStory &&
+                                       !battleSourceStoryScript.empty()) {
+                                beginStory(state, battleSourceStoryScript, battleReturnScreen);
                             } else if (battleReturnScreen == ScreenState::BossSelector) {
                                 beginBossSelector(state);
                             } else {
@@ -2620,7 +2711,6 @@ int main(int argc, char** argv) {
             vn::update(deltaSeconds);
 
             if (vn::consumeAdvanceRequest()) {
-                const std::string previousBackground = effectiveStoryBackground(state.story, state.story.entryIndex);
                 const vn::ScriptEntry currentEntry =
                     state.story.entryIndex < state.story.script.entries.size()
                     ? state.story.script.entries[state.story.entryIndex]
@@ -2629,10 +2719,14 @@ int main(int argc, char** argv) {
                 const int pendingBattleId = currentEntry.battleId;
                 state.story.entryIndex++;
                 if (!pendingBattleKey.empty()) {
-                    state.pendingBattleLaunchedFromStory = true;
+                    state.pendingBattleFlowMode = state.storyFlowMode == StoryFlowMode::PracticeReplay
+                        ? BattleFlowMode::PracticeReplayStory
+                        : BattleFlowMode::CampaignStory;
                     state.pendingBattleReturnScreen = state.storyEndReturnScreen;
                     state.pendingBattleWinScript = currentEntry.battleWinScript;
-                    state.pendingBattleLoseScript = currentEntry.battleLoseScript;
+                    state.pendingBattleLoseScript = state.storyFlowMode == StoryFlowMode::Campaign
+                        ? currentEntry.battleLoseScript
+                        : std::string();
                     battle::BattleDefinition battleDefinition;
                     if (!battle::loader::loadBattleDefinition(pendingBattleKey, battleDefinition)) {
                         clearPendingBattleState(state);
@@ -2640,7 +2734,9 @@ int main(int argc, char** argv) {
                         state.noticeTimer = 2.6f;
                         state.screen = ScreenState::MainMenu;
                     } else {
-                        state.pendingStoryNextScript = battleDefinition.nextStoryScript;
+                        state.pendingStoryNextScript = state.storyFlowMode == StoryFlowMode::Campaign
+                            ? battleDefinition.nextStoryScript
+                            : std::string();
                         startLoadingTransition(
                             loadingTransition,
                             LoadingTransitionPresentation::RmlUi,
@@ -2651,10 +2747,14 @@ int main(int argc, char** argv) {
                             });
                     }
                 } else if (pendingBattleId >= 0) {
-                    state.pendingBattleLaunchedFromStory = true;
+                    state.pendingBattleFlowMode = state.storyFlowMode == StoryFlowMode::PracticeReplay
+                        ? BattleFlowMode::PracticeReplayStory
+                        : BattleFlowMode::CampaignStory;
                     state.pendingBattleReturnScreen = state.storyEndReturnScreen;
                     state.pendingBattleWinScript = currentEntry.battleWinScript;
-                    state.pendingBattleLoseScript = currentEntry.battleLoseScript;
+                    state.pendingBattleLoseScript = state.storyFlowMode == StoryFlowMode::Campaign
+                        ? currentEntry.battleLoseScript
+                        : std::string();
                     battle::BattleDefinition battleDefinition;
                     if (!battle::loader::loadBattleDefinitionById(pendingBattleId, battleDefinition)) {
                         clearPendingBattleState(state);
@@ -2663,7 +2763,9 @@ int main(int argc, char** argv) {
                         state.screen = ScreenState::MainMenu;
                     } else {
                         const std::string routedBattleKey = battleDefinition.key;
-                        state.pendingStoryNextScript = battleDefinition.nextStoryScript;
+                        state.pendingStoryNextScript = state.storyFlowMode == StoryFlowMode::Campaign
+                            ? battleDefinition.nextStoryScript
+                            : std::string();
                         startLoadingTransition(
                             loadingTransition,
                             LoadingTransitionPresentation::RmlUi,
@@ -2695,10 +2797,7 @@ int main(int argc, char** argv) {
                         state.noticeTimer = 2.2f;
                     }
                 } else {
-                    const auto& entry = state.story.script.entries[state.story.entryIndex];
-                    if (!entry.background.empty() && entry.background != previousBackground) {
-                        (void)save::autosave(buildStorySaveGame(state));
-                    }
+                    (void)save::autosave(buildStorySaveGame(state));
                     applyCurrentEntry(state.story, state.settings);
                 }
             }
