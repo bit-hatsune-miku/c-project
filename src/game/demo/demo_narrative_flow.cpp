@@ -10,7 +10,7 @@
 
 namespace battle::demo {
 
-bool DemoNarrativeFlow::initialize() {
+bool DemoNarrativeFlow::initialize(bool deferIntroDialogue) {
     shutdown();
 
     if (!loadDialogueLinesFromScript("assets/vn/json/demo.json", introDialogueLines_) ||
@@ -22,8 +22,9 @@ bool DemoNarrativeFlow::initialize() {
         return false;
     }
 
-    dialogueInProgress_ = true;
+    dialogueInProgress_ = false;
     spaceEnabledForBattle_ = false;
+    introDialoguePending_ = false;
     currentDialogueLine_ = 0;
     hasShownMikuFirstSkillTutorial_ = false;
     hasShownMikuFirstUltimateTutorial_ = false;
@@ -31,7 +32,11 @@ bool DemoNarrativeFlow::initialize() {
     pendingPostLyooAttackAfterMikuUltimateTutorial_ = false;
     hasShownBossDefeatedDialogue_ = false;
 
-    startDialogueSequence(introDialogueLines_);
+    if (deferIntroDialogue) {
+        introDialoguePending_ = !introDialogueLines_.empty();
+    } else {
+        startDialogueSequence(introDialogueLines_);
+    }
     return true;
 }
 
@@ -45,6 +50,7 @@ void DemoNarrativeFlow::shutdown() {
     activeDialogueLines_ = nullptr;
     dialogueInProgress_ = false;
     spaceEnabledForBattle_ = false;
+    introDialoguePending_ = false;
     currentDialogueLine_ = 0;
 
     hasShownMikuFirstSkillTutorial_ = false;
@@ -60,6 +66,17 @@ bool DemoNarrativeFlow::isDialogueInProgress() const {
 
 bool DemoNarrativeFlow::isSpaceEnabledForBattle() const {
     return spaceEnabledForBattle_;
+}
+
+void DemoNarrativeFlow::startIntroDialogueIfPending() {
+    if (!introDialoguePending_) {
+        return;
+    }
+
+    introDialoguePending_ = false;
+    if (!introDialogueLines_.empty()) {
+        startDialogueSequence(introDialogueLines_);
+    }
 }
 
 void DemoNarrativeFlow::onDialogueSpacePressed() {
