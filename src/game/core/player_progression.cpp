@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <iostream>
 #include <utility>
 #include <unordered_map>
 #include <unordered_set>
@@ -377,6 +378,9 @@ void replaceStageBuffAllocation(PlayerProgression& progression,
 
     std::vector<std::string> allCharacterKeys;
     if (!loadAllCharacterKeys(allCharacterKeys)) {
+        std::cerr << "[Progression] Warning: Failed to load character definitions for stage buff validation; "
+                  << "storing unvalidated allocation for battle '" << battleKey
+                  << "' (allocationEmpty=" << (allocation.empty() ? "true" : "false") << ").\n";
         if (allocation.empty()) {
             progression.stageBuffAssignments.erase(battleKey);
         } else {

@@ -276,7 +276,7 @@ private:
         int phaseIndex = -1;
         std::string hintText;
         float elapsed = 0.0f;
-        float duration = 0.78f;
+        float duration = 0.90f;
         Camera3D startCamera{};
         Camera3D goalCamera{};
     } bossPhaseIntro_;

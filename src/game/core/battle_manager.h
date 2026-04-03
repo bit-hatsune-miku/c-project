@@ -552,6 +552,7 @@ private:
     void applyAllAlliesActionAdvance(float fraction);
     void advanceBossActionByFraction(float fraction);
     void refreshComboState();
+    void flushPendingSplitAttackTelemetry();
 
     BattleState state_;
     BattleDefinition battleDefinition_{};

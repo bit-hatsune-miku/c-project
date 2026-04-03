@@ -114,7 +114,7 @@ bool loadNestedAbilityDefinitionsFromFile(const std::string& relativePath,
  *
  * Initializes \p outProfile to defaults, sets its profileId and phaseIndex,
  * and copies optional numeric entries from \p tuningJson:
- * - "intParams": integer entries copied into outProfile.intParams
+ * - "intParams": numeric entries copied into outProfile.intParams after conversion to int
  * - "floatParams": numeric entries copied into outProfile.floatParams
  *
  * Entries with the wrong JSON type are ignored. If \p tuningJson is not an
@@ -140,10 +140,10 @@ void parsePresentationTuningProfile(const json& tuningJson,
     if (const auto intParamsIt = tuningJson.find("intParams");
         intParamsIt != tuningJson.end() && intParamsIt->is_object()) {
         for (auto it = intParamsIt->begin(); it != intParamsIt->end(); ++it) {
-            if (!it.value().is_number_integer()) {
+            if (!it.value().is_number()) {
                 continue;
             }
-            outProfile.intParams[it.key()] = it.value().get<int>();
+            outProfile.intParams[it.key()] = static_cast<int>(it.value().get<double>());
         }
     }
 
