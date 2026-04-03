@@ -143,10 +143,22 @@ constexpr float kBossPhaseIntroLookOffsetY = -10.0f;
 constexpr float kBossPhaseIntroLookOffsetZ = -95.0f;
 constexpr float kPi = 3.14159265359f;
 
+/**
+ * @brief Convert an angle from radians to degrees.
+ *
+ * @param radians Angle in radians.
+ * @return float Angle in degrees.
+ */
 float radiansToDegrees(float radians) {
     return radians * (180.0f / kPi);
 }
 
+/**
+ * @brief Maps number-row and numeric-pad keys 1–4 to party indices.
+ *
+ * @param key SDL keycode to map.
+ * @return int Party index 0–3 for keys `1`/`KP_1`…`4`/`KP_4`, or `-1` if the key does not correspond to a party index.
+ */
 int manualUltimatePartyIndexFromKey(SDL_Keycode key) {
     switch (key) {
         case SDLK_1:
@@ -345,6 +357,13 @@ bool playResolvedLoop(game::audio::BgmPlayer& player, const std::string& path, f
     return player.play(resolved, volume);
 }
 
+/**
+ * @brief Stops all presentation audio playback and related SFX.
+ *
+ * Stops the active presentation loop audio and cancels all presentation one-shot SFX.
+ *
+ * @param resumeBgm If true, resumes the battle BGM controller after stopping presentation audio.
+ */
 void stopPresentationAudioPlayback(bool resumeBgm = false) {
     gPresentationLoopAudio.stop();
     gPresentationSfxAudio.stopAllPlayback();
@@ -507,11 +526,30 @@ void showHint(HudFeedbackState& feedback, std::string message, Uint64 nowMs, Uin
     feedback.hintUntilMs = durationMs > 0 ? nowMs + durationMs : 0;
 }
 
+/**
+ * @brief Clears the active HUD hint and its expiration timer.
+ *
+ * Resets the hint text to empty and sets the hint expiry timestamp to 0.
+ *
+ * @param feedback The HUD feedback state to modify.
+ */
 void clearHint(HudFeedbackState& feedback) {
     feedback.hintText.clear();
     feedback.hintUntilMs = 0;
 }
 
+/**
+ * @brief Display a temporary judgement popup on the HUD by updating feedback state.
+ *
+ * Updates the provided HUD feedback state with the judgement label, reward text,
+ * CSS class name, and start/expiration timestamps to show a transient judgement popup.
+ *
+ * @param feedback HUD feedback state to update.
+ * @param judgement The combat judgement value used to select label and styling.
+ * @param rewardText Text describing the reward to display beneath the judgement.
+ * @param nowMs Current time in milliseconds used as the popup start time.
+ * @param durationMs Duration in milliseconds the popup should remain visible.
+ */
 void showJudgement(HudFeedbackState& feedback,
                    battle::CombatJudgement judgement,
                    std::string rewardText,
@@ -524,6 +562,14 @@ void showJudgement(HudFeedbackState& feedback,
     feedback.judgementUntilMs = nowMs + durationMs;
 }
 
+/**
+ * @brief Clears any active judgement popup state from the HUD feedback.
+ *
+ * Resets the judgement text, reward text, CSS class name, and associated start/expiry
+ * timestamps so no judgement is considered active.
+ *
+ * @param feedback HUD feedback state to clear the judgement fields on.
+ */
 void clearJudgement(HudFeedbackState& feedback) {
     feedback.judgementText.clear();
     feedback.judgementRewardText.clear();
@@ -532,6 +578,14 @@ void clearJudgement(HudFeedbackState& feedback) {
     feedback.judgementUntilMs = 0;
 }
 
+/**
+ * @brief Plays the sound effect corresponding to a combat judgement.
+ *
+ * Triggers a one-shot audio playback for the provided `judgement` value.
+ *
+ * @param judgement The combat judgement whose associated sound effect will be played
+ *                  (e.g., `Perfect`, `Good`, `Okay`, `Flop`).
+ */
 void playJudgementSfx(battle::CombatJudgement judgement) {
     const char* relativePath = kPerfectJudgementSfxPath;
     switch (judgement) {
@@ -552,6 +606,16 @@ void playJudgementSfx(battle::CombatJudgement judgement) {
     (void)gOneShotAudio.playWavOneShot(platform::path::resolvePath(relativePath), 0.92f, false);
 }
 
+/**
+ * @brief Ensure the boss hit flash remains active until at least now + duration.
+ *
+ * Updates the `bossHitUntilMs` field of the provided HUD feedback state to the greater
+ * of its current value and `nowMs + durationMs`, preventing shorter overrides.
+ *
+ * @param feedback HUD feedback state whose boss-hit expiry will be updated.
+ * @param nowMs Current time in milliseconds.
+ * @param durationMs Duration in milliseconds to ensure the boss hit flash remains visible.
+ */
 void markBossHit(HudFeedbackState& feedback, Uint64 nowMs, Uint64 durationMs = kHitFlashDurationMs) {
     feedback.bossHitUntilMs = std::max(feedback.bossHitUntilMs, nowMs + durationMs);
 }
@@ -579,6 +643,15 @@ void blinkMissingOrbs(HudFeedbackState& feedback,
     feedback.blinkUntilMs = nowMs + durationMs;
 }
 
+/**
+ * @brief Advances HUD feedback timers and clears any feedback fields whose expiration has passed.
+ *
+ * Evaluates hint, toast, judgement, and blink expiry times against `nowMs` and resets the
+ * corresponding fields in `feedback` when they have expired.
+ *
+ * @param feedback HUD feedback state to update; mutated in-place to clear expired entries.
+ * @param nowMs Current timestamp in milliseconds used to compare against each expiry field.
+ */
 void tickHudFeedback(HudFeedbackState& feedback, Uint64 nowMs) {
     if (feedback.hintUntilMs != 0 && nowMs >= feedback.hintUntilMs) {
         clearHint(feedback);
@@ -598,6 +671,16 @@ void tickHudFeedback(HudFeedbackState& feedback, Uint64 nowMs) {
     }
 }
 
+/**
+ * @brief Synchronizes HUD feedback state with the current battle manager state.
+ *
+ * Ensures per-unit hit timers match the manager's party size and copies the
+ * current combo count and damage bonus fraction from the manager into the HUD
+ * feedback state.
+ *
+ * @param feedback Mutable HUD feedback state to update (per-unit hit timers and combo fields will be modified).
+ * @param manager Const reference to the battle manager providing authoritative party and combo state.
+ */
 void syncHudFeedbackState(HudFeedbackState& feedback, const battle::BattleManager& manager) {
     const std::size_t partySize = manager.getBattleState().party.size();
     if (feedback.unitHitUntilMs.size() != partySize) {
@@ -608,6 +691,16 @@ void syncHudFeedbackState(HudFeedbackState& feedback, const battle::BattleManage
     feedback.comboBonusFraction = comboState.damageBonusFraction;
 }
 
+/**
+ * @brief Initialize a HUD value animation state to a specific value and default timing.
+ *
+ * Sets the state's displayed, from, target, and trail values to the provided value,
+ * marks the animation as initialized and inactive, resets elapsed time, and applies
+ * the default animation duration (kHudAnimationDurationSeconds).
+ *
+ * @param state Animation state to initialize.
+ * @param value Value to set as the current/displayed/from/target/trail value.
+ */
 void resetHudValueAnimation(HudValueAnimationState& state, float value) {
     state.initialized = true;
     state.active = false;
@@ -951,6 +1044,17 @@ void startActionIntroCamera(battle::Camera3D& camera, CameraIntroAnimation& anim
     camera.focalLength = anim.startFocal;
 }
 
+/**
+ * @brief Advances a camera intro interpolation and updates the provided camera to its interpolated pose.
+ *
+ * Advances the animation timer by `deltaSeconds`, eases the progress with an out-cubic curve,
+ * interpolates position, orientation (pitch/yaw), and focal length between the animation's
+ * start and goal values, and deactivates the animation when the goal is reached.
+ *
+ * @param camera Camera instance to update with the interpolated transform.
+ * @param anim   Animation state containing start/goal transforms, elapsed time, duration, and active flag.
+ * @param deltaSeconds Time step, in seconds, to advance the animation.
+ */
 void updateActionIntroCamera(battle::Camera3D& camera, CameraIntroAnimation& anim, float deltaSeconds) {
     if (!anim.active) {
         return;
@@ -1034,6 +1138,12 @@ int findEntityIndexByPartyIndex(const std::vector<SceneEntity>& entities, int pa
     return -1;
 }
 
+/**
+ * @brief Finds the first boss entity in a list of scene entities.
+ *
+ * @param entities Sequence of scene entities to search.
+ * @return int Index of the first entity whose `isBoss` flag is true, or `-1` if none is found.
+ */
 int findBossEntityIndex(const std::vector<SceneEntity>& entities) {
     for (int i = 0; i < static_cast<int>(entities.size()); ++i) {
         if (entities[static_cast<size_t>(i)].isBoss) {
@@ -1043,6 +1153,12 @@ int findBossEntityIndex(const std::vector<SceneEntity>& entities) {
     return -1;
 }
 
+/**
+ * HUD hint text for a boss phase transition.
+ *
+ * @param phaseIndex Index of the new boss phase (1-based).
+ * @return Hint text to display: "ENTERING PHASE TWO" for phaseIndex == 1, "ENTERING PHASE THREE" for phaseIndex == 2, and "ENTERING NEW PHASE" otherwise.
+ */
 std::string bossPhaseHintText(int phaseIndex) {
     switch (phaseIndex) {
         case 1:
@@ -1054,6 +1170,18 @@ std::string bossPhaseHintText(int phaseIndex) {
     }
 }
 
+/**
+ * @brief Initializes and starts an interpolated camera intro from a start to a goal state.
+ *
+ * Activates `anim`, sets its elapsed time to zero, clamps the animation duration to at least 0.01s,
+ * stores the start and goal camera parameters inside `anim`, and sets `camera` to the `startCamera`.
+ *
+ * @param startCamera Source camera state for the intro.
+ * @param goalCamera Destination camera state for the intro.
+ * @param durationSeconds Desired interpolation duration in seconds (clamped to >= 0.01).
+ * @param camera Camera instance that will be set to the start state and subsequently driven by the animation.
+ * @param anim Animation state that will be initialized and activated for the interpolation.
+ */
 void startCameraIntroBetween(const battle::Camera3D& startCamera,
                              const battle::Camera3D& goalCamera,
                              float durationSeconds,
@@ -1077,6 +1205,15 @@ void startCameraIntroBetween(const battle::Camera3D& startCamera,
     camera = startCamera;
 }
 
+/**
+ * @brief Creates a camera positioned for the start of a boss-phase intro.
+ *
+ * Positions the camera relative to the boss entity's world coordinates using
+ * the configured boss-phase intro start offsets and sets a fixed focal length.
+ *
+ * @param bossEntity Scene entity representing the boss; its world position is used to compute the camera origin.
+ * @return battle::Camera3D Camera configured at the intro start position with the preset focal length.
+ */
 battle::Camera3D makeBossPhaseIntroStartCamera(const SceneEntity& bossEntity) {
     battle::Camera3D camera;
     camera.posX = bossEntity.worldX + kBossPhaseIntroStartOffsetX;
@@ -1086,6 +1223,14 @@ battle::Camera3D makeBossPhaseIntroStartCamera(const SceneEntity& bossEntity) {
     return camera;
 }
 
+/**
+ * @brief Constructs the camera positioned for the end of a boss-phase intro.
+ *
+ * Positions the camera relative to the given boss entity using the configured end-phase offsets and sets the focal length used for the intro shot.
+ *
+ * @param bossEntity Scene entity representing the boss; its worldX/worldY/worldZ are used as the reference origin for the camera offset.
+ * @return battle::Camera3D Camera positioned and configured for the boss-phase intro end shot.
+ */
 battle::Camera3D makeBossPhaseIntroEndCamera(const SceneEntity& bossEntity) {
     battle::Camera3D camera;
     camera.posX = bossEntity.worldX + kBossPhaseIntroEndOffsetX;
@@ -1095,6 +1240,15 @@ battle::Camera3D makeBossPhaseIntroEndCamera(const SceneEntity& bossEntity) {
     return camera;
 }
 
+/**
+ * @brief Orients the camera to look toward the boss entry point used for phase intros.
+ *
+ * Adjusts the camera's yaw and pitch so it aims at the boss's world position offset by the
+ * configured intro look offsets.
+ *
+ * @param camera Camera object whose `yawDegrees` and `pitchDegrees` will be updated.
+ * @param bossEntity Scene entity representing the boss; its world position is the target origin for the aim.
+ */
 void aimCameraAtBossIntroTarget(battle::Camera3D& camera, const SceneEntity& bossEntity) {
     const float lookX = bossEntity.worldX;
     const float lookY = bossEntity.worldY + kBossPhaseIntroLookOffsetY;
@@ -1118,6 +1272,20 @@ using ui::BattleVsIntroOverlayState;
 
 class SessionImpl {
 public:
+    /**
+     * @brief Initialize the battle session runtime and all required subsystems and resources.
+     *
+     * Initializes rendering, UI, audio, scene, battle manager, overlays, and related state using the
+     * provided window and settings. On failure the function ensures partial state is cleaned up.
+     *
+     * @param hostWindow Native window and GL context provider used for rendering and input.
+     * @param settings Live game settings used to initialize audio and UI parameters; may be null in some tests.
+     * @param battleKey Key identifying which battle definition to load; when empty a default tutorial key is used.
+     * @param progression Player progression data used to resolve available characters, unlocked content, and lineup defaults.
+     * @param initialPartyLineup Optional explicit party lineup to use instead of deriving one from progression and the battle definition.
+     * @param resultPresentation Configuration that controls end-of-battle result overlay presentation behavior.
+     * @return true if initialization completed successfully and the session is ready to run, false on error.
+     */
     bool initialize(Window& hostWindow,
                     GameSettings& settings,
                     const std::string& battleKey,
@@ -1444,6 +1612,13 @@ public:
         return true;
     }
 
+    /**
+     * @brief Shut down the session and release all runtime resources.
+     *
+     * Performs a full teardown of the session: stops and detaches audio controllers, stops voice and presentation playback, shuts down RmlUi and related GL integrations, destroys renderers and blitters, closes UI documents and overlays, stops TTF/SDL image subsystems if initialized here, clears listeners and cached assets, resets all runtime state fields to their default/empty values, and disables any active interactive modes (pause, free view, presentation, tutorial, etc.).
+     *
+     * This function is idempotent with respect to partially-initialized subsystems and does not return a value; callers should assume the session is no longer usable after it returns.
+     */
     void shutdown() {
         initialized_ = false;
         resetIdleVoicelineState();
@@ -1549,6 +1724,28 @@ public:
         timingUiMs_ = 0.0;
     }
 
+    /**
+     * @brief Process a single SDL event for the battle session, routing it to UI, overlays,
+     *        input handlers, and gameplay controls.
+     *
+     * This method:
+     * - Forwards scaled input to the RmlSDL UI context when appropriate.
+     * - Handles window resize events by updating viewport and scene renderers.
+     * - Routes events to pause/settings/result overlays when those are active.
+     * - Blocks pausing and certain inputs during cutscenes, VS intro, combat-begin animations,
+     *   and ultimate-turn splash, showing a toast when pause is attempted during those.
+     * - Toggles free-view camera, adjusts free-view focal length with the mouse wheel,
+     *   and snaps camera back when free-view is turned off.
+     * - Handles gameplay inputs: space for player turns (starting ultimate splash, executing
+     *   default turn, and processing automatic turns), E for rhythm on-beat checks,
+     *   backspace for tutorial skipping, and numeric/manual ultimate hotkeys.
+     * - Updates tutorial/narration progression and idle-voiceline bookkeeping.
+     *
+     * Side effects include modifying HUD feedback, camera staging, presentation/overlay state,
+     * battle manager actions, and starting/stopping audio as necessary.
+     *
+     * @param event The SDL event to process.
+     */
     void handleEvent(const SDL_Event& event) {
         if (!initialized_ || context_ == nullptr || window_ == nullptr) {
             return;
@@ -1710,6 +1907,16 @@ public:
         }
     }
 
+    /**
+     * @brief Advance the session's runtime state by a frame interval.
+     *
+     * Advances timers and audio controllers, processes automatic turns, narration and
+     * presentation progression, HUD and feedback updates, tutorial/rhythm logic,
+     * camera staging/free-view movement, scene entity updates, and transitions into
+     * pause, intro, boss-phase, presentation, or battle-result overlay states as
+     * dictated by current runtime conditions.
+     *
+     * @param deltaSeconds Frame time step in seconds.
     void update(float deltaSeconds) {
         if (!initialized_ || finished_) {
             return;
@@ -1893,6 +2100,14 @@ public:
         }
     }
 
+    /**
+     * @brief Renders a single battle frame including world, presentation layers, HUD/feedback, and overlays.
+     *
+     * Performs a full-frame composition using the OpenGL scene renderer and SDL compatibility surfaces:
+     * it selects the focused entity for the snapshot, applies stage and world rendering, integrates presentation
+     * content either natively or via compatibility blits, renders HUD/feedback and presentation overlays (ultimate
+     * splash, VN/dialogue), updates the RmlUi frame, and records optional frame timing metrics.
+     */
     void render() {
         if (!initialized_ || sceneRenderer_.renderer == nullptr || sceneRenderer_.surface == nullptr) {
             return;
@@ -2107,10 +2322,25 @@ public:
         }
     }
 
+    /**
+     * @brief Accesses the currently active party lineup.
+     *
+     * @return const std::vector<std::string>& Reference to the active party lineup where each element is a party member asset key in lineup order.
+     */
     const std::vector<std::string>& currentPartyLineup() const {
         return activePartyLineup_;
     }
 
+    /**
+     * @brief Builds a post-battle summary populated from the battle manager's telemetry.
+     *
+     * Populates an internal cache with overall telemetry (total action value consumed) and per-character
+     * analytics (character key, title, and total damage when available) and returns that cached summary.
+     *
+     * @return const battle::postbattle::Summary& Reference to the internal cached summary populated from
+     * the manager's telemetry. The reference remains valid until the next call to this function or until
+     * the owning object is destroyed.
+     */
     const battle::postbattle::Summary& postBattleSummary() {
         postBattleSummaryCache_ = battle::postbattle::Summary{};
         const battle::BattleTelemetry& telemetry = manager_.getBattleTelemetry();
@@ -2133,6 +2363,13 @@ public:
     }
 
 private:
+    /**
+     * Determines whether transitioning to the battle result overlay should be blocked
+     * because the boss-death voice clip is still playing.
+     *
+     * @return `true` if the boss has zero HP and a configured boss-dead voice clip is
+     * currently playing, `false` otherwise.
+     */
     bool isBattleFinishBlocked() const {
         if (manager_.getBossCurrentHp() > 0) {
             return false;
@@ -2142,10 +2379,22 @@ private:
         return bossDeadVoicePath.has_value() && gOneShotAudio.isPlaying(*bossDeadVoicePath);
     }
 
+    /**
+     * @brief Indicates whether the VS intro overlay is pending or active and therefore blocks normal battle progression.
+     *
+     * @return `true` if the VS intro overlay is pending to start or currently active, `false` otherwise.
+     */
     bool isBattleVsIntroBlocking() const {
         return vsIntroOverlay_.pendingStart || vsIntroOverlay_.active;
     }
 
+    /**
+     * @brief Initialize and activate the VS-intro overlay state.
+     *
+     * Prepares the VS intro sequence by clearing the pending start flag, enabling
+     * the overlay, resetting all per-sound playback markers and letter indices,
+     * and zeroing the presentation elapsed timer.
+     */
     void startBattleVsIntro() {
         vsIntroOverlay_.pendingStart = false;
         vsIntroOverlay_.active = true;
@@ -2162,6 +2411,13 @@ private:
         vsIntroOverlay_.presentationElapsedSeconds = 0.0f;
     }
 
+    /**
+     * @brief Advances the VS-intro overlay timeline and triggers its timed effects.
+     *
+     * Progresses the VS-intro overlay by up to a bounded step, plays staged one-shot SFX and background
+     * music at their configured reveal times, emits per-letter SFX as names are revealed, and completes
+     * the intro by starting any pending narrative intro and deactivating the overlay.
+     */
     void updateBattleVsIntro(float deltaSeconds) {
         if (vsIntroOverlay_.pendingStart) {
             if (!loadingOverlayState_.visible) {
@@ -2252,6 +2508,11 @@ private:
         }
     }
 
+    /**
+     * @brief Reports whether a narrative dialogue sequence is currently active.
+     *
+     * @return `true` if narrative support is enabled, initialized, and a dialogue is in progress; `false` otherwise.
+     */
     bool isDialogueInProgress() const {
         return narrativeEnabled_ && narrativeInitialized_ && narrative_.isDialogueInProgress();
     }
@@ -2276,10 +2537,25 @@ private:
         vn::setTypewriterSpeed(settings_->textSpeed);
     }
 
+    /**
+     * @brief Gets the effective master music volume used for background music.
+     *
+     * The returned value is clamped to the range 0.0 to 1.0. If no settings are available, this returns 1.0.
+     *
+     * @return float Effective master music volume in the range 0.0 to 1.0.
+     */
     float currentMusicMasterVolume() const {
         return settings_ != nullptr ? std::clamp(settings_->musicVolume, 0.0f, 1.0f) : 1.0f;
     }
 
+    /**
+     * @brief Starts the boss-phase intro sequence: focuses the camera on the boss, shows the phase hint, and begins the camera interpolation.
+     *
+     * If no boss entity is present the function is a no-op.
+     *
+     * @param transition Describes the boss phase change; its `toPhaseIndex` is used to select the hint text and to drive the intro.
+     * @param nowMs Current time in milliseconds used to timestamp the displayed hint.
+     */
     void startBossPhaseIntro(const battle::BossPhaseTransition& transition, Uint64 nowMs) {
         const int bossEntityIndex = findBossEntityIndex(entities_);
         if (bossEntityIndex < 0 || static_cast<size_t>(bossEntityIndex) >= entities_.size()) {
@@ -2302,6 +2578,18 @@ private:
             bossPhaseIntro_);
     }
 
+    /**
+     * @brief Advances the boss-phase intro sequence and updates the camera and HUD hint.
+     *
+     * Advances the boss phase intro animation by the given frame delta, updates the active
+     * camera transform toward the intro goal, displays the phase hint in the HUD while the
+     * intro is active, and deactivates the intro (clearing the hint) when the animation completes.
+     *
+     * @param deltaSeconds Time elapsed since the previous update, in seconds.
+     * @param nowMs Current time in milliseconds used for HUD hint timing.
+     *
+     * @note This function mutates the internal camera state, the `bossPhaseIntro_` active/elapsed
+     *       state, and the HUD feedback hint. */
     void updateBossPhaseIntro(float deltaSeconds, Uint64 nowMs) {
         if (!bossPhaseIntro_.active) {
             return;
@@ -2336,10 +2624,25 @@ private:
         }
     }
 
+    /**
+     * @brief Get the current master voice volume used for playback.
+     *
+     * @return float The voice volume (configured value from settings); `1.0f` if settings are unavailable.
+     */
     float currentVoiceVolume() const {
         return settings_ != nullptr ? settings_->voiceVolume : 1.0f;
     }
 
+    /**
+     * @brief Executes a sequence of presentation audio commands, applying SFX, looped presentation audio, and BGM control.
+     *
+     * Processes each command in order and performs the corresponding audio action: play one-shot SFX (optionally allowing overlap),
+     * start or stop a presentation audio loop (using the session's loop player and master-volume scaling), stop all presentation SFX,
+     * and pause or resume the battle BGM controller.
+     *
+     * @param context Presentation execution context (currently unused; provided for API symmetry).
+     * @param commands Ordered list of audio commands to execute. Each command's `type`, `id`, and `volume` fields determine the action.
+     */
     void handlePresentationAudioCommands(
         const battle::PresentationContext& context,
         const std::vector<battle::PresentationAudioCommand>& commands) {
@@ -2470,6 +2773,18 @@ private:
         }
     }
 
+    /**
+     * @brief Plays appropriate hit/heal/death voice audio and updates HUD and manager state for a presentation's hit events.
+     *
+     * This function triggers voice one-shots (character/boss hit, dead, healed, or special ability clips as applicable),
+     * updates HUD feedback (unit/boss hit markers), and notifies the battle manager that presentation hit audio has been played.
+     *
+     * @param context Presentation context describing the caster and presentation metadata.
+     * @param hitEvents Number of hit audio events to play (used to repeat hit clips); non-positive values cause no audio to be played.
+     * @param targetPartyIndex Index of the targeted party member, or -1 to target all party members.
+     * @param bossHpBefore Boss HP value before the presentation ability was applied.
+     * @param partyHpBefore Vector of party members' HP values before the presentation ability was applied; indexed by party position.
+     */
     void handlePresentationHitAudio(const battle::PresentationContext& context,
                                     int hitEvents,
                                     int targetPartyIndex,
@@ -2557,6 +2872,21 @@ private:
         manager_.markPresentationHitAudioPlayed();
     }
 
+    /**
+     * @brief Produce the short reward text shown after a presentation ability resolves.
+     *
+     * Constructs a concise label describing the reward/effect provided by a presentation feedback
+     * event. If `feedback.rewardText` is non-empty that text is returned verbatim. Otherwise a
+     * string is derived from the ability type and the feedback multiplier (for example "+20% DMG",
+     * "-30% DMG TAKEN", "+15% HEAL", "+50% SHIELD", "+10% ATK").
+     *
+     * @param context Presentation context; used to determine boss-vs-character semantics.
+     * @param abilityDef Pointer to the ability definition driving the presentation; if null and
+     *                   no explicit `feedback.rewardText` is provided, an empty string is returned.
+     * @param feedback Presentation feedback containing an optional explicit rewardText and a
+     *                 numeric multiplier used to derive percent-based labels.
+     * @return std::string The reward label to display, or an empty string if no label can be derived.
+     */
     std::string resolvePresentationRewardText(const battle::PresentationContext& context,
                                               const battle::AbilityDefinition* abilityDef,
                                               const battle::PresentationFeedbackEvent& feedback) const {
@@ -2613,6 +2943,17 @@ private:
         return std::string();
     }
 
+    /**
+     * @brief Applies a resolved presentation feedback event to game state and HUD.
+     *
+     * If the feedback is valid, classifies its judgement, derives any reward text,
+     * applies the feedback to the battle manager, displays the judgement on the HUD,
+     * and plays the corresponding judgement sound effect.
+     *
+     * @param context Presentation context containing metadata for the feedback (e.g., whether the caster is the boss).
+     * @param abilityDef Pointer to the ability definition associated with the presentation, or `nullptr` if none.
+     * @param feedback The presentation feedback event to apply; no action is taken if `feedback.valid()` is false.
+     */
     void applyPresentationFeedbackEvent(const battle::PresentationContext& context,
                                         const battle::AbilityDefinition* abilityDef,
                                         const battle::PresentationFeedbackEvent& feedback) {
@@ -2627,6 +2968,17 @@ private:
         playJudgementSfx(judgement);
     }
 
+    /**
+     * @brief Runs an ability presentation and applies its resulting effects to the session.
+     *
+     * Executes the presentation runtime for the provided context, updating scene entities,
+     * camera staging, HUD/feedback state, audio playback, and manager-side effects produced
+     * by the presentation. Clears transient overlay state when the presentation completes.
+     *
+     * @param context PresentationContext describing the presentation id, ability id,
+     *                caster/target indices and whether the caster is the boss.
+     * @return float Multiplier produced by the presentation (used to scale subsequent effects). 
+     */
     float runPresentationInteraction(const battle::PresentationContext& context) {
         if (!initialized_ || finished_) {
             return 1.0f;
@@ -2918,6 +3270,14 @@ private:
         return result.multiplier;
     }
 
+    /**
+     * @brief Loads the UI fonts used by the battle HUD into RmlUi if present.
+     *
+     * Attempts to load the project's preferred font files and a system fallback;
+     * succeeds if at least one usable font is found and registered.
+     *
+     * @return `true` if one or more fonts were loaded, `false` otherwise.
+     */
     bool loadFonts() {
         bool anyLoaded = false;
         anyLoaded |= loadRmlFontIfPresent(platform::path::resolvePath("assets/fonts/SpaceMono-Regular.ttf"));
@@ -3065,6 +3425,15 @@ private:
         drawableHeight_ = windowHost_->getDrawableHeight();
     }
 
+    /**
+     * @brief Synchronizes HUD feedback state and updates the battle HUD Rml document.
+     *
+     * Updates internal HUD feedback from the battle manager and refreshes the visible HUD
+     * document so time-based animations, expirations, and overlay states reflect the
+     * current runtime state.
+     *
+     * @param nowMs Current time in milliseconds used to drive HUD animations and expirations.
+     */
     void syncHudDocument(Uint64 nowMs) {
         syncHudFeedbackState(hudFeedback_, manager_);
         battle::app::ui::updateBattleHudDocument(document_,
@@ -3085,6 +3454,12 @@ private:
                                                  makeBattleHudDocumentDependencies());
     }
 
+    /**
+     * @brief Constructs a snapshot of the current frame state for rendering.
+     *
+     * @param focusedIndex Index of the focused entity in the session's entities vector.
+     * @return battle::BattleSessionCore::BattleFrameSnapshot Snapshot populated with the current camera, stage pointer, entity list, focused entity index, frame accumulator, presentation flags, active presentation/splash pointers, feedback anchors, and per-entity shake offsets.
+     */
     battle::BattleSessionCore::BattleFrameSnapshot buildFrameSnapshot(int focusedIndex) const {
         battle::BattleSessionCore::BattleFrameSnapshot snapshot;
         snapshot.camera = camera_;
@@ -3346,6 +3721,14 @@ private:
         previewUltimateSplashPartyIndex_ = preview.partyIndex;
     }
 
+    /**
+     * @brief Determines whether the boss death fade-out has completed.
+     *
+     * The fade is considered complete if the boss still has HP, if there is no boss entity,
+     * or if the boss entity is marked hidden or effectively fully transparent.
+     *
+     * @return true if the boss is alive, no boss entity is present, or the boss entity is hidden or has near-zero alpha; false otherwise.
+     */
     bool isBossDeathFadeComplete() const {
         if (manager_.getBossCurrentHp() > 0) {
             return true;
@@ -3361,10 +3744,25 @@ private:
         return true;
     }
 
+    /**
+     * @brief Get the delay before the battle result confirmation button becomes interactive.
+     *
+     * @return float Time in seconds before the result overlay's confirm button is enabled, derived from the current result overlay state.
+     */
     float battleResultButtonInteractiveTimeSeconds() const {
         return battle::app::ui::battleResultButtonInteractiveSeconds(resultOverlay_);
     }
 
+    /**
+     * @brief Initialize and display the battle result overlay for the given outcome.
+     *
+     * Sets up internal result overlay state (texts, button labels, subcopy, action) based
+     * on the resolved outcome and the configured `resultPresentationConfig_`, begins a
+     * BGM fade-out, and synchronizes the HUD document to reflect the newly active overlay.
+     *
+     * @param outcome The final battle outcome to present (victory, defeat, etc.).
+     * @param nowMs Current timestamp in milliseconds used to stamp overlay start times and timers.
+     */
     void enterBattleResultOverlay(BattleOutcome outcome, Uint64 nowMs) {
         if (resultOverlay_.active || outcome == BattleOutcome::None) {
             return;
@@ -3398,6 +3796,15 @@ private:
         syncHudDocument(nowMs);
     }
 
+    /**
+     * @brief Advances and processes the battle result overlay presentation.
+     *
+     * Advances the overlay's internal presentation timer by up to a capped step, triggers letter-by-letter
+     * sound effects as the result text is revealed, plays the reveal and victory-applause sounds at the
+     * configured times, and enables input when the overlay becomes interactive.
+     *
+     * @param deltaSeconds Frame time to advance the overlay presentation, clamped to a maximum step.
+     */
     void updateBattleResultOverlay(float deltaSeconds) {
         if (!resultOverlay_.active) {
             return;
@@ -3440,6 +3847,12 @@ private:
         }
     }
 
+    /**
+     * @brief Plays the result-overlay button hover sound when the overlay is interactable.
+     *
+     * If the battle result overlay is active, input is enabled, and the overlay has not been acknowledged,
+     * this function triggers the configured hover SFX; otherwise it has no effect.
+     */
     void handleBattleResultButtonHover() {
         if (!resultOverlay_.active || !resultOverlay_.inputEnabled || resultOverlay_.acknowledged) {
             return;
@@ -3448,6 +3861,13 @@ private:
         (void)playResolvedOneShot(gPresentationSfxAudio, kBattleResultButtonHoverSfxPath, 0.58f, true);
     }
 
+    /**
+     * @brief Acknowledges the active battle result overlay and ends the session.
+     *
+     * If the result overlay is active, input-enabled, and not yet acknowledged,
+     * this marks the overlay as acknowledged, plays the result selection sound,
+     * and marks the session as finished.
+     */
     void confirmBattleResultOverlay() {
         if (!resultOverlay_.active || !resultOverlay_.inputEnabled || resultOverlay_.acknowledged) {
             return;
@@ -3458,6 +3878,15 @@ private:
         finished_ = true;
     }
 
+    /**
+     * @brief Handle keyboard input for the active battle result overlay.
+     *
+     * If the result overlay is active and the event is a keydown of Return,
+     * keypad Enter, or Space, the overlay confirmation action is invoked.
+     *
+     * @param event SDL event to process; ignored unless it is a keydown event
+     *              and the result overlay is active.
+     */
     void handleBattleResultEvent(const SDL_Event& event) {
         if (!resultOverlay_.active) {
             return;
@@ -3474,6 +3903,17 @@ private:
         }
     }
 
+    /**
+     * @brief Attaches a persistent RmlUi event listener to an element within the current document.
+     *
+     * If the document or the element with the given `id` is not present, this function does nothing.
+     * The provided `callback` is wrapped and retained internally so the listener remains valid
+     * for the lifetime of the document or until listeners are cleared.
+     *
+     * @param id Element id to attach the listener to.
+     * @param eventId Rml event identifier (e.g., "click", "mouseover").
+     * @param callback Function invoked when the event fires; receives the Rml::Event reference.
+     */
     void attachListener(const std::string& id, Rml::EventId eventId, std::function<void(Rml::Event&)> callback) {
         if (document_ == nullptr) {
             return;
@@ -3544,6 +3984,18 @@ private:
         }
     }
 
+    /**
+     * @brief Apply UI settings from an AppState to the running session and update live audio and narrative state.
+     *
+     * Copies the settings from the provided AppState into the session's active settings (if present),
+     * updates master music volumes for the pause-menu BGM player, the battle BGM controller, and the
+     * presentation loop audio (scaled by the session's presentationLoopBaseVolume_), and then applies
+     * narrative-related settings.
+     *
+     * If the session has no active settings pointer (`settings_ == nullptr`), this function performs no action.
+     *
+     * @param state Source application state containing the UI settings to apply.
+     */
     void applyLiveSettingsFromUiState(const AppState& state) {
         if (settings_ == nullptr) {
             return;
@@ -3654,6 +4106,14 @@ private:
         return pauseMenuTracks_[index];
     }
 
+    /**
+     * @brief Begins playback of the pause-menu music and preserves/updates battle BGM pause state.
+     *
+     * Stops any existing pause-menu music, records whether the battle BGM was playing and whether it
+     * was paused, and pauses the battle BGM if it was actively playing. Then selects a pause-menu
+     * track and starts playing it at the current music volume from settings (defaults to 1.0 if
+     * settings are unavailable).
+     */
     void startPauseMenuMusic() {
         stopPauseMenuMusic();
 
@@ -3674,6 +4134,16 @@ private:
         gPauseMenuBgmPlayer.stop();
     }
 
+    /**
+     * @brief Closes pause/settings UI and restores runtime state for normal gameplay.
+     *
+     * Closes the settings and pause documents, stops the pause-menu music, resets pause-related
+     * audio volume/state to defaults, clears pause flags, and returns the pause overlay mode
+     * and selection to their default values. If `resumeBattleMusic` is true and the battle
+     * BGM was playing before the pause (and was not already paused), resumes the battle BGM.
+     *
+     * @param resumeBattleMusic If true, attempt to resume the battle BGM when appropriate.
+     */
     void leavePauseMenu(bool resumeBattleMusic) {
         closeSettingsMenuDocument();
         closePauseMenuDocument();
@@ -3872,6 +4342,15 @@ private:
         (void)refreshSceneRenderers();
     }
 
+    /**
+     * @brief Starts a rhythm challenge for the given party member.
+     *
+     * Activates the internal rhythm-challenge state for the specified party index, recording the actor title,
+     * a default ability name ("Rhythm Skill"), and the start time used for timing the challenge. If the index
+     * is out of range, the function does nothing.
+     *
+     * @param partyIndex Index of the party member who will perform the rhythm challenge.
+     */
     void beginRhythmChallenge(int partyIndex) {
         const battle::BattleState& state = manager_.getBattleState();
         if (partyIndex < 0 || partyIndex >= static_cast<int>(state.party.size())) {
@@ -3885,6 +4364,17 @@ private:
         rhythmChallenge_.startedMs = SDL_GetTicks64();
     }
 
+    /**
+     * @brief Display HUD feedback and visual cues for the outcome of a manual ultimate request.
+     *
+     * Shows either a transient toast or a timed hint and triggers a missing-orb blink when appropriate,
+     * depending on the provided result and whether the request was buffered.
+     *
+     * @param partyIndex Zero-based party index for which the ultimate request was attempted.
+     * @param result Enum value describing the request outcome (queued, meter not ready, already queued, unavailable).
+     * @param nowMs Current time in milliseconds used to schedule hint/toast expiration and visual effects.
+     * @param buffered If true, prefer timed hint overlays (short-lived text) over immediate toasts.
+     */
     void handleManualUltimateRequestResult(int partyIndex,
                                            battle::ManualUltimateRequestResult result,
                                            Uint64 nowMs,
@@ -3925,6 +4415,13 @@ private:
         }
     }
 
+    /**
+     * @brief Processes and clears any queued manual-ultimate requests.
+     *
+     * Invokes a manual-ultimate request for each buffered party index and forwards each request's result to the manual-ultimate result handler, then clears the buffer.
+     *
+     * @param nowMs Current time in milliseconds, used by the result handler for timestamping or timing decisions.
+     */
     void flushBufferedManualUltimateRequests(Uint64 nowMs) {
         std::vector<int> pendingRequests;
         pendingRequests.swap(bufferedManualUltimatePartyIndices_);
@@ -3938,6 +4435,18 @@ private:
         }
     }
 
+    /**
+     * @brief Handles a manual-ultimate hotkey by mapping the key to a party member and requesting an ultimate turn.
+     *
+     * If the key does not map to any party index the function does not consume the key.
+     * When the battle or input state prevents immediate requests (free view, tutorial overlay,
+     * dialogue in progress, space actions disabled, or battle over) the key is consumed but no request is made.
+     * If a rhythm challenge is active the request is queued and a HUD hint is shown.
+     *
+     * @param key SDL key code pressed; numeric keypad / number keys map to party indices.
+     * @param nowMs Current time in milliseconds used for HUD hint timing.
+     * @return true if the key was consumed (handled or queued), false if the key did not map to a party index.
+     */
     bool handleManualUltimateHotkey(SDL_Keycode key, Uint64 nowMs) {
         const int partyIndex = manualUltimatePartyIndexFromKey(key);
         if (partyIndex < 0) {
@@ -3971,6 +4480,15 @@ private:
         return true;
     }
 
+    /**
+     * @brief Triggers the appropriate tutorial step when its entry conditions are met.
+     *
+     * Checks tutorial enablement, library availability, overlay state, and rhythm blocking, then starts
+     * the first applicable tutorial step (Standard, Skill, or Ultimate) when the corresponding player
+     * action becomes ready or a queued manual-ultimate request exists.
+     *
+     * @param nowMs Current timestamp in milliseconds used to start the tutorial timing.
+     */
     void maybeStartTutorial(Uint64 nowMs) {
         if (!tutorialEnabled_ || !tutorialLibrary_.loaded ||
             tutorialOverlay_.dismissed || rhythmChallenge_.active || tutorialOverlay_.step != TutorialStep::None) {
@@ -4007,6 +4525,17 @@ private:
         }
     }
 
+    /**
+     * @brief Finalizes an active rhythm (skill) challenge and attempts the player's skill action.
+     *
+     * If a rhythm challenge is active, stops the challenge and attempts to execute the player's skill.
+     * On failure, clears any buffered manual-ultimate requests and shows an "ACTION NOT AVAILABLE." toast.
+     * On success, shows an on-beat/late toast, marks the skill tutorial step complete, flushes buffered manual-ultimate
+     * requests, advances automatic turns, and consumes resulting battle action events (updating HUD/voice/camera staging).
+     *
+     * @param onBeat True to indicate the input was on-beat (displays "ON-BEAT INPUT."), false to indicate late input
+     *               (displays "LATE INPUT.").
+     */
     void finalizeSkillChallenge(bool onBeat) {
         if (!rhythmChallenge_.active) {
             return;
@@ -4265,6 +4794,20 @@ private:
 
 Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
 Session::~Session() = default;
+/**
+ * @brief Initialize the battle session with the provided window, settings, and battle configuration.
+ *
+ * Initializes internal runtime state, renderers, audio, UI, and battle manager and prepares the session
+ * to begin running and rendering the specified battle.
+ *
+ * @param window The application window and GL context to use for rendering.
+ * @param settings User-adjustable game settings (audio volumes, text speed, display mode, etc.).
+ * @param battleKey Key identifying the battle definition to load.
+ * @param progression Player progression state used to seed enemy/boss scaling and unlocks.
+ * @param initialPartyLineup Optional explicit party lineup; when present it overrides the battle's default lineup.
+ * @param resultPresentation Configuration controlling the post-battle result overlay presentation.
+ * @return true if initialization completed successfully and the session is ready; false on failure.
+ */
 bool Session::initialize(Window& window,
                          GameSettings& settings,
                          const std::string& battleKey,
@@ -4279,15 +4822,51 @@ bool Session::initialize(Window& window,
         std::move(initialPartyLineup),
         resultPresentation);
 }
+/**
+ * @brief Shuts down and releases all resources held by the session.
+ *
+ * Performs a full teardown of the underlying implementation, stopping audio,
+ * closing UI contexts, releasing renderers and assets, and resetting internal state.
+ */
 void Session::shutdown() { impl_->shutdown(); }
+/**
+ * @brief Process a single SDL event for the battle session.
+ *
+ * Dispatches input and window events to the session runtime so the session
+ * can handle gameplay input, UI interaction, pause/result overlays, and
+ * window resizing.
+ *
+ * @param event SDL event to process.
+ */
 void Session::handleEvent(const SDL_Event& event) { impl_->handleEvent(event); }
 void Session::update(float deltaSeconds) { impl_->update(deltaSeconds); }
 void Session::render() { impl_->render(); }
 void Session::setLoadingOverlay(const graphics::RmlUiLoadingOverlayState& state) { impl_->setLoadingOverlay(state); }
 bool Session::isFinished() const { return impl_->isFinished(); }
+/**
+ * @brief Reports whether the session exited to the main menu.
+ *
+ * @return bool `true` if the session exited to the main menu, `false` otherwise.
+ */
 bool Session::exitedToMainMenu() const { return impl_->exitedToMainMenu(); }
+/**
+ * @brief Gets the current outcome of the battle session.
+ *
+ * @return BattleOutcome The session's current outcome: the resolved final outcome if the battle has finished,
+ * or the current in-progress state otherwise.
+ */
 BattleOutcome Session::outcome() const { return impl_->outcome(); }
+/**
+ * @brief Retrieve the current party lineup as asset keys in slot order.
+ *
+ * @return const std::vector<std::string>& A reference to the active party lineup vector, ordered by slot; may be empty.
+ */
 const std::vector<std::string>& Session::currentPartyLineup() const { return impl_->currentPartyLineup(); }
+/**
+ * @brief Retrieve the post-battle summary for the completed session.
+ *
+ * @return const battle::postbattle::Summary& The cached post-battle summary containing aggregated telemetry and per-character statistics (e.g., total action value consumed, per-character total damage, and outcome).
+ */
 const battle::postbattle::Summary& Session::postBattleSummary() const { return impl_->postBattleSummary(); }
 
 } // namespace battle::app

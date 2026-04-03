@@ -233,13 +233,18 @@ bool UiMusicController::loadTrackPool() {
 }
 
 /**
- * @brief Determines which UI music surface should be active for the given application state.
+ * @brief Resolve the UI music surface corresponding to the current application state.
  *
- * Inspects the current screen, pause context, and certain return-screen fields to map the
- * application's UI state to a UiMusicSurface value that drives UI BGM selection and playback.
+ * Maps application screens and pause-related contexts to a UiMusicSurface used for selecting
+ * and controlling UI background music. Returns `MainMenu` for the main menu and for settings/load
+ * screens that return to the main menu; `BattleSelector` for the boss selector; `PartyLoader`
+ * for the party loader screen; `PostBattle` for post-battle screens; `PauseMenu` for story-related
+ * pause screens and their pause-child screens when the pause surface is ready for music;
+ * otherwise returns `None`.
  *
  * @param state Current application state used to resolve the appropriate music surface.
- * @return UiMusicSurface The resolved music surface: MainMenu, BattleSelector, PauseMenu, or None.
+ * @return UiMusicSurface The resolved music surface: `MainMenu`, `BattleSelector`, `PartyLoader`,
+ * `PostBattle`, `PauseMenu`, or `None`.
  */
 UiMusicSurface UiMusicController::resolveSurface(const AppState& state) const {
     if (state.screen == ScreenState::MainMenu) {

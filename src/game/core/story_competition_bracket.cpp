@@ -9,22 +9,62 @@
 namespace battle::competition {
 namespace {
 
+/**
+ * @brief Constructs a Rect from the provided position and size.
+ *
+ * @param x The x-coordinate of the rectangle's origin (left).
+ * @param y The y-coordinate of the rectangle's origin (top).
+ * @param width The rectangle's width (may be zero or positive).
+ * @param height The rectangle's height (may be zero or positive).
+ * @return Rect A rectangle with origin (x, y) and the specified width and height.
+ */
 Rect makeRect(float x, float y, float width, float height) {
     return Rect{x, y, width, height};
 }
 
+/**
+ * @brief Constructs a horizontal segment rectangle spanning between two x coordinates.
+ *
+ * The returned Segment's rect starts at the lesser of `x0` and `x1`, extends to the greater,
+ * is vertically centered at `centerY`, and has the specified `thickness`. The segment width is
+ * clamped to be at least 0.
+ *
+ * @param x0 One horizontal endpoint.
+ * @param x1 The other horizontal endpoint.
+ * @param centerY Vertical center position of the segment.
+ * @param thickness Height of the segment rectangle (defaults to 4.0f).
+ * @return Segment A horizontal segment represented as a rectangular `Segment`.
+ */
 Segment makeHorizontalSegment(float x0, float x1, float centerY, float thickness = 4.0f) {
     const float left = std::min(x0, x1);
     const float right = std::max(x0, x1);
     return Segment{makeRect(left, centerY - thickness * 0.5f, std::max(0.0f, right - left), thickness)};
 }
 
+/**
+ * @brief Constructs a vertical rectangular segment centered horizontally at a given X and spanning two Y coordinates.
+ *
+ * @param centerX X coordinate of the rectangle's horizontal center.
+ * @param y0 First Y coordinate of the vertical span.
+ * @param y1 Second Y coordinate of the vertical span.
+ * @param thickness Width of the rectangle (horizontal size) defaulting to 4.0f.
+ * @return Segment A `Segment` whose rectangle is centered at `centerX` with width `thickness` and height spanning from the lesser of `y0`/`y1` to the greater. If `y0 == y1` the rectangle's height is zero.
+ */
 Segment makeVerticalSegment(float centerX, float y0, float y1, float thickness = 4.0f) {
     const float top = std::min(y0, y1);
     const float bottom = std::max(y0, y1);
     return Segment{makeRect(centerX - thickness * 0.5f, top, thickness, std::max(0.0f, bottom - top))};
 }
 
+/**
+ * @brief Resolves a UI sprite asset name to a relative combat sprite path if the file exists.
+ *
+ * If `assetName` is empty or no matching file is found, returns an empty string.
+ *
+ * @param assetName Base asset name (without extension) to resolve.
+ * @return std::string Relative path "../combat/sprites/{assetName}.{ext}" where `{ext}` is
+ * "png" or "webp" for the first existing file, or an empty string if none is found.
+ */
 std::string resolveUiSpritePath(const std::string& assetName) {
     if (assetName.empty()) {
         return {};
@@ -41,6 +81,16 @@ std::string resolveUiSpritePath(const std::string& assetName) {
     return {};
 }
 
+/**
+ * @brief Return the first non-empty instruction hint found among a boss's abilities.
+ *
+ * Checks the boss's `skillAbility`, `ability`, then `ultimate` (in that order) and returns
+ * the first non-empty `instructionHint` found in a successfully loaded ability definition.
+ *
+ * @param boss Boss definition to inspect for ability instruction hints.
+ * @return std::string The first non-empty instruction hint from the boss's abilities, or
+ * "No special interaction hint is available for this round." if none are available.
+ */
 std::string resolveInstructionHint(const BossDefinition& boss) {
     AbilityDefinition ability;
     for (const std::string* abilityId : {&boss.skillAbility, &boss.ability, &boss.ultimate}) {
@@ -54,7 +104,18 @@ std::string resolveInstructionHint(const BossDefinition& boss) {
     return "No special interaction hint is available for this round.";
 }
 
-}  // namespace
+}  /**
+ * @brief Builds a bracket model for the story competition using player progression.
+ *
+ * Populates @p outModel with rounds, player and boss data, sprite paths, instruction
+ * hints, the index of the next uncleared round, and whether the finale is unlocked.
+ * @p outModel is reset to a default-initialized state on entry.
+ *
+ * @param progression Player progression used to determine which rounds are cleared.
+ * @param outModel Destination model that will be populated with bracket data.
+ * @param outError Optional output for a human-readable error message when loading fails.
+ * @return true if a non-empty BracketModel was produced; `false` if loading failed or no rounds were available.
+ */
 
 bool buildBracketModel(const PlayerProgression& progression,
                        BracketModel& outModel,
@@ -114,6 +175,14 @@ bool buildBracketModel(const PlayerProgression& progression,
     return !outModel.rounds.empty();
 }
 
+/**
+ * @brief Finds the zero-based index of the round matching the given battle key.
+ *
+ * Searches the model's rounds for an entry whose battle key equals `battleKey`.
+ *
+ * @param battleKey The battle identifier to locate; if empty, the function returns `std::nullopt`.
+ * @return std::optional<std::size_t> Containing the index of the matching round, or `std::nullopt` if no match is found or `battleKey` is empty.
+ */
 std::optional<std::size_t> findRoundIndex(const BracketModel& model, const std::string& battleKey) {
     if (battleKey.empty()) {
         return std::nullopt;
@@ -128,6 +197,17 @@ std::optional<std::size_t> findRoundIndex(const BracketModel& model, const std::
     return std::nullopt;
 }
 
+/**
+ * @brief Determines which round index should be targeted based on an explicit battle key or progression state.
+ *
+ * If `battleKey` corresponds to a round in `model`, that round's index is returned. Otherwise, when the model has
+ * no rounds returns `0`; if `model.nextUnclearedIndex` points to an existing round returns that index; otherwise
+ * returns the last round index.
+ *
+ * @param model Bracket model containing rounds and progression metadata.
+ * @param battleKey Optional battle key used to select a specific round; an empty or non-matching key is ignored.
+ * @return std::size_t Index of the targeted round (clamped to a valid index when necessary).
+ */
 std::size_t resolveTargetRoundIndex(const BracketModel& model, const std::string& battleKey) {
     if (const std::optional<std::size_t> roundIndex = findRoundIndex(model, battleKey); roundIndex.has_value()) {
         return *roundIndex;
@@ -142,6 +222,26 @@ std::size_t resolveTargetRoundIndex(const BracketModel& model, const std::string
     return model.rounds.size() - 1;
 }
 
+/**
+ * @brief Determine the visual state for a bracket round node.
+ *
+ * Evaluates the given round's cleared status, selection, and practice mode to
+ * choose the appropriate UI state.
+ *
+ * - If `roundIndex` is out of range, the state is `RoundNodeState::Future`.
+ * - In practice mode:
+ *   - Uncleared rounds are `RoundNodeState::Locked`.
+ *   - Cleared rounds are `RoundNodeState::Current` when `roundIndex == selectedIndex`, otherwise `RoundNodeState::Cleared`.
+ * - In normal mode:
+ *   - Cleared rounds are `RoundNodeState::Cleared`.
+ *   - Unlocked (uncleared) rounds are `RoundNodeState::Current` when `roundIndex == selectedIndex`, otherwise `RoundNodeState::Future`.
+ *
+ * @param model Bracket model containing rounds and their cleared states.
+ * @param roundIndex Index of the round to evaluate.
+ * @param selectedIndex Index of the currently selected round.
+ * @param practiceMode If true, use practice-mode visibility rules (locks uncleared rounds).
+ * @return RoundNodeState The node state: `Locked`, `Current`, `Cleared`, or `Future`.
+ */
 RoundNodeState resolveRoundState(const BracketModel& model,
                                  std::size_t roundIndex,
                                  std::size_t selectedIndex,
@@ -164,6 +264,18 @@ RoundNodeState resolveRoundState(const BracketModel& model,
     return roundIndex == selectedIndex ? RoundNodeState::Current : RoundNodeState::Future;
 }
 
+/**
+ * @brief Compute the geometric layout and connecting segments for the story competition bracket UI.
+ *
+ * Given a populated BracketModel and a LayoutSpec describing sizes and insets, produces a BracketLayout
+ * containing the finale rectangle, per-round player/rival/ghost rectangles, routing segments (joins,
+ * branches, ghost links) and advance path segments between rounds. If the model has no rounds, an
+ * empty layout is returned.
+ *
+ * @param model Source BracketModel with rounds and their state.
+ * @param spec LayoutSpec specifying dimensions, insets, and spacing used to compute positions.
+ * @return BracketLayout Geometry and connecting segments for rendering the bracket UI.
+ */
 BracketLayout buildBracketLayout(const BracketModel& model, const LayoutSpec& spec) {
     BracketLayout layout;
     if (model.rounds.empty()) {

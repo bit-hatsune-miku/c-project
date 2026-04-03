@@ -1295,6 +1295,12 @@ public:
         return true;
     }
 
+    /**
+     * @brief Stops the demo session and resets all session state.
+     *
+     * Shuts down the party setup, battle core, and narrative systems; stops and detaches the battle BGM controller; clears active party lineup,
+     * HP snapshots, presentation audio state, renderer reference, and initialization flags so the session can be safely reinitialized or destroyed.
+     */
     void shutdown() {
         partySetup_.shutdown();
         battleDefinition_ = BattleDefinition{};
@@ -1436,6 +1442,18 @@ private:
 #endif
     }
 
+    /**
+     * @brief Initialize and start a battle session using the given party lineup.
+     *
+     * Sets up battle core hooks (narrative/dialogue gating, audio and presentation handling,
+     * update/render/shutdown callbacks), configures BGM/audio controllers, initializes
+     * narrative state, and starts the battle with the provided party lineup. If the
+     * battle definition specifies an initial boss BGM, that track is started.
+     *
+     * @param renderer SDL renderer used for battle rendering and presentation.
+     * @param lineup Ordered list of party member keys to use for the battle; must be non-empty.
+     * @return true if the battle was successfully initialized and started, false otherwise.
+     */
     bool startBattleWithParty(SDL_Renderer* renderer, const std::vector<std::string>& lineup) {
         renderer_ = renderer;
 
@@ -1793,6 +1811,12 @@ private:
     game::audio::BattleBgmController battleBgmController_;
 };
 
+/**
+ * @brief Construct a new Session and allocate its internal implementation.
+ *
+ * Creates the Session object and initializes its private implementation pointer
+ * using a newly constructed SessionImpl instance.
+ */
 Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
 
 Session::~Session() = default;

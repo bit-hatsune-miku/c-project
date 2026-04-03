@@ -12,6 +12,20 @@
 
 class Window;
 
+/**
+ * @brief Encapsulates a requested launch action produced by the boss selector session.
+ *
+ * Specifies what the session intends to start next.
+ *
+ * @note The meaning of `reference` depends on `mode` (for example, a level id for a straight-to-battle practice
+ * or a replay identifier for story replay).
+ *
+ * @var LaunchRequest::Mode mode
+ * Mode of the requested launch.
+ *
+ * @var std::string reference
+ * Identifier or payload used by the target launch (mode-specific).
+ */
 namespace battle::selector {
 
 struct LaunchRequest {

@@ -11,6 +11,39 @@
 
 namespace battle::competition {
 
+/**
+ * Construct a BracketModel from a PlayerProgression.
+ * @param progression Source player progression used to populate the bracket model.
+ * @param outModel Output object that will be populated with the constructed bracket model.
+ * @param outError Optional pointer to a string that will be set with an error message on failure.
+ * @returns `true` on success, `false` on failure.
+ */
+/**
+ * Locate the index of a round matching a battle key within a BracketModel.
+ * @param model The bracket model to search.
+ * @param battleKey The battle key to match against rounds in the model.
+ * @returns An optional containing the zero-based round index if found, or an empty optional if not found.
+ */
+/**
+ * Resolve a battle key to a target round index within a BracketModel.
+ * @param model The bracket model used to resolve the target.
+ * @param battleKey The battle key to resolve.
+ * @returns The resolved zero-based round index within `model`.
+ */
+/**
+ * Determine the display state for a round node given model context and selection.
+ * @param model The bracket model providing progression and unlock state.
+ * @param roundIndex Zero-based index of the round whose state is being resolved.
+ * @param selectedIndex Zero-based index of the currently selected round.
+ * @param practiceMode If `true`, resolve state using practice-mode rules; otherwise use normal rules.
+ * @returns The `RoundNodeState` that represents how the round node should be presented.
+ */
+/**
+ * Compute a BracketLayout from a BracketModel and layout specification.
+ * @param model The bracket model describing rounds, player, and progression.
+ * @param spec LayoutSpec providing sizing and inset parameters to drive layout.
+ * @returns A BracketLayout containing computed rectangles and connection segments for rendering the bracket.
+ */
 enum class RoundNodeState {
     Cleared,
     Current,
