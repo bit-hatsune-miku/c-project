@@ -227,7 +227,6 @@
         }
       ],
       "camera": {
-        "posX": 0.0,
         "posY": 60.0,
         "posZ": -155.0,
         "pitchDegrees": 6.0,

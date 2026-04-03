@@ -3570,7 +3570,6 @@ private:
             return false;
         }
         (void)glSceneRenderer_.ensureWorldAssets(worldAssets_);
-        (void)glSceneRenderer_.ensureStageAssets(stageDefinition_);
         if (narrativeEnabled_) {
             if (!vn::initialize(presentationOverlayRenderer_.renderer, sceneWidth(), sceneHeight())) {
                 return false;
@@ -4507,10 +4506,7 @@ private:
         bool hasReadyManualUltimate = false;
         const battle::BattleState& state = manager_.getBattleState();
         for (int i = 0; i < static_cast<int>(state.party.size()); ++i) {
-            const battle::ManualUltimateRequestResult previewResult =
-                manager_.previewManualUltimateTurnRequest(i);
-            if (previewResult == battle::ManualUltimateRequestResult::Queued ||
-                previewResult == battle::ManualUltimateRequestResult::AlreadyQueued) {
+            if (manager_.previewManualUltimateTurnRequest(i) == battle::ManualUltimateRequestResult::Queued) {
                 hasReadyManualUltimate = true;
                 break;
             }

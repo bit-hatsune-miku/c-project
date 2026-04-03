@@ -5,7 +5,6 @@
 #include <set>
 
 #include "battle_loader.h"
-#include "../../platform/path_resolution.h"
 
 namespace battle::competition {
 namespace {
@@ -58,13 +57,13 @@ Segment makeVerticalSegment(float centerX, float y0, float y1, float thickness =
 }
 
 /**
- * @brief Resolves a UI sprite asset name to an Rml-safe combat sprite path if the file exists.
+ * @brief Resolves a UI sprite asset name to a relative combat sprite path if the file exists.
  *
  * If `assetName` is empty or no matching file is found, returns an empty string.
  *
  * @param assetName Base asset name (without extension) to resolve.
- * @return std::string Rml-safe path for "assets/combat/sprites/{assetName}.{ext}" where `{ext}`
- * is "png" or "webp" for the first existing file, or an empty string if none is found.
+ * @return std::string Relative path "../combat/sprites/{assetName}.{ext}" where `{ext}` is
+ * "png" or "webp" for the first existing file, or an empty string if none is found.
  */
 std::string resolveUiSpritePath(const std::string& assetName) {
     if (assetName.empty()) {
@@ -72,11 +71,10 @@ std::string resolveUiSpritePath(const std::string& assetName) {
     }
 
     for (const char* extension : {"png", "webp"}) {
-        const std::string relativeAssetPath =
-            "assets/combat/sprites/" + assetName + "." + extension;
-        const std::string candidate = loader::resolveAssetPath(relativeAssetPath);
+        const std::string candidate =
+            loader::resolveAssetPath("assets/combat/sprites/" + assetName + "." + extension);
         if (std::filesystem::exists(candidate)) {
-            return platform::path::resolvePathForRml(relativeAssetPath);
+            return "../combat/sprites/" + assetName + "." + extension;
         }
     }
 
