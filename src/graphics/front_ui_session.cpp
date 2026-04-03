@@ -45,6 +45,9 @@ std::vector<ScreenId> stackForAppState(const AppState& state) {
         case ScreenState::Playing:
             return {ScreenId::Story};
 
+        case ScreenState::Credits:
+            return {ScreenId::Credits};
+
         case ScreenState::PauseMenu:
         case ScreenState::PauseConfirmExit:
         case ScreenState::PauseConfirmOverwriteSave:
@@ -53,7 +56,7 @@ std::vector<ScreenId> stackForAppState(const AppState& state) {
             }
             return {};
 
-        case ScreenState::LoadMenu:
+        case ScreenState::LoadGameMenu:
         case ScreenState::LoadConfirmDelete:
             if (state.loadReturnScreen == ScreenState::MainMenu) {
                 return {ScreenId::MainMenu, ScreenId::Load};
@@ -227,6 +230,10 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
     RmlSDL::InputEventHandler(context_, window_, mutableEvent);
 
     if (event.type == SDL_KEYDOWN) {
+        if (DocumentController* controller = topController()) {
+            controller->handleKeyDown(event.key);
+        }
+
         switch (event.key.keysym.sym) {
             case SDLK_UP:
             case SDLK_w:
@@ -269,6 +276,30 @@ void Session::handleEvent(const SDL_Event& event, AppState& state) {
                 if (DocumentController* controller = topController()) {
                     controller->cancel();
                 }
+                break;
+
+            default:
+                break;
+        }
+    }
+    if (event.type == SDL_KEYUP) {
+        if (DocumentController* controller = topController()) {
+            controller->handleKeyUp(event.key);
+        }
+    }
+
+    if (DocumentController* controller = topController()) {
+        switch (event.type) {
+            case SDL_MOUSEMOTION:
+                controller->handleMouseMotion(event.motion);
+                break;
+
+            case SDL_MOUSEBUTTONDOWN:
+                controller->handleMouseButtonDown(event.button);
+                break;
+
+            case SDL_MOUSEBUTTONUP:
+                controller->handleMouseButtonUp(event.button);
                 break;
 
             default:

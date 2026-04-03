@@ -334,8 +334,10 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
                 }
                 if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
                     if (event.key.keysym.sym == SDLK_ESCAPE) {
-                        finished = true;
-                        break;
+                        if (callbacks.onPauseBlocked) {
+                            callbacks.onPauseBlocked();
+                        }
+                        continue;
                     }
                 }
             }
@@ -405,7 +407,12 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
                         }
                     }
                     if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
-                        if (event.key.keysym.sym == SDLK_ESCAPE) { finished = true; break; }
+                        if (event.key.keysym.sym == SDLK_ESCAPE) {
+                            if (callbacks.onPauseBlocked) {
+                                callbacks.onPauseBlocked();
+                            }
+                            continue;
+                        }
                         if (event.key.keysym.sym == SDLK_SPACE)  {
                             splash.skip();
                         } else if (callbacks.onUnhandledKeyDown) {
@@ -452,8 +459,10 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
 
             if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
-                    finished = true;
-                    break;
+                    if (callbacks.onPauseBlocked) {
+                        callbacks.onPauseBlocked();
+                    }
+                    continue;
                 }
                 if (event.key.keysym.sym == SDLK_SPACE) {
                     presentation->onSpacePressed();

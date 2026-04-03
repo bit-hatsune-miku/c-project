@@ -19,6 +19,7 @@ public:
     void update(const AppState& state, float deltaSeconds) override;
     void moveSelection(int delta) override;
     void activateSelection() override;
+    void handleMouseButtonUp(const SDL_MouseButtonEvent& event) override;
     void cancel() override;
     void applyState(AppState& state) override;
     std::optional<Command> consumeCommand() override;

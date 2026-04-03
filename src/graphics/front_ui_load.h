@@ -149,6 +149,9 @@ public:
     void moveSelection(int delta) override;
     void adjustSelection(int delta) override;
     void activateSelection() override;
+    void handleMouseMotion(const SDL_MouseMotionEvent& event) override;
+    void handleMouseButtonDown(const SDL_MouseButtonEvent& event) override;
+    void handleMouseButtonUp(const SDL_MouseButtonEvent& event) override;
     void cancel() override;
     void applyState(AppState& state) override;
     std::optional<Command> consumeCommand() override;
@@ -177,6 +180,9 @@ private:
     bool deleteSelected() const;
     const SlotPresentation* selectedSlot() const;
     bool selectedSlotCanDelete() const;
+    bool hitTestElement(const char* id, float x, float y) const;
+    std::optional<std::size_t> hitTestVisibleSlot(float x, float y) const;
+    std::optional<std::size_t> hitTestSelection(float x, float y) const;
     void applySelectionAfterDelete();
     void setSelection(std::size_t selection, bool syncSlotSelection, bool playSound);
     void queueSound(const char* path, float volume = 0.9f);
@@ -184,7 +190,7 @@ private:
     Rml::ElementDocument* document_ = nullptr;
     std::vector<EventListenerBinding> listeners_;
     std::vector<SlotPresentation> cachedSlots_;
-    ScreenState screen_ = ScreenState::LoadMenu;
+    ScreenState screen_ = ScreenState::LoadGameMenu;
     ScreenState returnScreen_ = ScreenState::MainMenu;
     std::size_t selection_ = 0;
     std::size_t slotSelection_ = 0;
@@ -193,6 +199,7 @@ private:
     std::size_t pendingDeleteSelection_ = 0;
     std::string pendingDeletePath_;
     std::vector<SoundRequest> pendingSoundRequests_;
+    std::optional<std::size_t> pressedSelection_;
     bool pendingBack_ = false;
     bool pendingActivateSelection_ = false;
     bool pendingDismissConfirm_ = false;

@@ -5,12 +5,52 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <system_error>
 #include <utility>
 #include <vector>
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 namespace platform::path {
 
 inline std::string findCjkFontPath();
+
+inline std::string portablePathString(const std::filesystem::path& path) {
+    return path.lexically_normal().generic_string();
+}
+
+inline std::optional<std::filesystem::path> executablePath() {
+    namespace fs = std::filesystem;
+
+#ifdef _WIN32
+    std::wstring buffer(MAX_PATH, L'\0');
+    while (true) {
+        const DWORD length = GetModuleFileNameW(nullptr, buffer.data(), static_cast<DWORD>(buffer.size()));
+        if (length == 0) {
+            return std::nullopt;
+        }
+        if (length < buffer.size()) {
+            buffer.resize(length);
+            return fs::path(buffer);
+        }
+        buffer.resize(buffer.size() * 2);
+    }
+#else
+    std::error_code ec;
+    const fs::path procExe("/proc/self/exe");
+    if (!fs::exists(procExe, ec) || ec) {
+        return std::nullopt;
+    }
+
+    fs::path exePath = fs::read_symlink(procExe, ec);
+    if (ec || exePath.empty()) {
+        return std::nullopt;
+    }
+    return exePath;
+#endif
+}
 
 inline std::string resolvePath(const std::string& relativePath) {
     namespace fs = std::filesystem;
@@ -21,7 +61,7 @@ inline std::string resolvePath(const std::string& relativePath) {
 
     const fs::path input(relativePath);
     if (input.is_absolute() && fs::exists(input)) {
-        return input.string();
+        return portablePathString(input);
     }
 
     std::vector<fs::path> roots;
@@ -47,21 +87,17 @@ inline std::string resolvePath(const std::string& relativePath) {
         }
     }
 
-    // 3) Relative to executable location (Linux: /proc/self/exe) and parents.
-    const fs::path procExe("/proc/self/exe");
-    if (fs::exists(procExe)) {
-        const fs::path exePath = fs::read_symlink(procExe, ec);
-        if (!ec && !exePath.empty()) {
-            fs::path exeDir = exePath.parent_path();
-            if (!exeDir.empty()) {
-                roots.push_back(exeDir);
-                for (int i = 0; i < 4; ++i) {
-                    exeDir = exeDir.parent_path();
-                    if (exeDir.empty()) {
-                        break;
-                    }
-                    roots.push_back(exeDir);
+    // 3) Relative to executable location and parents.
+    if (const auto exePath = executablePath(); exePath.has_value()) {
+        fs::path exeDir = exePath->parent_path();
+        if (!exeDir.empty()) {
+            roots.push_back(exeDir);
+            for (int i = 0; i < 4; ++i) {
+                exeDir = exeDir.parent_path();
+                if (exeDir.empty()) {
+                    break;
                 }
+                roots.push_back(exeDir);
             }
         }
     }
@@ -69,11 +105,35 @@ inline std::string resolvePath(const std::string& relativePath) {
     for (const fs::path& root : roots) {
         const fs::path candidate = root / input;
         if (fs::exists(candidate)) {
-            return candidate.lexically_normal().string();
+            return portablePathString(candidate);
         }
     }
 
-    return relativePath;
+    return portablePathString(input);
+}
+
+inline std::string resolvePathForRml(const std::string& assetPath,
+                                     const std::string& documentSourceUrl = std::string()) {
+    namespace fs = std::filesystem;
+
+    if (assetPath.empty()) {
+        return assetPath;
+    }
+
+    std::error_code ec;
+    const fs::path resolved(resolvePath(assetPath));
+    if (!documentSourceUrl.empty()) {
+        const fs::path documentPath(resolvePath(documentSourceUrl));
+        const fs::path documentDirectory = documentPath.parent_path();
+        if (!documentDirectory.empty()) {
+            const fs::path relativePath = fs::relative(resolved, documentDirectory, ec);
+            if (!ec && !relativePath.empty()) {
+                return portablePathString(relativePath);
+            }
+        }
+    }
+
+    return portablePathString(resolved);
 }
 
 inline std::string findFontPath() {

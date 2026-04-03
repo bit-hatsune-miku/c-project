@@ -114,6 +114,9 @@ public:
     void update(const AppState& state, float deltaSeconds) override;
     void moveSelection(int delta) override;
     void activateSelection() override;
+    void handleMouseMotion(const SDL_MouseMotionEvent& event) override;
+    void handleMouseButtonDown(const SDL_MouseButtonEvent& event) override;
+    void handleMouseButtonUp(const SDL_MouseButtonEvent& event) override;
     void applyState(AppState& state) override;
     std::optional<Command> consumeCommand() override;
     std::optional<MainMenuAction> selectedMainMenuAction() const override;
@@ -129,6 +132,7 @@ private:
     void applySelectionStyles() const;
     void updateStatusCopy() const;
     void updateNoticeCopy() const;
+    std::optional<MainMenuAction> hitTestButton(float x, float y) const;
     void restartIntroAnimation();
     void updateDrift(float deltaSeconds);
     void updateIntro(float deltaSeconds);
@@ -156,6 +160,7 @@ private:
     bool introActive_ = false;
     bool menuStackActive_ = false;
     MainMenuOverlayMode overlayMode_ = MainMenuOverlayMode::None;
+    std::optional<MainMenuAction> pressedAction_;
 };
 
 }  // namespace graphics::frontui

@@ -193,6 +193,8 @@ bool SettingsDocumentController::bind(Rml::ElementDocument& document, const AppS
     detachEventListeners(listeners_);
     pendingCommand_.reset();
     pendingSoundRequests_.clear();
+    pressedRowItem_.reset();
+    activeSliderItem_.reset();
     selection_ = state.settingsSelection;
     workingSettings_ = state.settings;
     returnScreen_ = state.settingsReturnScreen;
@@ -213,6 +215,8 @@ bool SettingsDocumentController::bind(Rml::ElementDocument& document, const AppS
 void SettingsDocumentController::unbind() {
     detachEventListeners(listeners_);
     pendingSoundRequests_.clear();
+    pressedRowItem_.reset();
+    activeSliderItem_.reset();
     document_ = nullptr;
 }
 
@@ -333,6 +337,75 @@ void SettingsDocumentController::activateSelection() {
     }
 }
 
+void SettingsDocumentController::handleMouseMotion(const SDL_MouseMotionEvent& event) {
+    const float mouseX = static_cast<float>(event.x);
+    const float mouseY = static_cast<float>(event.y);
+
+    if (activeSliderItem_.has_value()) {
+        updateSliderDrag(mouseX, mouseY, false);
+        return;
+    }
+
+    if (const std::optional<SettingsItem> hoveredSlider = hitTestSlider(mouseX, mouseY);
+        hoveredSlider.has_value()) {
+        setSelection(*hoveredSlider, true);
+        return;
+    }
+
+    if (const std::optional<SettingsItem> hoveredRow = hitTestRow(mouseX, mouseY);
+        hoveredRow.has_value()) {
+        setSelection(*hoveredRow, true);
+    }
+}
+
+void SettingsDocumentController::handleMouseButtonDown(const SDL_MouseButtonEvent& event) {
+    if (event.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    const float mouseX = static_cast<float>(event.x);
+    const float mouseY = static_cast<float>(event.y);
+
+    pressedRowItem_.reset();
+    activeSliderItem_.reset();
+
+    if (const std::optional<SettingsItem> sliderItem = hitTestSlider(mouseX, mouseY);
+        sliderItem.has_value()) {
+        beginSliderDrag(*sliderItem, mouseX, mouseY);
+        return;
+    }
+
+    pressedRowItem_ = hitTestRow(mouseX, mouseY);
+    if (pressedRowItem_.has_value()) {
+        setSelection(*pressedRowItem_, true);
+    }
+}
+
+void SettingsDocumentController::handleMouseButtonUp(const SDL_MouseButtonEvent& event) {
+    if (event.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    const float mouseX = static_cast<float>(event.x);
+    const float mouseY = static_cast<float>(event.y);
+
+    if (activeSliderItem_.has_value()) {
+        endSliderDrag(mouseX, mouseY);
+        pressedRowItem_.reset();
+        return;
+    }
+
+    const std::optional<SettingsItem> releasedRow = hitTestRow(mouseX, mouseY);
+    if (pressedRowItem_.has_value() && releasedRow == pressedRowItem_) {
+        setSelection(*releasedRow, false);
+        if (pendingCommand_ == std::nullopt &&
+            (*releasedRow == SettingsItem::DisplayMode || *releasedRow == SettingsItem::Back)) {
+            activateSelection();
+        }
+    }
+    pressedRowItem_.reset();
+}
+
 void SettingsDocumentController::cancel() {
     queueReturn();
 }
@@ -374,6 +447,133 @@ std::vector<SoundRequest> SettingsDocumentController::consumeSoundRequests() {
     std::vector<SoundRequest> requests = std::move(pendingSoundRequests_);
     pendingSoundRequests_.clear();
     return requests;
+}
+
+std::optional<SettingsItem> SettingsDocumentController::hitTestRow(float x, float y) const {
+    if (document_ == nullptr) {
+        return std::nullopt;
+    }
+
+    for (const SettingsRowDefinition& row : kRows) {
+        Rml::Element* element = document_->GetElementById(row.rowId);
+        if (element == nullptr) {
+            continue;
+        }
+
+        Rml::Vector2f point{x, y};
+        if (!element->Project(point)) {
+            continue;
+        }
+        if (element->IsPointWithinElement(point)) {
+            return row.item;
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::optional<SettingsItem> SettingsDocumentController::hitTestSlider(float x, float y) const {
+    if (document_ == nullptr) {
+        return std::nullopt;
+    }
+
+    for (const SettingsRowDefinition& row : kRows) {
+        if (row.sliderId == nullptr) {
+            continue;
+        }
+
+        Rml::Element* slider = document_->GetElementById(row.sliderId);
+        if (slider == nullptr) {
+            continue;
+        }
+
+        Rml::Vector2f point{x, y};
+        if (!slider->Project(point)) {
+            continue;
+        }
+        if (slider->IsPointWithinElement(point)) {
+            return row.item;
+        }
+    }
+
+    return std::nullopt;
+}
+
+void SettingsDocumentController::beginSliderDrag(SettingsItem item, float x, float y) {
+    activeSliderItem_ = item;
+    pressedRowItem_ = item;
+    setSelection(item, true);
+    (void)applySliderValueAtPoint(item, x, y, true, true);
+}
+
+void SettingsDocumentController::updateSliderDrag(float x, float y, bool playSound) {
+    if (!activeSliderItem_.has_value()) {
+        return;
+    }
+
+    setSelection(*activeSliderItem_, false);
+    (void)applySliderValueAtPoint(*activeSliderItem_, x, y, false, playSound);
+}
+
+void SettingsDocumentController::endSliderDrag(float x, float y) {
+    if (!activeSliderItem_.has_value()) {
+        return;
+    }
+
+    (void)applySliderValueAtPoint(*activeSliderItem_, x, y, false, false);
+    activeSliderItem_.reset();
+}
+
+bool SettingsDocumentController::applySliderValueAtPoint(SettingsItem item,
+                                                         float x,
+                                                         float y,
+                                                         bool requireInside,
+                                                         bool playSound) {
+    if (document_ == nullptr) {
+        return false;
+    }
+
+    const char* sliderId = rowFor(item).sliderId;
+    if (sliderId == nullptr) {
+        return false;
+    }
+
+    Rml::Element* slider = document_->GetElementById(sliderId);
+    if (slider == nullptr) {
+        return false;
+    }
+
+    Rml::Vector2f point{x, y};
+    if (!slider->Project(point)) {
+        return false;
+    }
+    if (requireInside && !slider->IsPointWithinElement(point)) {
+        return false;
+    }
+
+    const float sliderLeft = slider->GetAbsoluteLeft();
+    const float sliderWidth = std::max(1.0f, slider->GetClientWidth());
+    const float fraction = std::clamp((point.x - sliderLeft) / sliderWidth, 0.0f, 1.0f);
+
+    switch (item) {
+        case SettingsItem::MusicVolume:
+            setMusicVolume(fraction, playSound);
+            return true;
+
+        case SettingsItem::VoiceVolume:
+            setVoiceVolume(fraction, playSound);
+            return true;
+
+        case SettingsItem::TextSpeed:
+            setTextSpeed(kMinTextSpeed + (kMaxTextSpeed - kMinTextSpeed) * fraction, playSound);
+            return true;
+
+        case SettingsItem::DisplayMode:
+        case SettingsItem::Back:
+            break;
+    }
+
+    return false;
 }
 
 /**
@@ -700,7 +900,7 @@ void SettingsDocumentController::queueReturn() {
  *
  * @param value Desired music volume (0.0 to 1.0); values outside this range will be clamped.
  */
-void SettingsDocumentController::setMusicVolume(float value) {
+void SettingsDocumentController::setMusicVolume(float value, bool playSound) {
     const float clamped = clampMusic(value);
     if (std::fabs(workingSettings_.musicVolume - clamped) < 0.001f) {
         return;
@@ -708,7 +908,9 @@ void SettingsDocumentController::setMusicVolume(float value) {
     workingSettings_.musicVolume = clamped;
     syncControlValues();
     updateFocusCopy();
-    queueSound(kAdjustSfxPath, 0.84f);
+    if (playSound) {
+        queueSound(kAdjustSfxPath, 0.84f);
+    }
 }
 
 /**
@@ -718,7 +920,7 @@ void SettingsDocumentController::setMusicVolume(float value) {
  *
  * @param value Desired voice volume; this value is clamped to the valid voice-volume range before being applied.
  */
-void SettingsDocumentController::setVoiceVolume(float value) {
+void SettingsDocumentController::setVoiceVolume(float value, bool playSound) {
     const float clamped = clampVoice(value);
     if (std::fabs(workingSettings_.voiceVolume - clamped) < 0.001f) {
         return;
@@ -726,7 +928,9 @@ void SettingsDocumentController::setVoiceVolume(float value) {
     workingSettings_.voiceVolume = clamped;
     syncControlValues();
     updateFocusCopy();
-    queueSound(kAdjustSfxPath, 0.84f);
+    if (playSound) {
+        queueSound(kAdjustSfxPath, 0.84f);
+    }
 }
 
 /**
@@ -738,7 +942,7 @@ void SettingsDocumentController::setVoiceVolume(float value) {
  *
  * @param value Desired text speed in characters per second; will be clamped to [kMinTextSpeed, kMaxTextSpeed].
  */
-void SettingsDocumentController::setTextSpeed(float value) {
+void SettingsDocumentController::setTextSpeed(float value, bool playSound) {
     const float clamped = clampTextSpeed(value);
     if (std::fabs(workingSettings_.textSpeed - clamped) < 0.001f) {
         return;
@@ -746,7 +950,9 @@ void SettingsDocumentController::setTextSpeed(float value) {
     workingSettings_.textSpeed = clamped;
     syncControlValues();
     updateFocusCopy();
-    queueSound(kAdjustSfxPath, 0.84f);
+    if (playSound) {
+        queueSound(kAdjustSfxPath, 0.84f);
+    }
 }
 
 /**

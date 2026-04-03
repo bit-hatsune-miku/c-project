@@ -62,6 +62,7 @@
             background-color: rgba(255, 255, 255, 214);
             border: 1dp rgba(23, 20, 31, 18);
             border-radius: 30dp;
+            z-index: 10;
         }
 
         #selector-stage-outline {
@@ -94,6 +95,25 @@
             color: #17141f;
         }
 
+        #selector-mouse-hint {
+            position: absolute;
+            left: 36dp;
+            top: 100dp;
+            font-size: 11dp;
+            font-weight: bold;
+            letter-spacing: 2.6dp;
+            color: rgba(255, 103, 182, 224);
+            text-transform: uppercase;
+            animation: selector-hint-pulse 1.35s ease-in-out infinite;
+            transform-origin: left center;
+        }
+
+        @keyframes selector-hint-pulse {
+            0% { transform: scale(0.96); opacity: 0.74; }
+            50% { transform: scale(1.04); opacity: 1.0; }
+            100% { transform: scale(0.96); opacity: 0.74; }
+        }
+
         #boss-track {
             position: absolute;
             left: 0;
@@ -109,6 +129,7 @@
             top: 0;
             width: 164dp;
             height: 280dp;
+            cursor: pointer;
             transform-origin: center bottom;
             transition: transform 0.34s cubic-out, opacity 0.34s cubic-out;
         }
@@ -325,6 +346,7 @@
             width: 1dp;
             height: 546dp;
             background-color: rgba(255, 103, 182, 54);
+            z-index: 20;
         }
 
         #detail-panel {
@@ -337,6 +359,7 @@
             border: 1dp rgba(23, 20, 31, 22);
             border-radius: 30dp;
             box-shadow: 0 18dp 34dp rgba(23, 20, 31, 14);
+            z-index: 20;
         }
 
         #detail-kicker {
@@ -479,6 +502,7 @@
             font-weight: bold;
             letter-spacing: 2dp;
             color: rgba(23, 20, 31, 96);
+            z-index: 20;
         }
 
         #selector-toast {
@@ -505,6 +529,144 @@
             opacity: 1;
             transform: translate(0dp, 0dp);
         }
+
+        #selector-confirm {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(6, 10, 18, 182);
+            display: none;
+            z-index: 500;
+        }
+
+        #selector-confirm.is-visible {
+            display: block;
+        }
+
+        #selector-confirm-card {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 552dp;
+            height: 308dp;
+            margin-left: -276dp;
+            margin-top: -154dp;
+            background-color: rgba(255, 251, 253, 246);
+            border: 1dp rgba(23, 20, 31, 28);
+            border-radius: 28dp;
+            box-shadow: 0 22dp 44dp rgba(23, 20, 31, 20);
+            z-index: 501;
+        }
+
+        #selector-confirm-title {
+            position: absolute;
+            left: 34dp;
+            top: 30dp;
+            width: 484dp;
+            font-size: 28dp;
+            font-weight: bold;
+            letter-spacing: 1.4dp;
+            color: #17141f;
+        }
+
+        #selector-confirm-body {
+            position: absolute;
+            left: 34dp;
+            top: 86dp;
+            width: 484dp;
+            font-size: 15dp;
+            line-height: 22dp;
+            color: rgba(23, 20, 31, 164);
+        }
+
+        #selector-confirm-actions {
+            position: absolute;
+            left: 34dp;
+            right: 34dp;
+            bottom: 30dp;
+            height: 64dp;
+        }
+
+        .selector-confirm-button {
+            position: absolute;
+            top: 0;
+            width: 224dp;
+            height: 64dp;
+            cursor: pointer;
+            background-color: rgba(255, 255, 255, 236);
+            border: 1dp rgba(23, 20, 31, 34);
+            border-radius: 20dp;
+            transform: skewX(-14deg);
+            transition: transform 0.22s cubic-out, background-color 0.22s cubic-out, border-color 0.22s cubic-out;
+        }
+
+        #selector-confirm-back {
+            left: 0;
+        }
+
+        #selector-confirm-proceed {
+            right: 0;
+        }
+
+        .selector-confirm-button.is-selected {
+            background-color: #ff67b6;
+            border: 2dp #ff67b6;
+            transform: skewX(-14deg) scale(1.02);
+        }
+
+        .selector-confirm-button-inner {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            transform: skewX(14deg);
+        }
+
+        .selector-confirm-accent {
+            position: absolute;
+            left: 22dp;
+            top: 16dp;
+            width: 10dp;
+            height: 32dp;
+            background-color: rgba(23, 20, 31, 28);
+            border-radius: 999dp;
+        }
+
+        .selector-confirm-code {
+            position: absolute;
+            left: 46dp;
+            top: 24dp;
+            font-size: 11dp;
+            font-weight: bold;
+            letter-spacing: 2dp;
+            color: rgba(23, 20, 31, 124);
+        }
+
+        .selector-confirm-label {
+            position: absolute;
+            left: 82dp;
+            top: 20dp;
+            font-size: 19dp;
+            font-weight: bold;
+            letter-spacing: 1.4dp;
+            color: #17141f;
+        }
+
+        .selector-confirm-tail {
+            display: none;
+        }
+
+        .selector-confirm-button.is-selected .selector-confirm-accent {
+            background-color: rgba(255, 255, 255, 82);
+        }
+
+        .selector-confirm-button.is-selected .selector-confirm-code,
+        .selector-confirm-button.is-selected .selector-confirm-label {
+            color: #ffffff;
+        }
     </style>
 </head>
 <body>
@@ -519,6 +681,7 @@
             <div id="selector-stage-outline"></div>
             <div id="stage-kicker">PRACTICE MODE</div>
             <div id="stage-title">SELECT A RIVAL</div>
+            <div id="selector-mouse-hint">Left Click To Select / Right Click Or Enter To Confirm</div>
             <div id="boss-track"></div>
 
             <div id="selector-actions">
@@ -569,7 +732,32 @@
             <div class="info-row-value" id="info-hint"></div>
         </div>
 
-        <div id="helper-copy">LEFT / RIGHT TO CYCLE. DOWN TO REACH ACTIONS. ENTER OR CLICK TO CHOOSE.</div>
+        <div id="selector-confirm">
+            <div id="selector-confirm-card">
+                <div id="selector-confirm-title">Pick This Rival?</div>
+                <div id="selector-confirm-body">Are you sure you want to pick this rival?</div>
+                <div id="selector-confirm-actions">
+                    <button id="selector-confirm-back" class="selector-confirm-button is-selected">
+                        <div class="selector-confirm-button-inner">
+                            <div class="selector-confirm-accent"></div>
+                            <div class="selector-confirm-code">01</div>
+                            <div class="selector-confirm-label">Back</div>
+                            <div class="selector-confirm-tail"></div>
+                        </div>
+                    </button>
+                    <button id="selector-confirm-proceed" class="selector-confirm-button">
+                        <div class="selector-confirm-button-inner">
+                            <div class="selector-confirm-accent"></div>
+                            <div class="selector-confirm-code">02</div>
+                            <div class="selector-confirm-label">Proceed</div>
+                            <div class="selector-confirm-tail"></div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div id="helper-copy">LEFT / RIGHT TO CYCLE. DOWN TO REACH ACTIONS. LEFT CLICK TO SELECT. ENTER OR RIGHT CLICK TO CONFIRM.</div>
         <div id="selector-toast"></div>
     </div>
 </body>

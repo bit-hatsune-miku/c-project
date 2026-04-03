@@ -14,7 +14,7 @@ body {
 #system-caption-copy,
 #menu-title-hint,
 #menu-section-tag {
-    display: none !important;
+    display: none;
 }
 
 /* dark tint overlay — no backdrop-filter here, just the dimming layer */
@@ -150,6 +150,10 @@ body {
 
 #pause-buttons .submenu-row-tail {
     top: 14dp;
+}
+
+#pause-buttons .submenu-row.is-disabled:not(.is-selected) {
+    opacity: 0.52;
 }
 
 /* notice is hidden — toast is used instead */

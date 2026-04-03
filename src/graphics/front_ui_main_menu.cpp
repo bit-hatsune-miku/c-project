@@ -12,6 +12,8 @@
 #include <RmlUi/Core/Element.h>
 #include <RmlUi/Core/Event.h>
 
+#include "../platform/path_resolution.h"
+#include "front_ui_credits.h"
 #include "front_ui_load.h"
 #include "front_ui_pause.h"
 #include "front_ui_settings.h"
@@ -149,6 +151,19 @@ std::string escapeRmlText(const std::string& text) {
     return escaped;
 }
 
+void applyStaticArtSources(Rml::ElementDocument& document) {
+    if (Rml::Element* element = document.GetElementById("bg-art")) {
+        element->SetAttribute("src",
+                              platform::path::resolvePathForRml(kMainMenuBackgroundArtPath,
+                                                                 document.GetSourceURL()));
+    }
+    if (Rml::Element* element = document.GetElementById("title-logo")) {
+        element->SetAttribute("src",
+                              platform::path::resolvePathForRml(kMainMenuTitleLogoPath,
+                                                                 document.GetSourceURL()));
+    }
+}
+
 }  /**
  * @brief Binds this controller to an Rml document and initializes UI, selection, overlay,
  * and animation state from the provided application state.
@@ -167,6 +182,7 @@ bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppS
     document_ = &document;
     detachEventListeners(listeners_);
     pendingCommand_.reset();
+    pressedAction_.reset();
     selection_ = state.mainSelection;
     driftCurrentX_ = driftOffsetX(selection_);
     driftCurrentY_ = driftOffsetY(selection_);
@@ -179,6 +195,7 @@ bool MainMenuDocumentController::bind(Rml::ElementDocument& document, const AppS
     introActive_ = false;
     noticeText_ = state.noticeTimer > 0.0f ? state.noticeText : std::string();
 
+    applyStaticArtSources(document);
     cacheElements();
     applyButtonCopy();
     attachListeners();
@@ -213,6 +230,7 @@ void MainMenuDocumentController::unbind() {
     introActive_ = false;
     menuStackActive_ = false;
     overlayMode_ = MainMenuOverlayMode::None;
+    pressedAction_.reset();
     document_ = nullptr;
 }
 
@@ -280,7 +298,7 @@ void MainMenuDocumentController::update(const AppState& state, float deltaSecond
  * The main menu stack is active when:
  * - the current screen is MainMenu, or
  * - the current screen is Settings and settingsReturnScreen equals MainMenu, or
- * - the current screen is LoadMenu or LoadConfirmDelete and loadReturnScreen equals MainMenu.
+ * - the current screen is LoadGameMenu or LoadConfirmDelete and loadReturnScreen equals MainMenu.
  *
  * @param state Current application state to evaluate.
  * @return true if the main menu stack should be active in this state, false otherwise.
@@ -294,7 +312,7 @@ bool MainMenuDocumentController::isMenuStackActive(const AppState& state) const 
         return state.settingsReturnScreen == ScreenState::MainMenu;
     }
 
-    return (state.screen == ScreenState::LoadMenu || state.screen == ScreenState::LoadConfirmDelete) &&
+    return (state.screen == ScreenState::LoadGameMenu || state.screen == ScreenState::LoadConfirmDelete) &&
            state.loadReturnScreen == ScreenState::MainMenu;
 }
 
@@ -306,7 +324,7 @@ bool MainMenuDocumentController::isMenuStackActive(const AppState& state) const 
  * @return MainMenuOverlayMode
  *         `MainMenuOverlayMode::Settings` if `state.screen` is `Settings` and
  *         `state.settingsReturnScreen` is `MainMenu`.
- *         `MainMenuOverlayMode::Load` if `state.screen` is `LoadMenu` or `LoadConfirmDelete`
+ *         `MainMenuOverlayMode::Load` if `state.screen` is `LoadGameMenu` or `LoadConfirmDelete`
  *         and `state.loadReturnScreen` is `MainMenu`.
  *         `MainMenuOverlayMode::None` otherwise.
  */
@@ -315,7 +333,7 @@ MainMenuOverlayMode MainMenuDocumentController::overlayModeForState(const AppSta
         return MainMenuOverlayMode::Settings;
     }
 
-    if ((state.screen == ScreenState::LoadMenu || state.screen == ScreenState::LoadConfirmDelete) &&
+    if ((state.screen == ScreenState::LoadGameMenu || state.screen == ScreenState::LoadConfirmDelete) &&
         state.loadReturnScreen == ScreenState::MainMenu) {
         return MainMenuOverlayMode::Load;
     }
@@ -344,6 +362,39 @@ void MainMenuDocumentController::moveSelection(int delta) {
 
 void MainMenuDocumentController::activateSelection() {
     queueActivation(selection_);
+}
+
+void MainMenuDocumentController::handleMouseMotion(const SDL_MouseMotionEvent& event) {
+    if (const std::optional<MainMenuAction> hoveredAction = hitTestButton(
+            static_cast<float>(event.x), static_cast<float>(event.y));
+        hoveredAction.has_value()) {
+        setSelection(*hoveredAction);
+    }
+}
+
+void MainMenuDocumentController::handleMouseButtonDown(const SDL_MouseButtonEvent& event) {
+    if (event.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    pressedAction_ = hitTestButton(static_cast<float>(event.x), static_cast<float>(event.y));
+    if (pressedAction_.has_value()) {
+        setSelection(*pressedAction_);
+    }
+}
+
+void MainMenuDocumentController::handleMouseButtonUp(const SDL_MouseButtonEvent& event) {
+    if (event.button != SDL_BUTTON_LEFT) {
+        return;
+    }
+
+    const std::optional<MainMenuAction> releasedAction = hitTestButton(
+        static_cast<float>(event.x), static_cast<float>(event.y));
+    if (pressedAction_.has_value() && releasedAction == pressedAction_) {
+        setSelection(*releasedAction);
+        queueActivation(*releasedAction);
+    }
+    pressedAction_.reset();
 }
 
 void MainMenuDocumentController::applyState(AppState& state) {
@@ -478,6 +529,29 @@ void MainMenuDocumentController::updateNoticeCopy() const {
 
     noticeElement_->SetInnerRML(escapeRmlText(noticeText_));
     noticeElement_->SetClass("is-visible", true);
+}
+
+std::optional<MainMenuAction> MainMenuDocumentController::hitTestButton(float x, float y) const {
+    if (document_ == nullptr) {
+        return std::nullopt;
+    }
+
+    for (const MainMenuPresentation& button : kMainMenuPresentation) {
+        Rml::Element* element = document_->GetElementById(button.buttonId);
+        if (element == nullptr) {
+            continue;
+        }
+
+        Rml::Vector2f point{x, y};
+        if (!element->Project(point)) {
+            continue;
+        }
+        if (element->IsPointWithinElement(point)) {
+            return button.action;
+        }
+    }
+
+    return std::nullopt;
 }
 
 void MainMenuDocumentController::restartIntroAnimation() {
@@ -647,6 +721,8 @@ std::unique_ptr<DocumentController> createControllerForScreen(ScreenId screen) {
             return std::make_unique<MainMenuDocumentController>();
         case ScreenId::Story:
             return std::make_unique<StoryDocumentController>();
+        case ScreenId::Credits:
+            return std::make_unique<CreditsDocumentController>();
         case ScreenId::Settings:
             return std::make_unique<SettingsDocumentController>();
         case ScreenId::Pause:
@@ -670,6 +746,8 @@ std::string resolveDocumentPath(ScreenId screen) {
             return "assets/rmlui/front_ui/main_menu.rml";
         case ScreenId::Story:
             return "assets/rmlui/front_ui/story.rml";
+        case ScreenId::Credits:
+            return "assets/rmlui/front_ui/credits.rml";
         case ScreenId::Settings:
             return "assets/rmlui/front_ui/settings.rml";
         case ScreenId::Pause:
@@ -685,6 +763,7 @@ bool isScreenImplemented(ScreenId screen) {
     switch (screen) {
         case ScreenId::MainMenu:
         case ScreenId::Story:
+        case ScreenId::Credits:
         case ScreenId::Settings:
         case ScreenId::Pause:
         case ScreenId::Load:

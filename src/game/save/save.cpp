@@ -599,7 +599,7 @@ std::string formatTimestampForDisplay(const std::string& isoTimestamp) {
         return isoTimestamp;
     }
 
-    return formatTm(localTime(utcValue), "%b %d, %Y  %I:%M %p");
+    return formatTm(localTime(utcValue), "%Y/%m/%d %H:%M");
 }
 
 std::string chapterIdFromScript(const vn::Script& script) {

@@ -12,3 +12,6 @@
 - Do not use broad checks like `containsNonAscii()` or switch the whole string to the CJK font. That makes English numbers/symbols look wrong.
 - Prefer run-based rendering, not per-glyph rendering, for mixed-language strings. Keep Latin runs intact so spacing and appearance stay normal; only split where the font actually changes.
 - Align mixed-font text by ascent/baseline when combining Latin and CJK runs, or Chinese will sit too low and centered labels/bars will look off.
+- Cross-platform paths: use `src/platform/path_resolution.h` for asset lookup. For RmlUi image or document `src` values, use `resolvePathForRml(...)`; do not pass plain repo-relative paths into dynamic Rml attributes.
+- Windows OpenGL: do not call higher OpenGL entry points such as shader, VAO, VBO, or uniform functions directly. Load them through `src/game/render/gl_function_loader.h` via `SDL_GL_GetProcAddress`.
+- If a change touches assets, RmlUi, or GL code, verify Linux and Windows build assumptions before committing.
