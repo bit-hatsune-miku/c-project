@@ -24,6 +24,11 @@ struct PauseOverlayBindingCallbacks {
     std::function<void(float)> onTextSliderChange;
 };
 
+struct BattleResultOverlayBindingCallbacks {
+    std::function<void()> onConfirm;
+    std::function<void()> onButtonHover;
+};
+
 inline void bindRhythmOverlayControls(const AttachListenerFn& attachListener,
                                       const std::function<void()>& onRhythmClick) {
     attachListener("battle-rhythm", Rml::EventId::Click, [onRhythmClick](Rml::Event&) {
@@ -116,6 +121,20 @@ inline void bindPauseOverlayControls(const AttachListenerFn& attachListener,
     attachListener("battle-settings-text-slider", Rml::EventId::Change, [onTextSliderChange = callbacks.onTextSliderChange](Rml::Event& event) {
         if (onTextSliderChange) {
             onTextSliderChange(event.GetParameter<float>("value", 0.0f));
+        }
+    });
+}
+
+inline void bindBattleResultOverlayControls(const AttachListenerFn& attachListener,
+                                            const BattleResultOverlayBindingCallbacks& callbacks) {
+    attachListener("battle-result-button", Rml::EventId::Click, [onConfirm = callbacks.onConfirm](Rml::Event&) {
+        if (onConfirm) {
+            onConfirm();
+        }
+    });
+    attachListener("battle-result-button", Rml::EventId::Mouseover, [onButtonHover = callbacks.onButtonHover](Rml::Event&) {
+        if (onButtonHover) {
+            onButtonHover();
         }
     });
 }

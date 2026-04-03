@@ -547,6 +547,258 @@ inline float judgementRewardOpacity(const HudFeedbackState& feedback, Uint64 now
     return easeOutCubic(std::clamp(rewardElapsedSeconds / kRewardDurationSeconds, 0.0f, 1.0f));
 }
 
+inline const JudgementPalette& battleResultPalette(BattleResultOverlayOutcome outcome) {
+    static const JudgementPalette victory{
+        {92, 23, 63},
+        {255, 211, 235},
+        {255, 141, 203},
+        {255, 103, 182},
+        {84, 18, 55},
+        {255, 224, 240}
+    };
+    static const JudgementPalette defeat{
+        {111, 26, 36},
+        {255, 187, 194},
+        {249, 125, 132},
+        {236, 95, 102},
+        {106, 22, 33},
+        {255, 218, 221}
+    };
+
+    return outcome == BattleResultOverlayOutcome::Victory ? victory : defeat;
+}
+
+inline std::string battleResultLetterStyle(const JudgementPalette& palette, float elapsedSeconds) {
+    const float progress = std::clamp(elapsedSeconds / kBattleResultLetterDurationSeconds, 0.0f, 1.0f);
+
+    float opacity = 1.0f;
+    float translateYDp = 0.0f;
+    float scale = 1.0f;
+    JudgementColor color = palette.final;
+
+    if (progress < 0.52f) {
+        const float t = easeOutCubic(progress / 0.52f);
+        opacity = t;
+        translateYDp = lerpValue(-154.0f, 18.0f, t);
+        scale = lerpValue(1.88f, 0.84f, t);
+        color = lerpColor(palette.dark, palette.mid, t);
+    } else if (progress < 0.78f) {
+        const float t = easeOutCubic((progress - 0.52f) / 0.26f);
+        opacity = 1.0f;
+        translateYDp = lerpValue(18.0f, -6.0f, t);
+        scale = lerpValue(0.84f, 1.08f, t);
+        color = lerpColor(palette.mid, palette.bright, t);
+    } else {
+        const float t = easeOutCubic((progress - 0.78f) / 0.22f);
+        opacity = 1.0f;
+        translateYDp = lerpValue(-6.0f, 0.0f, t);
+        scale = lerpValue(1.08f, 1.0f, t);
+        color = lerpColor(palette.bright, palette.final, t);
+    }
+
+    std::string style = "opacity: ";
+    style += decimalText(opacity);
+    style += "; transform: translateY(";
+    style += decimalText(translateYDp);
+    style += "dp) scale(";
+    style += decimalText(scale);
+    style += "); color: ";
+    style += rgbaText(color, 1.0f);
+    style += ";";
+    return style;
+}
+
+inline std::string battleResultHiddenLetterStyle(const JudgementPalette& palette) {
+    std::string style = "opacity: 0; transform: translateY(-154.000dp) scale(1.880); color: ";
+    style += rgbaText(palette.dark, 1.0f);
+    style += ";";
+    return style;
+}
+
+inline std::string buildBattleResultWordMarkup(const BattleResultOverlayState& overlay) {
+    std::string markup;
+    markup.reserve(overlay.word.size() * 96);
+
+    int visibleLetterIndex = 0;
+    for (char glyph : overlay.word) {
+        if (glyph == ' ') {
+            markup += "<span class=\"battle-result-space\"></span>";
+            continue;
+        }
+
+        markup += "<span class=\"battle-result-letter\" id=\"battle-result-letter-";
+        markup += std::to_string(visibleLetterIndex);
+        markup += "\">";
+        markup.push_back(glyph);
+        markup += "</span>";
+        ++visibleLetterIndex;
+    }
+
+    return markup;
+}
+
+inline void ensureBattleResultWordDocument(Rml::ElementDocument* document, const BattleResultOverlayState& overlay) {
+    if (document == nullptr) {
+        return;
+    }
+
+    Rml::Element* word = document->GetElementById("battle-result-word");
+    if (word == nullptr) {
+        return;
+    }
+
+    if (word->GetAttribute<std::string>("data-result-word", "") != overlay.word) {
+        word->SetInnerRML(buildBattleResultWordMarkup(overlay));
+        word->SetAttribute("data-result-word", overlay.word);
+    }
+}
+
+inline void updateBattleResultLetterElements(Rml::ElementDocument* document,
+                                             const BattleResultOverlayState& overlay) {
+    if (document == nullptr) {
+        return;
+    }
+
+    const JudgementPalette& palette = battleResultPalette(overlay.outcome);
+    const std::string hiddenStyle = battleResultHiddenLetterStyle(palette);
+    const float elapsedSeconds = battleResultElapsedSeconds(overlay);
+    const int totalLetters = static_cast<int>(battleResultVisibleGlyphCount(overlay.word));
+    for (int letterIndex = 0; letterIndex < totalLetters; ++letterIndex) {
+        Rml::Element* letter = document->GetElementById("battle-result-letter-" + std::to_string(letterIndex));
+        if (letter == nullptr) {
+            continue;
+        }
+
+        const std::string style = [&]() {
+            if (!overlay.active) {
+                return hiddenStyle;
+            }
+
+            const float letterElapsedSeconds =
+                elapsedSeconds - kBattleResultIntroDelaySeconds -
+                (static_cast<float>(letterIndex) * kBattleResultLetterIntervalSeconds);
+            if (letterElapsedSeconds < 0.0f) {
+                return hiddenStyle;
+            }
+            return battleResultLetterStyle(palette, letterElapsedSeconds);
+        }();
+
+        letter->SetAttribute("style", style);
+    }
+}
+
+inline float battleResultDimOpacity(const BattleResultOverlayState& overlay, Uint64 nowMs) {
+    (void)nowMs;
+    const float elapsedSeconds = battleResultElapsedSeconds(overlay);
+    return easeOutCubic(std::clamp(elapsedSeconds / kBattleResultDimFadeDurationSeconds, 0.0f, 1.0f));
+}
+
+inline float battleResultKickerOpacity(const BattleResultOverlayState& overlay, Uint64 nowMs) {
+    (void)nowMs;
+    const float elapsedSeconds = battleResultElapsedSeconds(overlay);
+    const float delayedElapsed = elapsedSeconds - kBattleResultKickerDelaySeconds;
+    if (delayedElapsed <= 0.0f) {
+        return 0.0f;
+    }
+    return easeOutCubic(std::clamp(delayedElapsed / kBattleResultKickerDurationSeconds, 0.0f, 1.0f));
+}
+
+inline std::string battleResultKickerTransform(const BattleResultOverlayState& overlay, Uint64 nowMs) {
+    const float progress = battleResultKickerOpacity(overlay, nowMs);
+    const float translateYDp = lerpValue(22.0f, 0.0f, progress);
+    const float scale = lerpValue(0.96f, 1.0f, progress);
+    return "translateY(" + decimalText(translateYDp) + "dp) scale(" + decimalText(scale) + ")";
+}
+
+inline std::string battleResultWordTransform(const BattleResultOverlayState& overlay, Uint64 nowMs) {
+    (void)nowMs;
+    const float elapsedSeconds = battleResultElapsedSeconds(overlay);
+    const float settleStartSeconds = battleResultSettleStartSeconds(overlay);
+    if (elapsedSeconds <= settleStartSeconds) {
+        return "translateY(0dp) scale(1)";
+    }
+
+    const float settleProgress = easeOutCubic(
+        std::clamp((elapsedSeconds - settleStartSeconds) / kBattleResultSettleDurationSeconds, 0.0f, 1.0f));
+    const float translateYDp = lerpValue(0.0f, -54.0f, settleProgress);
+    const float scale = lerpValue(1.0f, 0.76f, settleProgress);
+    return "translateY(" + decimalText(translateYDp) + "dp) scale(" + decimalText(scale) + ")";
+}
+
+inline float battleResultButtonRevealSeconds(const BattleResultOverlayState& overlay) {
+    return battleResultButtonRevealStartSeconds(overlay);
+}
+
+inline float battleResultButtonProgress(const BattleResultOverlayState& overlay) {
+    const float buttonElapsedSeconds = battleResultElapsedSeconds(overlay) - battleResultButtonRevealSeconds(overlay);
+    if (buttonElapsedSeconds <= 0.0f) {
+        return 0.0f;
+    }
+    return easeOutCubic(std::clamp(buttonElapsedSeconds / kBattleResultButtonDurationSeconds, 0.0f, 1.0f));
+}
+
+inline void applyBattleResultOverlayDocumentState(Rml::ElementDocument* document,
+                                                  const BattleResultOverlayState& overlay,
+                                                  Uint64 nowMs) {
+    if (document == nullptr) {
+        return;
+    }
+
+    const bool active = overlay.active;
+    setElementClass(document, "battle-result", "active", active);
+    setElementClass(document, "battle-result", "victory", overlay.outcome == BattleResultOverlayOutcome::Victory);
+    setElementClass(document, "battle-result", "defeat", overlay.outcome == BattleResultOverlayOutcome::Defeat);
+    setElementDisplay(document, "battle-result", active);
+    setElementText(document, "battle-result-kicker", active ? "BATTLE RESOLVED" : "");
+    setElementText(document, "battle-result-button-label", active ? overlay.buttonLabel : "");
+    setElementText(document, "battle-result-button-sub", active ? overlay.buttonSubcopy : "");
+    ensureBattleResultWordDocument(document, overlay);
+    updateBattleResultLetterElements(document, overlay);
+
+    if (Rml::Element* wordShell = document->GetElementById("battle-result-word-shell")) {
+        wordShell->SetProperty("transform", active ? battleResultWordTransform(overlay, nowMs) : "translateY(0dp) scale(1)");
+    }
+    if (Rml::Element* dim = document->GetElementById("battle-result-dim")) {
+        dim->SetProperty("opacity", active ? decimalText(battleResultDimOpacity(overlay, nowMs)) : "0");
+    }
+    if (Rml::Element* kicker = document->GetElementById("battle-result-kicker")) {
+        if (!active) {
+            kicker->SetProperty("opacity", "0");
+            kicker->SetProperty("transform", "translateY(22dp) scale(0.96)");
+        } else {
+            kicker->SetProperty("opacity", decimalText(battleResultKickerOpacity(overlay, nowMs)));
+            kicker->SetProperty("transform", battleResultKickerTransform(overlay, nowMs));
+        }
+    }
+    if (Rml::Element* buttonStage = document->GetElementById("battle-result-button-stage")) {
+        if (!active) {
+            buttonStage->SetProperty("opacity", "0");
+            buttonStage->SetProperty("transform", "translateY(42dp) scale(0.88)");
+        } else {
+            const float buttonProgress = battleResultButtonProgress(overlay);
+            buttonStage->SetProperty("opacity", decimalText(buttonProgress));
+            buttonStage->SetProperty(
+                "transform",
+                "translateY(" + decimalText(lerpValue(42.0f, 0.0f, buttonProgress)) + "dp) scale(" +
+                decimalText(lerpValue(0.88f, 1.0f, buttonProgress)) + ")");
+        }
+    }
+
+    setElementDisplay(document, "battle-combo", !active);
+    if (!active) {
+        return;
+    }
+
+    setElementDisplay(document, "battle-judgement", false);
+    setElementDisplay(document, "battle-tutorial", false);
+    setElementClass(document, "battle-rhythm", "visible", false);
+    setElementDisplay(document, "battle-hint", false);
+    setElementClass(document, "battle-hint", "visible", false);
+    setElementDisplay(document, "battle-toast", false);
+    setElementClass(document, "battle-toast", "visible", false);
+    setElementClass(document, "battle-pause", "visible", false);
+}
+
 inline void updateComboDocument(Rml::ElementDocument* document, const HudFeedbackState& feedback) {
     if (document == nullptr) {
         return;
@@ -716,6 +968,7 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
                                     const battle::BattleManager& manager,
                                     const HudAnimationState& animationState,
                                     const HudFeedbackState& feedback,
+                                    const BattleResultOverlayState& resultOverlay,
                                     const TutorialOverlayState& tutorial,
                                     const RhythmChallengeState& rhythm,
                                     bool paused,
@@ -909,6 +1162,7 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
     if (paused) {
         applyPauseOverlayDocumentState(document, pauseOverlayMode, pauseSelection, settingsSelection, settings);
     }
+    detail::applyBattleResultOverlayDocumentState(document, resultOverlay, nowMs);
 }
 
 } // namespace battle::app::ui

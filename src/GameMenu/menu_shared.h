@@ -38,6 +38,17 @@ enum class MainMenuAction {
     Exit
 };
 
+enum class StoryFlowMode {
+    Campaign,
+    PracticeReplay
+};
+
+enum class BattleFlowMode {
+    Direct,
+    CampaignStory,
+    PracticeReplayStory
+};
+
 inline constexpr const char* kMainMenuBackgroundArtPath = "assets/vn/backgrounds/General_Art/mainmenu art.png";
 inline constexpr const char* kMainMenuTitleLogoPath = "assets/vn/backgrounds/General_Art/MainMenuTitle.png";
 inline constexpr const char* kPracticeModeLockedNotice = "Practice Mode unlocks after the tutorial.";
@@ -179,6 +190,7 @@ struct AppState {
     float pauseIntroTime = 0.0f;
     GameSettings settings;
     StorySession story;
+    StoryFlowMode storyFlowMode = StoryFlowMode::Campaign;
     battle::PlayerProgression progression;
     std::string noticeText;
     float noticeTimer = 0.0f;
@@ -189,7 +201,7 @@ struct AppState {
     ScreenState storyEndReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleKey;
     std::vector<std::string> pendingBattlePartyLineup;
-    bool pendingBattleLaunchedFromStory = false;
+    BattleFlowMode pendingBattleFlowMode = BattleFlowMode::Direct;
     ScreenState pendingBattleReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleWinScript;
     std::string pendingBattleLoseScript;
@@ -247,7 +259,8 @@ bool mapWindowPointToReference(float windowX, float windowY, int windowWidth, in
 void beginStory(AppState& state,
                 const std::string& scriptRef = std::string(),
                 ScreenState endReturnScreen = ScreenState::MainMenu,
-                bool autosaveOnStart = true);
+                bool autosaveOnStart = true,
+                StoryFlowMode flowMode = StoryFlowMode::Campaign);
 bool beginStoryMode(AppState& state, Window& window);
 void beginBossSelector(AppState& state);
 void beginBattleDemo(AppState& state);

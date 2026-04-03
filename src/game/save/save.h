@@ -216,6 +216,28 @@ namespace save {
 
 constexpr int SAVE_VERSION = 1;
 
+enum class SaveContext {
+    Campaign,
+    Practice
+};
+
+inline std::string saveContextToString(SaveContext saveContext) {
+    switch (saveContext) {
+    case SaveContext::Practice:
+        return "practice";
+    case SaveContext::Campaign:
+    default:
+        return "campaign";
+    }
+}
+
+inline SaveContext saveContextFromString(const std::string& saveContext) {
+    if (saveContext == "practice") {
+        return SaveContext::Practice;
+    }
+    return SaveContext::Campaign;
+}
+
 struct SaveGame {
     struct Settings {
         bool fullscreen = false;
@@ -228,6 +250,7 @@ struct SaveGame {
     std::string timestamp;
     std::string label;
     std::string chapter;
+    SaveContext saveContext = SaveContext::Campaign;
     int entryIndex = 0;
     Settings settings;
     battle::PlayerProgression progression;
@@ -290,6 +313,7 @@ inline void to_json(nlohmann::json& jsonValue, const SaveGame& saveGame) {
     jsonValue["timestamp"] = saveGame.timestamp;
     jsonValue["label"] = saveGame.label;
     jsonValue["chapter"] = saveGame.chapter;
+    jsonValue["saveContext"] = saveContextToString(saveGame.saveContext);
     jsonValue["entryIndex"] = saveGame.entryIndex;
     jsonValue["settings"] = saveGame.settings;
     jsonValue["progression"] = nlohmann::json{
@@ -304,6 +328,7 @@ inline void from_json(const nlohmann::json& jsonValue, SaveGame& saveGame) {
     jsonValue.at("timestamp").get_to(saveGame.timestamp);
     jsonValue.at("label").get_to(saveGame.label);
     jsonValue.at("chapter").get_to(saveGame.chapter);
+    saveGame.saveContext = saveContextFromString(jsonValue.value("saveContext", std::string("campaign")));
     jsonValue.at("entryIndex").get_to(saveGame.entryIndex);
     jsonValue.at("settings").get_to(saveGame.settings);
     saveGame.progression = battle::PlayerProgression{};

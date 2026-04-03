@@ -7,6 +7,11 @@ namespace {
 
 constexpr float kFadeDurationSeconds = 0.35f;
 
+float smoothstep01(float value) {
+    const float t = std::clamp(value, 0.0f, 1.0f);
+    return t * t * (3.0f - (2.0f * t));
+}
+
 }
 
 void BattleBgmController::attach(BgmPlayer& player) {
@@ -21,6 +26,9 @@ void BattleBgmController::detach() {
     queuedBaseVolume_ = 1.0f;
     masterVolume_ = 1.0f;
     fadeGain_ = 1.0f;
+    fadeDurationSeconds_ = kFadeDurationSeconds;
+    transitionElapsedSeconds_ = 0.0f;
+    transitionStartGain_ = 1.0f;
     paused_ = false;
     transitionState_ = TransitionState::Idle;
 }
@@ -34,8 +42,35 @@ void BattleBgmController::stop() {
     currentBaseVolume_ = 1.0f;
     queuedBaseVolume_ = 1.0f;
     fadeGain_ = 1.0f;
+    fadeDurationSeconds_ = kFadeDurationSeconds;
+    transitionElapsedSeconds_ = 0.0f;
+    transitionStartGain_ = 1.0f;
     paused_ = false;
     transitionState_ = TransitionState::Idle;
+}
+
+void BattleBgmController::fadeOutAndStop(float fadeDurationSeconds) {
+    queuedTrackPath_.clear();
+    queuedBaseVolume_ = 1.0f;
+    fadeDurationSeconds_ = std::max(0.01f, fadeDurationSeconds);
+
+    if (player_ == nullptr) {
+        return;
+    }
+
+    if (!player_->isPlaying() || currentTrackPath_.empty()) {
+        stop();
+        return;
+    }
+
+    if (paused_) {
+        stop();
+        return;
+    }
+
+    transitionElapsedSeconds_ = 0.0f;
+    transitionStartGain_ = std::clamp(fadeGain_, 0.0f, 1.0f);
+    transitionState_ = TransitionState::FadingOut;
 }
 
 void BattleBgmController::playImmediate(const std::string& trackPath, float baseVolume) {
@@ -60,6 +95,9 @@ void BattleBgmController::playImmediate(const std::string& trackPath, float base
     currentTrackPath_ = trackPath;
     currentBaseVolume_ = clampedBaseVolume;
     fadeGain_ = 1.0f;
+    fadeDurationSeconds_ = kFadeDurationSeconds;
+    transitionElapsedSeconds_ = 0.0f;
+    transitionStartGain_ = 1.0f;
     transitionState_ = TransitionState::Idle;
     if (paused_) {
         player_->pause();
@@ -87,12 +125,18 @@ void BattleBgmController::requestTrack(const std::string& trackPath, float baseV
         queuedBaseVolume_ = clampedBaseVolume;
         transitionState_ = TransitionState::Idle;
         fadeGain_ = 1.0f;
+        fadeDurationSeconds_ = kFadeDurationSeconds;
+        transitionElapsedSeconds_ = 0.0f;
+        transitionStartGain_ = 1.0f;
         applyVolume();
         return;
     }
 
     queuedTrackPath_ = trackPath;
     queuedBaseVolume_ = clampedBaseVolume;
+    fadeDurationSeconds_ = kFadeDurationSeconds;
+    transitionElapsedSeconds_ = 0.0f;
+    transitionStartGain_ = std::clamp(fadeGain_, 0.0f, 1.0f);
     transitionState_ = TransitionState::FadingOut;
 }
 
@@ -101,24 +145,26 @@ void BattleBgmController::update(float deltaSeconds) {
         return;
     }
 
-    const float step = kFadeDurationSeconds <= 0.0f
-        ? 1.0f
-        : std::max(deltaSeconds, 0.0f) / kFadeDurationSeconds;
-
     switch (transitionState_) {
         case TransitionState::Idle:
             applyVolume();
             return;
-        case TransitionState::FadingOut:
+        case TransitionState::FadingOut: {
             if (!player_->isPlaying()) {
                 transitionState_ = TransitionState::Idle;
                 fadeGain_ = 1.0f;
+                transitionElapsedSeconds_ = 0.0f;
+                transitionStartGain_ = 1.0f;
                 return;
             }
 
-            fadeGain_ = std::max(0.0f, fadeGain_ - step);
+            transitionElapsedSeconds_ += std::max(deltaSeconds, 0.0f);
+            const float fadeOutProgress = fadeDurationSeconds_ <= 0.0f
+                ? 1.0f
+                : std::clamp(transitionElapsedSeconds_ / fadeDurationSeconds_, 0.0f, 1.0f);
+            fadeGain_ = transitionStartGain_ * (1.0f - smoothstep01(fadeOutProgress));
             applyVolume();
-            if (fadeGain_ > 0.001f) {
+            if (fadeOutProgress < 1.0f) {
                 return;
             }
 
@@ -127,6 +173,9 @@ void BattleBgmController::update(float deltaSeconds) {
             currentBaseVolume_ = 1.0f;
             if (queuedTrackPath_.empty()) {
                 fadeGain_ = 1.0f;
+                fadeDurationSeconds_ = kFadeDurationSeconds;
+                transitionElapsedSeconds_ = 0.0f;
+                transitionStartGain_ = 1.0f;
                 transitionState_ = TransitionState::Idle;
                 return;
             }
@@ -135,6 +184,9 @@ void BattleBgmController::update(float deltaSeconds) {
                 queuedTrackPath_.clear();
                 queuedBaseVolume_ = 1.0f;
                 fadeGain_ = 1.0f;
+                fadeDurationSeconds_ = kFadeDurationSeconds;
+                transitionElapsedSeconds_ = 0.0f;
+                transitionStartGain_ = 1.0f;
                 transitionState_ = TransitionState::Idle;
                 return;
             }
@@ -144,26 +196,39 @@ void BattleBgmController::update(float deltaSeconds) {
             queuedTrackPath_.clear();
             queuedBaseVolume_ = 1.0f;
             fadeGain_ = 0.0f;
+            fadeDurationSeconds_ = kFadeDurationSeconds;
+            transitionElapsedSeconds_ = 0.0f;
+            transitionStartGain_ = 0.0f;
             transitionState_ = TransitionState::FadingIn;
             if (paused_) {
                 player_->pause();
             }
             applyVolume();
             return;
-        case TransitionState::FadingIn:
+        }
+        case TransitionState::FadingIn: {
             if (!player_->isPlaying()) {
                 transitionState_ = TransitionState::Idle;
                 fadeGain_ = 1.0f;
+                transitionElapsedSeconds_ = 0.0f;
+                transitionStartGain_ = 1.0f;
                 return;
             }
 
-            fadeGain_ = std::min(1.0f, fadeGain_ + step);
+            transitionElapsedSeconds_ += std::max(deltaSeconds, 0.0f);
+            const float fadeInProgress = fadeDurationSeconds_ <= 0.0f
+                ? 1.0f
+                : std::clamp(transitionElapsedSeconds_ / fadeDurationSeconds_, 0.0f, 1.0f);
+            fadeGain_ = smoothstep01(fadeInProgress);
             applyVolume();
-            if (fadeGain_ >= 0.999f) {
+            if (fadeInProgress >= 1.0f) {
                 fadeGain_ = 1.0f;
+                transitionElapsedSeconds_ = 0.0f;
+                transitionStartGain_ = 1.0f;
                 transitionState_ = TransitionState::Idle;
             }
             return;
+        }
     }
 }
 

@@ -962,7 +962,9 @@ private:
         const Entry& entry = entries_[selectedIndex_];
         playConfirmSfx();
         launchRequest_ = LaunchRequest{
-            entry.battle.storyScript.empty() ? LaunchRequest::Type::Battle : LaunchRequest::Type::Story,
+            entry.battle.storyScript.empty()
+                ? LaunchRequest::Mode::PracticeStraightToBattle
+                : LaunchRequest::Mode::PracticeReplayStory,
             entry.battle.storyScript.empty() ? entry.battle.key : entry.battle.storyScript,
         };
     }
@@ -976,8 +978,8 @@ private:
         playConfirmSfx();
         launchRequest_ = LaunchRequest{
             footerSelection_ == FooterAction::ReplayStory && !entry.battle.storyScript.empty()
-                ? LaunchRequest::Type::Story
-                : LaunchRequest::Type::Battle,
+                ? LaunchRequest::Mode::PracticeReplayStory
+                : LaunchRequest::Mode::PracticeStraightToBattle,
             footerSelection_ == FooterAction::ReplayStory && !entry.battle.storyScript.empty()
                 ? entry.battle.storyScript
                 : entry.battle.key,

@@ -77,6 +77,18 @@
       "autoAdvanceOnVoiceEnd": false
     },
     {
+      "speaker": "CupcakKe",
+      "text": "Your dressing room is the Shitang's Mixue? Are you serious?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
       "speaker": "WeChat-Jie",
       "text": "We are the queens of the transaction. I am WeChat-Jie, the goddess of the Hongbao.",
       "type": "dialogue",
@@ -150,7 +162,7 @@
     },
     {
       "speaker": "WeChat-Jie",
-      "text": "If you want to keep your \"artistic integrity,\" you better find some funds. Get on stage, and scan QR codes, until your last cent!",
+      "text": "If you want to keep your \"artistic integrity,\" you better find some funds.",
       "type": "dialogue",
       "background": "",
       "voice": "",
@@ -160,6 +172,18 @@
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false
     },
+    { 
+      "speaker": "WeChat-Jie",
+      "text": "Get on stage, and scan QR codes, until your last cent!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false      
+          },
     {
       "speaker": "Miku",
       "text": "Man, I need my monthly allowance soon…",

@@ -15,12 +15,12 @@ class Window;
 namespace battle::selector {
 
 struct LaunchRequest {
-    enum class Type {
-        Battle,
-        Story
+    enum class Mode {
+        PracticeStraightToBattle,
+        PracticeReplayStory
     };
 
-    Type type = Type::Battle;
+    Mode mode = Mode::PracticeStraightToBattle;
     std::string reference;
 };
 

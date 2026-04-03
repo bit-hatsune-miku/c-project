@@ -46,14 +46,14 @@ int launchRequest(const battle::selector::LaunchRequest& request) {
     executablePath = resolveSiblingExecutable("OurUndergroundBITIdol");
     if (executablePath.has_value()) {
         arguments.push_back(executablePath->string());
-        if (request.type == battle::selector::LaunchRequest::Type::Battle) {
+        if (request.mode == battle::selector::LaunchRequest::Mode::PracticeStraightToBattle) {
             arguments.push_back("battle");
             arguments.push_back(request.reference);
         } else {
             arguments.push_back("story");
             arguments.push_back(request.reference);
         }
-    } else if (request.type == battle::selector::LaunchRequest::Type::Battle) {
+    } else if (request.mode == battle::selector::LaunchRequest::Mode::PracticeStraightToBattle) {
         executablePath = resolveSiblingExecutable("demo");
         if (!executablePath.has_value()) {
             std::cerr << "[BossSelector] Could not find sibling executable: OurUndergroundBITIdol or demo\n";

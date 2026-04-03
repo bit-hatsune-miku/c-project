@@ -412,7 +412,9 @@ std::optional<fs::path> findMatchingManualSavePath(const SaveGame& saveGame) {
         if (!candidate.has_value()) {
             continue;
         }
-        if (candidate->chapter != saveGame.chapter || candidate->entryIndex != saveGame.entryIndex) {
+        if (candidate->chapter != saveGame.chapter ||
+            candidate->saveContext != saveGame.saveContext ||
+            candidate->entryIndex != saveGame.entryIndex) {
             continue;
         }
 

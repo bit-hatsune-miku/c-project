@@ -236,6 +236,30 @@
                 </div>
             </div>
 
+            <div class="battle-result" id="battle-result">
+                <div class="battle-result-dim" id="battle-result-dim"></div>
+                <div class="battle-result-focus">
+                    <div class="battle-result-kicker" id="battle-result-kicker">BATTLE RESOLVED</div>
+                    <div class="battle-result-word-shell" id="battle-result-word-shell">
+                        <div class="battle-result-word" id="battle-result-word"></div>
+                    </div>
+                    <button class="battle-result-button" id="battle-result-button">
+                        <div class="battle-result-button-stage" id="battle-result-button-stage">
+                            <div class="battle-result-button-shell"></div>
+                            <div class="battle-result-button-content">
+                                <div class="battle-result-button-accent"></div>
+                                <div class="battle-result-button-code">01</div>
+                                <div class="battle-result-button-main">
+                                    <div class="battle-result-button-label" id="battle-result-button-label">CONTINUE</div>
+                                    <div class="battle-result-button-sub" id="battle-result-button-sub">Advance to the next story beat.</div>
+                                </div>
+                                <div class="battle-result-button-tail"></div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
             <div class="battle-pause" id="battle-pause">
                 <div class="battle-pause-shell" id="battle-pause-shell">
                     <div class="battle-pause-kicker" id="battle-pause-kicker">IN BATTLE</div>

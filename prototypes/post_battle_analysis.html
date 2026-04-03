@@ -111,20 +111,34 @@
       position: absolute;
       left: 92px;
       top: 34px;
-      width: 206px;
+      width: 0;
       height: 1px;
       background-color: rgba(255, 104, 181, 0.42);
+      transition: width 520ms ease;
     }
 
     .signal-dot {
       position: absolute;
-      left: 289px;
+      left: 92px;
       top: 30px;
       width: 9px;
       height: 9px;
       border-radius: 999px;
       background-color: #ff68b5;
       box-shadow: 0 0 14px rgba(255, 104, 181, 0.35);
+      opacity: 0;
+      transition:
+        left 520ms ease,
+        opacity 120ms ease;
+    }
+
+    .signal-strip.is-armed {
+      width: 206px;
+    }
+
+    .signal-dot.is-armed {
+      left: 289px;
+      opacity: 1;
     }
 
     .screen {
@@ -151,8 +165,8 @@
       position: absolute;
       left: 92px;
       top: 72px;
-      width: 526px;
-      height: 118px;
+      width: 700px;
+      height: 92px;
     }
 
     .eyebrow {
@@ -175,26 +189,6 @@
       color: #17131f;
     }
 
-    .subtitle {
-      margin: 12px 0 0;
-      font-size: 14px;
-      line-height: 22px;
-      letter-spacing: 0.8px;
-      color: rgba(26, 21, 34, 0.58);
-    }
-
-    .summary-note {
-      position: absolute;
-      right: 92px;
-      top: 76px;
-      width: 248px;
-      height: 110px;
-      padding: 18px 22px;
-      background-color: rgba(255, 255, 255, 0.74);
-      border: 1px solid rgba(26, 21, 34, 0.12);
-      box-shadow: 0 24px 46px rgba(26, 21, 34, 0.07);
-    }
-
     .summary-note-kicker {
       margin: 0;
       font-size: 11px;
@@ -213,10 +207,18 @@
       color: rgba(26, 21, 34, 0.62);
     }
 
+    .subtitle {
+      margin: 12px 0 0;
+      font-size: 14px;
+      line-height: 22px;
+      letter-spacing: 0.8px;
+      color: rgba(26, 21, 34, 0.58);
+    }
+
     .metrics-row {
       position: absolute;
       left: 92px;
-      top: 230px;
+      top: 192px;
       width: 1096px;
       height: 138px;
     }
@@ -250,6 +252,7 @@
       background-color: rgba(255, 255, 255, 0.92);
       border: 1px solid rgba(26, 21, 34, 0.12);
       transform: skewX(-18deg);
+      border-radius: 22px;
       box-shadow: 0 22px 42px rgba(26, 21, 34, 0.06);
     }
 
@@ -285,7 +288,6 @@
       width: 332px;
       height: 138px;
       padding: 22px 28px 0 42px;
-      transform: skewX(18deg);
     }
 
     .metric-label {
@@ -318,9 +320,9 @@
     .ranking-panel {
       position: absolute;
       left: 92px;
-      top: 392px;
-      width: 808px;
-      height: 228px;
+      top: 360px;
+      width: 1096px;
+      height: 254px;
       background-color: rgba(255, 255, 255, 0.9);
       border: 1px solid rgba(26, 21, 34, 0.12);
       box-shadow: 0 24px 44px rgba(26, 21, 34, 0.06);
@@ -362,15 +364,15 @@
       position: absolute;
       left: 26px;
       top: 68px;
-      width: 756px;
-      height: 136px;
+      width: 1044px;
+      height: 150px;
     }
 
     .ranking-row {
       position: absolute;
       left: 0;
-      width: 756px;
-      height: 28px;
+      width: 1044px;
+      height: 30px;
     }
 
     .ranking-row--0 {
@@ -404,7 +406,7 @@
       position: absolute;
       left: 58px;
       top: 3px;
-      width: 154px;
+      width: 174px;
       font-size: 16px;
       line-height: 22px;
       font-weight: 700;
@@ -414,11 +416,12 @@
 
     .ranking-bar-shell {
       position: absolute;
-      left: 224px;
+      left: 246px;
       top: 7px;
-      width: 328px;
+      width: 514px;
       height: 14px;
       background-color: rgba(26, 21, 34, 0.08);
+      border-radius: 999px;
       overflow: hidden;
     }
 
@@ -426,7 +429,9 @@
       position: absolute;
       left: 0;
       top: 0;
+      width: 0;
       height: 14px;
+      border-radius: 999px;
       background-color: #ff68b5;
     }
 
@@ -444,7 +449,7 @@
 
     .ranking-share {
       position: absolute;
-      left: 570px;
+      left: 778px;
       top: 3px;
       width: 72px;
       font-size: 15px;
@@ -458,7 +463,7 @@
       position: absolute;
       right: 0;
       top: 3px;
-      width: 94px;
+      width: 126px;
       font-size: 15px;
       line-height: 22px;
       font-weight: 700;
@@ -466,85 +471,10 @@
       text-align: right;
     }
 
-    .analysis-panel {
-      position: absolute;
-      right: 92px;
-      top: 392px;
-      width: 288px;
-      height: 228px;
-      background-color: rgba(23, 18, 32, 0.96);
-      border: 1px solid rgba(23, 18, 32, 0.08);
-      box-shadow: 0 22px 44px rgba(26, 21, 34, 0.12);
-      color: #fff7fb;
-    }
-
-    .analysis-accent {
-      position: absolute;
-      left: 24px;
-      top: 24px;
-      width: 48px;
-      height: 6px;
-      background-color: rgba(255, 104, 181, 0.8);
-    }
-
-    .analysis-kicker {
-      margin: 0;
-      padding: 42px 24px 0;
-      font-size: 12px;
-      line-height: 18px;
-      font-weight: 700;
-      letter-spacing: 2.8px;
-      color: rgba(255, 247, 251, 0.58);
-      text-transform: uppercase;
-    }
-
-    .analysis-copy {
-      margin: 0;
-      padding: 14px 24px 0;
-      font-size: 18px;
-      line-height: 28px;
-      font-weight: 700;
-      color: #fff7fb;
-      text-transform: uppercase;
-    }
-
-    .analysis-mini {
-      margin: 0;
-      padding: 18px 24px 0;
-      font-size: 12px;
-      line-height: 22px;
-      letter-spacing: 0.4px;
-      color: rgba(255, 247, 251, 0.72);
-    }
-
-    .analysis-chip {
-      position: absolute;
-      left: 24px;
-      bottom: 24px;
-      height: 32px;
-      padding: 0 14px;
-      line-height: 30px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 2.2px;
-      color: #fff7fb;
-      text-transform: uppercase;
-      border: 1px solid rgba(255, 255, 255, 0.16);
-      background-color: rgba(255, 255, 255, 0.05);
-      transform: skewX(-18deg);
-    }
-
-    .analysis-chip span {
-      display: inline-block;
-      transform: skewX(18deg);
-    }
-
     .primary-button {
       position: absolute;
-      left: 50%;
       width: 286px;
       height: 68px;
-      margin-left: -143px;
       cursor: pointer;
       outline: none;
     }
@@ -559,6 +489,7 @@
       border: 1px solid rgba(255, 104, 181, 0.9);
       box-shadow: 0 18px 34px rgba(255, 104, 181, 0.22);
       transform: skewX(-18deg);
+      border-radius: 18px;
       transition:
         transform 180ms ease,
         box-shadow 180ms ease,
@@ -573,7 +504,6 @@
       height: 68px;
       line-height: 68px;
       text-align: center;
-      transform: skewX(18deg);
       font-size: 21px;
       font-weight: 700;
       letter-spacing: 3px;
@@ -584,70 +514,74 @@
     .primary-button:hover .primary-button-shell,
     .primary-button.is-focused .primary-button-shell {
       transform: skewX(-18deg) translateY(-2px);
+    }
+
+    .primary-button--pink .primary-button-shell {
+      background-color: #ff68b5;
+      border-color: rgba(255, 104, 181, 0.9);
+      box-shadow: 0 18px 34px rgba(255, 104, 181, 0.22);
+    }
+
+    .primary-button--dark .primary-button-shell {
+      background-color: #17131f;
+      border-color: rgba(23, 19, 31, 0.9);
+      box-shadow: 0 18px 34px rgba(23, 19, 31, 0.16);
+    }
+
+    .primary-button--dark .primary-button-text {
+      color: #fff7fb;
+    }
+
+    .primary-button.is-disabled {
+      cursor: default;
+      pointer-events: none;
+      opacity: 0.34;
+    }
+
+    .primary-button--pink:hover .primary-button-shell,
+    .primary-button--pink.is-focused .primary-button-shell {
       background-color: #ff4ca6;
       box-shadow: 0 24px 42px rgba(255, 104, 181, 0.28);
     }
 
+    .primary-button--dark:hover .primary-button-shell,
+    .primary-button--dark.is-focused .primary-button-shell {
+      background-color: #0f0b16;
+      box-shadow: 0 24px 42px rgba(23, 19, 31, 0.22);
+    }
+
     .summary-continue {
+      left: 50%;
+      margin-left: -143px;
       bottom: 72px;
     }
 
-    .prototype-preset {
+    .control-button {
       position: absolute;
       right: 92px;
-      bottom: 82px;
-      width: 286px;
-      height: 70px;
-    }
-
-    .prototype-preset-label {
-      margin: 0 0 10px;
-      font-size: 11px;
-      line-height: 16px;
-      font-weight: 700;
-      letter-spacing: 2.6px;
-      color: rgba(26, 21, 34, 0.42);
-      text-transform: uppercase;
-      text-align: right;
-    }
-
-    .preset-row {
-      position: relative;
-      height: 36px;
-      text-align: right;
-    }
-
-    .preset-chip {
-      display: inline-block;
-      min-width: 58px;
-      height: 36px;
-      margin-left: 8px;
-      padding: 0 14px;
+      top: 80px;
+      width: 184px;
+      height: 40px;
+      border-radius: 999px;
       border: 1px solid rgba(26, 21, 34, 0.12);
-      background-color: rgba(255, 255, 255, 0.82);
-      color: rgba(26, 21, 34, 0.56);
-      line-height: 34px;
+      background-color: rgba(255, 255, 255, 0.84);
+      box-shadow: 0 14px 26px rgba(26, 21, 34, 0.05);
+      color: rgba(26, 21, 34, 0.68);
+      line-height: 38px;
       font-size: 12px;
       font-weight: 700;
-      letter-spacing: 1.6px;
+      letter-spacing: 2px;
       text-transform: uppercase;
-      transform: skewX(-18deg);
+      text-align: center;
       cursor: pointer;
-      transition:
-        background-color 160ms ease,
-        color 160ms ease,
-        border-color 160ms ease;
+      transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
     }
 
-    .preset-chip span {
-      display: inline-block;
-      transform: skewX(18deg);
-    }
-
-    .preset-chip.is-active {
+    .control-button:hover,
+    .control-button.is-focused {
       background-color: #17131f;
-      border-color: #17131f;
       color: #fff7fb;
+      transform: translateY(-1px);
     }
 
     .reward-header {
@@ -662,7 +596,7 @@
       position: absolute;
       right: 0;
       top: 0;
-      width: 326px;
+      width: 286px;
       height: 112px;
       padding: 18px 22px;
       background-color: rgba(255, 255, 255, 0.78);
@@ -679,32 +613,64 @@
       text-align: center;
     }
 
+    .reward-progress-rail {
+      position: absolute;
+      left: 254px;
+      top: 70px;
+      width: 772px;
+      height: 4px;
+      border-radius: 999px;
+      background-color: rgba(26, 21, 34, 0.08);
+      overflow: visible;
+    }
+
+    .reward-progress-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 4px;
+      border-radius: 999px;
+      background-color: #ff63b0;
+    }
+
+    .reward-progress-dot {
+      position: absolute;
+      top: -5px;
+      width: 14px;
+      height: 14px;
+      margin-left: -7px;
+      border-radius: 999px;
+      background-color: #ff63b0;
+      box-shadow: 0 0 0 5px rgba(255, 99, 176, 0.14);
+    }
+
     .reward-token {
       display: inline-block;
       width: 214px;
       height: 62px;
       margin: 0 8px;
       transform: skewX(-18deg);
+      border-radius: 18px;
       border: 1px solid rgba(26, 21, 34, 0.12);
       background-color: rgba(255, 255, 255, 0.82);
       box-shadow: 0 18px 34px rgba(26, 21, 34, 0.04);
     }
 
     .reward-token.is-complete {
-      background-color: rgba(99, 205, 191, 0.18);
-      border-color: rgba(99, 205, 191, 0.5);
+      background-color: rgba(255, 104, 181, 0.24);
+      border-color: rgba(255, 104, 181, 0.62);
     }
 
     .reward-token.is-current {
-      background-color: rgba(255, 104, 181, 0.14);
+      background-color: rgba(255, 104, 181, 0.12);
       border-color: rgba(255, 104, 181, 0.46);
+      box-shadow: 0 18px 34px rgba(255, 104, 181, 0.1);
     }
 
     .reward-token-label {
       display: inline-block;
       width: 214px;
       line-height: 62px;
-      transform: skewX(18deg);
       font-size: 14px;
       font-weight: 700;
       letter-spacing: 2.4px;
@@ -716,9 +682,9 @@
     .reward-grid {
       position: absolute;
       left: 92px;
-      top: 334px;
+      top: 320px;
       width: 1096px;
-      height: 242px;
+      height: 214px;
       text-align: center;
     }
 
@@ -726,16 +692,14 @@
       position: relative;
       display: inline-block;
       width: 250px;
-      height: 242px;
+      height: 214px;
       margin: 0 10px;
       text-align: left;
       vertical-align: top;
       cursor: pointer;
-      transition: transform 180ms ease;
     }
 
     .character-card.is-selected {
-      transform: translateY(-8px);
     }
 
     .character-shell {
@@ -743,11 +707,11 @@
       left: 0;
       top: 0;
       width: 250px;
-      height: 242px;
+      height: 214px;
       background-color: rgba(255, 255, 255, 0.94);
       border: 1px solid rgba(26, 21, 34, 0.12);
       box-shadow: 0 24px 44px rgba(26, 21, 34, 0.06);
-      transform: skewX(-12deg);
+      border-radius: 24px;
       transition:
         background-color 180ms ease,
         border-color 180ms ease,
@@ -755,9 +719,9 @@
     }
 
     .character-card.is-selected .character-shell {
-      background-color: rgba(255, 246, 250, 0.98);
-      border-color: rgba(255, 104, 181, 0.48);
-      box-shadow: 0 28px 46px rgba(255, 104, 181, 0.12);
+      background-color: #ff63b0;
+      border-color: rgba(255, 99, 176, 0.94);
+      box-shadow: 0 28px 46px rgba(255, 99, 176, 0.22);
     }
 
     .character-accent {
@@ -765,13 +729,14 @@
       left: 18px;
       top: 18px;
       width: 8px;
-      height: 188px;
+      height: 178px;
       border-radius: 999px;
-      background-color: rgba(255, 104, 181, 0.24);
+      background-color: rgba(23, 20, 31, 0.16);
+      transition: background-color 180ms ease;
     }
 
     .character-card.is-selected .character-accent {
-      background-color: rgba(255, 104, 181, 0.72);
+      background-color: rgba(255, 255, 255, 0.82);
     }
 
     .character-inner {
@@ -779,15 +744,50 @@
       left: 0;
       top: 0;
       width: 250px;
-      height: 242px;
-      transform: skewX(12deg);
+      height: 214px;
       padding: 22px 24px 0 38px;
     }
 
     .character-topline {
       position: relative;
-      height: 52px;
+      height: 46px;
       border-bottom: 1px solid rgba(26, 21, 34, 0.1);
+      transition: border-bottom-color 180ms ease;
+    }
+
+    .character-card.is-selected .character-topline {
+      border-bottom-color: rgba(255, 255, 255, 0.26);
+    }
+
+    .character-header {
+      position: relative;
+      height: 28px;
+      padding-left: 42px;
+    }
+
+    .character-icon {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 12px;
+      background-color: rgba(26, 21, 34, 0.1);
+      text-align: center;
+      line-height: 28px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #17131f;
+      text-transform: uppercase;
+      transition:
+        background-color 180ms ease,
+        color 180ms ease;
+    }
+
+    .character-card.is-selected .character-icon {
+      background-color: rgba(255, 255, 255, 0.88);
+      color: #ff4ca6;
     }
 
     .character-name {
@@ -797,16 +797,11 @@
       font-weight: 700;
       color: #19141f;
       text-transform: uppercase;
+      transition: color 180ms ease;
     }
 
-    .character-role {
-      margin: 7px 0 0;
-      font-size: 11px;
-      line-height: 14px;
-      font-weight: 700;
-      letter-spacing: 2.2px;
-      color: rgba(26, 21, 34, 0.44);
-      text-transform: uppercase;
+    .character-card.is-selected .character-name {
+      color: #fff7fb;
     }
 
     .buff-badge {
@@ -823,16 +818,26 @@
       font-size: 13px;
       font-weight: 700;
       text-align: center;
+      transition:
+        border-color 180ms ease,
+        background-color 180ms ease,
+        color 180ms ease;
+    }
+
+    .character-card.is-selected .buff-badge {
+      border-color: rgba(255, 255, 255, 0.28);
+      background-color: rgba(255, 255, 255, 0.14);
+      color: #fff7fb;
     }
 
     .stat-row {
       position: relative;
       height: 32px;
-      margin-top: 14px;
+      margin-top: 12px;
     }
 
     .stat-row--first {
-      margin-top: 18px;
+      margin-top: 16px;
     }
 
     .stat-label {
@@ -846,6 +851,11 @@
       letter-spacing: 1.8px;
       color: rgba(26, 21, 34, 0.46);
       text-transform: uppercase;
+      transition: color 180ms ease;
+    }
+
+    .character-card.is-selected .stat-label {
+      color: rgba(255, 247, 251, 0.72);
     }
 
     .stat-base {
@@ -857,6 +867,11 @@
       line-height: 20px;
       font-weight: 700;
       color: #19141f;
+      transition: color 180ms ease;
+    }
+
+    .character-card.is-selected .stat-base {
+      color: #fff7fb;
     }
 
     .stat-arrow {
@@ -868,6 +883,11 @@
       line-height: 20px;
       color: rgba(26, 21, 34, 0.34);
       text-align: center;
+      transition: color 180ms ease;
+    }
+
+    .character-card.is-selected .stat-arrow {
+      color: rgba(255, 247, 251, 0.48);
     }
 
     .stat-next {
@@ -879,6 +899,11 @@
       line-height: 20px;
       font-weight: 700;
       color: #ff4ca6;
+      transition: color 180ms ease;
+    }
+
+    .character-card.is-selected .stat-next {
+      color: #fff7fb;
     }
 
     .stat-gain {
@@ -895,29 +920,44 @@
       font-size: 11px;
       font-weight: 700;
       text-align: center;
+      transition:
+        background-color 180ms ease,
+        color 180ms ease;
+    }
+
+    .character-card.is-selected .stat-gain {
+      background-color: rgba(255, 255, 255, 0.16);
+      color: #fff7fb;
     }
 
     .reward-hint {
       position: absolute;
       left: 92px;
-      bottom: 88px;
-      width: 440px;
+      bottom: 118px;
+      width: 620px;
       font-size: 12px;
       line-height: 22px;
       letter-spacing: 0.4px;
       color: rgba(26, 21, 34, 0.52);
     }
 
-    .reward-continue {
-      bottom: 72px;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 180ms ease;
+    .footer-actions {
+      position: absolute;
+      left: 50%;
+      bottom: 34px;
+      width: 620px;
+      height: 68px;
+      margin-left: -310px;
     }
 
-    .reward-continue.is-visible {
-      opacity: 1;
-      pointer-events: auto;
+    .reward-return {
+      left: 0;
+      top: 0;
+    }
+
+    .reward-continue {
+      right: 0;
+      top: 0;
     }
 
     .transition-shell {
@@ -941,6 +981,7 @@
       border: 1px solid rgba(26, 21, 34, 0.12);
       box-shadow: 0 30px 58px rgba(26, 21, 34, 0.08);
       transform: skewX(-14deg);
+      border-radius: 28px;
     }
 
     .transition-inner {
@@ -950,7 +991,6 @@
       width: 620px;
       height: 284px;
       padding-top: 54px;
-      transform: skewX(14deg);
     }
 
     .transition-kicker {
@@ -991,12 +1031,12 @@
       margin-left: -132px;
       background-color: #17131f;
       transform: skewX(-18deg);
+      border-radius: 12px;
     }
 
     .transition-ribbon span {
       display: block;
       line-height: 42px;
-      transform: skewX(18deg);
       font-size: 12px;
       font-weight: 700;
       letter-spacing: 2.8px;
@@ -1024,8 +1064,6 @@
 
     .screen.is-active .metric-card,
     .screen.is-active .ranking-panel,
-    .screen.is-active .analysis-panel,
-    .screen.is-active .character-card,
     .screen.is-active .reward-token {
       animation: settle-up 320ms ease;
     }
@@ -1074,17 +1112,12 @@
       </div>
       <div class="signal-strip"></div>
       <div class="signal-dot"></div>
+      <div class="control-button" id="replay-control">Replay Intro</div>
 
       <div class="screen is-active" id="summary-screen">
         <div class="headline-block">
           <p class="eyebrow">Post Combat Analysis / Trial Record</p>
           <h1 class="title">Combat Dossier</h1>
-          <p class="subtitle">A detached white-screen results pass that can later map into RmlUi without relying on browser-only layout tricks.</p>
-        </div>
-
-        <div class="summary-note">
-          <p class="summary-note-kicker">Prototype Focus</p>
-          <p class="summary-note-copy">Damage pressure, AV efficiency, and contribution ranking before reward routing into the next story transition.</p>
         </div>
 
         <div class="metrics-row">
@@ -1127,22 +1160,9 @@
           <div class="ranking-list" id="ranking-list"></div>
         </div>
 
-        <div class="analysis-panel">
-          <div class="analysis-accent"></div>
-          <p class="analysis-kicker">Readout</p>
-          <p class="analysis-copy" id="analysis-copy">Highest burst came from the lead striker.</p>
-          <p class="analysis-mini" id="analysis-mini">The panel copy updates from the current placeholder data model.</p>
-          <div class="analysis-chip"><span id="analysis-chip">4 unit party</span></div>
-        </div>
-
-        <div class="primary-button summary-continue is-focused" id="summary-continue" tabindex="0">
+        <div class="primary-button primary-button--pink summary-continue is-focused" id="summary-continue" tabindex="0">
           <div class="primary-button-shell"></div>
           <div class="primary-button-text">Continue</div>
-        </div>
-
-        <div class="prototype-preset">
-          <p class="prototype-preset-label">Prototype roster preset</p>
-          <div class="preset-row" id="preset-row"></div>
         </div>
       </div>
 
@@ -1151,13 +1171,12 @@
           <div class="headline-block" style="left:0;top:0;width:650px;height:122px;">
             <p class="eyebrow">Post Combat Reward Routing</p>
             <h1 class="title" id="reward-title" style="font-size:44px;line-height:48px;">Allocate Growth</h1>
-            <p class="subtitle" id="reward-subtitle">Choose who receives each all-stat combat bloom. The same character can be picked multiple times.</p>
+            <p class="subtitle" id="reward-subtitle">Choose who receives each all-stat combat bloom. The same character can be picked multiple times. Buffs can be transferred when playing the PRACTICE MODE.</p>
           </div>
 
           <div class="reward-header-right">
             <p class="summary-note-kicker">Current Step</p>
             <p class="summary-note-copy" id="reward-step-copy" style="margin-top:14px;font-size:24px;line-height:28px;font-weight:700;color:#19141f;text-transform:uppercase;">Buff 1 / 4</p>
-            <p class="summary-note-copy" id="reward-step-mini" style="margin-top:12px;">Every pick raises all displayed stats using placeholder values for now.</p>
           </div>
         </div>
 
@@ -1166,9 +1185,16 @@
 
         <p class="reward-hint" id="reward-hint">Use Left / Right to pick a character, then press Enter to assign the current reward. Mouse hover and click follow the same state.</p>
 
-        <div class="primary-button reward-continue" id="reward-continue" tabindex="0">
-          <div class="primary-button-shell"></div>
-          <div class="primary-button-text">Continue</div>
+        <div class="footer-actions">
+          <div class="primary-button primary-button--dark reward-return" id="reward-return" tabindex="0">
+            <div class="primary-button-shell"></div>
+            <div class="primary-button-text">Return To Stats</div>
+          </div>
+
+          <div class="primary-button primary-button--pink reward-continue is-disabled" id="reward-continue" tabindex="0">
+            <div class="primary-button-shell"></div>
+            <div class="primary-button-text">Continue Story</div>
+          </div>
         </div>
       </div>
 
@@ -1190,37 +1216,30 @@
 
   <script>
     (function () {
-      var presetDefinitions = [
-        { id: "solo", label: "Solo", count: 1 },
-        { id: "duo", label: "Duo", count: 2 },
-        { id: "trio", label: "Trio", count: 3 },
-        { id: "squad", label: "Squad", count: 4 }
-      ];
-
       var rosterSource = [
         {
           name: "Ari",
           role: "Lead Striker",
           totalDamage: 6840,
-          stats: { hp: 132, atk: 41, def: 19, spd: 24 }
+          stats: { hp: 132, atk: 41, spd: 24 }
         },
         {
           name: "Miku",
           role: "Rhythm Driver",
           totalDamage: 5210,
-          stats: { hp: 118, atk: 35, def: 21, spd: 27 }
+          stats: { hp: 118, atk: 35, spd: 27 }
         },
         {
           name: "Lyoo",
           role: "Utility Pulse",
           totalDamage: 3675,
-          stats: { hp: 146, atk: 28, def: 24, spd: 18 }
+          stats: { hp: 146, atk: 28, spd: 18 }
         },
         {
           name: "Jiafei",
           role: "Burst Support",
           totalDamage: 2940,
-          stats: { hp: 112, atk: 31, def: 18, spd: 22 }
+          stats: { hp: 112, atk: 31, spd: 22 }
         }
       ];
 
@@ -1234,32 +1253,40 @@
       var rewardGain = {
         hp: 8,
         atk: 3,
-        def: 2,
         spd: 2
       };
 
       var state = {
-        activePreset: "squad",
         party: [],
         screen: "summary",
         selectedCharacter: 0,
-        rewardsAssigned: 0
+        rewardsAssigned: 0,
+        footerFocus: "continue"
       };
 
       var summaryScreen = document.getElementById("summary-screen");
       var rewardScreen = document.getElementById("reward-screen");
       var transitionScreen = document.getElementById("transition-screen");
-      var presetRow = document.getElementById("preset-row");
       var rankingList = document.getElementById("ranking-list");
       var rewardTrack = document.getElementById("reward-track");
       var rewardGrid = document.getElementById("reward-grid");
       var summaryContinue = document.getElementById("summary-continue");
+      var rewardReturn = document.getElementById("reward-return");
       var rewardContinue = document.getElementById("reward-continue");
+      var replayControl = document.getElementById("replay-control");
       var flashOverlay = document.getElementById("flash-overlay");
+      var signalStrip = document.getElementsByClassName("signal-strip")[0];
+      var signalDot = document.getElementsByClassName("signal-dot")[0];
 
       var hoverSfx = createAudio("../assets/ui/sfx/UI_button-hover.wav", 0.38);
       var selectSfx = createAudio("../assets/ui/sfx/UI_button-select.wav", 0.74);
       var panelSfx = createAudio("../assets/ui/sfx/Results_statistics-panel-pop-in.wav", 0.56);
+      var progressSfx = createAudio("../assets/ui/sfx/Results_score-tick.wav", 0.54);
+      var lineSfx = createAudio("../assets/ui/sfx/UI_bss-progress.wav", 0.5);
+
+      var summaryAnimationFrame = 0;
+      var summaryRowTimeouts = [];
+      var signalTimeout = 0;
 
       function createAudio(src, volume) {
         var audio = new Audio(src);
@@ -1290,34 +1317,9 @@
           stats: {
             hp: source.stats.hp,
             atk: source.stats.atk,
-            def: source.stats.def,
             spd: source.stats.spd
           }
         };
-      }
-
-      function setPreset(presetId) {
-        var index = 3;
-        var i;
-        for (i = 0; i < presetDefinitions.length; i += 1) {
-          if (presetDefinitions[i].id === presetId) {
-            index = i;
-            break;
-          }
-        }
-
-        state.activePreset = presetDefinitions[index].id;
-        state.party = [];
-
-        for (i = 0; i < presetDefinitions[index].count; i += 1) {
-          state.party.push(cloneCharacter(rosterSource[i]));
-        }
-
-        state.selectedCharacter = 0;
-        state.rewardsAssigned = 0;
-        state.screen = "summary";
-        renderAll();
-        flashPage();
       }
 
       function flashPage() {
@@ -1363,54 +1365,32 @@
         return cloned;
       }
 
-      function renderPresetRow() {
-        var html = "";
-        var i;
-
-        for (i = 0; i < presetDefinitions.length; i += 1) {
-          html += "<div class=\"preset-chip" + (state.activePreset === presetDefinitions[i].id ? " is-active" : "") + "\" data-preset=\"" + presetDefinitions[i].id + "\"><span>" + presetDefinitions[i].label + "</span></div>";
-        }
-
-        presetRow.innerHTML = html;
-      }
-
       function renderSummary() {
         var totalDamage = getTotalDamage();
         var avSpent = getAvSpent();
         var ranking = getRanking();
-        var topUnit = ranking[0];
-        var analysisCopy = document.getElementById("analysis-copy");
-        var analysisMini = document.getElementById("analysis-mini");
-        var analysisChip = document.getElementById("analysis-chip");
-        var metricTotalDamage = document.getElementById("metric-total-damage");
-        var metricAvSpent = document.getElementById("metric-av-spent");
-        var metricDmgPerAv = document.getElementById("metric-dmg-per-av");
         var metricTotalFoot = document.getElementById("metric-total-foot");
         var metricAvFoot = document.getElementById("metric-av-foot");
         var metricDpaFoot = document.getElementById("metric-dpa-foot");
         var html = "";
         var i;
 
-        metricTotalDamage.textContent = formatNumber(totalDamage);
-        metricAvSpent.textContent = formatNumber(avSpent);
-        metricDmgPerAv.textContent = String(getDamagePerAv());
+        document.getElementById("metric-total-damage").textContent = "0";
+        document.getElementById("metric-av-spent").textContent = "0";
+        document.getElementById("metric-dmg-per-av").textContent = "0.0";
         metricTotalFoot.textContent = state.party.length + " active unit" + (state.party.length === 1 ? "" : "s");
-        metricAvFoot.textContent = "Placeholder efficiency sample";
-        metricDpaFoot.textContent = topUnit.name + " led battle pressure";
-        analysisCopy.textContent = topUnit.name.toUpperCase() + " delivered the highest total damage.";
-        analysisMini.textContent = "Average conversion landed at " + String(getDamagePerAv()) + " damage per AV with " + formatNumber(avSpent) + " AV spent in this sample.";
-        analysisChip.textContent = state.party.length + " unit party";
+        metricAvFoot.textContent = "Action value spent this fight";
+        metricDpaFoot.textContent = "Damage efficiency snapshot";
 
         for (i = 0; i < 4; i += 1) {
           if (ranking[i]) {
             var share = totalDamage ? Math.round((ranking[i].totalDamage / totalDamage) * 100) : 0;
-            var fillWidth = totalDamage ? Math.round((ranking[i].totalDamage / totalDamage) * 328) : 0;
             html += "<div class=\"ranking-row ranking-row--" + i + "\">";
             html += "<div class=\"ranking-rank\">#" + (i + 1) + "</div>";
             html += "<div class=\"ranking-name\">" + ranking[i].name + "</div>";
-            html += "<div class=\"ranking-bar-shell\"><div class=\"ranking-bar-fill\" style=\"width:" + fillWidth + "px\"></div></div>";
-            html += "<div class=\"ranking-share\">" + share + "%</div>";
-            html += "<div class=\"ranking-total\">" + formatNumber(ranking[i].totalDamage) + "</div>";
+            html += "<div class=\"ranking-bar-shell\"><div class=\"ranking-bar-fill\" id=\"ranking-fill-" + i + "\"></div></div>";
+            html += "<div class=\"ranking-share\" id=\"ranking-share-" + i + "\">0%</div>";
+            html += "<div class=\"ranking-total\" id=\"ranking-total-" + i + "\">0</div>";
             html += "</div>";
           } else {
             html += "<div class=\"ranking-row ranking-row--" + i + "\">";
@@ -1426,8 +1406,111 @@
         rankingList.innerHTML = html;
       }
 
+      function clearSummaryAnimation() {
+        var i;
+        if (summaryAnimationFrame) {
+          window.cancelAnimationFrame(summaryAnimationFrame);
+          summaryAnimationFrame = 0;
+        }
+        for (i = 0; i < summaryRowTimeouts.length; i += 1) {
+          window.clearTimeout(summaryRowTimeouts[i]);
+        }
+        summaryRowTimeouts = [];
+      }
+
+      function startSummaryIntro() {
+        var totalDamage = getTotalDamage();
+        var avSpent = getAvSpent();
+        var damagePerAv = getDamagePerAv();
+        var ranking = getRanking();
+        var startTime = 0;
+        var damageRate = 9800;
+        var avRate = 120;
+        var efficiencyRate = 120;
+        var rowDamageRate = 7600;
+        var rowShareRate = 60;
+        var i;
+
+        clearSummaryAnimation();
+        setSignalArmed(false);
+        renderSummary();
+        playAudio(panelSfx);
+
+        for (i = 0; i < ranking.length; i += 1) {
+          summaryRowTimeouts.push(window.setTimeout(function () {
+            playAudio(progressSfx);
+          }, i * 140));
+        }
+
+        function animate(now) {
+          var done = true;
+          var elapsed;
+          var currentDamage;
+          var currentAv;
+          var currentDpa;
+          var rowIndex;
+
+          if (!startTime) {
+            startTime = now;
+          }
+
+          elapsed = (now - startTime) / 1000;
+          currentDamage = Math.min(totalDamage, Math.floor(elapsed * damageRate));
+          currentAv = Math.min(avSpent, Math.floor(elapsed * avRate));
+          currentDpa = Math.min(damagePerAv, Math.round(elapsed * efficiencyRate * 10) / 10);
+
+          document.getElementById("metric-total-damage").textContent = formatNumber(currentDamage);
+          document.getElementById("metric-av-spent").textContent = formatNumber(currentAv);
+          document.getElementById("metric-dmg-per-av").textContent = currentDpa.toFixed(1);
+
+          if (currentDamage < totalDamage || currentAv < avSpent || currentDpa < damagePerAv) {
+            done = false;
+          }
+
+          for (rowIndex = 0; rowIndex < ranking.length; rowIndex += 1) {
+            var rowElapsed = elapsed - (rowIndex * 0.14);
+            var currentRowDamage = 0;
+            var targetShare = totalDamage ? Math.round((ranking[rowIndex].totalDamage / totalDamage) * 100) : 0;
+            var currentShare = 0;
+            var fillTarget = totalDamage ? Math.round((ranking[rowIndex].totalDamage / totalDamage) * 514) : 0;
+            var fillWidth = 0;
+            var totalNode = document.getElementById("ranking-total-" + rowIndex);
+            var shareNode = document.getElementById("ranking-share-" + rowIndex);
+            var fillNode = document.getElementById("ranking-fill-" + rowIndex);
+
+            if (rowElapsed > 0) {
+              currentRowDamage = Math.min(ranking[rowIndex].totalDamage, Math.floor(rowElapsed * rowDamageRate));
+              currentShare = Math.min(targetShare, Math.floor(rowElapsed * rowShareRate));
+              fillWidth = ranking[rowIndex].totalDamage ? Math.round(fillTarget * (currentRowDamage / ranking[rowIndex].totalDamage)) : 0;
+            }
+
+            if (totalNode) {
+              totalNode.textContent = formatNumber(currentRowDamage);
+            }
+            if (shareNode) {
+              shareNode.textContent = currentShare + "%";
+            }
+            if (fillNode) {
+              fillNode.style.width = fillWidth + "px";
+            }
+
+            if (currentRowDamage < ranking[rowIndex].totalDamage || currentShare < targetShare) {
+              done = false;
+            }
+          }
+
+          if (!done) {
+            summaryAnimationFrame = window.requestAnimationFrame(animate);
+          }
+        }
+
+        summaryAnimationFrame = window.requestAnimationFrame(animate);
+      }
+
       function renderRewardTrack() {
         var html = "";
+        var progressWidth = Math.round((state.rewardsAssigned / 4) * 772);
+        var dotLeft = progressWidth;
         var i;
         for (i = 0; i < 4; i += 1) {
           var classes = "reward-token";
@@ -1438,6 +1521,7 @@
           }
           html += "<div class=\"" + classes + "\"><div class=\"reward-token-label\">Bloom " + (i + 1) + "</div></div>";
         }
+        html += "<div class=\"reward-progress-rail\"><div class=\"reward-progress-fill\" style=\"width:" + progressWidth + "px\"></div><div class=\"reward-progress-dot\" style=\"left:" + dotLeft + "px\"></div></div>";
         rewardTrack.innerHTML = html;
       }
 
@@ -1445,23 +1529,18 @@
         var rewardTitle = document.getElementById("reward-title");
         var rewardSubtitle = document.getElementById("reward-subtitle");
         var rewardStepCopy = document.getElementById("reward-step-copy");
-        var rewardStepMini = document.getElementById("reward-step-mini");
         var rewardHint = document.getElementById("reward-hint");
 
         if (state.rewardsAssigned < 4) {
           rewardTitle.textContent = "Allocate Growth";
-          rewardSubtitle.textContent = "Choose who receives each all-stat combat bloom. The same character can be picked multiple times.";
+          rewardSubtitle.textContent = "Choose who receives each all-stat combat bloom. The same character can be picked multiple times. Buffs can be transferred when playing the PRACTICE MODE.";
           rewardStepCopy.textContent = "Buff " + (state.rewardsAssigned + 1) + " / 4";
-          rewardStepMini.textContent = "Every pick raises all displayed stats using placeholder values for now.";
           rewardHint.textContent = "Use Left / Right to pick a character, then press Enter to assign the current reward. Mouse hover and click follow the same state.";
-          rewardContinue.className = "primary-button reward-continue";
         } else {
           rewardTitle.textContent = "Allocation Complete";
           rewardSubtitle.textContent = "All four combat blooms have been assigned. Review the upgraded cards, then continue to the story handoff.";
           rewardStepCopy.textContent = "4 / 4 routed";
-          rewardStepMini.textContent = "Press Enter or click CONTINUE to end the prototype at the narrative transition point.";
-          rewardHint.textContent = "All reward picks are locked in for this prototype pass. Press Enter or click CONTINUE.";
-          rewardContinue.className = "primary-button reward-continue is-visible is-focused";
+          rewardHint.textContent = "All reward picks are locked in for this prototype pass. Use Left / Right to choose the footer action, then press Enter.";
         }
       }
 
@@ -1476,6 +1555,14 @@
           "</div>";
       }
 
+      function getInitials(name) {
+        var compact = name.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+        if (compact.length >= 2) {
+          return compact.slice(0, 2);
+        }
+        return compact || "U";
+      }
+
       function renderRewardGrid() {
         var html = "";
         var i;
@@ -1488,13 +1575,14 @@
           html += "<div class=\"character-accent\"></div>";
           html += "<div class=\"character-inner\">";
           html += "<div class=\"character-topline\">";
+          html += "<div class=\"character-header\">";
+          html += "<div class=\"character-icon\">" + getInitials(unit.name) + "</div>";
           html += "<p class=\"character-name\">" + unit.name + "</p>";
-          html += "<p class=\"character-role\">" + unit.role + "</p>";
+          html += "</div>";
           html += "<div class=\"buff-badge\">+" + unit.buffCount + "</div>";
           html += "</div>";
           html += statRow("HP", "hp", unit.stats.hp);
           html += statRow("ATK", "atk", unit.stats.atk);
-          html += statRow("DEF", "def", unit.stats.def);
           html += statRow("SPD", "spd", unit.stats.spd);
           html += "</div>";
           html += "</div>";
@@ -1503,15 +1591,49 @@
         rewardGrid.innerHTML = html;
       }
 
+      function updateRewardSelection() {
+        var cards = rewardGrid.getElementsByClassName("character-card");
+        var i;
+
+        for (i = 0; i < cards.length; i += 1) {
+          var isSelected = state.selectedCharacter === i && state.rewardsAssigned < 4;
+          cards[i].className = "character-card" + (isSelected ? " is-selected" : "");
+        }
+      }
+
       function renderScreens() {
         summaryScreen.className = "screen" + (state.screen === "summary" ? " is-active" : "");
         rewardScreen.className = "screen" + (state.screen === "reward" ? " is-active" : "");
         transitionScreen.className = "screen" + (state.screen === "transition" ? " is-active" : "");
-        summaryContinue.className = "primary-button summary-continue" + (state.screen === "summary" ? " is-focused" : "");
+        summaryContinue.className = "primary-button primary-button--pink summary-continue" + (state.screen === "summary" ? " is-focused" : "");
+
+        rewardReturn.className = "primary-button primary-button--dark reward-return";
+        rewardContinue.className = "primary-button primary-button--pink reward-continue";
+
+        if (state.rewardsAssigned < 4) {
+          rewardContinue.className += " is-disabled";
+        }
+
+        if (state.screen === "reward" && state.rewardsAssigned >= 4) {
+          if (state.footerFocus === "return") {
+            rewardReturn.className += " is-focused";
+          } else {
+            rewardContinue.className += " is-focused";
+          }
+        }
+
+        if (state.screen === "summary") {
+          replayControl.style.display = "block";
+          replayControl.textContent = "Replay Intro";
+        } else if (state.screen === "reward") {
+          replayControl.style.display = "block";
+          replayControl.textContent = "Replay Signal";
+        } else {
+          replayControl.style.display = "none";
+        }
       }
 
       function renderAll() {
-        renderPresetRow();
         renderSummary();
         renderRewardTrack();
         renderRewardHeader();
@@ -1520,7 +1642,14 @@
       }
 
       function moveSelection(step) {
-        if (state.screen !== "reward" || state.rewardsAssigned >= 4) {
+        if (state.screen !== "reward") {
+          return;
+        }
+
+        if (state.rewardsAssigned >= 4) {
+          state.footerFocus = state.footerFocus === "continue" ? "return" : "continue";
+          renderScreens();
+          playAudio(hoverSfx);
           return;
         }
 
@@ -1531,7 +1660,8 @@
         if (state.selectedCharacter >= state.party.length) {
           state.selectedCharacter = 0;
         }
-        renderRewardGrid();
+
+        updateRewardSelection();
         playAudio(hoverSfx);
       }
 
@@ -1550,15 +1680,15 @@
 
         unit.stats.hp += rewardGain.hp;
         unit.stats.atk += rewardGain.atk;
-        unit.stats.def += rewardGain.def;
         unit.stats.spd += rewardGain.spd;
         unit.buffCount += 1;
         state.rewardsAssigned += 1;
         state.selectedCharacter = index;
+        state.footerFocus = "continue";
 
         renderRewardTrack();
         renderRewardHeader();
-        renderRewardGrid();
+        renderGridAndFooter();
         playAudio(selectSfx);
 
         cardNodes = rewardGrid.getElementsByClassName("character-card");
@@ -1566,8 +1696,35 @@
           cardNodes[index].className += " is-pulsing";
           window.setTimeout(function () {
             renderRewardGrid();
+            updateRewardSelection();
           }, 320);
         }
+      }
+
+      function renderGridAndFooter() {
+        renderRewardGrid();
+        renderScreens();
+      }
+
+      function setSignalArmed(isArmed) {
+        signalStrip.className = isArmed ? "signal-strip is-armed" : "signal-strip";
+        signalDot.className = isArmed ? "signal-dot is-armed" : "signal-dot";
+      }
+
+      function animateSignal() {
+        window.clearTimeout(signalTimeout);
+        setSignalArmed(false);
+        signalTimeout = window.setTimeout(function () {
+          setSignalArmed(true);
+          playAudio(lineSfx);
+        }, 60);
+      }
+
+      function goToSummary() {
+        state.screen = "summary";
+        renderScreens();
+        flashPage();
+        startSummaryIntro();
       }
 
       function goToReward() {
@@ -1577,6 +1734,7 @@
         renderRewardGrid();
         playAudio(panelSfx);
         flashPage();
+        animateSignal();
       }
 
       function goToTransition() {
@@ -1584,15 +1742,6 @@
         renderScreens();
         playAudio(selectSfx);
         flashPage();
-      }
-
-      function onPresetClick(target) {
-        var preset = target.getAttribute("data-preset");
-        if (!preset || preset === state.activePreset) {
-          return;
-        }
-        playAudio(selectSfx);
-        setPreset(preset);
       }
 
       function syncScale() {
@@ -1608,12 +1757,9 @@
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
             goToReward();
-          } else if (event.key === "ArrowLeft") {
+          } else if (event.key === "r" || event.key === "R") {
             event.preventDefault();
-            cyclePreset(-1);
-          } else if (event.key === "ArrowRight") {
-            event.preventDefault();
-            cyclePreset(1);
+            startSummaryIntro();
           }
           return;
         }
@@ -1630,15 +1776,22 @@
               event.preventDefault();
               assignReward(state.selectedCharacter);
             }
-          } else if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            goToTransition();
           } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
             event.preventDefault();
             moveSelection(-1);
           } else if (event.key === "ArrowRight" || event.key === "ArrowDown") {
             event.preventDefault();
             moveSelection(1);
+          } else if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            if (state.footerFocus === "return") {
+              goToSummary();
+            } else {
+              goToTransition();
+            }
+          } else if (event.key === "r" || event.key === "R") {
+            event.preventDefault();
+            animateSignal();
           }
         }
       });
@@ -1646,17 +1799,27 @@
       document.addEventListener("click", function (event) {
         var target = event.target;
         var card = closestWithClass(target, "character-card");
-        var preset = closestWithClass(target, "preset-chip");
         var summaryButton = closestWithClass(target, "summary-continue");
+        var returnButton = closestWithClass(target, "reward-return");
         var rewardButton = closestWithClass(target, "reward-continue");
+        var replayButton = closestWithClass(target, "control-button");
 
-        if (preset) {
-          onPresetClick(preset);
+        if (replayButton) {
+          if (state.screen === "summary") {
+            startSummaryIntro();
+          } else if (state.screen === "reward") {
+            animateSignal();
+          }
           return;
         }
 
         if (summaryButton && state.screen === "summary") {
           goToReward();
+          return;
+        }
+
+        if (returnButton && state.screen === "reward") {
+          goToSummary();
           return;
         }
 
@@ -1667,7 +1830,7 @@
 
         if (card && state.screen === "reward") {
           state.selectedCharacter = parseInt(card.getAttribute("data-index"), 10) || 0;
-          renderRewardGrid();
+          updateRewardSelection();
           playAudio(hoverSfx);
           if (state.rewardsAssigned < 4) {
             assignReward(state.selectedCharacter);
@@ -1677,50 +1840,41 @@
 
       document.addEventListener("mousemove", function (event) {
         var card = closestWithClass(event.target, "character-card");
-        var preset = closestWithClass(event.target, "preset-chip");
         var summaryButton = closestWithClass(event.target, "summary-continue");
+        var returnButton = closestWithClass(event.target, "reward-return");
         var rewardButton = closestWithClass(event.target, "reward-continue");
+        var replayButton = closestWithClass(event.target, "control-button");
         var nextIndex;
 
         if (summaryButton && state.screen === "summary") {
-          summaryContinue.className = "primary-button summary-continue is-focused";
+          summaryContinue.className = "primary-button primary-button--pink summary-continue is-focused";
           return;
         }
 
-        if (rewardButton && state.screen === "reward" && state.rewardsAssigned >= 4) {
-          rewardContinue.className = "primary-button reward-continue is-visible is-focused";
+        if (replayButton) {
+          replayControl.className = "control-button is-focused";
           return;
         }
 
-        if (preset || !card || state.screen !== "reward" || state.rewardsAssigned >= 4) {
+        if (state.screen === "reward" && state.rewardsAssigned >= 4 && (rewardButton || returnButton)) {
+          state.footerFocus = rewardButton ? "continue" : "return";
+          renderScreens();
+          return;
+        }
+
+        replayControl.className = "control-button";
+
+        if (!card || state.screen !== "reward" || state.rewardsAssigned >= 4) {
           return;
         }
 
         nextIndex = parseInt(card.getAttribute("data-index"), 10) || 0;
         if (nextIndex !== state.selectedCharacter) {
           state.selectedCharacter = nextIndex;
-          renderRewardGrid();
+          updateRewardSelection();
           playAudio(hoverSfx);
         }
       });
-
-      function cyclePreset(direction) {
-        var i;
-        for (i = 0; i < presetDefinitions.length; i += 1) {
-          if (presetDefinitions[i].id === state.activePreset) {
-            i += direction;
-            if (i < 0) {
-              i = presetDefinitions.length - 1;
-            }
-            if (i >= presetDefinitions.length) {
-              i = 0;
-            }
-            playAudio(selectSfx);
-            setPreset(presetDefinitions[i].id);
-            return;
-          }
-        }
-      }
 
       function closestWithClass(element, className) {
         while (element && element !== document.body) {
@@ -1741,7 +1895,13 @@
 
       window.addEventListener("resize", syncScale);
 
-      setPreset("squad");
+      state.party = [];
+      state.party.push(cloneCharacter(rosterSource[0]));
+      state.party.push(cloneCharacter(rosterSource[1]));
+      state.party.push(cloneCharacter(rosterSource[2]));
+      state.party.push(cloneCharacter(rosterSource[3]));
+      renderAll();
+      startSummaryIntro();
       syncScale();
     })();
   </script>

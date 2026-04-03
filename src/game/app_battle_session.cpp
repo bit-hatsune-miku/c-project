@@ -103,6 +103,19 @@ constexpr const char* kPerfectJudgementSfxPath = "assets/ui/sfx/SongSelect_selec
 constexpr const char* kGoodJudgementSfxPath = "assets/ui/sfx/Selection_roulette-4.wav";
 constexpr const char* kOkayJudgementSfxPath = "assets/ui/sfx/Selection_roulette-0.wav";
 constexpr const char* kFlopJudgementSfxPath = "assets/ui/sfx/UI_notification-error.wav";
+constexpr std::array<const char*, 5> kBattleResultLetterSfxPaths{
+    "assets/ui/sfx/Selection_roulette-0.wav",
+    "assets/ui/sfx/Selection_roulette-1.wav",
+    "assets/ui/sfx/Selection_roulette-2.wav",
+    "assets/ui/sfx/Selection_roulette-3.wav",
+    "assets/ui/sfx/Selection_roulette-4.wav"
+};
+constexpr const char* kBattleResultVictoryRevealSfxPath = "assets/ui/sfx/Selection_roulette-result.wav";
+constexpr const char* kBattleResultDefeatRevealSfxPath = "assets/ui/sfx/Results_rank-impact-fail.wav";
+constexpr const char* kBattleResultVictoryApplauseSfxPath = "assets/ui/sfx/Results_applause-s.wav";
+constexpr const char* kBattleResultButtonHoverSfxPath = "assets/ui/sfx/UI_button-hover.wav";
+constexpr const char* kBattleResultButtonSelectSfxPath = "assets/ui/sfx/UI_button-select.wav";
+constexpr float kBattleResultMaxPresentationStepSeconds = 0.05f;
 constexpr float kBossPhaseIntroDurationSeconds = 0.90f;
 constexpr float kBossPhaseIntroStartOffsetX = -170.0f;
 constexpr float kBossPhaseIntroStartOffsetY = 40.0f;
@@ -1082,17 +1095,23 @@ void aimCameraAtBossIntroTarget(battle::Camera3D& camera, const SceneEntity& bos
 
 namespace battle::app {
 
+using ui::BattleResultOverlayAction;
+using ui::BattleResultOverlayOutcome;
+using ui::BattleResultOverlayState;
+
 class SessionImpl {
 public:
     bool initialize(Window& hostWindow,
                     GameSettings& settings,
                     const std::string& battleKey,
                     const battle::PlayerProgression& progression,
-                    std::optional<std::vector<std::string>> initialPartyLineup) {
+                    std::optional<std::vector<std::string>> initialPartyLineup,
+                    BattleResultPresentationConfig resultPresentation) {
         shutdown();
 
         windowHost_ = &hostWindow;
         settings_ = &settings;
+        resultPresentationConfig_ = resultPresentation;
         window_ = hostWindow.getNativeWindow();
         glContext_ = hostWindow.getGlContext();
         if (window_ == nullptr || glContext_ == nullptr) {
@@ -1289,6 +1308,7 @@ public:
         previewUltimateSplashPartyIndex_ = -1;
         discardNextUpdateDelta_ = false;
         activeOverlay_ = nullptr;
+        resultOverlay_ = BattleResultOverlayState{};
 
         renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
         context_ = Rml::CreateContext("battle-app", Rml::Vector2i(windowWidth_, windowHeight_));
@@ -1386,6 +1406,14 @@ public:
                     return;
                 }
                 settings_->textSpeed = std::clamp(value, kMinSettingsTextSpeed, kMaxSettingsTextSpeed);
+            }
+        });
+        battle::app::ui::bindBattleResultOverlayControls(attachOverlayListener, {
+            [this]() {
+                confirmBattleResultOverlay();
+            },
+            [this]() {
+                handleBattleResultButtonHover();
             }
         });
 
@@ -1486,6 +1514,8 @@ public:
         bossPhaseIntro_ = CameraIntroAnimation{};
         bossPhaseIntroHintText_.clear();
         activeOverlay_ = nullptr;
+        resultOverlay_ = BattleResultOverlayState{};
+        resultPresentationConfig_ = BattleResultPresentationConfig{};
         frameAccumulator_ = 0.0f;
         discardNextUpdateDelta_ = false;
         battleDefinition_ = battle::BattleDefinition{};
@@ -1536,6 +1566,13 @@ public:
                     (void)handleManualUltimateHotkey(event.key.keysym.sym, SDL_GetTicks64());
                 }
             }
+            return;
+        }
+
+        if (resultOverlay_.active) {
+            SDL_Event mutableResultEvent = makeScaledRmlInputEvent(event);
+            RmlSDL::InputEventHandler(context_, window_, mutableResultEvent);
+            handleBattleResultEvent(event);
             return;
         }
 
@@ -1681,6 +1718,13 @@ public:
             return;
         }
 
+        if (resultOverlay_.active) {
+            updateBattleResultOverlay(deltaSeconds);
+            updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
+            syncHudDocument(nowMs);
+            return;
+        }
+
         while (const std::optional<battle::BossPhaseTransition> transition = manager_.consumeBossPhaseTransition()) {
             startBossPhaseIntro(*transition, nowMs);
             battleBgmBaseVolume_ = std::clamp(manager_.getCurrentBossBgmVolume(), 0.0f, 1.0f);
@@ -1811,7 +1855,7 @@ public:
             tutorialOverlay_.step == TutorialStep::None &&
             !rhythmChallenge_.active && activeUltimateTurnSplash_ == nullptr &&
             isBossDeathFadeComplete() && !isBattleFinishBlocked()) {
-            finished_ = true;
+            enterBattleResultOverlay(outcome(), nowMs);
         }
     }
 
@@ -2868,6 +2912,7 @@ private:
                                                  manager_,
                                                  hudAnimationState_,
                                                  hudFeedback_,
+                                                 resultOverlay_,
                                                  tutorialOverlay_,
                                                  rhythmChallenge_,
                                                  false,
@@ -3154,6 +3199,119 @@ private:
         }
 
         return true;
+    }
+
+    float battleResultButtonInteractiveTimeSeconds() const {
+        return battle::app::ui::battleResultButtonInteractiveSeconds(resultOverlay_);
+    }
+
+    void enterBattleResultOverlay(BattleOutcome outcome, Uint64 nowMs) {
+        if (resultOverlay_.active || outcome == BattleOutcome::None) {
+            return;
+        }
+
+        resultOverlay_ = BattleResultOverlayState{};
+        resultOverlay_.active = true;
+        resultOverlay_.startedMs = nowMs;
+        resultOverlay_.outcome = outcome == BattleOutcome::Victory
+            ? BattleResultOverlayOutcome::Victory
+            : BattleResultOverlayOutcome::Defeat;
+        resultOverlay_.action =
+            outcome == BattleOutcome::Defeat &&
+            resultPresentationConfig_.defeatAction == BattleDefeatResultAction::RestartStory
+                ? BattleResultOverlayAction::RestartStory
+                : BattleResultOverlayAction::Continue;
+        resultOverlay_.word = outcome == BattleOutcome::Victory ? "VICTORY" : "FAILED";
+        resultOverlay_.buttonLabel =
+            resultOverlay_.action == BattleResultOverlayAction::RestartStory ? "RESTART STORY" : "CONTINUE";
+        if (outcome == BattleOutcome::Victory) {
+            resultOverlay_.buttonSubcopy = "Advance to the next story beat.";
+        } else if (resultOverlay_.action == BattleResultOverlayAction::RestartStory) {
+            resultOverlay_.buttonSubcopy = "Relaunch this chapter from the beginning.";
+        } else if (resultPresentationConfig_.defeatAction == BattleDefeatResultAction::ContinueStory) {
+            resultOverlay_.buttonSubcopy = "Continue into the scripted defeat scene.";
+        } else {
+            resultOverlay_.buttonSubcopy = "Return to the post-battle flow.";
+        }
+
+        gBattleBgmController.fadeOutAndStop(2.1f);
+        syncHudDocument(nowMs);
+    }
+
+    void updateBattleResultOverlay(float deltaSeconds) {
+        if (!resultOverlay_.active) {
+            return;
+        }
+
+        resultOverlay_.presentationElapsedSeconds +=
+            std::clamp(deltaSeconds, 0.0f, kBattleResultMaxPresentationStepSeconds);
+
+        const float elapsedSeconds = battle::app::ui::battleResultElapsedSeconds(resultOverlay_);
+        const int visibleLetters = battle::app::ui::battleResultVisibleLetterCount(resultOverlay_);
+        while (resultOverlay_.nextLetterSfxIndex < visibleLetters) {
+            const std::size_t soundIndex =
+                static_cast<std::size_t>(resultOverlay_.nextLetterSfxIndex) % kBattleResultLetterSfxPaths.size();
+            (void)playResolvedOneShot(
+                gPresentationSfxAudio,
+                kBattleResultLetterSfxPaths[soundIndex],
+                0.46f,
+                false);
+            ++resultOverlay_.nextLetterSfxIndex;
+        }
+
+        const float revealSeconds = battle::app::ui::battleResultRevealImpactSeconds(resultOverlay_);
+        if (!resultOverlay_.revealSfxPlayed && elapsedSeconds >= revealSeconds) {
+            const char* revealPath = resultOverlay_.outcome == BattleResultOverlayOutcome::Victory
+                ? kBattleResultVictoryRevealSfxPath
+                : kBattleResultDefeatRevealSfxPath;
+            (void)playResolvedOneShot(gPresentationSfxAudio, revealPath, 0.9f, false);
+            resultOverlay_.revealSfxPlayed = true;
+        }
+
+        if (!resultOverlay_.applausePlayed &&
+            resultOverlay_.outcome == BattleResultOverlayOutcome::Victory &&
+            elapsedSeconds >= revealSeconds) {
+            (void)playResolvedOneShot(gPresentationSfxAudio, kBattleResultVictoryApplauseSfxPath, 0.82f, false);
+            resultOverlay_.applausePlayed = true;
+        }
+
+        if (!resultOverlay_.inputEnabled && elapsedSeconds >= battleResultButtonInteractiveTimeSeconds()) {
+            resultOverlay_.inputEnabled = true;
+        }
+    }
+
+    void handleBattleResultButtonHover() {
+        if (!resultOverlay_.active || !resultOverlay_.inputEnabled || resultOverlay_.acknowledged) {
+            return;
+        }
+
+        (void)playResolvedOneShot(gPresentationSfxAudio, kBattleResultButtonHoverSfxPath, 0.58f, true);
+    }
+
+    void confirmBattleResultOverlay() {
+        if (!resultOverlay_.active || !resultOverlay_.inputEnabled || resultOverlay_.acknowledged) {
+            return;
+        }
+
+        resultOverlay_.acknowledged = true;
+        (void)playResolvedOneShot(gPresentationSfxAudio, kBattleResultButtonSelectSfxPath, 0.9f, true);
+        finished_ = true;
+    }
+
+    void handleBattleResultEvent(const SDL_Event& event) {
+        if (!resultOverlay_.active) {
+            return;
+        }
+
+        if (event.type != SDL_KEYDOWN) {
+            return;
+        }
+
+        if (event.key.keysym.sym == SDLK_RETURN ||
+            event.key.keysym.sym == SDLK_KP_ENTER ||
+            event.key.keysym.sym == SDLK_SPACE) {
+            confirmBattleResultOverlay();
+        }
     }
 
     void attachListener(const std::string& id, Rml::EventId eventId, std::function<void(Rml::Event&)> callback) {
@@ -3863,6 +4021,7 @@ private:
     int drawableWidth_ = kWindowWidth;
     int drawableHeight_ = kWindowHeight;
     GameSettings* settings_ = nullptr;
+    BattleResultPresentationConfig resultPresentationConfig_{};
     PauseOverlayMode pauseOverlayMode_ = PauseOverlayMode::Menu;
     PauseSelection pauseSelection_ = PauseSelection::Continue;
     SettingsSelection settingsSelection_ = SettingsSelection::DisplayMode;
@@ -3874,6 +4033,7 @@ private:
     TutorialScriptLibrary tutorialLibrary_;
     HudFeedbackState hudFeedback_;
     HudAnimationState hudAnimationState_;
+    BattleResultOverlayState resultOverlay_;
     TutorialOverlayState tutorialOverlay_;
     RhythmChallengeState rhythmChallenge_;
     std::vector<int> bufferedManualUltimatePartyIndices_;
@@ -3946,8 +4106,15 @@ bool Session::initialize(Window& window,
                          GameSettings& settings,
                          const std::string& battleKey,
                          const battle::PlayerProgression& progression,
-                         std::optional<std::vector<std::string>> initialPartyLineup) {
-    return impl_->initialize(window, settings, battleKey, progression, std::move(initialPartyLineup));
+                         std::optional<std::vector<std::string>> initialPartyLineup,
+                         BattleResultPresentationConfig resultPresentation) {
+    return impl_->initialize(
+        window,
+        settings,
+        battleKey,
+        progression,
+        std::move(initialPartyLineup),
+        resultPresentation);
 }
 void Session::shutdown() { impl_->shutdown(); }
 void Session::handleEvent(const SDL_Event& event) { impl_->handleEvent(event); }
