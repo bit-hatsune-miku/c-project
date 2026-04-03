@@ -17,6 +17,7 @@
 #include <RmlUi/Core/ElementDocument.h>
 #include <RmlUi/Core/Elements/ElementFormControl.h>
 
+#include "../../platform/text_fallback.h"
 #include "../core/turn_system.h"
 #include "battle_session_ui_state.h"
 
@@ -107,6 +108,72 @@ inline void setPortraitDecorator(Rml::ElementDocument* document,
             element->RemoveProperty("decorator");
         }
     }
+}
+
+inline void setCombatDecorator(Rml::ElementDocument* document,
+                               const std::string& id,
+                               const std::string& folder,
+                               const std::string& assetName,
+                               const BattleHudDocumentDependencies& dependencies) {
+    if (document == nullptr) {
+        return;
+    }
+    if (Rml::Element* element = document->GetElementById(id)) {
+        if (!dependencies.findCombatImagePath) {
+            element->RemoveProperty("decorator");
+            return;
+        }
+        const std::string path = dependencies.findCombatImagePath(folder, assetName);
+        if (!path.empty()) {
+            element->SetProperty("decorator", "image(" + path + " cover center center)");
+        } else {
+            element->RemoveProperty("decorator");
+        }
+    }
+}
+
+inline std::size_t utf8CodepointBytes(const std::string& text, std::size_t byteOffset) {
+    if (byteOffset >= text.size()) {
+        return 0;
+    }
+    return static_cast<std::size_t>(std::max(1, platform::text::utf8CodepointLength(
+        static_cast<unsigned char>(text[byteOffset]))));
+}
+
+inline bool containsCjkText(const std::string& text) {
+    std::size_t index = 0;
+    while (index < text.size()) {
+        const std::size_t codeBytes = utf8CodepointBytes(text, index);
+        if (codeBytes == 0 || index + codeBytes > text.size()) {
+            break;
+        }
+
+        uint32_t codepoint = 0;
+        const unsigned char lead = static_cast<unsigned char>(text[index]);
+        if (codeBytes == 1) {
+            codepoint = lead;
+        } else if (codeBytes == 2) {
+            codepoint = ((lead & 0x1Fu) << 6u) |
+                        (static_cast<unsigned char>(text[index + 1]) & 0x3Fu);
+        } else if (codeBytes == 3) {
+            codepoint = ((lead & 0x0Fu) << 12u) |
+                        ((static_cast<unsigned char>(text[index + 1]) & 0x3Fu) << 6u) |
+                        (static_cast<unsigned char>(text[index + 2]) & 0x3Fu);
+        } else {
+            codepoint = ((lead & 0x07u) << 18u) |
+                        ((static_cast<unsigned char>(text[index + 1]) & 0x3Fu) << 12u) |
+                        ((static_cast<unsigned char>(text[index + 2]) & 0x3Fu) << 6u) |
+                        (static_cast<unsigned char>(text[index + 3]) & 0x3Fu);
+        }
+
+        if (platform::text::isCjkCodepoint(codepoint)) {
+            return true;
+        }
+
+        index += codeBytes;
+    }
+
+    return false;
 }
 
 inline std::vector<int> getSortedTurnActorIndices(const battle::TurnState& turnState) {
@@ -912,6 +979,252 @@ inline void updateRhythmDocument(Rml::ElementDocument* document, const RhythmCha
     }
 }
 
+inline const char* battleVsIntroNameModeClass(std::size_t glyphCount) {
+    if (glyphCount >= 11) {
+        return "ultra";
+    }
+    if (glyphCount >= 8) {
+        return "compact";
+    }
+    return "";
+}
+
+inline std::string battleVsIntroNameLetterStyle(float elapsedSeconds) {
+    const float progress =
+        std::clamp(elapsedSeconds / kBattleVsIntroNameLetterDurationSeconds, 0.0f, 1.0f);
+
+    float opacity = 1.0f;
+    float translateYDp = 0.0f;
+    float scale = 1.0f;
+
+    if (progress < 0.54f) {
+        const float t = easeOutCubic(progress / 0.54f);
+        opacity = t;
+        translateYDp = lerpValue(-104.0f, 12.0f, t);
+        scale = lerpValue(1.58f, 0.92f, t);
+    } else if (progress < 0.76f) {
+        const float t = easeOutCubic((progress - 0.54f) / 0.22f);
+        opacity = 1.0f;
+        translateYDp = lerpValue(12.0f, -3.0f, t);
+        scale = lerpValue(0.92f, 1.05f, t);
+    } else {
+        const float t = easeOutCubic((progress - 0.76f) / 0.24f);
+        opacity = 1.0f;
+        translateYDp = lerpValue(-3.0f, 0.0f, t);
+        scale = lerpValue(1.05f, 1.0f, t);
+    }
+
+    return "opacity: " + decimalText(opacity) +
+        "; transform: translateY(" + decimalText(translateYDp) + "dp) scale(" + decimalText(scale) + ");";
+}
+
+inline std::string battleVsIntroHiddenVsLetterStyle() {
+    return "opacity: 0; transform: translateY(-190.000dp) scale(1.860) rotate(8.000deg);";
+}
+
+inline std::string battleVsIntroVsLetterStyle(float elapsedSeconds) {
+    const float progress =
+        std::clamp(elapsedSeconds / kBattleVsIntroVsLetterDurationSeconds, 0.0f, 1.0f);
+
+    float opacity = 1.0f;
+    float translateYDp = 0.0f;
+    float scale = 1.0f;
+    float rotateDeg = 0.0f;
+
+    if (progress < 0.52f) {
+        const float t = easeOutCubic(progress / 0.52f);
+        opacity = t;
+        translateYDp = lerpValue(-190.0f, 24.0f, t);
+        scale = lerpValue(1.86f, 0.82f, t);
+        rotateDeg = lerpValue(8.0f, 0.0f, t);
+    } else if (progress < 0.76f) {
+        const float t = easeOutCubic((progress - 0.52f) / 0.24f);
+        opacity = 1.0f;
+        translateYDp = lerpValue(24.0f, -8.0f, t);
+        scale = lerpValue(0.82f, 1.09f, t);
+    } else {
+        const float t = easeOutCubic((progress - 0.76f) / 0.24f);
+        opacity = 1.0f;
+        translateYDp = lerpValue(-8.0f, 0.0f, t);
+        scale = lerpValue(1.09f, 1.0f, t);
+    }
+
+    return "opacity: " + decimalText(opacity) +
+        "; transform: translateY(" + decimalText(translateYDp) + "dp) scale(" + decimalText(scale) +
+        ") rotate(" + decimalText(rotateDeg) + "deg);";
+}
+
+inline std::string buildBattleVsIntroNameMarkup(const std::string& text,
+                                                float elapsedSeconds,
+                                                float revealStartSeconds) {
+    const int visibleLetters = battleVsIntroVisibleLetterCount(text, elapsedSeconds, revealStartSeconds);
+    if (visibleLetters <= 0) {
+        return std::string();
+    }
+
+    std::string markup;
+    markup.reserve(text.size() * 96);
+
+    int visibleLetterIndex = 0;
+    std::size_t byteOffset = 0;
+    while (byteOffset < text.size()) {
+        const std::size_t codeBytes = utf8CodepointBytes(text, byteOffset);
+        if (codeBytes == 0 || byteOffset + codeBytes > text.size()) {
+            break;
+        }
+
+        const std::string glyph = text.substr(byteOffset, codeBytes);
+        byteOffset += codeBytes;
+
+        if (glyph == " ") {
+            if (visibleLetters > visibleLetterIndex) {
+                markup += "<span class=\"battle-vs-name-space\"></span>";
+            }
+            continue;
+        }
+
+        if (visibleLetterIndex >= visibleLetters) {
+            break;
+        }
+
+        const float letterElapsedSeconds =
+            elapsedSeconds - revealStartSeconds -
+            (static_cast<float>(visibleLetterIndex) * kBattleVsIntroNameLetterIntervalSeconds);
+        markup += "<span class=\"battle-vs-name-letter\" style=\"";
+        markup += battleVsIntroNameLetterStyle(letterElapsedSeconds);
+        markup += "\">";
+        markup += glyph;
+        markup += "</span>";
+        ++visibleLetterIndex;
+    }
+
+    return markup;
+}
+
+inline void applyBattleVsIntroNameWord(Rml::ElementDocument* document,
+                                       const std::string& id,
+                                       const std::string& text,
+                                       float elapsedSeconds,
+                                       float revealStartSeconds,
+                                       std::size_t sharedGlyphCount) {
+    if (document == nullptr) {
+        return;
+    }
+
+    if (Rml::Element* word = document->GetElementById(id)) {
+        std::string className = "battle-vs-name-word ";
+        className += containsCjkText(text) ? "cjk" : "latin";
+        const char* modeClass = battleVsIntroNameModeClass(sharedGlyphCount);
+        if (modeClass[0] != '\0') {
+            className += " ";
+            className += modeClass;
+        }
+        word->SetAttribute("class", className);
+        word->SetInnerRML(buildBattleVsIntroNameMarkup(text, elapsedSeconds, revealStartSeconds));
+    }
+}
+
+inline void applyBattleVsIntroOverlayDocumentState(Rml::ElementDocument* document,
+                                                   const BattleVsIntroOverlayState& overlay,
+                                                   const BattleHudDocumentDependencies& dependencies) {
+    if (document == nullptr) {
+        return;
+    }
+
+    const bool blocking = overlay.pendingStart || overlay.active;
+    setElementClass(document, "battle-vs-intro", "active", blocking);
+    setElementClass(document, "battle-vs-intro", "split-dropping",
+                    overlay.active && battleVsIntroElapsedSeconds(overlay) >= kBattleVsIntroLineDropSeconds);
+    setElementClass(document, "battle-vs-intro", "split-angled",
+                    overlay.active && battleVsIntroElapsedSeconds(overlay) >= kBattleVsIntroLineTiltSeconds);
+    setElementClass(document, "battle-vs-intro", "void-cleared",
+                    overlay.active && battleVsIntroElapsedSeconds(overlay) >= kBattleVsIntroVoidFadeSeconds);
+    setElementClass(document, "battle-vs-intro", "split-fading",
+                    overlay.active && battleVsIntroElapsedSeconds(overlay) >= kBattleVsIntroExitSeconds);
+    setElementClass(document, "battle-vs-intro", "left-landed",
+                    overlay.active && battleVsIntroElapsedSeconds(overlay) >= kBattleVsIntroLeftCardSeconds);
+    setElementClass(document, "battle-vs-intro", "right-landed",
+                    overlay.active && battleVsIntroElapsedSeconds(overlay) >= kBattleVsIntroRightCardSeconds);
+    setElementClass(document, "battle-vs-intro", "exiting",
+                    overlay.active && battleVsIntroElapsedSeconds(overlay) >= kBattleVsIntroExitSeconds);
+    setElementClass(document, "battle-vs-intro", "revealing",
+                    overlay.active && battleVsIntroElapsedSeconds(overlay) >= kBattleVsIntroRevealSeconds);
+    setElementClass(document, "battle-vs-intro", "vs-hidden",
+                    overlay.active && battleVsIntroElapsedSeconds(overlay) >= kBattleVsIntroExitSeconds);
+    setElementClass(document, "battle-vs-intro", "vs-shaking",
+                    overlay.active &&
+                    battleVsIntroElapsedSeconds(overlay) >= kBattleVsIntroVsSSeconds &&
+                    battleVsIntroElapsedSeconds(overlay) < kBattleVsIntroVsSSeconds + 0.30f);
+    setElementClass(document, "hud-root", "vs-intro-blocking", blocking);
+    if (!blocking) {
+        if (Rml::Element* leftWord = document->GetElementById("battle-vs-name-word-left")) {
+            leftWord->SetInnerRML("");
+        }
+        if (Rml::Element* rightWord = document->GetElementById("battle-vs-name-word-right")) {
+            rightWord->SetInnerRML("");
+        }
+        setElementProperty(document, "battle-vs-letter-v", "opacity", "0");
+        setElementProperty(document, "battle-vs-letter-v", "transform",
+                           "translateY(-190dp) scale(1.86) rotate(8deg)");
+        setElementProperty(document, "battle-vs-letter-s", "opacity", "0");
+        setElementProperty(document, "battle-vs-letter-s", "transform",
+                           "translateY(-190dp) scale(1.86) rotate(8deg)");
+        return;
+    }
+
+    setCombatDecorator(document, "battle-vs-portrait-left", "sprites", overlay.leftAsset, dependencies);
+    setCombatDecorator(document, "battle-vs-portrait-right", "sprites", overlay.rightAsset, dependencies);
+
+    if (!overlay.active) {
+        if (Rml::Element* leftWord = document->GetElementById("battle-vs-name-word-left")) {
+            leftWord->SetAttribute("class", "battle-vs-name-word latin");
+            leftWord->SetInnerRML("");
+        }
+        if (Rml::Element* rightWord = document->GetElementById("battle-vs-name-word-right")) {
+            rightWord->SetAttribute("class", "battle-vs-name-word latin");
+            rightWord->SetInnerRML("");
+        }
+        setElementProperty(document, "battle-vs-letter-v", "opacity", "0");
+        setElementProperty(document, "battle-vs-letter-v", "transform",
+                           "translateY(-190dp) scale(1.86) rotate(8deg)");
+        setElementProperty(document, "battle-vs-letter-s", "opacity", "0");
+        setElementProperty(document, "battle-vs-letter-s", "transform",
+                           "translateY(-190dp) scale(1.86) rotate(8deg)");
+        return;
+    }
+
+    const float elapsedSeconds = battleVsIntroElapsedSeconds(overlay);
+    const std::size_t sharedGlyphCount =
+        std::max(battleVsIntroVisibleGlyphCount(overlay.leftName), battleVsIntroVisibleGlyphCount(overlay.rightName));
+    applyBattleVsIntroNameWord(document,
+                               "battle-vs-name-word-left",
+                               overlay.leftName,
+                               elapsedSeconds,
+                               kBattleVsIntroLeftNameSeconds,
+                               sharedGlyphCount);
+    applyBattleVsIntroNameWord(document,
+                               "battle-vs-name-word-right",
+                               overlay.rightName,
+                               elapsedSeconds,
+                               kBattleVsIntroRightNameSeconds,
+                               sharedGlyphCount);
+
+    if (Rml::Element* vsV = document->GetElementById("battle-vs-letter-v")) {
+        vsV->SetAttribute(
+            "style",
+            elapsedSeconds < kBattleVsIntroVsVSeconds
+                ? battleVsIntroHiddenVsLetterStyle()
+                : battleVsIntroVsLetterStyle(elapsedSeconds - kBattleVsIntroVsVSeconds));
+    }
+    if (Rml::Element* vsS = document->GetElementById("battle-vs-letter-s")) {
+        vsS->SetAttribute(
+            "style",
+            elapsedSeconds < kBattleVsIntroVsSSeconds
+                ? battleVsIntroHiddenVsLetterStyle()
+                : battleVsIntroVsLetterStyle(elapsedSeconds - kBattleVsIntroVsSSeconds));
+    }
+}
+
 } // namespace detail
 
 inline void applyPauseOverlayDocumentState(Rml::ElementDocument* document,
@@ -969,6 +1282,7 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
                                     const HudAnimationState& animationState,
                                     const HudFeedbackState& feedback,
                                     const BattleResultOverlayState& resultOverlay,
+                                    const BattleVsIntroOverlayState& vsIntroOverlay,
                                     const TutorialOverlayState& tutorial,
                                     const RhythmChallengeState& rhythm,
                                     bool paused,
@@ -1163,6 +1477,7 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
         applyPauseOverlayDocumentState(document, pauseOverlayMode, pauseSelection, settingsSelection, settings);
     }
     detail::applyBattleResultOverlayDocumentState(document, resultOverlay, nowMs);
+    detail::applyBattleVsIntroOverlayDocumentState(document, vsIntroOverlay, dependencies);
 }
 
 } // namespace battle::app::ui

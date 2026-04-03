@@ -12,12 +12,13 @@ namespace battle::demo {
 
 class DemoNarrativeFlow {
 public:
-    bool initialize();
+    bool initialize(bool deferIntroDialogue = false);
     void shutdown();
 
     bool isDialogueInProgress() const;
     bool isSpaceEnabledForBattle() const;
 
+    void startIntroDialogueIfPending();
     void onDialogueSpacePressed();
     bool onPlayerTurnExecuted(const flow::PlayerTurnExecution& turnExecution);
 
@@ -42,6 +43,7 @@ private:
     const std::vector<DialogueLine>* activeDialogueLines_ = nullptr;
     bool dialogueInProgress_ = false;
     bool spaceEnabledForBattle_ = false;
+    bool introDialoguePending_ = false;
     int currentDialogueLine_ = 0;
 
     bool hasShownMikuFirstSkillTutorial_ = false;

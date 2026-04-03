@@ -116,6 +116,22 @@ constexpr const char* kBattleResultVictoryApplauseSfxPath = "assets/ui/sfx/Resul
 constexpr const char* kBattleResultButtonHoverSfxPath = "assets/ui/sfx/UI_button-hover.wav";
 constexpr const char* kBattleResultButtonSelectSfxPath = "assets/ui/sfx/UI_button-select.wav";
 constexpr float kBattleResultMaxPresentationStepSeconds = 0.05f;
+constexpr const char* kBattleVsIntroLineDropSfxPath = "assets/ui/sfx/Matchmaking_enqueue.wav";
+constexpr const char* kBattleVsIntroLineTiltSfxPath = "assets/ui/sfx/Matchmaking_match-found.wav";
+constexpr const char* kBattleVsIntroLeftCardSfxPath = "assets/ui/sfx/Menu_button-default-select.wav";
+constexpr const char* kBattleVsIntroRightCardSfxPath = "assets/ui/sfx/Menu_button-daily-select.wav";
+constexpr std::array<const char*, 6> kBattleVsIntroLetterSfxPaths{
+    "assets/ui/sfx/Cloud_appear-0.wav",
+    "assets/ui/sfx/Cloud_appear-1.wav",
+    "assets/ui/sfx/Cloud_appear-2.wav",
+    "assets/ui/sfx/Cloud_appear-3.wav",
+    "assets/ui/sfx/Cloud_appear-4.wav",
+    "assets/ui/sfx/Cloud_appear-5.wav"
+};
+constexpr const char* kBattleVsIntroVsHitSfxPath = "assets/ui/sfx/Matchmaking_stage-segment.wav";
+constexpr const char* kBattleVsIntroMatchStartSfxPathA = "assets/ui/sfx/Gameplay_restart.wav";
+constexpr const char* kBattleVsIntroMatchStartSfxPathB = "assets/ui/sfx/Ranked_vs-swoosh.wav";
+constexpr float kBattleVsIntroBgmFadeInSeconds = 0.60f;
 constexpr float kBossPhaseIntroDurationSeconds = 0.90f;
 constexpr float kBossPhaseIntroStartOffsetX = -170.0f;
 constexpr float kBossPhaseIntroStartOffsetY = 40.0f;
@@ -1098,6 +1114,7 @@ namespace battle::app {
 using ui::BattleResultOverlayAction;
 using ui::BattleResultOverlayOutcome;
 using ui::BattleResultOverlayState;
+using ui::BattleVsIntroOverlayState;
 
 class SessionImpl {
 public:
@@ -1239,10 +1256,11 @@ public:
 
         const battle::BattleState& state = manager_.getBattleState();
         battleBgmBaseVolume_ = std::clamp(manager_.getCurrentBossBgmVolume(), 0.0f, 1.0f);
+        initialBattleBgmPath_.clear();
         const std::string initialBgmName = manager_.getCurrentBossBgm();
         if (!initialBgmName.empty()) {
             if (const auto bgmPath = platform::path::resolveCombatBgmPath(initialBgmName); bgmPath.has_value()) {
-                gBattleBgmController.playImmediate(*bgmPath, battleBgmBaseVolume_);
+                initialBattleBgmPath_ = *bgmPath;
             }
         }
         worldAssets_.clear();
@@ -1277,7 +1295,7 @@ public:
                 vn::setVoiceVolume(settings_->voiceVolume);
                 vn::setTypewriterSpeed(settings_->textSpeed);
             }
-            if (!narrative_.initialize()) {
+            if (!narrative_.initialize(true)) {
                 std::cerr << "[Battle] Failed to initialize battle narrative flow.\n";
                 shutdown();
                 return false;
@@ -1294,21 +1312,18 @@ public:
         feedback_.reset(manager_);
         syncHudFeedbackState(hudFeedback_, manager_);
         resetHudAnimationState(hudAnimationState_, manager_);
-
-        SDL_Texture* mikuSprite = nullptr;
-        if (const auto mikuIt = sceneRenderer_.textureByAsset.find("miku"); mikuIt != sceneRenderer_.textureByAsset.end()) {
-            mikuSprite = mikuIt->second;
-        }
-        SDL_Texture* bossSprite = nullptr;
-        if (const auto bossIt = sceneRenderer_.textureByAsset.find(state.boss.assets); bossIt != sceneRenderer_.textureByAsset.end()) {
-            bossSprite = bossIt->second;
-        }
-        combatBeginAnimation_.reset(mikuSprite, bossSprite);
         activeUltimateTurnSplash_.reset();
         previewUltimateSplashPartyIndex_ = -1;
         discardNextUpdateDelta_ = false;
         activeOverlay_ = nullptr;
         resultOverlay_ = BattleResultOverlayState{};
+        vsIntroOverlay_ = BattleVsIntroOverlayState{};
+        vsIntroOverlay_.pendingStart = true;
+        vsIntroOverlay_.leftName = "HATSUNE MIKU";
+        vsIntroOverlay_.rightName = uppercase(
+            !state.boss.title.empty() ? state.boss.title : state.boss.key);
+        vsIntroOverlay_.leftAsset = "miku";
+        vsIntroOverlay_.rightAsset = state.boss.assets.empty() ? state.boss.key : state.boss.assets;
 
         renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
         context_ = Rml::CreateContext("battle-app", Rml::Vector2i(windowWidth_, windowHeight_));
@@ -1515,12 +1530,14 @@ public:
         bossPhaseIntroHintText_.clear();
         activeOverlay_ = nullptr;
         resultOverlay_ = BattleResultOverlayState{};
+        vsIntroOverlay_ = BattleVsIntroOverlayState{};
         resultPresentationConfig_ = BattleResultPresentationConfig{};
         frameAccumulator_ = 0.0f;
         discardNextUpdateDelta_ = false;
         battleDefinition_ = battle::BattleDefinition{};
         stageDefinition_ = battle::render::StageDefinition{};
         activePartyLineup_.clear();
+        initialBattleBgmPath_.clear();
         loadingOverlayState_ = graphics::RmlUiLoadingOverlayState{};
         drawableWidth_ = kWindowWidth;
         drawableHeight_ = kWindowHeight;
@@ -1549,7 +1566,7 @@ public:
             return;
         }
 
-        if (combatBeginAnimation_.isActive()) {
+        if (isBattleVsIntroBlocking()) {
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
                 finished_ = true;
             }
@@ -1702,8 +1719,14 @@ public:
             deltaSeconds = 0.0f;
         }
 
-        if (combatBeginAnimation_.isActive()) {
-            combatBeginAnimation_.update(deltaSeconds);
+        if (isBattleVsIntroBlocking()) {
+            updateBattleVsIntro(deltaSeconds);
+            const flow::PreviewActorContext preview = flow::inspectPreviewActor(manager_);
+            const bool bossActing = !(preview.valid && preview.type == battle::ParticipantType::Character);
+            const int actingPartyIndex =
+                (!bossActing && preview.partyIndex >= 0) ? preview.partyIndex : -1;
+            updateSceneEntities(deltaSeconds, bossActing, actingPartyIndex);
+            syncHudDocument(nowMs);
             return;
         }
 
@@ -1861,18 +1884,6 @@ public:
 
     void render() {
         if (!initialized_ || sceneRenderer_.renderer == nullptr || sceneRenderer_.surface == nullptr) {
-            return;
-        }
-
-        if (combatBeginAnimation_.isActive()) {
-            combatBeginAnimation_.render(sceneRenderer_.renderer, sceneRenderer_.width, sceneRenderer_.height);
-            screenBlitter_.uploadSurface(sceneRenderer_.surface);
-
-            SDL_GL_MakeCurrent(window_, glContext_);
-            glViewport(0, 0, drawableWidth_, drawableHeight_);
-            glClearColor(0.035f, 0.043f, 0.07f, 1.0f);
-            glClear(GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-            screenBlitter_.draw();
             return;
         }
 
@@ -2118,6 +2129,116 @@ private:
 
         const auto bossDeadVoicePath = resolveBossDeadVoicePath(manager_.getBattleState());
         return bossDeadVoicePath.has_value() && gOneShotAudio.isPlaying(*bossDeadVoicePath);
+    }
+
+    bool isBattleVsIntroBlocking() const {
+        return vsIntroOverlay_.pendingStart || vsIntroOverlay_.active;
+    }
+
+    void startBattleVsIntro() {
+        vsIntroOverlay_.pendingStart = false;
+        vsIntroOverlay_.active = true;
+        vsIntroOverlay_.lineDropSfxPlayed = false;
+        vsIntroOverlay_.lineTiltSfxPlayed = false;
+        vsIntroOverlay_.leftCardSfxPlayed = false;
+        vsIntroOverlay_.rightCardSfxPlayed = false;
+        vsIntroOverlay_.vsVHitSfxPlayed = false;
+        vsIntroOverlay_.vsSHitSfxPlayed = false;
+        vsIntroOverlay_.matchStartSfxPlayed = false;
+        vsIntroOverlay_.bgmStarted = false;
+        vsIntroOverlay_.nextLeftLetterSfxIndex = 0;
+        vsIntroOverlay_.nextRightLetterSfxIndex = 0;
+        vsIntroOverlay_.presentationElapsedSeconds = 0.0f;
+    }
+
+    void updateBattleVsIntro(float deltaSeconds) {
+        if (vsIntroOverlay_.pendingStart) {
+            if (!loadingOverlayState_.visible) {
+                startBattleVsIntro();
+            }
+            return;
+        }
+
+        if (!vsIntroOverlay_.active) {
+            return;
+        }
+
+        vsIntroOverlay_.presentationElapsedSeconds +=
+            std::clamp(deltaSeconds, 0.0f, ui::kBattleVsIntroMaxStepSeconds);
+
+        const float elapsedSeconds = ui::battleVsIntroElapsedSeconds(vsIntroOverlay_);
+        if (!vsIntroOverlay_.lineDropSfxPlayed && elapsedSeconds >= ui::kBattleVsIntroLineDropSeconds) {
+            (void)playResolvedOneShot(gPresentationSfxAudio, kBattleVsIntroLineDropSfxPath, 0.80f, false);
+            vsIntroOverlay_.lineDropSfxPlayed = true;
+        }
+        if (!vsIntroOverlay_.lineTiltSfxPlayed && elapsedSeconds >= ui::kBattleVsIntroLineTiltSeconds) {
+            (void)playResolvedOneShot(gPresentationSfxAudio, kBattleVsIntroLineTiltSfxPath, 0.86f, false);
+            vsIntroOverlay_.lineTiltSfxPlayed = true;
+        }
+        if (!vsIntroOverlay_.leftCardSfxPlayed && elapsedSeconds >= ui::kBattleVsIntroLeftCardSeconds) {
+            (void)playResolvedOneShot(gPresentationSfxAudio, kBattleVsIntroLeftCardSfxPath, 0.82f, false);
+            vsIntroOverlay_.leftCardSfxPlayed = true;
+        }
+        if (!vsIntroOverlay_.rightCardSfxPlayed && elapsedSeconds >= ui::kBattleVsIntroRightCardSeconds) {
+            (void)playResolvedOneShot(gPresentationSfxAudio, kBattleVsIntroRightCardSfxPath, 0.82f, false);
+            vsIntroOverlay_.rightCardSfxPlayed = true;
+        }
+
+        const int visibleLeftLetters = ui::battleVsIntroVisibleLetterCount(
+            vsIntroOverlay_.leftName,
+            elapsedSeconds,
+            ui::kBattleVsIntroLeftNameSeconds);
+        while (vsIntroOverlay_.nextLeftLetterSfxIndex < visibleLeftLetters) {
+            const std::size_t sfxIndex =
+                static_cast<std::size_t>(vsIntroOverlay_.nextLeftLetterSfxIndex) % kBattleVsIntroLetterSfxPaths.size();
+            (void)playResolvedOneShot(gPresentationSfxAudio, kBattleVsIntroLetterSfxPaths[sfxIndex], 0.46f, false);
+            ++vsIntroOverlay_.nextLeftLetterSfxIndex;
+        }
+
+        if (!vsIntroOverlay_.vsVHitSfxPlayed && elapsedSeconds >= ui::kBattleVsIntroVsVSeconds) {
+            (void)playResolvedOneShot(gPresentationSfxAudio, kBattleVsIntroVsHitSfxPath, 0.86f, false);
+            vsIntroOverlay_.vsVHitSfxPlayed = true;
+        }
+
+        if (!vsIntroOverlay_.vsSHitSfxPlayed && elapsedSeconds >= ui::kBattleVsIntroVsSSeconds) {
+            (void)playResolvedOneShot(gPresentationSfxAudio, kBattleVsIntroVsHitSfxPath, 0.88f, false);
+            vsIntroOverlay_.vsSHitSfxPlayed = true;
+        }
+
+        const int visibleRightLetters = ui::battleVsIntroVisibleLetterCount(
+            vsIntroOverlay_.rightName,
+            elapsedSeconds,
+            ui::kBattleVsIntroRightNameSeconds);
+        while (vsIntroOverlay_.nextRightLetterSfxIndex < visibleRightLetters) {
+            const std::size_t sfxIndex =
+                static_cast<std::size_t>(vsIntroOverlay_.nextRightLetterSfxIndex) % kBattleVsIntroLetterSfxPaths.size();
+            (void)playResolvedOneShot(gPresentationSfxAudio, kBattleVsIntroLetterSfxPaths[sfxIndex], 0.46f, false);
+            ++vsIntroOverlay_.nextRightLetterSfxIndex;
+        }
+
+        if (!vsIntroOverlay_.matchStartSfxPlayed && elapsedSeconds >= ui::kBattleVsIntroExitSeconds) {
+            (void)playResolvedOneShot(gPresentationSfxAudio, kBattleVsIntroMatchStartSfxPathA, 0.85f, false);
+            (void)playResolvedOneShot(gPresentationSfxAudio, kBattleVsIntroMatchStartSfxPathB, 0.92f, false);
+            vsIntroOverlay_.matchStartSfxPlayed = true;
+        }
+
+        if (!vsIntroOverlay_.bgmStarted && elapsedSeconds >= ui::kBattleVsIntroRevealSeconds) {
+            if (!initialBattleBgmPath_.empty()) {
+                gBattleBgmController.playWithFadeIn(
+                    initialBattleBgmPath_,
+                    battleBgmBaseVolume_,
+                    kBattleVsIntroBgmFadeInSeconds);
+            }
+            vsIntroOverlay_.bgmStarted = true;
+        }
+
+        if (elapsedSeconds >= ui::kBattleVsIntroCompletionSeconds) {
+            if (narrativeEnabled_ && narrativeInitialized_) {
+                narrative_.startIntroDialogueIfPending();
+            }
+            vsIntroOverlay_.active = false;
+            vsIntroOverlay_.pendingStart = false;
+        }
     }
 
     bool isDialogueInProgress() const {
@@ -2787,6 +2908,7 @@ private:
         anyLoaded |= loadRmlFontIfPresent(platform::path::resolvePath("assets/fonts/SpaceMono-Bold.ttf"));
         anyLoaded |= loadRmlFontIfPresent(platform::path::findFontPath(), true);
         anyLoaded |= loadRmlFontIfPresent(platform::path::resolvePath("assets/fonts/NotoSansCJK-Regular.ttc"), true);
+        anyLoaded |= loadRmlFontIfPresent(platform::path::resolvePath("assets/fonts/NotoSansCJK-Bold.ttc"), true);
         return anyLoaded;
     }
 
@@ -2934,6 +3056,7 @@ private:
                                                  hudAnimationState_,
                                                  hudFeedback_,
                                                  resultOverlay_,
+                                                 vsIntroOverlay_,
                                                  tutorialOverlay_,
                                                  rhythmChallenge_,
                                                  false,
@@ -4056,6 +4179,7 @@ private:
     HudFeedbackState hudFeedback_;
     HudAnimationState hudAnimationState_;
     BattleResultOverlayState resultOverlay_;
+    BattleVsIntroOverlayState vsIntroOverlay_;
     TutorialOverlayState tutorialOverlay_;
     RhythmChallengeState rhythmChallenge_;
     std::vector<int> bufferedManualUltimatePartyIndices_;
@@ -4084,6 +4208,7 @@ private:
     bool battleBgmWasPlayingBeforePause_ = false;
     bool battleBgmWasPausedBeforePause_ = false;
     float battleBgmBaseVolume_ = 1.0f;
+    std::string initialBattleBgmPath_;
     float presentationLoopBaseVolume_ = 1.0f;
     battle::Camera3D camera_;
     battle::render::BattleCameraStaging cameraStaging_;

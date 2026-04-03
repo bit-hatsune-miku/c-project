@@ -104,6 +104,40 @@ void BattleBgmController::playImmediate(const std::string& trackPath, float base
     }
 }
 
+void BattleBgmController::playWithFadeIn(const std::string& trackPath,
+                                         float baseVolume,
+                                         float fadeDurationSeconds) {
+    if (player_ == nullptr) {
+        return;
+    }
+
+    const float clampedBaseVolume = std::clamp(baseVolume, 0.0f, 1.0f);
+    queuedTrackPath_.clear();
+    queuedBaseVolume_ = clampedBaseVolume;
+
+    if (trackPath.empty()) {
+        stop();
+        return;
+    }
+
+    if (!player_->play(trackPath, 0.0f)) {
+        stop();
+        return;
+    }
+
+    currentTrackPath_ = trackPath;
+    currentBaseVolume_ = clampedBaseVolume;
+    fadeGain_ = 0.0f;
+    fadeDurationSeconds_ = std::max(0.01f, fadeDurationSeconds);
+    transitionElapsedSeconds_ = 0.0f;
+    transitionStartGain_ = 0.0f;
+    transitionState_ = TransitionState::FadingIn;
+    if (paused_) {
+        player_->pause();
+    }
+    applyVolume();
+}
+
 void BattleBgmController::requestTrack(const std::string& trackPath, float baseVolume) {
     if (player_ == nullptr) {
         return;

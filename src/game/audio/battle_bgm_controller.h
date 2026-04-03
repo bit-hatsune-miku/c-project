@@ -14,6 +14,7 @@ public:
     void stop();
     void fadeOutAndStop(float fadeDurationSeconds = 1.2f);
     void playImmediate(const std::string& trackPath, float baseVolume);
+    void playWithFadeIn(const std::string& trackPath, float baseVolume, float fadeDurationSeconds = 0.35f);
     void requestTrack(const std::string& trackPath, float baseVolume);
     void update(float deltaSeconds);
 

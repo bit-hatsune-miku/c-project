@@ -350,6 +350,8 @@ if (ENABLE_RMLUI)
         src/rmlui_battle_main.cpp
         src/window.cpp
         src/window.h
+        src/game/audio/battle_bgm_controller.cpp
+        src/game/audio/battle_bgm_controller.h
         src/game/vn/vn_system.cpp
         src/game/vn/vn_system.h
         src/game/vn/vn_script.cpp

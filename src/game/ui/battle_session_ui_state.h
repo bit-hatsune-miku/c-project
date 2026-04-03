@@ -136,6 +136,26 @@ struct BattleResultOverlayState {
     std::string buttonSubcopy;
 };
 
+struct BattleVsIntroOverlayState {
+    bool pendingStart = false;
+    bool active = false;
+    bool lineDropSfxPlayed = false;
+    bool lineTiltSfxPlayed = false;
+    bool leftCardSfxPlayed = false;
+    bool rightCardSfxPlayed = false;
+    bool vsVHitSfxPlayed = false;
+    bool vsSHitSfxPlayed = false;
+    bool matchStartSfxPlayed = false;
+    bool bgmStarted = false;
+    int nextLeftLetterSfxIndex = 0;
+    int nextRightLetterSfxIndex = 0;
+    float presentationElapsedSeconds = 0.0f;
+    std::string leftName;
+    std::string rightName;
+    std::string leftAsset;
+    std::string rightAsset;
+};
+
 inline constexpr float kBattleResultDimFadeDurationSeconds = 0.28f;
 inline constexpr float kBattleResultKickerDelaySeconds = 0.06f;
 inline constexpr float kBattleResultKickerDurationSeconds = 0.22f;
@@ -146,6 +166,22 @@ inline constexpr float kBattleResultSettleDelaySeconds = 0.04f;
 inline constexpr float kBattleResultSettleDurationSeconds = 0.32f;
 inline constexpr float kBattleResultButtonDelaySeconds = 0.08f;
 inline constexpr float kBattleResultButtonDurationSeconds = 0.26f;
+inline constexpr float kBattleVsIntroLineDropSeconds = 0.020f;
+inline constexpr float kBattleVsIntroLineTiltSeconds = 0.320f;
+inline constexpr float kBattleVsIntroLeftCardSeconds = 0.520f;
+inline constexpr float kBattleVsIntroRightCardSeconds = 0.920f;
+inline constexpr float kBattleVsIntroVoidFadeSeconds = 1.420f;
+inline constexpr float kBattleVsIntroLeftNameSeconds = 1.240f;
+inline constexpr float kBattleVsIntroVsVSeconds = 1.580f;
+inline constexpr float kBattleVsIntroVsSSeconds = 1.720f;
+inline constexpr float kBattleVsIntroRightNameSeconds = 1.900f;
+inline constexpr float kBattleVsIntroExitSeconds = 3.520f;
+inline constexpr float kBattleVsIntroRevealSeconds = 3.620f;
+inline constexpr float kBattleVsIntroNameLetterIntervalSeconds = 0.034f;
+inline constexpr float kBattleVsIntroNameLetterDurationSeconds = 0.42f;
+inline constexpr float kBattleVsIntroVsLetterDurationSeconds = 0.44f;
+inline constexpr float kBattleVsIntroMaxStepSeconds = 0.05f;
+inline constexpr float kBattleVsIntroCompletionSeconds = 4.100f;
 
 inline std::size_t battleResultVisibleGlyphCount(const std::string& text) {
     return static_cast<std::size_t>(std::count_if(text.begin(), text.end(), [](char glyph) {
@@ -192,6 +228,39 @@ inline int battleResultVisibleLetterCount(const BattleResultOverlayState& overla
     }
 
     const int visibleLetters = static_cast<int>(std::floor(revealElapsedSeconds / kBattleResultLetterIntervalSeconds)) + 1;
+    return std::clamp(visibleLetters, 0, totalLetters);
+}
+
+inline float battleVsIntroElapsedSeconds(const BattleVsIntroOverlayState& overlay) {
+    return std::max(overlay.presentationElapsedSeconds, 0.0f);
+}
+
+inline std::size_t battleVsIntroVisibleGlyphCount(const std::string& text) {
+    std::size_t count = 0;
+    for (unsigned char byte : text) {
+        if ((byte & 0xC0u) == 0x80u || byte == static_cast<unsigned char>(' ')) {
+            continue;
+        }
+        ++count;
+    }
+    return count;
+}
+
+inline int battleVsIntroVisibleLetterCount(const std::string& text,
+                                           float elapsedSeconds,
+                                           float revealStartSeconds) {
+    const int totalLetters = static_cast<int>(battleVsIntroVisibleGlyphCount(text));
+    if (totalLetters <= 0) {
+        return 0;
+    }
+
+    const float revealElapsedSeconds = elapsedSeconds - revealStartSeconds;
+    if (revealElapsedSeconds < 0.0f) {
+        return 0;
+    }
+
+    const int visibleLetters =
+        static_cast<int>(std::floor(revealElapsedSeconds / kBattleVsIntroNameLetterIntervalSeconds)) + 1;
     return std::clamp(visibleLetters, 0, totalLetters);
 }
 
