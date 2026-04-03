@@ -4,6 +4,78 @@
 
 #include "bgm_player.h"
 
+/**
+ * Controller that manages battle background music playback and transitions.
+ */
+
+/**
+ * Attach the controller to a BgmPlayer so playback commands affect that player.
+ * @param player Target BgmPlayer to control.
+ */
+
+/**
+ * Detach the controller from its current BgmPlayer.
+ */
+
+/**
+ * Stop playback immediately and clear any queued track transitions.
+ */
+
+/**
+ * Fade out the current playback over the given duration and stop when the fade completes.
+ * @param fadeDurationSeconds Duration of the fade-out in seconds.
+ */
+
+/**
+ * Start playing the specified track immediately at the given base volume.
+ * @param trackPath Path or identifier of the track to play.
+ * @param baseVolume Base volume multiplier for the track (0.0 = silent, 1.0 = original).
+ */
+
+/**
+ * Start playing the specified track and fade in to the given base volume over the provided duration.
+ * @param trackPath Path or identifier of the track to play.
+ * @param baseVolume Target base volume after fade-in (0.0 = silent, 1.0 = original).
+ * @param fadeDurationSeconds Duration of the fade-in in seconds.
+ */
+
+/**
+ * Queue a track and base volume as the next target for a transition without starting playback immediately.
+ * @param trackPath Path or identifier of the track to queue.
+ * @param baseVolume Base volume to use when the queued track becomes active.
+ */
+
+/**
+ * Advance the controller's internal timing and process fades/transitions.
+ * @param deltaSeconds Time elapsed since the last update, in seconds.
+ */
+
+/**
+ * Set the master volume multiplier applied on top of track base volumes and fade gain.
+ * @param masterVolume Master volume multiplier (0.0 = silent, 1.0 = unchanged).
+ */
+
+/**
+ * Pause playback; current state is preserved for resume.
+ */
+
+/**
+ * Resume playback if previously paused.
+ */
+
+/**
+ * Determine whether a track is currently playing or in an active transition.
+ * @returns `true` if playback or an active transition is in progress, `false` otherwise.
+ */
+
+/**
+ * Check whether playback is currently paused.
+ * @returns `true` if paused, `false` otherwise.
+ */
+
+/**
+ * Apply the computed effective volume (master volume × base volume × fade gain) to the attached BgmPlayer.
+ */
 namespace game::audio {
 
 class BattleBgmController {

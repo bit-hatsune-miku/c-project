@@ -16,6 +16,13 @@ constexpr std::size_t kDefaultPartyLineupSize = 4;
 constexpr std::array<const char*, 2> kStarterRoster = {"miku", "cupcakke"};
 constexpr int kStageBuffPickCount = 4;
 
+/**
+ * @brief Checks whether a string ends with a given suffix.
+ *
+ * @param value The string to examine.
+ * @param suffix The suffix to test for at the end of `value`.
+ * @return `true` if `value` ends with `suffix`, `false` otherwise.
+ */
 bool endsWith(const std::string& value, const std::string& suffix) {
     return value.size() >= suffix.size() &&
            value.compare(value.size() - suffix.size(), suffix.size(), suffix) == 0;
@@ -117,6 +124,20 @@ std::string resolveUnlockableCharacterKey(
     return std::string();
 }
 
+/**
+ * Derives character keys unlocked by the given sequence of cleared battles.
+ *
+ * For each battle key (in encounter order) this attempts to load the battle definition,
+ * resolve the unlockable character key from the battle's boss, and append the resolved
+ * key to the result if it is non-empty and has not already been included.
+ *
+ * @param clearedBattleKeys Sequence of cleared battle keys in encounter order.
+ * @param charactersByKey Map from character key to its definition used for direct lookups.
+ * @param characterKeyByAssetMap Map from character asset identifier to character key used
+ *        when a boss references character assets.
+ * @return std::vector<std::string> Unique unlocked character keys in encounter order;
+ *         entries are omitted for battles that fail to load or that do not resolve to a character.
+ */
 std::vector<std::string> unlockedCharacterKeysFromClearedBattles(
     const std::vector<std::string>& clearedBattleKeys,
     const std::unordered_map<std::string, CharacterDefinition>& charactersByKey,
@@ -143,6 +164,18 @@ std::vector<std::string> unlockedCharacterKeysFromClearedBattles(
     return unlocked;
 }
 
+/**
+ * @brief Normalize a stage buff allocation to valid character keys and the per-stage pick limit.
+ *
+ * Filters out entries with non-positive counts or keys not present in `validKeys`, ranks remaining
+ * entries by descending count (tie-broken by ascending key), and assigns each entry a clamped
+ * count such that the summed picks do not exceed `kStageBuffPickCount`.
+ *
+ * @param allocation Mapping of character key to requested pick count.
+ * @param validKeys Set of allowed character keys; entries not in this set are ignored.
+ * @return StageBuffAllocation Mapping of character key to normalized (clamped and possibly reduced)
+ *         pick count. Entries with zero picks are omitted.
+ */
 StageBuffAllocation normalizeStageAllocation(const StageBuffAllocation& allocation,
                                             const std::unordered_set<std::string>& validKeys) {
     std::vector<std::pair<std::string, int>> entries;
@@ -178,6 +211,17 @@ StageBuffAllocation normalizeStageAllocation(const StageBuffAllocation& allocati
     return normalized;
 }
 
+/**
+ * @brief Produce a normalized map of per-battle stage buff allocations filtered to valid characters and loadable battles.
+ *
+ * For each entry in `assignments`, the function skips empty battle keys and battles whose definitions cannot be loaded,
+ * normalizes the allocation to contain only valid character keys with counts clamped to the configured pick limit,
+ * and includes the entry in the result only if the normalized allocation is non-empty.
+ *
+ * @param assignments Map from battle key to stage buff allocation to normalize.
+ * @param validKeys Set of character keys considered valid for allocations.
+ * @return StageBuffAssignments Map of battle key -> normalized stage buff allocation containing only non-empty, validated entries.
+ */
 StageBuffAssignments normalizeStageBuffAssignments(const StageBuffAssignments& assignments,
                                                    const std::unordered_set<std::string>& validKeys) {
     StageBuffAssignments normalized;
@@ -199,7 +243,14 @@ StageBuffAssignments normalizeStageBuffAssignments(const StageBuffAssignments& a
     return normalized;
 }
 
-} // namespace
+} /**
+ * @brief Loads all available character keys into the provided vector.
+ *
+ * Fills outCharacterKeys with every character definition key returned by the character loader, preserving the loader's order. If loading fails, outCharacterKeys is cleared.
+ *
+ * @param[out] outCharacterKeys Vector to receive the character keys.
+ * @return true if character definitions were successfully loaded and keys were written to outCharacterKeys, false if loading failed (outCharacterKeys will be empty).
+ */
 
 bool loadAllCharacterKeys(std::vector<std::string>& outCharacterKeys) {
     outCharacterKeys.clear();
@@ -216,18 +267,42 @@ bool loadAllCharacterKeys(std::vector<std::string>& outCharacterKeys) {
     return true;
 }
 
+/**
+ * @brief Determines whether a character is present in a player's unlocked characters.
+ *
+ * @param progression Player progression data to check.
+ * @param characterKey Character key to look for.
+ * @return true if `characterKey` appears in `progression.unlockedCharacterKeys`, false otherwise.
+ */
 bool hasUnlockedCharacter(const PlayerProgression& progression, const std::string& characterKey) {
     return std::find(progression.unlockedCharacterKeys.begin(),
                      progression.unlockedCharacterKeys.end(),
                      characterKey) != progression.unlockedCharacterKeys.end();
 }
 
+/**
+ * @brief Determines whether a battle key is present in the player's cleared battles.
+ *
+ * @param progression Player progression to inspect.
+ * @param battleKey Identifier of the battle to check.
+ * @return true if `battleKey` appears in `progression.clearedBattleKeys`, false otherwise.
+ */
 bool hasClearedBattle(const PlayerProgression& progression, const std::string& battleKey) {
     return std::find(progression.clearedBattleKeys.begin(),
                      progression.clearedBattleKeys.end(),
                      battleKey) != progression.clearedBattleKeys.end();
 }
 
+/**
+ * @brief Compute the total flat stat bonuses for a character from stored stage buff allocations.
+ *
+ * @param progression Player progression data containing per-battle `stageBuffAssignments`.
+ * @param characterKey Character key to compute bonuses for; an empty key produces zeroed bonuses.
+ * @param excludedBattleKey If non-empty, skips allocations from this battle key when summing bonuses.
+ * @return FlatStatBonuses Sum of each battle's `buffs.hp`, `buffs.atk`, and `buffs.spd` multiplied by
+ * the allocated count for `characterKey`; returns zeroed bonuses when `characterKey` is empty or no
+ * applicable allocations are found.
+ */
 FlatStatBonuses characterFlatStatBonuses(const PlayerProgression& progression,
                                          const std::string& characterKey,
                                          const std::string& excludedBattleKey) {
@@ -259,6 +334,16 @@ FlatStatBonuses characterFlatStatBonuses(const PlayerProgression& progression,
     return bonuses;
 }
 
+/**
+ * @brief Applies flat progression stat bonuses to a character.
+ *
+ * Adds cumulative flat HP, ATK, and SPD bonuses computed from the player's
+ * stage buff assignments to the provided CharacterDefinition.
+ *
+ * @param character CharacterDefinition to modify; HP, ATK, and SPD fields are incremented.
+ * @param progression Player progression data used to compute bonuses.
+ * @param excludedBattleKey If non-empty, stage buffs from this battle key are ignored when computing bonuses.
+ */
 void applyCharacterProgressionBonuses(CharacterDefinition& character,
                                      const PlayerProgression& progression,
                                      const std::string& excludedBattleKey) {
@@ -269,6 +354,20 @@ void applyCharacterProgressionBonuses(CharacterDefinition& character,
     character.spd += bonuses.spd;
 }
 
+/**
+ * @brief Replace or remove the stage buff allocation for a battle in player progression.
+ *
+ * Updates progression.stageBuffAssignments for the given battle key: if a valid set of
+ * character keys can be loaded, the provided allocation is normalized (filtered to valid
+ * characters, clamped to the per-battle pick limit) and stored; if the normalized allocation
+ * is empty the mapping is removed. If character keys cannot be loaded, the raw allocation
+ * is stored as-is unless it is empty, in which case the mapping is removed. An empty
+ * battleKey is ignored.
+ *
+ * @param progression Player progression object to modify.
+ * @param battleKey Key identifying the battle whose allocation should be replaced.
+ * @param allocation New stage buff allocation to store (subject to normalization and validation).
+ */
 void replaceStageBuffAllocation(PlayerProgression& progression,
                                 const std::string& battleKey,
                                 const StageBuffAllocation& allocation) {
@@ -295,6 +394,17 @@ void replaceStageBuffAllocation(PlayerProgression& progression,
     }
 }
 
+/**
+ * @brief Sanitizes a list of character keys by removing duplicates and ensuring validity.
+ *
+ * When the game's canonical character list is available, the result contains only keys
+ * that exist in that list, with duplicates removed and original order preserved.
+ * If the canonical list cannot be obtained, duplicates are removed and the original
+ * order is preserved but keys are not validated.
+ *
+ * @param keys Input sequence of character keys to sanitize.
+ * @return std::vector<std::string> A deduplicated sequence of character keys, filtered to valid characters when possible.
+ */
 std::vector<std::string> sanitizeCharacterKeyList(const std::vector<std::string>& keys) {
     std::vector<std::string> allCharacterKeys;
     if (!loadAllCharacterKeys(allCharacterKeys)) {
@@ -336,6 +446,27 @@ PlayerProgression makeDefaultPlayerProgression() {
     return progression;
 }
 
+/**
+ * @brief Normalize and sanitize a player's progression fields in place.
+ *
+ * Ensures `progression.unlockedCharacterKeys`, `progression.currentPartyLineup`,
+ * `progression.clearedBattleKeys`, and `progression.stageBuffAssignments` are valid,
+ * deduplicated, and consistent with available character and battle data.
+ *
+ * When character key loading fails, performs best-effort sanitization on the
+ * unlocked list and current lineup and deduplicates cleared battles, then returns.
+ * When character data is available, computes the final unlocked set by applying
+ * a configurable fallback (starter roster or full roster), adding unlocks derived
+ * from cleared battles, and optionally honoring explicit unlocked entries from
+ * the input progression. The party lineup is then restricted to unlocked characters
+ * and populated from fallbacks if empty. Finally, stage buff assignments are
+ * normalized to valid keys and per-battle constraints.
+ *
+ * @param progression Player progression object to modify and normalize.
+ * @param fallbackPolicy Policy that determines which fallback unlocked characters
+ *                       and lineup to use when constructing the normalized progression
+ *                       (e.g., starter roster vs full roster).
+ */
 void normalizePlayerProgression(PlayerProgression& progression, ProgressionFallbackPolicy fallbackPolicy) {
     std::vector<std::string> allCharacterKeys;
     if (!loadAllCharacterKeys(allCharacterKeys)) {

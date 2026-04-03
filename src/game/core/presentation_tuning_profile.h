@@ -4,6 +4,18 @@
 #include <string>
 #include <unordered_map>
 
+/**
+ * @brief Holds configurable presentation tuning parameters for a battle profile.
+ *
+ * Stores the profile identifier, a zero-based phase index, and named maps of
+ * integer and floating-point tuning parameters used to adjust presentation
+ * behavior.
+ *
+ * @var profileId Identifier for the tuning profile.
+ * @var phaseIndex Phase index (zero-based) for which these parameters apply.
+ * @var intParams Map of integer tuning parameters keyed by parameter name.
+ * @var floatParams Map of floating-point tuning parameters keyed by parameter name.
+ */
 namespace battle {
 
 struct PresentationTuningProfile {

@@ -1,4 +1,3 @@
-
 #include "battle_manager.h"
 #include <cstddef>
 
@@ -28,6 +27,12 @@ constexpr const char* kDefaultCharacterStandardAbilityId = "BasicAttack";
 constexpr const char* kDefaultBossStandardAbilityId = "BossStandardAttack";
 constexpr float kActionValueEpsilon = 0.0001f;
 
+/**
+ * @brief Selects the regular ability identifier for a character from its definition using fallbacks.
+ *
+ * @param definition Character definition to read ability fields from.
+ * @return The chosen ability id: `definition.ability` if non-empty; otherwise `definition.skillAbility` if non-empty; otherwise `definition.standardAbility` if non-empty; if all are empty, returns `kDefaultCharacterStandardAbilityId`.
+ */
 std::string getCharacterRegularAbilityId(const CharacterDefinition& definition) {
     if (!definition.ability.empty()) {
         return definition.ability;
@@ -229,10 +234,28 @@ int BattleCharacter::atkBuffBonus() const {
     return atkBuffBonus_;
 }
 
+/**
+ * @brief Sets the character's attack modifier as a signed percentage.
+ *
+ * Positive values increase the character's attack, negative values decrease it.
+ *
+ * @param percentBonus Signed percentage to apply to the character's base attack.
+ */
 void BattleCharacter::setAtkBuffBonus(int percentBonus) {
     atkBuffBonus_ = percentBonus;
 }
 
+/**
+ * @brief Initializes the battle using the specified boss identifier and party members.
+ *
+ * Constructs a battle configuration with both the battle key and boss key set to @p bossKey,
+ * applies @p progression to the provided characters, and initializes runtime battle state for the resulting party.
+ *
+ * @param bossKey Identifier of the boss definition to load.
+ * @param characterKeys Identifiers of character definitions to include in the party.
+ * @param progression Player progression values applied to each character during loading.
+ * @return true if initialization completed successfully, false otherwise.
+ */
 bool BattleManager::initialize(const std::string& bossKey,
                                const std::vector<std::string>& characterKeys,
                                const PlayerProgression& progression) {
@@ -242,6 +265,17 @@ bool BattleManager::initialize(const std::string& bossKey,
     return initialize(battleDefinition, characterKeys, progression);
 }
 
+/**
+ * @brief Initializes the battle manager with a battle definition, party composition, and player progression.
+ *
+ * Loads and validates the boss and character definitions, applies progression bonuses to each character,
+ * resets and populates runtime battle state (boss HP, phase/ultimate tracking, characters, turn state, abilities, presentations, telemetry, and related runtime structures).
+ *
+ * @param battleDefinition Definition describing the battle to initialize (must include a valid boss key).
+ * @param characterKeys Ordered list of character definition keys representing the player party.
+ * @param progression Player progression data applied to each loaded character prior to building the party.
+ * @return bool `true` if initialization completed successfully and the manager is ready; `false` if required data is missing or any load/build step fails (e.g., missing boss key, failing to load boss or any character, or failing to build the initial turn state).
+ */
 bool BattleManager::initialize(const BattleDefinition& battleDefinition,
                                const std::vector<std::string>& characterKeys,
                                const PlayerProgression& progression) {
@@ -384,26 +418,60 @@ int BattleManager::getBossCurrentHp() const {
     return bossCurrentHp_;
 }
 
+/**
+ * @brief Retrieves the boss's maximum hit points.
+ *
+ * @return int The boss's configured maximum HP.
+ */
 int BattleManager::getBossMaxHp() const {
     return state_.boss.hp;
 }
 
+/**
+ * @brief Computes the boss's effective attack after applying the boss attack buff percentage.
+ *
+ * Calculates boss attack as boss base attack multiplied by (1 + bossAtkBuffBonus_ / 100),
+ * and clamps the result to be at least 0.
+ *
+ * @return int The boss's effective attack value (>= 0).
+ */
 int BattleManager::getBossEffectiveAtk() const {
     const float scaled = static_cast<float>(state_.boss.atk) *
         (1.0f + static_cast<float>(bossAtkBuffBonus_) / 100.0f);
     return std::max(0, static_cast<int>(scaled));
 }
 
+/**
+ * @brief Provides the current boss phase index.
+ *
+ * @return int The current boss phase index (0-based).
+ */
 int BattleManager::getBossPhaseIndex() const {
     return bossPhaseIndex_;
 }
 
+/**
+ * @brief Retrieves and clears any pending boss phase transition.
+ *
+ * If a boss phase transition was queued, returns that transition and removes it
+ * from the pending state; otherwise returns an empty optional.
+ *
+ * @return std::optional<BossPhaseTransition> The pending transition if present, `std::nullopt` otherwise.
+ */
 std::optional<BossPhaseTransition> BattleManager::consumeBossPhaseTransition() {
     const std::optional<BossPhaseTransition> transition = pendingBossPhaseTransition_;
     pendingBossPhaseTransition_.reset();
     return transition;
 }
 
+/**
+ * @brief Retrieves the background music identifier currently active for the boss.
+ *
+ * If the current boss phase defines a BGM override, that identifier is returned;
+ * otherwise the boss's base BGM identifier from the battle state is returned.
+ *
+ * @return std::string The BGM identifier to use for the current boss (phase-specific if present, otherwise the boss default).
+ */
 std::string BattleManager::getCurrentBossBgm() const {
     const BossDefinition::PhaseDefinition& phase = currentBossPhaseDefinition();
     if (!phase.bgm.empty()) {
@@ -412,6 +480,11 @@ std::string BattleManager::getCurrentBossBgm() const {
     return state_.boss.bgm;
 }
 
+/**
+ * @brief Gets the boss background-music volume for the currently active boss phase.
+ *
+ * @return float The phase-specific BGM volume if defined for the current boss phase; otherwise the boss definition's default BGM volume.
+ */
 float BattleManager::getCurrentBossBgmVolume() const {
     const BossDefinition::PhaseDefinition& phase = currentBossPhaseDefinition();
     if (phase.bgmVolume.has_value()) {
@@ -420,6 +493,11 @@ float BattleManager::getCurrentBossBgmVolume() const {
     return state_.boss.bgmVolume;
 }
 
+/**
+ * @brief Current ultimate charge of the boss.
+ *
+ * @return int The boss's current ultimate charge (0 or greater).
+ */
 int BattleManager::getBossUltimateCharge() const {
     return bossUltimateCharge_;
 }
@@ -449,6 +527,16 @@ bool BattleManager::isCharacterAlive(int partyIndex) const {
     return characters_[static_cast<size_t>(partyIndex)].isAlive();
 }
 
+/**
+ * @brief Attempts to revive the party member at the given index and update turn participation.
+ *
+ * Revives the character by the specified amount (minimum restored HP determined by the character definition),
+ * and, if the character's HP increases, synchronizes that character's turn participation and ultimate-turn queue.
+ *
+ * @param partyIndex Index of the party member to revive; must be within party bounds.
+ * @param amount Amount of HP to restore (treated as non-negative).
+ * @return true if the character's HP increased as a result of the revive, false if the index is invalid or no HP was restored.
+ */
 bool BattleManager::reviveCharacter(int partyIndex, int amount) {
     if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
         return false;
@@ -466,6 +554,18 @@ bool BattleManager::reviveCharacter(int partyIndex, int amount) {
     return true;
 }
 
+/**
+ * @brief Determines whether a manual ultimate turn can be queued for the specified party member.
+ *
+ * Validates the battle state and the target character, then reports whether queuing an extra-turn
+ * ultimate is possible, already queued, unavailable, or blocked by the ultimate meter.
+ *
+ * @param partyIndex Zero-based index of the party member to check.
+ * @return ManualUltimateRequestResult `Queued` if the ultimate can be queued,
+ * `Unavailable` if the index is invalid, the battle is over, the character is dead, or the character has no ultimate configured,
+ * `AlreadyQueued` if an extra-turn ultimate for that character is already queued,
+ * `MeterNotReady` if the character's ultimate meter is not full.
+ */
 ManualUltimateRequestResult BattleManager::previewManualUltimateTurnRequest(int partyIndex) const {
     if (isBattleOver() ||
         partyIndex < 0 ||
@@ -489,6 +589,17 @@ ManualUltimateRequestResult BattleManager::previewManualUltimateTurnRequest(int 
     return ManualUltimateRequestResult::Queued;
 }
 
+/**
+ * @brief Requests queuing a manual ultimate extra turn for the specified party member.
+ *
+ * If the request is accepted, an extra-turn ultimate actor is queued for that character.
+ *
+ * @param partyIndex Index of the party member to request the manual ultimate for.
+ * @return ManualUltimateRequestResult `Queued` if the ultimate turn was queued;
+ *         `Unavailable` if the battle state or character prevents manual ultimates;
+ *         `AlreadyQueued` if an equivalent extra-turn ultimate is already queued for that member;
+ *         `MeterNotReady` if the character's ultimate meter is not ready.
+ */
 ManualUltimateRequestResult BattleManager::requestManualUltimateTurn(int partyIndex) {
     const ManualUltimateRequestResult result = previewManualUltimateTurnRequest(partyIndex);
     if (result != ManualUltimateRequestResult::Queued) {
@@ -499,6 +610,15 @@ ManualUltimateRequestResult BattleManager::requestManualUltimateTurn(int partyIn
     return ManualUltimateRequestResult::Queued;
 }
 
+/**
+ * @brief Retrieves the current ultimate charge for a party member.
+ *
+ * Returns the character's stored ultimate charge value, or `0` if the provided
+ * `partyIndex` is negative or outside the current party bounds.
+ *
+ * @param partyIndex Index of the party member to query.
+ * @return int The character's ultimate charge, or `0` for an invalid index.
+ */
 int BattleManager::getCharacterUltimateCharge(int partyIndex) const {
     if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
         return 0;
@@ -520,14 +640,38 @@ void BattleManager::addLuotianyiCorrectTones(int amount) {
     luotianyiCorrectTones_ += amount;
 }
 
+/**
+ * @brief Retrieves the number of correctly played tones for Luotianyi.
+ *
+ * The returned value is the stored count clamped to a minimum of 0.
+ *
+ * @return int Non-negative count of correctly played tones for Luotianyi.
+ */
 int BattleManager::getLuotianyiCorrectTones() const {
     return std::max(0, luotianyiCorrectTones_);
 }
 
+/**
+ * @brief Retrieves the current combo tracking state for the battle.
+ *
+ * @return const BattleComboState& The current combo state containing combo count and damage bonus fraction.
+ */
 const BattleComboState& BattleManager::getComboState() const {
     return comboState_;
 }
 
+/**
+ * @brief Updates combo state from a presentation feedback event and applies any resulting effects.
+ *
+ * Processes the given presentation feedback when it is valid and marked combo-eligible:
+ * - Classifies the judgement and increments or resets the combo counter accordingly.
+ * - On a combo break, computes and applies heal-per-ally to all alive characters (if > 0) and synchronizes turn participation.
+ * - Refreshes derived combo state values (e.g., damage bonus fraction).
+ *
+ * @param feedback Presentation feedback to evaluate; only processed when `feedback.valid()` and `feedback.comboEligible` are true.
+ * @return ComboResolution Result object describing whether the feedback was applied, the judgement, the previous and resulting combo counts,
+ *         whether a combo was broken, heal-per-ally applied on break, and the updated damage bonus fraction.
+ */
 ComboResolution BattleManager::applyPresentationFeedback(bool isBossCaster,
                                                          const PresentationFeedbackEvent& feedback) {
     ComboResolution result;
@@ -567,6 +711,11 @@ ComboResolution BattleManager::applyPresentationFeedback(bool isBossCaster,
     return result;
 }
 
+/**
+ * @brief Determine the battle's resolved outcome from current state.
+ *
+ * @return The forced outcome if present; otherwise `Victory` if the boss's current HP is less than or equal to 0, `Defeat` if no party members are alive, or `None` if the battle is still ongoing.
+ */
 BattleResolvedOutcome BattleManager::computeDerivedOutcome() const {
     if (forcedOutcome_.has_value()) {
         return *forcedOutcome_;
@@ -585,14 +734,33 @@ BattleResolvedOutcome BattleManager::outcome() const {
     return computeDerivedOutcome();
 }
 
+/**
+ * @brief Indicates whether player damage should heal the boss.
+ *
+ * @return `true` if damage dealt by player characters heals the boss, `false` otherwise.
+ */
 bool BattleManager::playerDamageHealsBoss() const {
     return battleDefinition_.specialRules.playerDamageHealsBoss;
 }
 
+/**
+ * @brief Accesses the accumulated telemetry for the current battle.
+ *
+ * @return const BattleTelemetry& Collected telemetry data (read-only) for the active battle.
+ */
 const BattleTelemetry& BattleManager::getBattleTelemetry() const {
     return telemetry_;
 }
 
+/**
+ * @brief Applies damage to the boss, reducing its current HP and initiating any required phase transition.
+ *
+ * Decreases bossCurrentHp_ by the specified amount (clamped at zero). If `amount` is less than or equal to zero
+ * or the boss is already at zero HP, no change is performed. After applying damage, evaluates and applies a boss
+ * phase transition if the new HP warrants one.
+ *
+ * @param amount Damage to apply to the boss; values less than or equal to zero are ignored.
+ */
 void BattleManager::applyBossDamage(int amount) {
     if (amount <= 0 || bossCurrentHp_ <= 0) {
         return;
@@ -601,6 +769,13 @@ void BattleManager::applyBossDamage(int amount) {
     applyBossPhaseTransitionIfNeeded();
 }
 
+/**
+ * @brief Heals the boss by the specified amount, clamped to the boss's maximum HP.
+ *
+ * If `amount` is less than or equal to zero or the boss is already at zero HP, the call has no effect.
+ *
+ * @param amount Amount of HP to restore to the boss; values <= 0 are ignored. The boss's HP will not exceed its defined maximum.
+ */
 void BattleManager::applyBossHealing(int amount) {
     if (amount <= 0 || bossCurrentHp_ <= 0) {
         return;
@@ -608,6 +783,17 @@ void BattleManager::applyBossHealing(int amount) {
     bossCurrentHp_ = std::min(state_.boss.hp, bossCurrentHp_ + amount);
 }
 
+/**
+ * @brief Applies player-originating offense to the boss, recording the outgoing damage and
+ *        either healing or damaging the boss according to special rules.
+ *
+ * If `amount` is less than or equal to zero this call does nothing. The function
+ * increments the manager's outgoing-damage counter for the current action; if the
+ * special rule `playerDamageHealsBoss()` is active the boss is healed by `amount`,
+ * otherwise the boss takes `amount` damage (which may trigger phase transitions).
+ *
+ * @param amount Positive damage amount to apply; values less than or equal to zero are ignored.
+ */
 void BattleManager::applyPlayerOffenseToBoss(int amount) {
     if (amount <= 0) {
         return;
@@ -623,11 +809,24 @@ void BattleManager::applyPlayerOffenseToBoss(int amount) {
     applyBossDamage(amount);
 }
 
+/**
+ * @brief Normalizes combo count and updates the corresponding damage bonus fraction.
+ *
+ * Ensures `comboState_.comboCount` is at least 0, then recomputes
+ * `comboState_.damageBonusFraction` using `comboDamageBonusFraction(comboState_.comboCount)`.
+ */
 void BattleManager::refreshComboState() {
     comboState_.comboCount = std::max(0, comboState_.comboCount);
     comboState_.damageBonusFraction = comboDamageBonusFraction(comboState_.comboCount);
 }
 
+/**
+ * @brief Revives defeated party members when the battle rule enables auto-revive on boss damage.
+ *
+ * If the special rule `autoRevivePartyOnBossDamage` is enabled, revives each dead party
+ * member either to full HP or to 1 HP depending on `revivePartyToFull`. After reviving,
+ * updates turn participation and ultimate-turn queue state for all characters.
+ */
 void BattleManager::reviveDefeatedPartyMembersIfNeeded() {
     if (!battleDefinition_.specialRules.autoRevivePartyOnBossDamage) {
         return;
@@ -676,6 +875,22 @@ void BattleManager::applyBossAbilitySelfCost(const AbilityDefinition& ability) {
     }
 }
 
+/**
+ * @brief Applies presentation-driven hit damage to the boss or player characters.
+ *
+ * Applies damage produced by a presentation event. When the caster is the boss, damage is
+ * delivered to a specific party member if `targetPartyIndex` is valid; otherwise it is
+ * applied to all alive characters. When the caster is a player character, damage is
+ * applied to the boss and scaled by the current combo multiplier. On successful application
+ * the function synchronizes turn participation/ultimate queues for affected characters,
+ * triggers revive/cleanup rules, and marks the presentation hit-as-damage flag.
+ *
+ * @param isBossCaster True if the boss is the source of the damage; false if a character is.
+ * @param perHitDamage Base damage per hit (values ≤ 0 are ignored).
+ * @param hitEvents Number of hit events (values ≤ 0 are ignored).
+ * @param targetPartyIndex If >= 0 and valid, the zero-based party index to target when the boss
+ *        is the caster; otherwise targets all alive characters.
+ */
 void BattleManager::applyPresentationHitDamage(bool isBossCaster,
                                                int perHitDamage,
                                                int hitEvents,
@@ -869,6 +1084,19 @@ bool BattleManager::executePlayerUltimateTurn() {
     return resolvePlayerAction(BattleAction::Ultimate);
 }
 
+/**
+ * @brief Prepare an evenly split per-hit damage plan for the current primary character's attack.
+ *
+ * If successful, computes total damage for the character's regular attack (including presentation and combo multipliers),
+ * divides it into `hitCount` integer chunks (distributing any remainder to earlier hits), and stores them in
+ * `outHitDamages`.
+ *
+ * @param hitCount Number of hits to split the attack into; must be > 0.
+ * @param outHitDamages Output vector that will be cleared and then filled with `hitCount` positive damage values.
+ * @return true if a plan was prepared and `outHitDamages` contains `hitCount` damage values, `false` otherwise.
+ *
+ * Side effects: on success sets `pendingSplitAttackActorKey_` to the acting character's definition key.
+ */
 bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vector<int>& outHitDamages) {
     outHitDamages.clear();
     if (isBattleOver() || hitCount <= 0) {
@@ -933,6 +1161,16 @@ bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vecto
     return true;
 }
 
+/**
+ * @brief Applies a single split-attack hit's damage to the boss.
+ *
+ * If `damage` is less than or equal to zero or the battle is over, no action is taken.
+ * On the first outgoing damage of a pending split-attack (when `currentActionOutgoingDamage_ == 0`
+ * and `pendingSplitAttackActorKey_` is non-empty) the damage is attributed to telemetry for that
+ * character key before being applied.
+ *
+ * @param damage Damage amount to apply to the boss; values ≤ 0 are ignored.
+ */
 void BattleManager::applyBossSplitHitDamage(int damage) {
     if (damage <= 0 || isBattleOver()) {
         return;
@@ -944,6 +1182,16 @@ void BattleManager::applyBossSplitHitDamage(int damage) {
     applyPlayerOffenseToBoss(damage);
 }
 
+/**
+ * @brief Commits a prepared split-attack as the character's primary turn and applies resulting state updates.
+ *
+ * Advances the turn preview into an executed primary character turn for the pending split-attack, awards the character an ultimate point,
+ * records consumed action value into telemetry, resets the consumed actor's action value and priority, synchronizes ultimate-turn queuing,
+ * and clears the pending split-attack actor key.
+ *
+ * @return `true` if the split-attack turn was successfully committed and state was updated; `false` if the battle is over,
+ * the preview/actor was invalid or out of range, the actor is an extra turn, advancing the turn failed, or the character is not alive.
+ */
 bool BattleManager::commitCurrentPlayerSplitAttackTurn() {
     if (isBattleOver()) {
         return false;
@@ -1017,6 +1265,17 @@ bool BattleManager::executePlayerTurn() {
     return resolvePlayerAction(BattleAction::Skill);
 }
 
+/**
+ * @brief Advances and executes any pending automatic turns until no further auto-executable actions remain.
+ *
+ * Processes the turn queue, executing boss primary turns and character auto-execute extra turns in sequence.
+ * The function will consume invalid preview character turns for dead characters, execute valid automatic actions,
+ * and may schedule a boss phase transition as a side effect. Processing stops when the battle is over, the next
+ * previewed turn is not an auto-executable extra character turn, the turn preview is invalid, or a boss phase
+ * transition becomes pending.
+ *
+ * @return true if at least one automatic turn was executed or an invalid preview turn was consumed; `false` if no progress was made.
+ */
 bool BattleManager::processAutomaticTurns() {
     bool progressed = false;
 
@@ -1117,6 +1376,17 @@ void BattleManager::runPseudoBattle(int maxActions) {
     }
 }
 
+/**
+ * @brief Executes the pending turn for the actor at the given turn actor index.
+ *
+ * Validates the index and, if the actor is a boss, executes the boss standard action.
+ * For character actors, verifies the party index and that the character is alive; if the
+ * actor is invalid or the character is dead, removes an extra-turn actor or resets a
+ * primary actor's action value and priority. For valid character turns, executes the
+ * actor's extra-turn action for extra turns or the character's regular skill for primary turns.
+ *
+ * @param actorIndex Index of the turn actor in `turnState_.actors` to execute.
+ */
 void BattleManager::executeTurn(size_t actorIndex) {
     if (actorIndex >= turnState_.actors.size()) {
         return;
@@ -1162,6 +1432,16 @@ void BattleManager::executeTurn(size_t actorIndex) {
     }
 }
 
+/**
+ * @brief Queues a manual extra turn for the specified party member that uses their Ultimate action.
+ *
+ * The queued actor represents an extra (non-primary) turn targeted at the character at
+ * `partyIndex`. The extra turn will use `BattleAction::Ultimate`, will not be marked
+ * `autoExecute`, and will not grant an ultimate point on action. The turn's priority is
+ * assigned from `nextManualUltimatePriority_` and that priority counter is decremented.
+ *
+ * @param partyIndex Index of the party member to receive the extra Ultimate turn.
+ */
 void BattleManager::queueExtraTurnForCharacter(int partyIndex) {
     queueExtraTurnForCharacter(
         partyIndex,
@@ -1172,6 +1452,17 @@ void BattleManager::queueExtraTurnForCharacter(int partyIndex) {
     );
 }
 
+/**
+ * @brief Enqueues an extra (secondary) turn for a party character in the turn state.
+ *
+ * If `partyIndex` is out of range the call is a no-op.
+ *
+ * @param partyIndex Index of the party member to receive the extra turn.
+ * @param action The action the extra turn will perform (Standard, Skill, Ultimate).
+ * @param autoExecute If true, the extra turn will be executed automatically without player input.
+ * @param grantsUltimatePointOnAction If true, the character gains an ultimate point when this extra turn is executed.
+ * @param priority Priority value used to order extra turns relative to other actors (higher runs earlier).
+ */
 void BattleManager::queueExtraTurnForCharacter(int partyIndex,
                                                BattleAction action,
                                                bool autoExecute,
@@ -1194,6 +1485,14 @@ void BattleManager::queueExtraTurnForCharacter(int partyIndex,
     );
 }
 
+/**
+ * @brief Schedules a boss phase-intro extra turn that will trigger a phase transition.
+ *
+ * If an existing boss phase-intro actor is already queued, this call does nothing.
+ *
+ * @param fromPhaseIndex Index of the boss phase being transitioned from.
+ * @param toPhaseIndex Index of the boss phase being transitioned to.
+ */
 void BattleManager::queueBossPhaseIntroTurn(int fromPhaseIndex, int toPhaseIndex) {
     constexpr int kBossPhaseIntroPriority = 5000;
 
@@ -1222,6 +1521,11 @@ void BattleManager::queueBossPhaseIntroTurn(int fromPhaseIndex, int toPhaseIndex
     turnState_.actors.push_back(extra);
 }
 
+/**
+ * @brief Determines whether the boss is allowed to perform the specified action type.
+ *
+ * @return `true` if the action is `Standard`, `false` otherwise.
+ */
 bool BattleManager::canUseBossAction(BattleAction action) const {
     switch (action) {
         case BattleAction::Standard:
@@ -1234,6 +1538,16 @@ bool BattleManager::canUseBossAction(BattleAction action) const {
     return false;
 }
 
+/**
+ * @brief Attempt to resolve and execute a player-initiated action against the current turn preview.
+ *
+ * Validates battle/preview state and the preview actor's eligibility for the requested action,
+ * consumes invalid preview character turns when necessary, advances the turn queue, and executes
+ * the resolved character action if all checks pass.
+ *
+ * @param action The player action to perform (Standard, Skill, or Ultimate).
+ * @return true if the action was executed and applied to the resolved character turn, false otherwise.
+ */
 bool BattleManager::resolvePlayerAction(BattleAction action) {
     if (isBattleOver()) {
         return false;
@@ -1292,6 +1606,14 @@ bool BattleManager::resolvePlayerAction(BattleAction action) {
                                   event.consumedActionValue);
 }
 
+/**
+ * @brief Advance the turn preview to the next event and execute the boss's scheduled standard action if present.
+ *
+ * This checks that the battle is ongoing and the next scheduled turn actor is the boss, advances the turn
+ * state to consume that event, and then executes the boss's standard action using the consumed action value.
+ *
+ * @return `true` if a boss action was executed, `false` otherwise.
+ */
 bool BattleManager::resolveBossAction() {
     if (isBattleOver()) {
         return false;
@@ -1313,6 +1635,20 @@ bool BattleManager::resolveBossAction() {
     return executeBossAction(event.actingActorIndex, BattleAction::Standard, event.consumedActionValue);
 }
 
+/**
+ * @brief Executes a character's action (standard/skill/ultimate) for the specified turn actor.
+ *
+ * Processes presentation interactions and ability effects, applies resulting damage/healing/buffs,
+ * updates telemetry and ultimate charges, updates or removes the turn actor, and records a
+ * BattleActionEvent in recentActionEvents_.
+ *
+ * @param actorIndex Index of the turn actor in turnState_.actors to execute.
+ * @param character Reference to the BattleCharacter performing the action.
+ * @param action The BattleAction being performed (Standard/Skill/Ultimate).
+ * @param consumedActionValue Non-negative action value consumed for this execution; used for telemetry
+ *        and passed through to presentation/execution logic.
+ * @return bool `true` if the action was executed and recorded; `false` if actorIndex was out of range.
+ */
 bool BattleManager::executeCharacterAction(size_t actorIndex,
                                           BattleCharacter& character,
                                           BattleAction action,
@@ -1433,6 +1769,20 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
     return true;
 }
 
+/**
+ * @brief Executes the boss's action for the turn actor at the given index, applying ability effects,
+ * presentation interaction, damage/healing to characters or boss, self-costs, buff cleanup, telemetry,
+ * and recording the resulting action event.
+ *
+ * If the turn actor is a boss phase intro turn this will queue the pending phase transition and remove
+ * the intro actor instead of performing a normal ability resolution.
+ *
+ * @param actorIndex Index into `turnState_.actors` identifying the boss turn actor to execute.
+ * @param action The `BattleAction` (e.g., Standard, Ultimate) to resolve for the boss actor.
+ * @param consumedActionValue The action value consumed for this execution (used for telemetry and event data).
+ * @return true if the boss action (or phase-intro handling) was performed and recorded; `false` if `actorIndex`
+ *         is out of range and no action was executed.
+ */
 bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, float consumedActionValue) {
     if (actorIndex >= turnState_.actors.size()) {
         return false;
@@ -1759,6 +2109,20 @@ void BattleManager::refreshAllTurnActorSpeeds() {
     }
 }
 
+/**
+ * @brief Advances the turn progress of all alive, primary ally actors by a fractional amount.
+ *
+ * Clamps `fraction` to the [0, 1] range and reduces each eligible character actor's
+ * `currentActionValue` multiplicatively by `(1 - clampedFraction)`. Only primary
+ * (non-extra) character actors with a valid party index and alive characters are affected.
+ * Actors whose action value becomes effectively zero are assigned a non-zero `priority`
+ * so they are ordered for immediate execution; others have their `priority` cleared.
+ *
+ * Candidates are evaluated in deterministic rank order: lower original action value first,
+ * then higher original priority, then lower party index.
+ *
+ * @param fraction Fraction in [0,1] representing the portion of action progress to advance.
+ */
 void BattleManager::applyAllAlliesActionAdvance(float fraction) {
     const float clampedFraction = std::clamp(fraction, 0.0f, 1.0f);
     if (clampedFraction <= 0.0f) {
@@ -1815,6 +2179,16 @@ void BattleManager::applyAllAlliesActionAdvance(float fraction) {
     }
 }
 
+/**
+ * @brief Reduces the boss primary actor's remaining action value by a fraction.
+ *
+ * Clamps `fraction` to the range [0, 1]. If the clamped fraction is 0, no change is made.
+ * Finds the first non-extra boss turn actor, multiplies its `currentActionValue` by
+ * (1 - clamped fraction), clamps the result to a minimum of 0, and sets its `priority` to 0.
+ * If the resulting `currentActionValue` is within `kActionValueEpsilon` of zero, it is set to 0.
+ *
+ * @param fraction Fraction of the boss's remaining action value to reduce (clamped to [0, 1]).
+ */
 void BattleManager::advanceBossActionByFraction(float fraction) {
     const float clampedFraction = std::clamp(fraction, 0.0f, 1.0f);
     if (clampedFraction <= 0.0f) {
@@ -1835,6 +2209,13 @@ void BattleManager::advanceBossActionByFraction(float fraction) {
     }
 }
 
+/**
+ * @brief Retrieves the currently active boss phase definition.
+ *
+ * If the battle state lacks phase data or the stored phase index is invalid, a stable static default phase definition is returned.
+ *
+ * @return const BossDefinition::PhaseDefinition& Reference to the active phase definition, or a static default when unavailable.
+ */
 const BossDefinition::PhaseDefinition& BattleManager::currentBossPhaseDefinition() const {
     static const BossDefinition::PhaseDefinition kDefaultPhase{};
     if (!state_.boss.hasPhaseData ||
@@ -1845,6 +2226,15 @@ const BossDefinition::PhaseDefinition& BattleManager::currentBossPhaseDefinition
     return state_.boss.phases[static_cast<size_t>(bossPhaseIndex_)];
 }
 
+/**
+ * @brief Checks boss HP against phase thresholds and transitions to a higher boss phase when needed.
+ *
+ * When the boss has phase data and is still alive, evaluates current boss HP as a percentage of
+ * the boss maximum to determine a target phase (HP ≤ 33% → phase 2, HP ≤ 66% → phase 1, otherwise phase 0).
+ * If the target phase is greater than the current phase, updates the active phase index and the
+ * boss attack buff for the new phase, advances the boss's action progress to the start of the new phase,
+ * and queues a boss phase-introduction turn.
+ */
 void BattleManager::applyBossPhaseTransitionIfNeeded() {
     if (!state_.boss.hasPhaseData || bossCurrentHp_ <= 0 || state_.boss.hp <= 0) {
         return;
@@ -1870,6 +2260,16 @@ void BattleManager::applyBossPhaseTransitionIfNeeded() {
     queueBossPhaseIntroTurn(previousPhaseIndex, bossPhaseIndex_);
 }
 
+/**
+ * @brief Synchronizes a party member's participation in the turn actor list with their alive state.
+ *
+ * Ensures the turn state reflects whether the character at `partyIndex` should participate:
+ * - If `partyIndex` is invalid this function does nothing.
+ * - If the character is dead, removes their primary (non-extra) turn actors while preserving any extra-turn actors.
+ * - If the character is alive, guarantees exactly one primary (non-extra) turn actor exists for that party member and removes any additional duplicate primary actors.
+ *
+ * @param partyIndex Index of the party member in the current character list.
+ */
 void BattleManager::syncCharacterTurnParticipation(int partyIndex) {
     if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
         return;
@@ -1924,6 +2324,15 @@ void BattleManager::syncAllCharacterTurnParticipation() {
     }
 }
 
+/**
+ * @brief Synchronizes queued extra-turn ultimates for a single party member.
+ *
+ * Ensures at most one non-auto-executing extra-turn actor representing an ultimate remains
+ * for the given party index when that character is alive and can use their ultimate;
+ * otherwise removes all such queued ultimate extra-turn actors for that party member.
+ *
+ * @param partyIndex Index of the party member whose ultimate extra-turn queue should be synchronized; no-op if out of range.
+ */
 void BattleManager::syncCharacterUltimateTurn(int partyIndex) {
     if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
         return;
@@ -1956,6 +2365,12 @@ void BattleManager::syncCharacterUltimateTurn(int partyIndex) {
     }
 }
 
+/**
+ * @brief Finds the party index of a character by its definition key.
+ *
+ * @param characterKey Character definition key to locate.
+ * @return int Party index of the matching character, or `-1` if no character with the given key is present.
+ */
 int BattleManager::findCharacterPartyIndexByKey(const std::string& characterKey) const {
     for (const BattleCharacter& character : characters_) {
         if (character.definition().key == characterKey) {

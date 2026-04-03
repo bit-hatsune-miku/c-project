@@ -39,6 +39,20 @@ std::optional<std::filesystem::path> resolveSiblingExecutable(const std::string&
     return std::nullopt;
 }
 
+/**
+ * @brief Launches an external executable determined by the provided launch request.
+ *
+ * Chooses a sibling executable and constructs its argument list from `request.mode`
+ * and `request.reference`, then attempts to replace the current process by calling
+ * `execv` with the constructed arguments.
+ *
+ * @param request Specifies the launch mode and reference used to select the executable
+ *                and build its arguments. `request.mode` controls whether the launcher
+ *                routes to a "battle" or "story" path; `request.reference` is appended
+ *                as a positional argument or used as the executable name in fallback cases.
+ * @return int `1` if the function fails to locate the target executable or if `execv` fails.
+ *             On successful exec, this function does not return. 
+ */
 int launchRequest(const battle::selector::LaunchRequest& request) {
     std::optional<std::filesystem::path> executablePath;
     std::vector<std::string> arguments;

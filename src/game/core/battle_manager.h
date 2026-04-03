@@ -182,6 +182,102 @@ struct ComboResolution {
     bool brokeCombo = false;
 };
 
+/**
+ * Initialize a BattleCharacter from a character definition and party slot.
+ * @param definition CharacterDefinition describing base stats and identifiers.
+ * @param partyIndex Index of this character in the player's party (0-based).
+ */
+/**
+ * Access the stored CharacterDefinition.
+ * @returns Reference to the character's definition.
+ */
+/**
+ * Index of this character within the player's party.
+ * @returns 0-based party index.
+ */
+/**
+ * Current HP of the character.
+ * @returns Current hit points.
+ */
+/**
+ * Maximum HP of the character as defined by its definition and any modifiers.
+ * @returns Maximum hit points.
+ */
+/**
+ * Whether the character is alive (hp > 0).
+ * @returns `true` if hp is greater than zero, `false` otherwise.
+ */
+/**
+ * Apply damage to the character, reducing shield first then HP; clamps HP to a minimum of 0.
+ * @param amount Amount of incoming damage to apply (assumed non-negative).
+ */
+/**
+ * Restore HP to the character up to its maximum; negative or zero amounts have no effect.
+ * @param amount Amount of healing to apply.
+ */
+/**
+ * Revive a defeated character and set its HP to the supplied amount (clamped to [1, maxHp]).
+ * @param amount HP value to set on revival.
+ */
+/**
+ * Current ultimate charge value for the character.
+ * @returns Current ultimate charge.
+ */
+/**
+ * Increase the character's ultimate charge by the given amount.
+ * @param amount Points to add to the ultimate charge (default 1).
+ */
+/**
+ * Whether the character can use their skill action according to current charge/state.
+ * @returns `true` if the skill is available, `false` otherwise.
+ */
+/**
+ * Whether the character can use their ultimate action according to current charge/state.
+ * @returns `true` if the ultimate is available, `false` otherwise.
+ */
+/**
+ * Decrease the character's ultimate charge by the given amount.
+ * @param amount Points to consume from the ultimate charge (default 1).
+ */
+/**
+ * Consume the character's ultimate (perform the ultimate's charge consumption side-effect).
+ */
+/**
+ * Effective speed value including base speed and any speed buff bonuses.
+ * @returns Effective speed used for turn ordering.
+ */
+/**
+ * Current additive speed buff applied to the character.
+ * @returns Speed buff amount.
+ */
+/**
+ * Set the character's speed buff bonus to the specified amount.
+ * @param amount New speed buff value.
+ */
+/**
+ * Effective attack value including base attack and any percent ATK buff/nerf.
+ * @returns Effective attack used for damage calculations.
+ */
+/**
+ * Current ATK buff expressed as a percent (e.g. 50 = +50%, -20 = -20%).
+ * @returns ATK buff percent.
+ */
+/**
+ * Set the character's ATK buff/nerf percent.
+ * @param percentBonus ATK percent to apply (positive to buff, negative to nerf).
+ */
+/**
+ * Current shield value that will absorb incoming damage before HP.
+ * @returns Current shield amount.
+ */
+/**
+ * Increase the character's shield by the given amount (no-op for non-positive amounts).
+ * @param amount Amount of shield to add (must be positive to take effect).
+ */
+/**
+ * Reduce the character's shield by the given amount and clamp to zero.
+ * @param amount Amount of shield to remove.
+ */
 class BattleCharacter {
 public:
     explicit BattleCharacter(const CharacterDefinition& definition, int partyIndex);
@@ -312,6 +408,11 @@ struct BossPhaseTransition {
     int toPhaseIndex = 0;
 };
 
+/**
+ * Retrieve the current shield value for the party member at the given index.
+ * @param partyIndex 0-based index of the party member.
+ * @returns The shield value for the specified party member, or 0 if the index is out of range.
+ */
 enum class ManualUltimateRequestResult {
     Queued,
     MeterNotReady,
