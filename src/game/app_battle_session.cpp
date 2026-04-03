@@ -103,6 +103,20 @@ constexpr const char* kPerfectJudgementSfxPath = "assets/ui/sfx/SongSelect_selec
 constexpr const char* kGoodJudgementSfxPath = "assets/ui/sfx/Selection_roulette-4.wav";
 constexpr const char* kOkayJudgementSfxPath = "assets/ui/sfx/Selection_roulette-0.wav";
 constexpr const char* kFlopJudgementSfxPath = "assets/ui/sfx/UI_notification-error.wav";
+constexpr float kBossPhaseIntroDurationSeconds = 0.90f;
+constexpr float kBossPhaseIntroStartOffsetX = -170.0f;
+constexpr float kBossPhaseIntroStartOffsetY = 40.0f;
+constexpr float kBossPhaseIntroStartOffsetZ = -125.0f;
+constexpr float kBossPhaseIntroEndOffsetX = -180.0f;
+constexpr float kBossPhaseIntroEndOffsetY = 80.0f;
+constexpr float kBossPhaseIntroEndOffsetZ = -129.0f;
+constexpr float kBossPhaseIntroLookOffsetY = -10.0f;
+constexpr float kBossPhaseIntroLookOffsetZ = -95.0f;
+constexpr float kPi = 3.14159265359f;
+
+float radiansToDegrees(float radians) {
+    return radians * (180.0f / kPi);
+}
 
 int manualUltimatePartyIndexFromKey(SDL_Keycode key) {
     switch (key) {
@@ -926,7 +940,12 @@ void updateActionIntroCamera(battle::Camera3D& camera, CameraIntroAnimation& ani
 
     if (t >= 1.0f) {
         anim.active = false;
-        applyGoalCamera(camera);
+        camera.posX = anim.goalX;
+        camera.posY = anim.goalY;
+        camera.posZ = anim.goalZ;
+        camera.pitchDegrees = anim.goalPitch;
+        camera.yawDegrees = anim.goalYaw;
+        camera.focalLength = anim.goalFocal;
     }
 }
 
@@ -993,6 +1012,70 @@ int findBossEntityIndex(const std::vector<SceneEntity>& entities) {
         }
     }
     return -1;
+}
+
+std::string bossPhaseHintText(int phaseIndex) {
+    switch (phaseIndex) {
+        case 1:
+            return "ENTERING PHASE TWO";
+        case 2:
+            return "ENTERING PHASE THREE";
+        default:
+            return "ENTERING NEW PHASE";
+    }
+}
+
+void startCameraIntroBetween(const battle::Camera3D& startCamera,
+                             const battle::Camera3D& goalCamera,
+                             float durationSeconds,
+                             battle::Camera3D& camera,
+                             CameraIntroAnimation& anim) {
+    anim.active = true;
+    anim.elapsed = 0.0f;
+    anim.duration = std::max(0.01f, durationSeconds);
+    anim.startX = startCamera.posX;
+    anim.startY = startCamera.posY;
+    anim.startZ = startCamera.posZ;
+    anim.startPitch = startCamera.pitchDegrees;
+    anim.startYaw = startCamera.yawDegrees;
+    anim.startFocal = startCamera.focalLength;
+    anim.goalX = goalCamera.posX;
+    anim.goalY = goalCamera.posY;
+    anim.goalZ = goalCamera.posZ;
+    anim.goalPitch = goalCamera.pitchDegrees;
+    anim.goalYaw = goalCamera.yawDegrees;
+    anim.goalFocal = goalCamera.focalLength;
+    camera = startCamera;
+}
+
+battle::Camera3D makeBossPhaseIntroStartCamera(const SceneEntity& bossEntity) {
+    battle::Camera3D camera;
+    camera.posX = bossEntity.worldX + kBossPhaseIntroStartOffsetX;
+    camera.posY = bossEntity.worldY + kBossPhaseIntroStartOffsetY;
+    camera.posZ = bossEntity.worldZ + kBossPhaseIntroStartOffsetZ;
+    camera.focalLength = 38000.0f;
+    return camera;
+}
+
+battle::Camera3D makeBossPhaseIntroEndCamera(const SceneEntity& bossEntity) {
+    battle::Camera3D camera;
+    camera.posX = bossEntity.worldX + kBossPhaseIntroEndOffsetX;
+    camera.posY = bossEntity.worldY + kBossPhaseIntroEndOffsetY;
+    camera.posZ = bossEntity.worldZ + kBossPhaseIntroEndOffsetZ;
+    camera.focalLength = 36000.0f;
+    return camera;
+}
+
+void aimCameraAtBossIntroTarget(battle::Camera3D& camera, const SceneEntity& bossEntity) {
+    const float lookX = bossEntity.worldX;
+    const float lookY = bossEntity.worldY + kBossPhaseIntroLookOffsetY;
+    const float lookZ = bossEntity.worldZ + kBossPhaseIntroLookOffsetZ;
+    const float dx = lookX - camera.posX;
+    const float dy = lookY - camera.posY;
+    const float dz = lookZ - camera.posZ;
+    const float horizontalDist = std::sqrt((dx * dx) + (dy * dy));
+    camera.yawDegrees = radiansToDegrees(std::atan2(-dx, dy));
+    camera.pitchDegrees = radiansToDegrees(std::atan2(dz, std::max(1.0f, horizontalDist)));
 }
 
 } // namespace
@@ -1400,6 +1483,8 @@ public:
         presentationAudioCueIndex_ = 0;
         activeUltimateTurnSplash_.reset();
         previewUltimateSplashPartyIndex_ = -1;
+        bossPhaseIntro_ = CameraIntroAnimation{};
+        bossPhaseIntroHintText_.clear();
         activeOverlay_ = nullptr;
         frameAccumulator_ = 0.0f;
         discardNextUpdateDelta_ = false;
@@ -1596,18 +1681,8 @@ public:
             return;
         }
 
-        if (narrativeEnabled_ && narrativeInitialized_) {
-            vn::setPaused(false);
-            syncNarrativeSettings();
-            vn::update(deltaSeconds);
-            narrative_.maybeStartBossDefeatedDialogue(manager_);
-            narrative_.handleAutomaticProgression(manager_);
-        } else {
-            manager_.processAutomaticTurns();
-        }
-
         while (const std::optional<battle::BossPhaseTransition> transition = manager_.consumeBossPhaseTransition()) {
-            (void)transition;
+            startBossPhaseIntro(*transition, nowMs);
             battleBgmBaseVolume_ = std::clamp(manager_.getCurrentBossBgmVolume(), 0.0f, 1.0f);
             const std::string bgmName = manager_.getCurrentBossBgm();
             if (bgmName.empty()) {
@@ -1616,6 +1691,30 @@ public:
             if (const auto bgmPath = platform::path::resolveCombatBgmPath(bgmName); bgmPath.has_value()) {
                 gBattleBgmController.requestTrack(*bgmPath, battleBgmBaseVolume_);
             }
+        }
+
+        if (bossPhaseIntro_.active) {
+            updateBossPhaseIntro(deltaSeconds, nowMs);
+            const flow::PreviewActorContext preview = flow::inspectPreviewActor(manager_);
+            const bool bossActing = !(preview.valid && preview.type == battle::ParticipantType::Character);
+            const int actingPartyIndex =
+                (!bossActing && preview.partyIndex >= 0) ? preview.partyIndex : -1;
+            updateSceneEntities(deltaSeconds, bossActing, actingPartyIndex);
+            feedback_.syncFromManager(manager_, presentationPlaybackActive_);
+            feedback_.update(deltaSeconds);
+            updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
+            syncHudDocument(nowMs);
+            return;
+        }
+
+        if (narrativeEnabled_ && narrativeInitialized_) {
+            vn::setPaused(false);
+            syncNarrativeSettings();
+            vn::update(deltaSeconds);
+            narrative_.maybeStartBossDefeatedDialogue(manager_);
+            narrative_.handleAutomaticProgression(manager_);
+        } else {
+            manager_.processAutomaticTurns();
         }
 
         consumeBattleActionEvents(
@@ -1982,6 +2081,62 @@ private:
 
     float currentMusicMasterVolume() const {
         return settings_ != nullptr ? std::clamp(settings_->musicVolume, 0.0f, 1.0f) : 1.0f;
+    }
+
+    void startBossPhaseIntro(const battle::BossPhaseTransition& transition, Uint64 nowMs) {
+        const int bossEntityIndex = findBossEntityIndex(entities_);
+        if (bossEntityIndex < 0 || static_cast<size_t>(bossEntityIndex) >= entities_.size()) {
+            return;
+        }
+
+        const SceneEntity& bossEntity = entities_[static_cast<size_t>(bossEntityIndex)];
+        battle::Camera3D startCamera = makeBossPhaseIntroStartCamera(bossEntity);
+        battle::Camera3D endCamera = makeBossPhaseIntroEndCamera(bossEntity);
+        aimCameraAtBossIntroTarget(startCamera, bossEntity);
+        aimCameraAtBossIntroTarget(endCamera, bossEntity);
+        const std::string hintText = bossPhaseHintText(transition.toPhaseIndex);
+        showHint(hudFeedback_, hintText, nowMs);
+        bossPhaseIntroHintText_ = hintText;
+        startCameraIntroBetween(
+            startCamera,
+            endCamera,
+            kBossPhaseIntroDurationSeconds,
+            camera_,
+            bossPhaseIntro_);
+    }
+
+    void updateBossPhaseIntro(float deltaSeconds, Uint64 nowMs) {
+        if (!bossPhaseIntro_.active) {
+            return;
+        }
+
+        showHint(hudFeedback_, bossPhaseIntroHintText_, nowMs);
+        bossPhaseIntro_.elapsed += deltaSeconds;
+        const float t = battle::easing::clamp01(
+            bossPhaseIntro_.elapsed / std::max(0.001f, bossPhaseIntro_.duration));
+        const float eased = battle::easing::easeOutQuint(t);
+        camera_.posX = battle::easing::lerp(bossPhaseIntro_.startX, bossPhaseIntro_.goalX, eased);
+        camera_.posY = battle::easing::lerp(bossPhaseIntro_.startY, bossPhaseIntro_.goalY, eased);
+        camera_.posZ = battle::easing::lerp(bossPhaseIntro_.startZ, bossPhaseIntro_.goalZ, eased);
+        camera_.pitchDegrees =
+            battle::easing::lerp(bossPhaseIntro_.startPitch, bossPhaseIntro_.goalPitch, eased);
+        camera_.yawDegrees =
+            battle::easing::lerp(bossPhaseIntro_.startYaw, bossPhaseIntro_.goalYaw, eased);
+        camera_.focalLength =
+            battle::easing::lerp(bossPhaseIntro_.startFocal, bossPhaseIntro_.goalFocal, eased);
+        if (t >= 1.0f) {
+            bossPhaseIntro_.active = false;
+            camera_.posX = bossPhaseIntro_.goalX;
+            camera_.posY = bossPhaseIntro_.goalY;
+            camera_.posZ = bossPhaseIntro_.goalZ;
+            camera_.pitchDegrees = bossPhaseIntro_.goalPitch;
+            camera_.yawDegrees = bossPhaseIntro_.goalYaw;
+            camera_.focalLength = bossPhaseIntro_.goalFocal;
+        }
+        if (!bossPhaseIntro_.active) {
+            bossPhaseIntroHintText_.clear();
+            clearHint(hudFeedback_);
+        }
     }
 
     float currentVoiceVolume() const {
@@ -3753,6 +3908,7 @@ private:
     battle::render::BattleCombatBeginAnimation combatBeginAnimation_;
     battle::render::BattleFeedbackSystem feedback_;
     CameraIntroAnimation cameraIntro_;
+    CameraIntroAnimation bossPhaseIntro_;
     battle::render::FreeViewCameraDebugLog freeViewCameraDebugLog_;
     bool freeViewEnabled_ = false;
     bool tutorialEnabled_ = false;
@@ -3774,6 +3930,7 @@ private:
     std::string idlePlayingPath_;
     Uint64 idleNextPlayMs_ = 0;
     std::unordered_map<std::string, std::optional<std::string>> idleVoicePathCache_;
+    std::string bossPhaseIntroHintText_;
     std::string lastTurnToken_;
     bool frameTimingEnabled_ = false;
     Uint64 frameTimingFrequency_ = 0;

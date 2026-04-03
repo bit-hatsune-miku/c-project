@@ -258,6 +258,15 @@ struct TurnActor {
     int spd = 1;
     float baseActionValue = 10000.0f;
     float currentActionValue = 10000.0f;
+    int phaseTransitionFromIndex = -1;
+    int phaseTransitionToIndex = -1;
+
+    bool isBossPhaseIntroTurn() const {
+        return type == ParticipantType::Boss &&
+            isExtraTurn &&
+            phaseTransitionFromIndex >= 0 &&
+            phaseTransitionToIndex >= 0;
+    }
 };
 
 struct TurnEvent {
@@ -387,6 +396,7 @@ private:
                                     bool autoExecute,
                                     bool grantsUltimatePointOnAction,
                                     int priority);
+    void queueBossPhaseIntroTurn(int fromPhaseIndex, int toPhaseIndex);
     int firstLivingCharacterPartyIndex() const;
     int findCharacterPartyIndexByKey(const std::string& characterKey) const;
     bool hasQueuedExtraTurn(int partyIndex, BattleAction action, bool autoExecute) const;
@@ -399,7 +409,6 @@ private:
     void applyBossHealing(int amount);
     void applyPlayerOffenseToBoss(int amount);
     void applyBossPhaseTransitionIfNeeded();
-    void advanceBossActionByFraction(float fraction);
     const BossDefinition::PhaseDefinition& currentBossPhaseDefinition() const;
     void applyBossAbilitySelfCost(const AbilityDefinition& ability);
     void reviveDefeatedPartyMembersIfNeeded();
@@ -423,6 +432,7 @@ private:
     void refreshTurnActorSpeed(int partyIndex);
     void refreshAllTurnActorSpeeds();
     void applyAllAlliesActionAdvance(float fraction);
+    void advanceBossActionByFraction(float fraction);
     void refreshComboState();
 
     BattleState state_;

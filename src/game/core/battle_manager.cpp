@@ -1012,6 +1012,9 @@ bool BattleManager::processAutomaticTurns() {
                 break;
             }
             progressed = true;
+            if (pendingBossPhaseTransition_.has_value()) {
+                break;
+            }
             continue;
         }
 
@@ -1166,6 +1169,34 @@ void BattleManager::queueExtraTurnForCharacter(int partyIndex,
         grantsUltimatePointOnAction,
         priority
     );
+}
+
+void BattleManager::queueBossPhaseIntroTurn(int fromPhaseIndex, int toPhaseIndex) {
+    constexpr int kBossPhaseIntroPriority = 5000;
+
+    for (const TurnActor& actor : turnState_.actors) {
+        if (actor.isBossPhaseIntroTurn()) {
+            return;
+        }
+    }
+
+    TurnActor extra;
+    extra.type = ParticipantType::Boss;
+    extra.key = state_.boss.key;
+    extra.assetId = state_.boss.assets;
+    extra.title = state_.boss.title;
+    extra.partyIndex = -1;
+    extra.priority = kBossPhaseIntroPriority;
+    extra.isExtraTurn = true;
+    extra.extraTurnAction = BattleAction::Standard;
+    extra.autoExecute = true;
+    extra.grantsUltimatePointOnAction = false;
+    extra.spd = std::max(1, state_.boss.spd);
+    extra.baseActionValue = turn::actionValueFromSpeed(extra.spd);
+    extra.currentActionValue = 0.0f;
+    extra.phaseTransitionFromIndex = fromPhaseIndex;
+    extra.phaseTransitionToIndex = toPhaseIndex;
+    turnState_.actors.push_back(extra);
 }
 
 bool BattleManager::canUseBossAction(BattleAction action) const {
@@ -1371,6 +1402,16 @@ bool BattleManager::executeCharacterAction(size_t actorIndex, BattleCharacter& c
 bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action) {
     if (actorIndex >= turnState_.actors.size()) {
         return false;
+    }
+
+    if (turnState_.actors[actorIndex].isBossPhaseIntroTurn()) {
+        pendingBossPhaseTransition_ = BossPhaseTransition{
+            true,
+            turnState_.actors[actorIndex].phaseTransitionFromIndex,
+            turnState_.actors[actorIndex].phaseTransitionToIndex
+        };
+        turnState_.actors.erase(turnState_.actors.begin() + static_cast<long>(actorIndex));
+        return true;
     }
 
     ++simulatedActions_;
@@ -1738,6 +1779,26 @@ void BattleManager::applyAllAlliesActionAdvance(float fraction) {
     }
 }
 
+void BattleManager::advanceBossActionByFraction(float fraction) {
+    const float clampedFraction = std::clamp(fraction, 0.0f, 1.0f);
+    if (clampedFraction <= 0.0f) {
+        return;
+    }
+
+    for (TurnActor& actor : turnState_.actors) {
+        if (actor.type != ParticipantType::Boss || actor.isExtraTurn) {
+            continue;
+        }
+
+        actor.currentActionValue = std::max(0.0f, actor.currentActionValue * (1.0f - clampedFraction));
+        if (std::fabs(actor.currentActionValue) <= kActionValueEpsilon) {
+            actor.currentActionValue = 0.0f;
+        }
+        actor.priority = 0;
+        return;
+    }
+}
+
 const BossDefinition::PhaseDefinition& BattleManager::currentBossPhaseDefinition() const {
     static const BossDefinition::PhaseDefinition kDefaultPhase{};
     if (!state_.boss.hasPhaseData ||
@@ -1746,25 +1807,6 @@ const BossDefinition::PhaseDefinition& BattleManager::currentBossPhaseDefinition
         return kDefaultPhase;
     }
     return state_.boss.phases[static_cast<size_t>(bossPhaseIndex_)];
-}
-
-void BattleManager::advanceBossActionByFraction(float fraction) {
-    const float clampedFraction = std::clamp(fraction, 0.0f, 1.0f);
-    if (clampedFraction <= 0.0f) {
-        return;
-    }
-
-    for (TurnActor& actor : turnState_.actors) {
-        if (actor.type != ParticipantType::Boss) {
-            continue;
-        }
-        actor.currentActionValue = std::max(0.0f, actor.currentActionValue * (1.0f - clampedFraction));
-        if (std::fabs(actor.currentActionValue) <= kActionValueEpsilon) {
-            actor.currentActionValue = 0.0f;
-        }
-        actor.priority = 0;
-        return;
-    }
 }
 
 void BattleManager::applyBossPhaseTransitionIfNeeded() {
@@ -1789,12 +1831,7 @@ void BattleManager::applyBossPhaseTransitionIfNeeded() {
     bossPhaseIndex_ = targetPhaseIndex;
     bossAtkBuffBonus_ = currentBossPhaseDefinition().atkBonusPercent;
     advanceBossActionByFraction(1.0f);
-
-    pendingBossPhaseTransition_ = BossPhaseTransition{
-        true,
-        previousPhaseIndex,
-        bossPhaseIndex_
-    };
+    queueBossPhaseIntroTurn(previousPhaseIndex, bossPhaseIndex_);
 }
 
 void BattleManager::syncCharacterTurnParticipation(int partyIndex) {

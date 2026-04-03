@@ -152,6 +152,8 @@ private:
     std::vector<render::FeedbackEntityAnchor> buildFeedbackAnchors() const;
     bool handleManualUltimateHotkey(SDL_Keycode key);
     void maybeStartUltimateTurnSplash(const flow::PreviewActorContext& preview, bool dialogueActive);
+    void startBossPhaseIntro(const BossPhaseTransition& transition);
+    void updateBossPhaseIntro(float deltaSeconds);
     void updateSceneEntities(float deltaSeconds, bool bossActing, int actingPartyIndex);
     void computeCharacterPositions(bool bossActing, int actingPartyIndex);
     void updateCharacterVisibilityTransitions(float deltaSeconds);
@@ -183,6 +185,16 @@ private:
     AbilityPresentation* activePresentation_ = nullptr;
     std::unique_ptr<SplashArtAnimation> activeUltimateTurnSplash_;
     int previewUltimateSplashPartyIndex_ = -1;
+
+    struct BossPhaseIntroState {
+        bool active = false;
+        int phaseIndex = -1;
+        std::string hintText;
+        float elapsed = 0.0f;
+        float duration = 0.78f;
+        Camera3D startCamera{};
+        Camera3D goalCamera{};
+    } bossPhaseIntro_;
 
     // Set by runPresentationInteraction during the splash pre-loop;
     // called between world render and SDL_RenderPresent each frame.

@@ -24,8 +24,22 @@ constexpr float kCharacterGapWorld          = 1200.0f;
 constexpr float kDuelCharacterSlotX         = -0.5f * kCharacterGapWorld;
 constexpr float kDuelBossSlotX              = 0.0f;
 constexpr float kDuelCharacterBaseY         = 300.0f;
+constexpr float kBossPhaseIntroDurationSeconds = 0.90f;
 constexpr float kCharacterVisibilityAnimSeconds = 0.22f;
 constexpr float kCharacterVisibilityOffsetPx    = 70.0f;
+constexpr float kBossPhaseIntroStartOffsetX = -170.0f;
+constexpr float kBossPhaseIntroStartOffsetY = 40.0f;
+constexpr float kBossPhaseIntroStartOffsetZ = -125.0f;
+constexpr float kBossPhaseIntroEndOffsetX = -180.0f;
+constexpr float kBossPhaseIntroEndOffsetY = 80.0f;
+constexpr float kBossPhaseIntroEndOffsetZ = -129.0f;
+constexpr float kBossPhaseIntroLookOffsetY = -10.0f;
+constexpr float kBossPhaseIntroLookOffsetZ = -95.0f;
+constexpr float kPi = 3.14159265359f;
+
+float radiansToDegrees(float radians) {
+    return radians * (180.0f / kPi);
+}
 
 using WorldEntity = render::SceneEntity;
 
@@ -46,6 +60,47 @@ int manualUltimatePartyIndexFromKey(SDL_Keycode key) {
         default:
             return -1;
     }
+}
+
+std::string bossPhaseHintText(int phaseIndex) {
+    switch (phaseIndex) {
+        case 1:
+            return "ENTERING PHASE TWO";
+        case 2:
+            return "ENTERING PHASE THREE";
+        default:
+            return "ENTERING NEW PHASE";
+    }
+}
+
+Camera3D makeBossPhaseIntroStartCamera(const WorldEntity& bossEntity) {
+    Camera3D camera;
+    camera.posX = bossEntity.worldX + kBossPhaseIntroStartOffsetX;
+    camera.posY = bossEntity.worldY + kBossPhaseIntroStartOffsetY;
+    camera.posZ = bossEntity.worldZ + kBossPhaseIntroStartOffsetZ;
+    camera.focalLength = 38000.0f;
+    return camera;
+}
+
+Camera3D makeBossPhaseIntroEndCamera(const WorldEntity& bossEntity) {
+    Camera3D camera;
+    camera.posX = bossEntity.worldX + kBossPhaseIntroEndOffsetX;
+    camera.posY = bossEntity.worldY + kBossPhaseIntroEndOffsetY;
+    camera.posZ = bossEntity.worldZ + kBossPhaseIntroEndOffsetZ;
+    camera.focalLength = 36000.0f;
+    return camera;
+}
+
+void aimCameraAtBossIntroTarget(Camera3D& camera, const WorldEntity& bossEntity) {
+    const float lookX = bossEntity.worldX;
+    const float lookY = bossEntity.worldY + kBossPhaseIntroLookOffsetY;
+    const float lookZ = bossEntity.worldZ + kBossPhaseIntroLookOffsetZ;
+    const float dx = lookX - camera.posX;
+    const float dy = lookY - camera.posY;
+    const float dz = lookZ - camera.posZ;
+    const float horizontalDist = std::sqrt((dx * dx) + (dy * dy));
+    camera.yawDegrees = radiansToDegrees(std::atan2(-dx, dy));
+    camera.pitchDegrees = radiansToDegrees(std::atan2(dz, std::max(1.0f, horizontalDist)));
 }
 
 } // namespace
@@ -152,6 +207,7 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
     feedback_.reset(manager_);
     activeUltimateTurnSplash_.reset();
     previewUltimateSplashPartyIndex_ = -1;
+    bossPhaseIntro_ = BossPhaseIntroState{};
     processedBattleEventCount_ = manager_.getRecentActionEvents().size();
     discardNextUpdateDelta_ = false;
     finished_    = false;
@@ -181,6 +237,7 @@ void BattleSessionCore::shutdown() {
     entities_.clear();
     activeUltimateTurnSplash_.reset();
     previewUltimateSplashPartyIndex_ = -1;
+    bossPhaseIntro_ = BossPhaseIntroState{};
 
     if (hooks_.onShutdown) hooks_.onShutdown();
     hooks_ = {};
@@ -291,12 +348,29 @@ void BattleSessionCore::update(float deltaSeconds) {
         deltaSeconds = 0.0f;
     }
 
-    if (hooks_.onPreUpdate) hooks_.onPreUpdate(manager_, deltaSeconds);
     while (const std::optional<BossPhaseTransition> transition = manager_.consumeBossPhaseTransition()) {
+        startBossPhaseIntro(*transition);
         if (hooks_.onBossPhaseTransition) {
             hooks_.onBossPhaseTransition(*transition, manager_);
         }
     }
+
+    if (bossPhaseIntro_.active) {
+        const flow::PreviewActorContext preview = flow::inspectPreviewActor(manager_);
+        bool bossActing = true;
+        int actingPartyIndex = -1;
+        if (preview.valid && preview.type == ParticipantType::Character) {
+            bossActing = false;
+            actingPartyIndex = preview.partyIndex;
+        }
+        updateSceneEntities(deltaSeconds, bossActing, actingPartyIndex);
+        updateBossPhaseIntro(deltaSeconds);
+        feedback_.syncFromManager(manager_, presentationPlaybackActive_);
+        feedback_.update(deltaSeconds);
+        return;
+    }
+
+    if (hooks_.onPreUpdate) hooks_.onPreUpdate(manager_, deltaSeconds);
 
     const bool dialogueActive = hooks_.isDialogueInProgress && hooks_.isDialogueInProgress();
     const bool bossDefeated = manager_.getBossCurrentHp() <= 0;
@@ -727,6 +801,60 @@ void BattleSessionCore::maybeStartUltimateTurnSplash(const flow::PreviewActorCon
     activeUltimateTurnSplash_ = std::make_unique<SplashArtAnimation>(cfg);
     activeUltimateTurnSplash_->start();
     previewUltimateSplashPartyIndex_ = preview.partyIndex;
+}
+
+void BattleSessionCore::startBossPhaseIntro(const BossPhaseTransition& transition) {
+    int bossEntityIndex = -1;
+    for (int index = 0; index < static_cast<int>(entities_.size()); ++index) {
+        if (entities_[static_cast<size_t>(index)].isBoss) {
+            bossEntityIndex = index;
+            break;
+        }
+    }
+    if (bossEntityIndex < 0 || static_cast<size_t>(bossEntityIndex) >= entities_.size()) {
+        return;
+    }
+
+    bossPhaseIntro_.active = true;
+    bossPhaseIntro_.phaseIndex = transition.toPhaseIndex;
+    bossPhaseIntro_.hintText = bossPhaseHintText(transition.toPhaseIndex);
+    bossPhaseIntro_.elapsed = 0.0f;
+    bossPhaseIntro_.duration = kBossPhaseIntroDurationSeconds;
+    bossPhaseIntro_.startCamera =
+        makeBossPhaseIntroStartCamera(entities_[static_cast<size_t>(bossEntityIndex)]);
+    bossPhaseIntro_.goalCamera =
+        makeBossPhaseIntroEndCamera(entities_[static_cast<size_t>(bossEntityIndex)]);
+    aimCameraAtBossIntroTarget(bossPhaseIntro_.startCamera, entities_[static_cast<size_t>(bossEntityIndex)]);
+    aimCameraAtBossIntroTarget(bossPhaseIntro_.goalCamera, entities_[static_cast<size_t>(bossEntityIndex)]);
+    camera_ = bossPhaseIntro_.startCamera;
+    setHint(bossPhaseIntro_.hintText);
+}
+
+void BattleSessionCore::updateBossPhaseIntro(float deltaSeconds) {
+    if (!bossPhaseIntro_.active) {
+        return;
+    }
+
+    setHint(bossPhaseIntro_.hintText);
+    bossPhaseIntro_.elapsed += deltaSeconds;
+    const float t = easing::clamp01(bossPhaseIntro_.elapsed / std::max(0.001f, bossPhaseIntro_.duration));
+    const float eased = easing::easeOutQuint(t);
+
+    camera_.posX = easing::lerp(bossPhaseIntro_.startCamera.posX, bossPhaseIntro_.goalCamera.posX, eased);
+    camera_.posY = easing::lerp(bossPhaseIntro_.startCamera.posY, bossPhaseIntro_.goalCamera.posY, eased);
+    camera_.posZ = easing::lerp(bossPhaseIntro_.startCamera.posZ, bossPhaseIntro_.goalCamera.posZ, eased);
+    camera_.pitchDegrees = easing::lerp(
+        bossPhaseIntro_.startCamera.pitchDegrees, bossPhaseIntro_.goalCamera.pitchDegrees, eased);
+    camera_.yawDegrees = easing::lerp(
+        bossPhaseIntro_.startCamera.yawDegrees, bossPhaseIntro_.goalCamera.yawDegrees, eased);
+    camera_.focalLength = easing::lerp(
+        bossPhaseIntro_.startCamera.focalLength, bossPhaseIntro_.goalCamera.focalLength, eased);
+
+    if (t >= 1.0f) {
+        bossPhaseIntro_.active = false;
+        camera_ = bossPhaseIntro_.goalCamera;
+        clearHint();
+    }
 }
 
 void BattleSessionCore::updateSceneEntities(float deltaSeconds, bool bossActing, int actingPartyIndex) {

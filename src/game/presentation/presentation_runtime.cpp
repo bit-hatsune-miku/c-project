@@ -1,6 +1,8 @@
 #include "presentation_runtime.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <iostream>
 #include <memory>
 #include <utility>
@@ -14,7 +16,6 @@ namespace {
 constexpr int kWarningBlinkCount = 4;
 constexpr float kWarningBlinkOnSeconds = 0.16f;
 constexpr float kWarningBlinkOffSeconds = 0.10f;
-constexpr float kWarningBackdropAlpha = 0.66f;
 constexpr char kWarningBlinkSfxPath[] = "assets/ui/sfx/Multiplayer_countdown-warn-final.wav";
 
 class BossWarningIntroOverlay {
@@ -68,61 +69,144 @@ public:
 
     void renderOverlay(SDL_Renderer* renderer, int screenW, int screenH) const {
         SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-        SDL_SetRenderDrawColor(renderer, 5, 8, 10, static_cast<Uint8>(kWarningBackdropAlpha * 255.0f));
-        const SDL_Rect fullRect{0, 0, screenW, screenH};
-        SDL_RenderFillRect(renderer, &fullRect);
-
-        if (!blinkVisible_) {
-            return;
-        }
-
-        const std::array<float, 2> yRatios{0.28f, 0.68f};
+        const float alphaScale = blinkVisible_ ? 1.0f : 0.16f;
+        const float signSize = std::min(static_cast<float>(screenW) * 0.15f, static_cast<float>(screenH) * 0.27f);
+        const std::array<float, 2> yRatios{0.34f, 0.66f};
         for (float yRatio : yRatios) {
-            drawWarningSign(renderer, screenW * 0.16f, screenH * yRatio, static_cast<float>(screenH) * 0.24f);
-            drawWarningSign(renderer, screenW * 0.32f, screenH * yRatio, static_cast<float>(screenH) * 0.24f);
-            drawWarningSign(renderer, screenW * 0.68f, screenH * yRatio, static_cast<float>(screenH) * 0.24f);
-            drawWarningSign(renderer, screenW * 0.84f, screenH * yRatio, static_cast<float>(screenH) * 0.24f);
+            drawWarningSign(
+                renderer,
+                static_cast<float>(screenW) * 0.13f,
+                static_cast<float>(screenH) * yRatio,
+                signSize,
+                alphaScale);
+            drawWarningSign(
+                renderer,
+                static_cast<float>(screenW) * 0.87f,
+                static_cast<float>(screenH) * yRatio,
+                signSize,
+                alphaScale);
         }
     }
 
 private:
-    static void drawWarningSign(SDL_Renderer* renderer, float centerX, float centerY, float size) {
-        const SDL_FRect outer{
-            centerX - size * 0.44f,
-            centerY - size * 0.44f,
-            size * 0.88f,
-            size * 0.88f
+    static Uint8 scaledAlpha(Uint8 baseAlpha, float alphaScale) {
+        const float scaled = std::clamp(static_cast<float>(baseAlpha) * alphaScale, 0.0f, 255.0f);
+        return static_cast<Uint8>(scaled);
+    }
+
+    static std::array<SDL_FPoint, 3> warningTrianglePoints(float centerX, float centerY, float size) {
+        return std::array<SDL_FPoint, 3>{
+            SDL_FPoint{centerX, centerY - (size * 0.46f)},
+            SDL_FPoint{centerX + (size * 0.46f), centerY + (size * 0.38f)},
+            SDL_FPoint{centerX - (size * 0.46f), centerY + (size * 0.38f)}
         };
-        const SDL_FRect inner{
-            centerX - size * 0.33f,
-            centerY - size * 0.33f,
-            size * 0.66f,
-            size * 0.66f
-        };
+    }
+
+    static std::array<SDL_FPoint, 3> scaleTriangle(const std::array<SDL_FPoint, 3>& points,
+                                                   float centerX,
+                                                   float centerY,
+                                                   float scale) {
+        std::array<SDL_FPoint, 3> scaled = points;
+        for (SDL_FPoint& point : scaled) {
+            point.x = centerX + ((point.x - centerX) * scale);
+            point.y = centerY + ((point.y - centerY) * scale);
+        }
+        return scaled;
+    }
+
+    static void fillTriangle(SDL_Renderer* renderer,
+                             const std::array<SDL_FPoint, 3>& points,
+                             SDL_Color color) {
+        const float minY = std::min({points[0].y, points[1].y, points[2].y});
+        const float maxY = std::max({points[0].y, points[1].y, points[2].y});
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+
+        for (int y = static_cast<int>(std::floor(minY)); y <= static_cast<int>(std::ceil(maxY)); ++y) {
+            const float sampleY = static_cast<float>(y) + 0.5f;
+            std::array<float, 3> intersections{};
+            int count = 0;
+
+            for (int edgeIndex = 0; edgeIndex < 3; ++edgeIndex) {
+                const SDL_FPoint& a = points[static_cast<size_t>(edgeIndex)];
+                const SDL_FPoint& b = points[static_cast<size_t>((edgeIndex + 1) % 3)];
+                const float minEdgeY = std::min(a.y, b.y);
+                const float maxEdgeY = std::max(a.y, b.y);
+                if (std::fabs(b.y - a.y) <= 0.001f ||
+                    sampleY < minEdgeY ||
+                    sampleY > maxEdgeY) {
+                    continue;
+                }
+
+                const float t = (sampleY - a.y) / (b.y - a.y);
+                intersections[static_cast<size_t>(count++)] = a.x + ((b.x - a.x) * t);
+            }
+
+            if (count < 2) {
+                continue;
+            }
+
+            std::sort(intersections.begin(), intersections.begin() + count);
+            SDL_RenderDrawLineF(renderer, intersections[0], sampleY, intersections[count - 1], sampleY);
+        }
+    }
+
+    static void drawTriangleOutline(SDL_Renderer* renderer,
+                                    const std::array<SDL_FPoint, 3>& points,
+                                    SDL_Color color,
+                                    int thickness) {
+        SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+        for (int offset = 0; offset < std::max(1, thickness); ++offset) {
+            const float yOffset = static_cast<float>(offset) - (static_cast<float>(thickness - 1) * 0.5f);
+            SDL_RenderDrawLineF(
+                renderer,
+                points[0].x,
+                points[0].y + yOffset,
+                points[1].x,
+                points[1].y + yOffset);
+            SDL_RenderDrawLineF(
+                renderer,
+                points[1].x,
+                points[1].y + yOffset,
+                points[2].x,
+                points[2].y + yOffset);
+            SDL_RenderDrawLineF(
+                renderer,
+                points[2].x,
+                points[2].y + yOffset,
+                points[0].x,
+                points[0].y + yOffset);
+        }
+    }
+
+    static void drawWarningSign(SDL_Renderer* renderer,
+                                float centerX,
+                                float centerY,
+                                float size,
+                                float alphaScale) {
+        const std::array<SDL_FPoint, 3> outerPoints = warningTrianglePoints(centerX, centerY, size);
+        const std::array<SDL_FPoint, 3> glowPoints = scaleTriangle(outerPoints, centerX, centerY, 1.08f);
+        const std::array<SDL_FPoint, 3> innerPoints = scaleTriangle(outerPoints, centerX, centerY, 0.86f);
+
+        fillTriangle(renderer, glowPoints, SDL_Color{255, 45, 45, scaledAlpha(66, alphaScale)});
+        fillTriangle(renderer, innerPoints, SDL_Color{255, 45, 45, scaledAlpha(36, alphaScale)});
+        drawTriangleOutline(renderer, outerPoints, SDL_Color{255, 45, 45, scaledAlpha(255, alphaScale)}, 3);
+
         const SDL_FRect stem{
-            centerX - size * 0.055f,
-            centerY - size * 0.22f,
-            size * 0.11f,
-            size * 0.31f
+            centerX - (size * 0.035f),
+            centerY - (size * 0.10f),
+            size * 0.07f,
+            size * 0.29f
         };
         const SDL_FRect dot{
-            centerX - size * 0.055f,
-            centerY + size * 0.16f,
-            size * 0.11f,
-            size * 0.11f
+            centerX - (size * 0.042f),
+            centerY + (size * 0.20f),
+            size * 0.084f,
+            size * 0.084f
         };
 
-        SDL_SetRenderDrawColor(renderer, 255, 52, 52, 245);
-        SDL_RenderFillRectF(renderer, &outer);
-        SDL_SetRenderDrawColor(renderer, 255, 238, 84, 255);
-        SDL_RenderFillRectF(renderer, &inner);
-        SDL_SetRenderDrawColor(renderer, 22, 18, 18, 255);
+        SDL_SetRenderDrawColor(renderer, 255, 45, 45, scaledAlpha(255, alphaScale));
         SDL_RenderFillRectF(renderer, &stem);
         SDL_RenderFillRectF(renderer, &dot);
-
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 110);
-        SDL_RenderDrawRectF(renderer, &outer);
-        SDL_RenderDrawRectF(renderer, &inner);
     }
 
     int blinkIndex_ = 0;
@@ -193,16 +277,40 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
 
     std::cout << "[Presentation] Playing: " << context.presentationId << "\n";
 
-    // Set basic playback flags — but hold off on exposing the presentation pointer
-    // until after the splash so its render() is not called before start().
     if (stateRefs.playbackActive)   *stateRefs.playbackActive   = true;
     if (stateRefs.casterIsBoss)     *stateRefs.casterIsBoss     = context.isBoss;
     if (stateRefs.casterPartyIndex) *stateRefs.casterPartyIndex = context.casterIndex;
+
+    presentation->setExternalTextures(callbacks.casterSpriteTexture, callbacks.targetSpriteTexture);
+    presentation->setOverlayTextures(callbacks.overlayCasterSpriteTexture, callbacks.overlayTargetSpriteTexture);
+    presentation->setTargetPartyIndex(context.targetIndex);
+    presentation->setTargetWorldPosition(targetX, targetY, targetZ);
+    presentation->setPresentationValue(context.presentationValue);
+    presentation->setTuningProfile(context.tuningProfile);
+    {
+        std::vector<std::string> partyAssetNames;
+        partyAssetNames.reserve(entities.size());
+        for (const render::SceneEntity& entity : entities) {
+            if (entity.isBoss || entity.assetName.empty()) {
+                continue;
+            }
+            partyAssetNames.push_back(entity.assetName);
+        }
+        presentation->setPartyAssetNames(partyAssetNames);
+    }
+
+    bool presentationStarted = false;
 
     // ------------------------------------------------------------------
     // Boss warning / splash art intro (pre-presentation)
     // ------------------------------------------------------------------
     if (context.isBoss && callbacks.setRenderOverlay && callbacks.clearRenderOverlay) {
+        presentation->start();
+        presentationStarted = true;
+        if (stateRefs.activePresentation) {
+            *stateRefs.activePresentation = presentation.get();
+        }
+
         BossWarningIntroOverlay warning;
         warning.start();
         callbacks.setRenderOverlay([&warning](SDL_Renderer* r, int w, int h) {
@@ -253,6 +361,9 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
             }
             if (callbacks.onBossPresentationFrame) {
                 callbacks.onBossPresentationFrame();
+            }
+            if (presentation->overridesCamera()) {
+                presentation->applyCameraState(camera);
             }
             if (callbacks.renderAndPresentFrame) {
                 callbacks.renderAndPresentFrame();
@@ -315,30 +426,12 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
         }
     }
 
-    // Now expose the presentation and start the main animation.
     if (stateRefs.activePresentation) {
         *stateRefs.activePresentation = presentation.get();
     }
-
-    presentation->setExternalTextures(callbacks.casterSpriteTexture, callbacks.targetSpriteTexture);
-    presentation->setOverlayTextures(callbacks.overlayCasterSpriteTexture, callbacks.overlayTargetSpriteTexture);
-    presentation->setTargetPartyIndex(context.targetIndex);
-    presentation->setTargetWorldPosition(targetX, targetY, targetZ);
-    presentation->setPresentationValue(context.presentationValue);
-    presentation->setTuningProfile(context.tuningProfile);
-    {
-        std::vector<std::string> partyAssetNames;
-        partyAssetNames.reserve(entities.size());
-        for (const render::SceneEntity& entity : entities) {
-            if (entity.isBoss || entity.assetName.empty()) {
-                continue;
-            }
-            partyAssetNames.push_back(entity.assetName);
-        }
-        presentation->setPartyAssetNames(partyAssetNames);
+    if (!presentationStarted) {
+        presentation->start();
     }
-
-    presentation->start();
     Uint64 lastCounter = SDL_GetPerformanceCounter();
 
     while (!finished && !presentation->isComplete()) {
