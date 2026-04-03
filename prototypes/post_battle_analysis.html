@@ -1305,6 +1305,7 @@
           audio.currentTime = 0;
           audio.play();
         } catch (error) {
+          console.error("Failed to play audio.", audio && audio.src, error);
         }
       }
 

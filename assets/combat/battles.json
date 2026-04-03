@@ -160,7 +160,7 @@
       "stageKey": "twilight_stage"
     },
     "miku_plot_twist": {
-      "id": 101,
+      "id": 103,
       "storyOrder": 700,
       "name": "Corrupted Miku",
       "bossKey": "corruptedMiku",

@@ -1161,13 +1161,18 @@ bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vecto
     return true;
 }
 
+void BattleManager::flushPendingSplitAttackTelemetry() {
+    if (!pendingSplitAttackActorKey_.empty() && currentActionOutgoingDamage_ > 0) {
+        telemetry_.characterDamageByKey[pendingSplitAttackActorKey_] += currentActionOutgoingDamage_;
+    }
+    currentActionOutgoingDamage_ = 0;
+    pendingSplitAttackActorKey_.clear();
+}
+
 /**
  * @brief Applies a single split-attack hit's damage to the boss.
  *
  * If `damage` is less than or equal to zero or the battle is over, no action is taken.
- * On the first outgoing damage of a pending split-attack (when `currentActionOutgoingDamage_ == 0`
- * and `pendingSplitAttackActorKey_` is non-empty) the damage is attributed to telemetry for that
- * character key before being applied.
  *
  * @param damage Damage amount to apply to the boss; values ≤ 0 are ignored.
  */
@@ -1176,9 +1181,6 @@ void BattleManager::applyBossSplitHitDamage(int damage) {
         return;
     }
 
-    if (currentActionOutgoingDamage_ == 0 && !pendingSplitAttackActorKey_.empty()) {
-        telemetry_.characterDamageByKey[pendingSplitAttackActorKey_] += damage;
-    }
     applyPlayerOffenseToBoss(damage);
 }
 
@@ -1193,51 +1195,56 @@ void BattleManager::applyBossSplitHitDamage(int damage) {
  * the preview/actor was invalid or out of range, the actor is an extra turn, advancing the turn failed, or the character is not alive.
  */
 bool BattleManager::commitCurrentPlayerSplitAttackTurn() {
-    if (isBattleOver()) {
+    const auto failPendingSplitTurn = [this]() -> bool {
+        flushPendingSplitAttackTelemetry();
         return false;
+    };
+
+    if (isBattleOver()) {
+        return failPendingSplitTurn();
     }
 
     const TurnEvent next = peekNextTurnEvent();
     if (!next.valid || next.actingActorIndex >= turnState_.actors.size()) {
-        return false;
+        return failPendingSplitTurn();
     }
 
     const TurnActor previewActor = turnState_.actors[next.actingActorIndex];
     if (previewActor.type != ParticipantType::Character || previewActor.isExtraTurn) {
-        return false;
+        return failPendingSplitTurn();
     }
     if (previewActor.partyIndex < 0 || static_cast<size_t>(previewActor.partyIndex) >= characters_.size()) {
-        return false;
+        return failPendingSplitTurn();
     }
 
     const TurnEvent event = advanceToNextTurnEvent();
     if (!event.valid || event.actingActorIndex >= turnState_.actors.size()) {
-        return false;
+        return failPendingSplitTurn();
     }
 
     TurnActor actor = turnState_.actors[event.actingActorIndex];
     if (actor.type != ParticipantType::Character || actor.isExtraTurn) {
-        return false;
+        return failPendingSplitTurn();
     }
     if (actor.partyIndex < 0 || static_cast<size_t>(actor.partyIndex) >= characters_.size()) {
-        return false;
+        return failPendingSplitTurn();
     }
 
     BattleCharacter& character = characters_[static_cast<size_t>(actor.partyIndex)];
     if (!character.isAlive()) {
-        return false;
+        return failPendingSplitTurn();
     }
 
     telemetry_.totalActionValueConsumed += event.consumedActionValue;
     character.gainUltimatePoint();
 
     if (event.actingActorIndex >= turnState_.actors.size()) {
-        return false;
+        return failPendingSplitTurn();
     }
     turnState_.actors[event.actingActorIndex].currentActionValue = turnState_.actors[event.actingActorIndex].baseActionValue;
     turnState_.actors[event.actingActorIndex].priority = 0;
     syncCharacterUltimateTurn(character.partyIndex());
-    pendingSplitAttackActorKey_.clear();
+    flushPendingSplitAttackTelemetry();
 
     return true;
 }

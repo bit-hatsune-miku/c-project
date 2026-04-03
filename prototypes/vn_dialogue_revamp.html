@@ -426,11 +426,11 @@
 <body>
   <div class="demo-container">
     <div class="demo-controls">
-      <button class="style-selector active pink" onclick="setCharacterStyle('pink')">Miku Default</button>
-      <button class="style-selector cyan" onclick="setCharacterStyle('cyan')">Miku Alt</button>
-      <button class="style-selector purple" onclick="setCharacterStyle('purple')">Jiafei</button>
-      <button class="style-selector green" onclick="setCharacterStyle('green')">Luotianyi</button>
-      <button class="style-selector orange" onclick="setCharacterStyle('orange')">Ari</button>
+      <button class="style-selector active pink" onclick="setCharacterStyle('pink', this)">Miku Default</button>
+      <button class="style-selector cyan" onclick="setCharacterStyle('cyan', this)">Miku Alt</button>
+      <button class="style-selector purple" onclick="setCharacterStyle('purple', this)">Jiafei</button>
+      <button class="style-selector green" onclick="setCharacterStyle('green', this)">Luotianyi</button>
+      <button class="style-selector orange" onclick="setCharacterStyle('orange', this)">Ari</button>
     </div>
 
     <div class="info-text">
@@ -501,12 +501,11 @@
 
     let currentStyle = "pink";
 
-    function setCharacterStyle(style) {
+    function setCharacterStyle(style, triggerElement) {
       currentStyle = style;
       const data = characterData[style];
       const container = document.getElementById("dialogueContainer");
       const titleEl = document.getElementById("titleText");
-      const speakerEl = document.getElementById("speakerText");
       const dialogueEl = document.getElementById("dialogueText");
       const iconEl = document.querySelector(".character-icon-img");
       const arrow = document.getElementById("advanceArrow");
@@ -519,7 +518,9 @@
       document.querySelectorAll(".style-selector").forEach(btn => {
         btn.classList.remove("active");
       });
-      event.target.classList.add("active");
+      if (triggerElement) {
+        triggerElement.classList.add("active");
+      }
 
       // Update content
       titleEl.textContent = data.title;

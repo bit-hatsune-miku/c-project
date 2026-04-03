@@ -246,10 +246,7 @@ public:
     void shutdown() {
         initialized_ = false;
         finished_ = false;
-        negativeHeld_ = false;
-        positiveHeld_ = false;
-        holdNegativeElapsed_ = 0.0f;
-        holdPositiveElapsed_ = 0.0f;
+        clearHeldDirectionalInput();
         toastTimer_ = 0.0f;
         visualSelectionIndex_ = 0.0f;
         targetVisualSelectionIndex_ = 0.0f;
@@ -414,6 +411,7 @@ public:
                 case SDLK_DOWN:
                     if (focusZone_ == FocusZone::Carousel) {
                         setFocusZone(FocusZone::Footer, true);
+                        clearHeldDirectionalInput();
                     }
                     break;
 
@@ -969,12 +967,12 @@ private:
 
         if (replayStoryButtonElement_ != nullptr) {
             replayStoryButtonElement_->SetClass(
-                "is-focused",
+                "focused",
                 focusZone_ == FocusZone::Footer && footerSelection_ == FooterAction::ReplayStory);
         }
         if (straightToBattleButtonElement_ != nullptr) {
             straightToBattleButtonElement_->SetClass(
-                "is-focused",
+                "focused",
                 focusZone_ == FocusZone::Footer && footerSelection_ == FooterAction::StraightToBattle);
         }
 
@@ -1294,10 +1292,7 @@ private:
 
         confirmVisible_ = true;
         confirmChoice_ = ConfirmChoice::Back;
-        negativeHeld_ = false;
-        positiveHeld_ = false;
-        holdNegativeElapsed_ = 0.0f;
-        holdPositiveElapsed_ = 0.0f;
+        clearHeldDirectionalInput();
         lastShownConfirmTarget_ = confirmTarget_;
         applySelection();
     }
@@ -1499,6 +1494,13 @@ private:
         if (updateDirection(positiveHeld_, holdPositiveElapsed_)) {
             moveSelection(1, true);
         }
+    }
+
+    void clearHeldDirectionalInput() {
+        negativeHeld_ = false;
+        positiveHeld_ = false;
+        holdNegativeElapsed_ = 0.0f;
+        holdPositiveElapsed_ = 0.0f;
     }
 
     void updateVisualSelection(float deltaSeconds) {
