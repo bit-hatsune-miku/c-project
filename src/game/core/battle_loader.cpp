@@ -317,6 +317,12 @@ bool fillBattleDefinitionFromJson(const std::string& battleKey,
     battle.isLineupFixed = battleJson.value("isLineupFixed", true);
     battle.lineup = battleJson.value("lineup", std::vector<std::string>{});
     battle.lockedLineup = battleJson.value("lockedLineup", std::vector<std::string>{});
+    if (battleJson.contains("buffs") && battleJson.at("buffs").is_object()) {
+        const json& buffsJson = battleJson.at("buffs");
+        battle.buffs.hp = buffsJson.value("hp", 0);
+        battle.buffs.atk = buffsJson.value("atk", 0);
+        battle.buffs.spd = buffsJson.value("spd", 0);
+    }
     if (battleJson.contains("specialRules") && battleJson.at("specialRules").is_object()) {
         const json& specialRulesJson = battleJson.at("specialRules");
         battle.specialRules.playerDamageHealsBoss =

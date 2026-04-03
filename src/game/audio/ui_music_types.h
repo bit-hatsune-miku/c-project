@@ -33,6 +33,7 @@ enum class UiMusicSurface {
     PauseMenu,
     BattleSelector,
     PartyLoader,
+    PostBattle,
 };
 
 struct UiMusicVisualState {
