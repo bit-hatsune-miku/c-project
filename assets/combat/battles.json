@@ -2,25 +2,38 @@
   "battles": {
     "tutorial_vs_lyoo": {
       "id": 0,
+      "storyOrder": 100,
       "name": "Prologue & Tutorial",
       "description": "The first trial. Lyoo challenges Miku to prove she is worthy of entering the BIT Underground Idol Competition.",
       "type": "tutorial",
       "bossKey": "lyooBoss",
       "storyScript": "ch0",
+      "nextStoryScript": "ch0200",
       "selectorVisible": true,
       "isLineupFixed": true,
       "partySize": 4,
+      "buffs": {
+        "hp": 4,
+        "atk": 1,
+        "spd": 1
+      },
       "lineup": [
         "miku",
         "cupcakke"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "tutorial_test_stage"
     },
     "test_ground": {
       "id": 1,
+      "storyOrder": 150,
       "name": "Test Ground",
       "bossKey": "lyooBoss",
       "isLineupFixed": true,
+      "buffs": {
+        "hp": 0,
+        "atk": 0,
+        "spd": 0
+      },
       "lineup": [
         "luotianyi",
         "jiafei",
@@ -30,91 +43,137 @@
     },
     "wild_scent_flowers": {
       "id": 2,
-      "name": "野花香",
+      "storyOrder": 200,
+      "name": "The smell of Wildflowers",
+      "description": "The queen of Floptropica invites you to a duel",
       "bossKey": "jiafeiBoss",
       "storyScript": "ch0200",
       "victoryStoryScript": "ch0201",
+      "nextStoryScript": "ch0300",
       "selectorVisible": true,
       "isLineupFixed": false,
+      "buffs": {
+        "hp": 6,
+        "atk": 2,
+        "spd": 1
+      },
       "lineup": [
         "miku",
         "cupcakke",
         "lyoo"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "wildflower_stage"
     },
     "scan_to_pay": {
       "id": 100,
+      "storyOrder": 300,
       "name": "Scan To Pay",
+      "description": "WeChat and AliPay are trying to take your money",
       "bossKey": "wechatalipayBoss",
       "storyScript": "ch0300",
       "victoryStoryScript": "ch0301",
+      "nextStoryScript": "ch0400",
       "selectorVisible": true,
       "isLineupFixed": false,
+      "buffs": {
+        "hp": 8,
+        "atk": 2,
+        "spd": 1
+      },
       "lineup": [
         "miku",
         "cupcakke",
         "jiafei",
         "lyoo"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "scan_to_pay_stage"
     },
     "ari_boss_demo": {
       "id": 101,
-      "name": "Whistle Note",
+      "storyOrder": 400,
+      "name": "Break Free",
+      "description": "Goddess Ariana Grande humbly invites you to a duel",
       "bossKey": "ariBoss",
       "storyScript": "ch0400",
       "victoryStoryScript": "ch0401",
+      "nextStoryScript": "ch0500",
       "selectorVisible": true,
       "isLineupFixed": false,
+      "buffs": {
+        "hp": 10,
+        "atk": 3,
+        "spd": 2
+      },
       "lineup": [
         "cupcakke",
         "wechatalipay",
         "miku",
         "jiafei"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "whistle_note_stage"
     },
     "luotianyi_boss_demo": {
       "id": 102,
-      "name": "音龙",
+      "storyOrder": 500,
+      "name": "听力考试现在开始",
+      "description": "Is this a singing contest or a Chinese exam?",
       "bossKey": "luotianyiBoss",
       "storyScript": "ch0500",
       "victoryStoryScript": "ch0501",
+      "nextStoryScript": "finale",
       "selectorVisible": true,
       "isLineupFixed": false,
+      "buffs": {
+        "hp": 12,
+        "atk": 4,
+        "spd": 2
+      },
       "lineup": [
         "miku",
         "ari",
         "cupcakke",
         "wechatalipay"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "yinlong_stage"
     },
     "lyoo_plot_twist": {
       "id": 99,
-      "name": "Lyoo is able to one shot characters. It is recommended to pair a shielder AND a healer.",
+      "storyOrder": 600,
+      "name": "The Broken River of Dreams",
+      "description": "Lyoo is able to one shot characters. It is recommended to pair a shielder AND a healer.",
       "bossKey": "lyooPlotTwist",
       "storyScript": "finale",
       "isLineupFixed": false,
+      "selectorVisible": true,
       "victoryStoryScript": "finale02",
+      "buffs": {
+        "hp": 0,
+        "atk": 0,
+        "spd": 0
+      },
       "lineup": [
         "miku",
         "cupcakke",
         "jiafei",
         "ari"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "twilight_stage"
     },
     "miku_plot_twist": {
-      "id": 101,
+      "id": 103,
+      "storyOrder": 700,
       "name": "Corrupted Miku",
       "bossKey": "corruptedMiku",
       "storyScript": "finale01",
       "isLineupFixed": true,
-      "selectorVisible": false,
+      "selectorVisible": true,
       "victoryStoryScript": "finale02",
       "defeatStoryScript": "finale02",
+      "buffs": {
+        "hp": 0,
+        "atk": 0,
+        "spd": 0
+      },
       "lineup": [
         "cupcakke",
         "jiafei",
@@ -128,7 +187,7 @@
         "revivePartyToFull": true,
         "bossSelfKnockoutIsDefeat": true
       },
-      "stageKey": "default_stage"
+      "stageKey": "corruption_stage"
     }
   }
 }

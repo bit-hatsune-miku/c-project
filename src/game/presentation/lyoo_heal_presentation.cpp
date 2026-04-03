@@ -79,6 +79,7 @@ void LyooHealPresentation::start() {
     pendingAbilityAudioCues_ = (variant_ == Variant::Skill) ? 1 : 0;
     pendingHitEvents_ = 0;
     healEventTriggered_ = false;
+    pendingFeedbackEvents_.clear();
     recentKeys_.clear();
     hearts_.clear();
     cameraShakeRemaining_ = 0.0f;
@@ -161,9 +162,9 @@ bool LyooHealPresentation::isComplete() const {
     return phase_ == Phase::Complete;
 }
 
-void LyooHealPresentation::onKeyPressed(SDL_Keycode key) {
+bool LyooHealPresentation::onKeyPressed(SDL_Keycode key) {
     if (phase_ != Phase::Input || !inputWindow_.active) {
-        return;
+        return false;
     }
 
     const bool isRecent = std::find(recentKeys_.begin(), recentKeys_.end(), key) != recentKeys_.end();
@@ -176,7 +177,7 @@ void LyooHealPresentation::onKeyPressed(SDL_Keycode key) {
     triggerCameraShake();
 
     if (isRecent) {
-        return;
+        return true;
     }
 
     ++validPressCount_;
@@ -186,6 +187,15 @@ void LyooHealPresentation::onKeyPressed(SDL_Keycode key) {
 
     spawnHeartsForValidPress();
 
+    PresentationFeedbackEvent event;
+    event.signal = PresentationFeedbackSignal::forcedPerfect();
+    event.multiplier = getInputMultiplier();
+    event.comboEligible = true;
+    event.rewardText =
+        "+" + std::to_string(std::max(0, static_cast<int>(std::lround((event.multiplier - 1.0f) * 100.0f)))) +
+        "% HEAL";
+    pendingFeedbackEvents_.push_back(event);
+    return true;
 }
 
 float LyooHealPresentation::getInputMultiplier() const {
@@ -193,6 +203,19 @@ float LyooHealPresentation::getInputMultiplier() const {
         return 1.0f;
     }
     return std::min(kMaxHealMultiplier, 1.0f + (static_cast<float>(validPressCount_) * kHealBonusPerValidKey));
+}
+
+PresentationFeedbackSignal LyooHealPresentation::getFeedbackSignal() const {
+    if (variant_ == Variant::Ultimate) {
+        return {};
+    }
+    return PresentationFeedbackSignal::forcedPerfect();
+}
+
+std::vector<PresentationFeedbackEvent> LyooHealPresentation::consumeFeedbackEvents() {
+    std::vector<PresentationFeedbackEvent> events;
+    events.swap(pendingFeedbackEvents_);
+    return events;
 }
 
 std::string LyooHealPresentation::getInputResultText() const {

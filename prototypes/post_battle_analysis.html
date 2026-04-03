@@ -1,0 +1,1910 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Post Battle Analysis Prototype</title>
+  <style>
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background-color: #f8f2f5;
+      color: #1a1522;
+      font-family: "Space Mono", "Noto Sans CJK SC", "PingFang SC", monospace;
+    }
+
+    body {
+      position: relative;
+    }
+
+    .app-shell {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #f8f2f5;
+    }
+
+    .ambient-bloom {
+      position: absolute;
+      border-radius: 999px;
+    }
+
+    .ambient-bloom--left {
+      left: -8%;
+      top: -18%;
+      width: 42%;
+      height: 68%;
+      background-color: rgba(255, 104, 181, 0.07);
+    }
+
+    .ambient-bloom--right {
+      right: -14%;
+      top: -24%;
+      width: 48%;
+      height: 76%;
+      background-color: rgba(244, 192, 109, 0.07);
+    }
+
+    .stage {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 1280px;
+      height: 720px;
+      margin-left: -640px;
+      margin-top: -360px;
+      transform-origin: center center;
+    }
+
+    .grid-lines {
+      position: absolute;
+      left: 34px;
+      top: 34px;
+      right: 34px;
+      bottom: 34px;
+      border: 1px solid rgba(26, 21, 34, 0.08);
+    }
+
+    .grid-axis {
+      position: absolute;
+      background-color: rgba(26, 21, 34, 0.08);
+    }
+
+    .grid-axis--vertical {
+      left: 92px;
+      top: 0;
+      width: 1px;
+      height: 100%;
+    }
+
+    .grid-axis--horizontal {
+      position: absolute;
+      left: 0;
+      bottom: 74px;
+      width: 100%;
+      height: 1px;
+    }
+
+    .signal-strip {
+      position: absolute;
+      left: 92px;
+      top: 34px;
+      width: 0;
+      height: 1px;
+      background-color: rgba(255, 104, 181, 0.42);
+      transition: width 520ms ease;
+    }
+
+    .signal-dot {
+      position: absolute;
+      left: 92px;
+      top: 30px;
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background-color: #ff68b5;
+      box-shadow: 0 0 14px rgba(255, 104, 181, 0.35);
+      opacity: 0;
+      transition:
+        left 520ms ease,
+        opacity 120ms ease;
+    }
+
+    .signal-strip.is-armed {
+      width: 206px;
+    }
+
+    .signal-dot.is-armed {
+      left: 289px;
+      opacity: 1;
+    }
+
+    .screen {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1280px;
+      height: 720px;
+      opacity: 0;
+      transform: translateY(22px);
+      pointer-events: none;
+      transition:
+        opacity 260ms ease,
+        transform 260ms ease;
+    }
+
+    .screen.is-active {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .headline-block {
+      position: absolute;
+      left: 92px;
+      top: 72px;
+      width: 700px;
+      height: 92px;
+    }
+
+    .eyebrow {
+      margin: 0;
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 700;
+      letter-spacing: 3.4px;
+      color: rgba(26, 21, 34, 0.5);
+      text-transform: uppercase;
+    }
+
+    .title {
+      margin: 10px 0 0;
+      font-size: 48px;
+      line-height: 52px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #17131f;
+    }
+
+    .summary-note-kicker {
+      margin: 0;
+      font-size: 11px;
+      line-height: 16px;
+      font-weight: 700;
+      letter-spacing: 2.8px;
+      color: rgba(26, 21, 34, 0.42);
+      text-transform: uppercase;
+    }
+
+    .summary-note-copy {
+      margin: 12px 0 0;
+      font-size: 12px;
+      line-height: 20px;
+      letter-spacing: 0.4px;
+      color: rgba(26, 21, 34, 0.62);
+    }
+
+    .subtitle {
+      margin: 12px 0 0;
+      font-size: 14px;
+      line-height: 22px;
+      letter-spacing: 0.8px;
+      color: rgba(26, 21, 34, 0.58);
+    }
+
+    .metrics-row {
+      position: absolute;
+      left: 92px;
+      top: 192px;
+      width: 1096px;
+      height: 138px;
+    }
+
+    .metric-card {
+      position: absolute;
+      top: 0;
+      width: 332px;
+      height: 138px;
+      padding: 0;
+    }
+
+    .metric-card--one {
+      left: 0;
+    }
+
+    .metric-card--two {
+      left: 382px;
+    }
+
+    .metric-card--three {
+      right: 0;
+    }
+
+    .metric-shell {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 332px;
+      height: 138px;
+      background-color: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(26, 21, 34, 0.12);
+      transform: skewX(-18deg);
+      border-radius: 22px;
+      box-shadow: 0 22px 42px rgba(26, 21, 34, 0.06);
+    }
+
+    .metric-accent {
+      position: absolute;
+      width: 9px;
+      height: 102px;
+      border-radius: 999px;
+    }
+
+    .metric-accent--one {
+      left: 18px;
+      top: 18px;
+      background-color: rgba(255, 104, 181, 0.28);
+    }
+
+    .metric-accent--two {
+      left: 18px;
+      top: 18px;
+      background-color: rgba(244, 192, 109, 0.4);
+    }
+
+    .metric-accent--three {
+      left: 18px;
+      top: 18px;
+      background-color: rgba(73, 195, 187, 0.36);
+    }
+
+    .metric-inner {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 332px;
+      height: 138px;
+      padding: 22px 28px 0 42px;
+    }
+
+    .metric-label {
+      margin: 0;
+      font-size: 12px;
+      line-height: 16px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: rgba(26, 21, 34, 0.44);
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      margin: 18px 0 0;
+      font-size: 46px;
+      line-height: 48px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+    }
+
+    .metric-foot {
+      margin: 14px 0 0;
+      font-size: 12px;
+      line-height: 18px;
+      letter-spacing: 0.5px;
+      color: rgba(26, 21, 34, 0.58);
+    }
+
+    .ranking-panel {
+      position: absolute;
+      left: 92px;
+      top: 360px;
+      width: 1096px;
+      height: 254px;
+      background-color: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(26, 21, 34, 0.12);
+      box-shadow: 0 24px 44px rgba(26, 21, 34, 0.06);
+    }
+
+    .ranking-header {
+      position: absolute;
+      left: 26px;
+      right: 26px;
+      top: 24px;
+      height: 26px;
+      border-bottom: 1px solid rgba(26, 21, 34, 0.1);
+    }
+
+    .ranking-title {
+      position: absolute;
+      left: 0;
+      top: 0;
+      font-size: 14px;
+      line-height: 20px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: #19141f;
+      text-transform: uppercase;
+    }
+
+    .ranking-caption {
+      position: absolute;
+      right: 0;
+      top: 0;
+      font-size: 11px;
+      line-height: 18px;
+      letter-spacing: 2px;
+      color: rgba(26, 21, 34, 0.42);
+      text-transform: uppercase;
+    }
+
+    .ranking-list {
+      position: absolute;
+      left: 26px;
+      top: 68px;
+      width: 1044px;
+      height: 150px;
+    }
+
+    .ranking-row {
+      position: absolute;
+      left: 0;
+      width: 1044px;
+      height: 30px;
+    }
+
+    .ranking-row--0 {
+      top: 0;
+    }
+
+    .ranking-row--1 {
+      top: 36px;
+    }
+
+    .ranking-row--2 {
+      top: 72px;
+    }
+
+    .ranking-row--3 {
+      top: 108px;
+    }
+
+    .ranking-rank {
+      position: absolute;
+      left: 0;
+      top: 3px;
+      width: 46px;
+      font-size: 18px;
+      line-height: 22px;
+      font-weight: 700;
+      color: rgba(26, 21, 34, 0.54);
+    }
+
+    .ranking-name {
+      position: absolute;
+      left: 58px;
+      top: 3px;
+      width: 174px;
+      font-size: 16px;
+      line-height: 22px;
+      font-weight: 700;
+      color: #19141f;
+      text-transform: uppercase;
+    }
+
+    .ranking-bar-shell {
+      position: absolute;
+      left: 246px;
+      top: 7px;
+      width: 514px;
+      height: 14px;
+      background-color: rgba(26, 21, 34, 0.08);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .ranking-bar-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 0;
+      height: 14px;
+      border-radius: 999px;
+      background-color: #ff68b5;
+    }
+
+    .ranking-row--1 .ranking-bar-fill {
+      background-color: #f4c06d;
+    }
+
+    .ranking-row--2 .ranking-bar-fill {
+      background-color: #63cdbf;
+    }
+
+    .ranking-row--3 .ranking-bar-fill {
+      background-color: #8d8af1;
+    }
+
+    .ranking-share {
+      position: absolute;
+      left: 778px;
+      top: 3px;
+      width: 72px;
+      font-size: 15px;
+      line-height: 22px;
+      font-weight: 700;
+      color: rgba(26, 21, 34, 0.62);
+      text-align: right;
+    }
+
+    .ranking-total {
+      position: absolute;
+      right: 0;
+      top: 3px;
+      width: 126px;
+      font-size: 15px;
+      line-height: 22px;
+      font-weight: 700;
+      color: #19141f;
+      text-align: right;
+    }
+
+    .primary-button {
+      position: absolute;
+      width: 286px;
+      height: 68px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .primary-button-shell {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 286px;
+      height: 68px;
+      background-color: #ff68b5;
+      border: 1px solid rgba(255, 104, 181, 0.9);
+      box-shadow: 0 18px 34px rgba(255, 104, 181, 0.22);
+      transform: skewX(-18deg);
+      border-radius: 18px;
+      transition:
+        transform 180ms ease,
+        box-shadow 180ms ease,
+        background-color 180ms ease;
+    }
+
+    .primary-button-text {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 286px;
+      height: 68px;
+      line-height: 68px;
+      text-align: center;
+      font-size: 21px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: #fff7fb;
+      text-transform: uppercase;
+    }
+
+    .primary-button:hover .primary-button-shell,
+    .primary-button.is-focused .primary-button-shell {
+      transform: skewX(-18deg) translateY(-2px);
+    }
+
+    .primary-button--pink .primary-button-shell {
+      background-color: #ff68b5;
+      border-color: rgba(255, 104, 181, 0.9);
+      box-shadow: 0 18px 34px rgba(255, 104, 181, 0.22);
+    }
+
+    .primary-button--dark .primary-button-shell {
+      background-color: #17131f;
+      border-color: rgba(23, 19, 31, 0.9);
+      box-shadow: 0 18px 34px rgba(23, 19, 31, 0.16);
+    }
+
+    .primary-button--dark .primary-button-text {
+      color: #fff7fb;
+    }
+
+    .primary-button.is-disabled {
+      cursor: default;
+      pointer-events: none;
+      opacity: 0.34;
+    }
+
+    .primary-button--pink:hover .primary-button-shell,
+    .primary-button--pink.is-focused .primary-button-shell {
+      background-color: #ff4ca6;
+      box-shadow: 0 24px 42px rgba(255, 104, 181, 0.28);
+    }
+
+    .primary-button--dark:hover .primary-button-shell,
+    .primary-button--dark.is-focused .primary-button-shell {
+      background-color: #0f0b16;
+      box-shadow: 0 24px 42px rgba(23, 19, 31, 0.22);
+    }
+
+    .summary-continue {
+      left: 50%;
+      margin-left: -143px;
+      bottom: 72px;
+    }
+
+    .control-button {
+      position: absolute;
+      right: 92px;
+      top: 80px;
+      width: 184px;
+      height: 40px;
+      border-radius: 999px;
+      border: 1px solid rgba(26, 21, 34, 0.12);
+      background-color: rgba(255, 255, 255, 0.84);
+      box-shadow: 0 14px 26px rgba(26, 21, 34, 0.05);
+      color: rgba(26, 21, 34, 0.68);
+      line-height: 38px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-align: center;
+      cursor: pointer;
+      transition: background-color 160ms ease, color 160ms ease, transform 160ms ease;
+    }
+
+    .control-button:hover,
+    .control-button.is-focused {
+      background-color: #17131f;
+      color: #fff7fb;
+      transform: translateY(-1px);
+    }
+
+    .reward-header {
+      position: absolute;
+      left: 92px;
+      top: 72px;
+      width: 1096px;
+      height: 122px;
+    }
+
+    .reward-header-right {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 286px;
+      height: 112px;
+      padding: 18px 22px;
+      background-color: rgba(255, 255, 255, 0.78);
+      border: 1px solid rgba(26, 21, 34, 0.12);
+      box-shadow: 0 20px 38px rgba(26, 21, 34, 0.06);
+    }
+
+    .reward-track {
+      position: absolute;
+      left: 0;
+      top: 220px;
+      width: 1280px;
+      height: 82px;
+      text-align: center;
+    }
+
+    .reward-progress-rail {
+      position: absolute;
+      left: 254px;
+      top: 70px;
+      width: 772px;
+      height: 4px;
+      border-radius: 999px;
+      background-color: rgba(26, 21, 34, 0.08);
+      overflow: visible;
+    }
+
+    .reward-progress-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 4px;
+      border-radius: 999px;
+      background-color: #ff63b0;
+    }
+
+    .reward-progress-dot {
+      position: absolute;
+      top: -5px;
+      width: 14px;
+      height: 14px;
+      margin-left: -7px;
+      border-radius: 999px;
+      background-color: #ff63b0;
+      box-shadow: 0 0 0 5px rgba(255, 99, 176, 0.14);
+    }
+
+    .reward-token {
+      display: inline-block;
+      width: 214px;
+      height: 62px;
+      margin: 0 8px;
+      transform: skewX(-18deg);
+      border-radius: 18px;
+      border: 1px solid rgba(26, 21, 34, 0.12);
+      background-color: rgba(255, 255, 255, 0.82);
+      box-shadow: 0 18px 34px rgba(26, 21, 34, 0.04);
+    }
+
+    .reward-token.is-complete {
+      background-color: rgba(255, 104, 181, 0.24);
+      border-color: rgba(255, 104, 181, 0.62);
+    }
+
+    .reward-token.is-current {
+      background-color: rgba(255, 104, 181, 0.12);
+      border-color: rgba(255, 104, 181, 0.46);
+      box-shadow: 0 18px 34px rgba(255, 104, 181, 0.1);
+    }
+
+    .reward-token-label {
+      display: inline-block;
+      width: 214px;
+      line-height: 62px;
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 2.4px;
+      color: #19141f;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .reward-grid {
+      position: absolute;
+      left: 92px;
+      top: 320px;
+      width: 1096px;
+      height: 214px;
+      text-align: center;
+    }
+
+    .character-card {
+      position: relative;
+      display: inline-block;
+      width: 250px;
+      height: 214px;
+      margin: 0 10px;
+      text-align: left;
+      vertical-align: top;
+      cursor: pointer;
+    }
+
+    .character-card.is-selected {
+    }
+
+    .character-shell {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 250px;
+      height: 214px;
+      background-color: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(26, 21, 34, 0.12);
+      box-shadow: 0 24px 44px rgba(26, 21, 34, 0.06);
+      border-radius: 24px;
+      transition:
+        background-color 180ms ease,
+        border-color 180ms ease,
+        box-shadow 180ms ease;
+    }
+
+    .character-card.is-selected .character-shell {
+      background-color: #ff63b0;
+      border-color: rgba(255, 99, 176, 0.94);
+      box-shadow: 0 28px 46px rgba(255, 99, 176, 0.22);
+    }
+
+    .character-accent {
+      position: absolute;
+      left: 18px;
+      top: 18px;
+      width: 8px;
+      height: 178px;
+      border-radius: 999px;
+      background-color: rgba(23, 20, 31, 0.16);
+      transition: background-color 180ms ease;
+    }
+
+    .character-card.is-selected .character-accent {
+      background-color: rgba(255, 255, 255, 0.82);
+    }
+
+    .character-inner {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 250px;
+      height: 214px;
+      padding: 22px 24px 0 38px;
+    }
+
+    .character-topline {
+      position: relative;
+      height: 46px;
+      border-bottom: 1px solid rgba(26, 21, 34, 0.1);
+      transition: border-bottom-color 180ms ease;
+    }
+
+    .character-card.is-selected .character-topline {
+      border-bottom-color: rgba(255, 255, 255, 0.26);
+    }
+
+    .character-header {
+      position: relative;
+      height: 28px;
+      padding-left: 42px;
+    }
+
+    .character-icon {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 28px;
+      height: 28px;
+      border-radius: 12px;
+      background-color: rgba(26, 21, 34, 0.1);
+      text-align: center;
+      line-height: 28px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: #17131f;
+      text-transform: uppercase;
+      transition:
+        background-color 180ms ease,
+        color 180ms ease;
+    }
+
+    .character-card.is-selected .character-icon {
+      background-color: rgba(255, 255, 255, 0.88);
+      color: #ff4ca6;
+    }
+
+    .character-name {
+      margin: 0;
+      font-size: 20px;
+      line-height: 24px;
+      font-weight: 700;
+      color: #19141f;
+      text-transform: uppercase;
+      transition: color 180ms ease;
+    }
+
+    .character-card.is-selected .character-name {
+      color: #fff7fb;
+    }
+
+    .buff-badge {
+      position: absolute;
+      right: 0;
+      top: 0;
+      min-width: 42px;
+      height: 28px;
+      padding: 0 10px;
+      border: 1px solid rgba(26, 21, 34, 0.1);
+      background-color: rgba(255, 104, 181, 0.1);
+      color: #d63e8b;
+      line-height: 26px;
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      transition:
+        border-color 180ms ease,
+        background-color 180ms ease,
+        color 180ms ease;
+    }
+
+    .character-card.is-selected .buff-badge {
+      border-color: rgba(255, 255, 255, 0.28);
+      background-color: rgba(255, 255, 255, 0.14);
+      color: #fff7fb;
+    }
+
+    .stat-row {
+      position: relative;
+      height: 32px;
+      margin-top: 12px;
+    }
+
+    .stat-row--first {
+      margin-top: 16px;
+    }
+
+    .stat-label {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 70px;
+      font-size: 11px;
+      line-height: 20px;
+      font-weight: 700;
+      letter-spacing: 1.8px;
+      color: rgba(26, 21, 34, 0.46);
+      text-transform: uppercase;
+      transition: color 180ms ease;
+    }
+
+    .character-card.is-selected .stat-label {
+      color: rgba(255, 247, 251, 0.72);
+    }
+
+    .stat-base {
+      position: absolute;
+      left: 72px;
+      top: 0;
+      width: 42px;
+      font-size: 20px;
+      line-height: 20px;
+      font-weight: 700;
+      color: #19141f;
+      transition: color 180ms ease;
+    }
+
+    .character-card.is-selected .stat-base {
+      color: #fff7fb;
+    }
+
+    .stat-arrow {
+      position: absolute;
+      left: 118px;
+      top: 0;
+      width: 18px;
+      font-size: 16px;
+      line-height: 20px;
+      color: rgba(26, 21, 34, 0.34);
+      text-align: center;
+      transition: color 180ms ease;
+    }
+
+    .character-card.is-selected .stat-arrow {
+      color: rgba(255, 247, 251, 0.48);
+    }
+
+    .stat-next {
+      position: absolute;
+      left: 144px;
+      top: 0;
+      width: 44px;
+      font-size: 20px;
+      line-height: 20px;
+      font-weight: 700;
+      color: #ff4ca6;
+      transition: color 180ms ease;
+    }
+
+    .character-card.is-selected .stat-next {
+      color: #fff7fb;
+    }
+
+    .stat-gain {
+      position: absolute;
+      right: 0;
+      top: -2px;
+      min-width: 44px;
+      height: 22px;
+      padding: 0 8px;
+      border-radius: 999px;
+      background-color: rgba(99, 205, 191, 0.18);
+      color: #187c72;
+      line-height: 22px;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+      transition:
+        background-color 180ms ease,
+        color 180ms ease;
+    }
+
+    .character-card.is-selected .stat-gain {
+      background-color: rgba(255, 255, 255, 0.16);
+      color: #fff7fb;
+    }
+
+    .reward-hint {
+      position: absolute;
+      left: 92px;
+      bottom: 118px;
+      width: 620px;
+      font-size: 12px;
+      line-height: 22px;
+      letter-spacing: 0.4px;
+      color: rgba(26, 21, 34, 0.52);
+    }
+
+    .footer-actions {
+      position: absolute;
+      left: 50%;
+      bottom: 34px;
+      width: 620px;
+      height: 68px;
+      margin-left: -310px;
+    }
+
+    .reward-return {
+      left: 0;
+      top: 0;
+    }
+
+    .reward-continue {
+      right: 0;
+      top: 0;
+    }
+
+    .transition-shell {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 620px;
+      height: 284px;
+      margin-left: -310px;
+      margin-top: -142px;
+      text-align: center;
+    }
+
+    .transition-card {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 620px;
+      height: 284px;
+      background-color: rgba(255, 255, 255, 0.92);
+      border: 1px solid rgba(26, 21, 34, 0.12);
+      box-shadow: 0 30px 58px rgba(26, 21, 34, 0.08);
+      transform: skewX(-14deg);
+      border-radius: 28px;
+    }
+
+    .transition-inner {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 620px;
+      height: 284px;
+      padding-top: 54px;
+    }
+
+    .transition-kicker {
+      margin: 0;
+      font-size: 13px;
+      line-height: 18px;
+      font-weight: 700;
+      letter-spacing: 3.2px;
+      color: rgba(26, 21, 34, 0.44);
+      text-transform: uppercase;
+    }
+
+    .transition-title {
+      margin: 18px 0 0;
+      font-size: 50px;
+      line-height: 52px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #19141f;
+    }
+
+    .transition-copy {
+      margin: 20px auto 0;
+      width: 430px;
+      font-size: 14px;
+      line-height: 24px;
+      letter-spacing: 0.5px;
+      color: rgba(26, 21, 34, 0.58);
+    }
+
+    .transition-ribbon {
+      position: absolute;
+      left: 50%;
+      bottom: 42px;
+      width: 264px;
+      height: 42px;
+      margin-left: -132px;
+      background-color: #17131f;
+      transform: skewX(-18deg);
+      border-radius: 12px;
+    }
+
+    .transition-ribbon span {
+      display: block;
+      line-height: 42px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2.8px;
+      color: #fff7fb;
+      text-transform: uppercase;
+    }
+
+    .flash-overlay {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0);
+      pointer-events: none;
+    }
+
+    .flash-overlay.is-active {
+      animation: page-flash 360ms ease;
+    }
+
+    .character-card.is-pulsing .character-shell {
+      animation: card-pulse 320ms ease;
+    }
+
+    .screen.is-active .metric-card,
+    .screen.is-active .ranking-panel,
+    .screen.is-active .reward-token {
+      animation: settle-up 320ms ease;
+    }
+
+    @keyframes settle-up {
+      from {
+        opacity: 0;
+        transform: translateY(14px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes page-flash {
+      from {
+        background-color: rgba(255, 255, 255, 0.88);
+      }
+      to {
+        background-color: rgba(255, 255, 255, 0);
+      }
+    }
+
+    @keyframes card-pulse {
+      0% {
+        box-shadow: 0 24px 44px rgba(255, 104, 181, 0.12);
+      }
+      50% {
+        box-shadow: 0 28px 54px rgba(99, 205, 191, 0.24);
+      }
+      100% {
+        box-shadow: 0 24px 44px rgba(255, 104, 181, 0.12);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <div class="ambient-bloom ambient-bloom--left"></div>
+    <div class="ambient-bloom ambient-bloom--right"></div>
+    <div class="stage" id="stage">
+      <div class="grid-lines">
+        <div class="grid-axis grid-axis--vertical"></div>
+        <div class="grid-axis grid-axis--horizontal"></div>
+      </div>
+      <div class="signal-strip"></div>
+      <div class="signal-dot"></div>
+      <div class="control-button" id="replay-control">Replay Intro</div>
+
+      <div class="screen is-active" id="summary-screen">
+        <div class="headline-block">
+          <p class="eyebrow">Post Combat Analysis / Trial Record</p>
+          <h1 class="title">Combat Dossier</h1>
+        </div>
+
+        <div class="metrics-row">
+          <div class="metric-card metric-card--one">
+            <div class="metric-shell"></div>
+            <div class="metric-accent metric-accent--one"></div>
+            <div class="metric-inner">
+              <p class="metric-label">Total Damage</p>
+              <p class="metric-value" id="metric-total-damage">0</p>
+              <p class="metric-foot" id="metric-total-foot">Across the active party</p>
+            </div>
+          </div>
+
+          <div class="metric-card metric-card--two">
+            <div class="metric-shell"></div>
+            <div class="metric-accent metric-accent--two"></div>
+            <div class="metric-inner">
+              <p class="metric-label">AV Spent</p>
+              <p class="metric-value" id="metric-av-spent">0</p>
+              <p class="metric-foot" id="metric-av-foot">Tempo investment this battle</p>
+            </div>
+          </div>
+
+          <div class="metric-card metric-card--three">
+            <div class="metric-shell"></div>
+            <div class="metric-accent metric-accent--three"></div>
+            <div class="metric-inner">
+              <p class="metric-label">DMG / AV</p>
+              <p class="metric-value" id="metric-dmg-per-av">0</p>
+              <p class="metric-foot" id="metric-dpa-foot">Pressure efficiency</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="ranking-panel">
+          <div class="ranking-header">
+            <div class="ranking-title">Damage Ranking</div>
+            <div class="ranking-caption">Sorted by total dealt</div>
+          </div>
+          <div class="ranking-list" id="ranking-list"></div>
+        </div>
+
+        <div class="primary-button primary-button--pink summary-continue is-focused" id="summary-continue" tabindex="0">
+          <div class="primary-button-shell"></div>
+          <div class="primary-button-text">Continue</div>
+        </div>
+      </div>
+
+      <div class="screen" id="reward-screen">
+        <div class="reward-header">
+          <div class="headline-block" style="left:0;top:0;width:650px;height:122px;">
+            <p class="eyebrow">Post Combat Reward Routing</p>
+            <h1 class="title" id="reward-title" style="font-size:44px;line-height:48px;">Allocate Growth</h1>
+            <p class="subtitle" id="reward-subtitle">Choose who receives each all-stat combat bloom. The same character can be picked multiple times. Buffs can be transferred when playing the PRACTICE MODE.</p>
+          </div>
+
+          <div class="reward-header-right">
+            <p class="summary-note-kicker">Current Step</p>
+            <p class="summary-note-copy" id="reward-step-copy" style="margin-top:14px;font-size:24px;line-height:28px;font-weight:700;color:#19141f;text-transform:uppercase;">Buff 1 / 4</p>
+          </div>
+        </div>
+
+        <div class="reward-track" id="reward-track"></div>
+        <div class="reward-grid" id="reward-grid"></div>
+
+        <p class="reward-hint" id="reward-hint">Use Left / Right to pick a character, then press Enter to assign the current reward. Mouse hover and click follow the same state.</p>
+
+        <div class="footer-actions">
+          <div class="primary-button primary-button--dark reward-return" id="reward-return" tabindex="0">
+            <div class="primary-button-shell"></div>
+            <div class="primary-button-text">Return To Stats</div>
+          </div>
+
+          <div class="primary-button primary-button--pink reward-continue is-disabled" id="reward-continue" tabindex="0">
+            <div class="primary-button-shell"></div>
+            <div class="primary-button-text">Continue Story</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="transition-screen">
+        <div class="transition-shell">
+          <div class="transition-card"></div>
+          <div class="transition-inner">
+            <p class="transition-kicker">Story Link Ready</p>
+            <h1 class="transition-title">Transition To Story</h1>
+            <p class="transition-copy">This prototype stops at the narrative handoff. In-game, this is where the next story transition screen or VN scene would take over.</p>
+            <div class="transition-ribbon"><span>Combat loop complete</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="flash-overlay" id="flash-overlay"></div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var rosterSource = [
+        {
+          name: "Ari",
+          role: "Lead Striker",
+          totalDamage: 6840,
+          stats: { hp: 132, atk: 41, spd: 24 }
+        },
+        {
+          name: "Miku",
+          role: "Rhythm Driver",
+          totalDamage: 5210,
+          stats: { hp: 118, atk: 35, spd: 27 }
+        },
+        {
+          name: "Lyoo",
+          role: "Utility Pulse",
+          totalDamage: 3675,
+          stats: { hp: 146, atk: 28, spd: 18 }
+        },
+        {
+          name: "Jiafei",
+          role: "Burst Support",
+          totalDamage: 2940,
+          stats: { hp: 112, atk: 31, spd: 22 }
+        }
+      ];
+
+      var avMap = {
+        1: 39,
+        2: 66,
+        3: 88,
+        4: 113
+      };
+
+      var rewardGain = {
+        hp: 8,
+        atk: 3,
+        spd: 2
+      };
+
+      var state = {
+        party: [],
+        screen: "summary",
+        selectedCharacter: 0,
+        rewardsAssigned: 0,
+        footerFocus: "continue"
+      };
+
+      var summaryScreen = document.getElementById("summary-screen");
+      var rewardScreen = document.getElementById("reward-screen");
+      var transitionScreen = document.getElementById("transition-screen");
+      var rankingList = document.getElementById("ranking-list");
+      var rewardTrack = document.getElementById("reward-track");
+      var rewardGrid = document.getElementById("reward-grid");
+      var summaryContinue = document.getElementById("summary-continue");
+      var rewardReturn = document.getElementById("reward-return");
+      var rewardContinue = document.getElementById("reward-continue");
+      var replayControl = document.getElementById("replay-control");
+      var flashOverlay = document.getElementById("flash-overlay");
+      var signalStrip = document.getElementsByClassName("signal-strip")[0];
+      var signalDot = document.getElementsByClassName("signal-dot")[0];
+
+      var hoverSfx = createAudio("../assets/ui/sfx/UI_button-hover.wav", 0.38);
+      var selectSfx = createAudio("../assets/ui/sfx/UI_button-select.wav", 0.74);
+      var panelSfx = createAudio("../assets/ui/sfx/Results_statistics-panel-pop-in.wav", 0.56);
+      var progressSfx = createAudio("../assets/ui/sfx/Results_score-tick.wav", 0.54);
+      var lineSfx = createAudio("../assets/ui/sfx/UI_bss-progress.wav", 0.5);
+
+      var summaryAnimationFrame = 0;
+      var summaryRowTimeouts = [];
+      var signalTimeout = 0;
+
+      function createAudio(src, volume) {
+        var audio = new Audio(src);
+        audio.preload = "auto";
+        audio.volume = volume;
+        return audio;
+      }
+
+      function playAudio(audio) {
+        if (!audio) {
+          return;
+        }
+
+        try {
+          audio.pause();
+          audio.currentTime = 0;
+          audio.play();
+        } catch (error) {
+          console.error("Failed to play audio.", audio && audio.src, error);
+        }
+      }
+
+      function cloneCharacter(source) {
+        return {
+          name: source.name,
+          role: source.role,
+          totalDamage: source.totalDamage,
+          buffCount: 0,
+          stats: {
+            hp: source.stats.hp,
+            atk: source.stats.atk,
+            spd: source.stats.spd
+          }
+        };
+      }
+
+      function flashPage() {
+        flashOverlay.className = "flash-overlay is-active";
+        window.setTimeout(function () {
+          flashOverlay.className = "flash-overlay";
+        }, 360);
+      }
+
+      function formatNumber(value) {
+        return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
+
+      function getTotalDamage() {
+        var sum = 0;
+        var i;
+
+        for (i = 0; i < state.party.length; i += 1) {
+          sum += state.party[i].totalDamage;
+        }
+
+        return sum;
+      }
+
+      function getAvSpent() {
+        return avMap[state.party.length] || 113;
+      }
+
+      function getDamagePerAv() {
+        var av = getAvSpent();
+        var total = getTotalDamage();
+        if (!av) {
+          return 0;
+        }
+        return Math.round((total / av) * 10) / 10;
+      }
+
+      function getRanking() {
+        var cloned = state.party.slice();
+        cloned.sort(function (a, b) {
+          return b.totalDamage - a.totalDamage;
+        });
+        return cloned;
+      }
+
+      function renderSummary() {
+        var totalDamage = getTotalDamage();
+        var avSpent = getAvSpent();
+        var ranking = getRanking();
+        var metricTotalFoot = document.getElementById("metric-total-foot");
+        var metricAvFoot = document.getElementById("metric-av-foot");
+        var metricDpaFoot = document.getElementById("metric-dpa-foot");
+        var html = "";
+        var i;
+
+        document.getElementById("metric-total-damage").textContent = "0";
+        document.getElementById("metric-av-spent").textContent = "0";
+        document.getElementById("metric-dmg-per-av").textContent = "0.0";
+        metricTotalFoot.textContent = state.party.length + " active unit" + (state.party.length === 1 ? "" : "s");
+        metricAvFoot.textContent = "Action value spent this fight";
+        metricDpaFoot.textContent = "Damage efficiency snapshot";
+
+        for (i = 0; i < 4; i += 1) {
+          if (ranking[i]) {
+            var share = totalDamage ? Math.round((ranking[i].totalDamage / totalDamage) * 100) : 0;
+            html += "<div class=\"ranking-row ranking-row--" + i + "\">";
+            html += "<div class=\"ranking-rank\">#" + (i + 1) + "</div>";
+            html += "<div class=\"ranking-name\">" + ranking[i].name + "</div>";
+            html += "<div class=\"ranking-bar-shell\"><div class=\"ranking-bar-fill\" id=\"ranking-fill-" + i + "\"></div></div>";
+            html += "<div class=\"ranking-share\" id=\"ranking-share-" + i + "\">0%</div>";
+            html += "<div class=\"ranking-total\" id=\"ranking-total-" + i + "\">0</div>";
+            html += "</div>";
+          } else {
+            html += "<div class=\"ranking-row ranking-row--" + i + "\">";
+            html += "<div class=\"ranking-rank\">--</div>";
+            html += "<div class=\"ranking-name\" style=\"color:rgba(26,21,34,0.28)\">EMPTY</div>";
+            html += "<div class=\"ranking-bar-shell\"></div>";
+            html += "<div class=\"ranking-share\">0%</div>";
+            html += "<div class=\"ranking-total\">0</div>";
+            html += "</div>";
+          }
+        }
+
+        rankingList.innerHTML = html;
+      }
+
+      function clearSummaryAnimation() {
+        var i;
+        if (summaryAnimationFrame) {
+          window.cancelAnimationFrame(summaryAnimationFrame);
+          summaryAnimationFrame = 0;
+        }
+        for (i = 0; i < summaryRowTimeouts.length; i += 1) {
+          window.clearTimeout(summaryRowTimeouts[i]);
+        }
+        summaryRowTimeouts = [];
+      }
+
+      function startSummaryIntro() {
+        var totalDamage = getTotalDamage();
+        var avSpent = getAvSpent();
+        var damagePerAv = getDamagePerAv();
+        var ranking = getRanking();
+        var startTime = 0;
+        var damageRate = 9800;
+        var avRate = 120;
+        var efficiencyRate = 120;
+        var rowDamageRate = 7600;
+        var rowShareRate = 60;
+        var i;
+
+        clearSummaryAnimation();
+        setSignalArmed(false);
+        renderSummary();
+        playAudio(panelSfx);
+
+        for (i = 0; i < ranking.length; i += 1) {
+          summaryRowTimeouts.push(window.setTimeout(function () {
+            playAudio(progressSfx);
+          }, i * 140));
+        }
+
+        function animate(now) {
+          var done = true;
+          var elapsed;
+          var currentDamage;
+          var currentAv;
+          var currentDpa;
+          var rowIndex;
+
+          if (!startTime) {
+            startTime = now;
+          }
+
+          elapsed = (now - startTime) / 1000;
+          currentDamage = Math.min(totalDamage, Math.floor(elapsed * damageRate));
+          currentAv = Math.min(avSpent, Math.floor(elapsed * avRate));
+          currentDpa = Math.min(damagePerAv, Math.round(elapsed * efficiencyRate * 10) / 10);
+
+          document.getElementById("metric-total-damage").textContent = formatNumber(currentDamage);
+          document.getElementById("metric-av-spent").textContent = formatNumber(currentAv);
+          document.getElementById("metric-dmg-per-av").textContent = currentDpa.toFixed(1);
+
+          if (currentDamage < totalDamage || currentAv < avSpent || currentDpa < damagePerAv) {
+            done = false;
+          }
+
+          for (rowIndex = 0; rowIndex < ranking.length; rowIndex += 1) {
+            var rowElapsed = elapsed - (rowIndex * 0.14);
+            var currentRowDamage = 0;
+            var targetShare = totalDamage ? Math.round((ranking[rowIndex].totalDamage / totalDamage) * 100) : 0;
+            var currentShare = 0;
+            var fillTarget = totalDamage ? Math.round((ranking[rowIndex].totalDamage / totalDamage) * 514) : 0;
+            var fillWidth = 0;
+            var totalNode = document.getElementById("ranking-total-" + rowIndex);
+            var shareNode = document.getElementById("ranking-share-" + rowIndex);
+            var fillNode = document.getElementById("ranking-fill-" + rowIndex);
+
+            if (rowElapsed > 0) {
+              currentRowDamage = Math.min(ranking[rowIndex].totalDamage, Math.floor(rowElapsed * rowDamageRate));
+              currentShare = Math.min(targetShare, Math.floor(rowElapsed * rowShareRate));
+              fillWidth = ranking[rowIndex].totalDamage ? Math.round(fillTarget * (currentRowDamage / ranking[rowIndex].totalDamage)) : 0;
+            }
+
+            if (totalNode) {
+              totalNode.textContent = formatNumber(currentRowDamage);
+            }
+            if (shareNode) {
+              shareNode.textContent = currentShare + "%";
+            }
+            if (fillNode) {
+              fillNode.style.width = fillWidth + "px";
+            }
+
+            if (currentRowDamage < ranking[rowIndex].totalDamage || currentShare < targetShare) {
+              done = false;
+            }
+          }
+
+          if (!done) {
+            summaryAnimationFrame = window.requestAnimationFrame(animate);
+          }
+        }
+
+        summaryAnimationFrame = window.requestAnimationFrame(animate);
+      }
+
+      function renderRewardTrack() {
+        var html = "";
+        var progressWidth = Math.round((state.rewardsAssigned / 4) * 772);
+        var dotLeft = progressWidth;
+        var i;
+        for (i = 0; i < 4; i += 1) {
+          var classes = "reward-token";
+          if (i < state.rewardsAssigned) {
+            classes += " is-complete";
+          } else if (i === state.rewardsAssigned) {
+            classes += " is-current";
+          }
+          html += "<div class=\"" + classes + "\"><div class=\"reward-token-label\">Bloom " + (i + 1) + "</div></div>";
+        }
+        html += "<div class=\"reward-progress-rail\"><div class=\"reward-progress-fill\" style=\"width:" + progressWidth + "px\"></div><div class=\"reward-progress-dot\" style=\"left:" + dotLeft + "px\"></div></div>";
+        rewardTrack.innerHTML = html;
+      }
+
+      function renderRewardHeader() {
+        var rewardTitle = document.getElementById("reward-title");
+        var rewardSubtitle = document.getElementById("reward-subtitle");
+        var rewardStepCopy = document.getElementById("reward-step-copy");
+        var rewardHint = document.getElementById("reward-hint");
+
+        if (state.rewardsAssigned < 4) {
+          rewardTitle.textContent = "Allocate Growth";
+          rewardSubtitle.textContent = "Choose who receives each all-stat combat bloom. The same character can be picked multiple times. Buffs can be transferred when playing the PRACTICE MODE.";
+          rewardStepCopy.textContent = "Buff " + (state.rewardsAssigned + 1) + " / 4";
+          rewardHint.textContent = "Use Left / Right to pick a character, then press Enter to assign the current reward. Mouse hover and click follow the same state.";
+        } else {
+          rewardTitle.textContent = "Allocation Complete";
+          rewardSubtitle.textContent = "All four combat blooms have been assigned. Review the upgraded cards, then continue to the story handoff.";
+          rewardStepCopy.textContent = "4 / 4 routed";
+          rewardHint.textContent = "All reward picks are locked in for this prototype pass. Use Left / Right to choose the footer action, then press Enter.";
+        }
+      }
+
+      function statRow(label, key, value) {
+        var next = value + rewardGain[key];
+        return "<div class=\"stat-row" + (key === "hp" ? " stat-row--first" : "") + "\">" +
+          "<div class=\"stat-label\">" + label + "</div>" +
+          "<div class=\"stat-base\">" + value + "</div>" +
+          "<div class=\"stat-arrow\">></div>" +
+          "<div class=\"stat-next\">" + next + "</div>" +
+          "<div class=\"stat-gain\">+" + rewardGain[key] + "</div>" +
+          "</div>";
+      }
+
+      function getInitials(name) {
+        var compact = name.replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+        if (compact.length >= 2) {
+          return compact.slice(0, 2);
+        }
+        return compact || "U";
+      }
+
+      function renderRewardGrid() {
+        var html = "";
+        var i;
+
+        for (i = 0; i < state.party.length; i += 1) {
+          var unit = state.party[i];
+          var selectedClass = state.selectedCharacter === i && state.rewardsAssigned < 4 ? " is-selected" : "";
+          html += "<div class=\"character-card" + selectedClass + "\" data-index=\"" + i + "\">";
+          html += "<div class=\"character-shell\"></div>";
+          html += "<div class=\"character-accent\"></div>";
+          html += "<div class=\"character-inner\">";
+          html += "<div class=\"character-topline\">";
+          html += "<div class=\"character-header\">";
+          html += "<div class=\"character-icon\">" + getInitials(unit.name) + "</div>";
+          html += "<p class=\"character-name\">" + unit.name + "</p>";
+          html += "</div>";
+          html += "<div class=\"buff-badge\">+" + unit.buffCount + "</div>";
+          html += "</div>";
+          html += statRow("HP", "hp", unit.stats.hp);
+          html += statRow("ATK", "atk", unit.stats.atk);
+          html += statRow("SPD", "spd", unit.stats.spd);
+          html += "</div>";
+          html += "</div>";
+        }
+
+        rewardGrid.innerHTML = html;
+      }
+
+      function updateRewardSelection() {
+        var cards = rewardGrid.getElementsByClassName("character-card");
+        var i;
+
+        for (i = 0; i < cards.length; i += 1) {
+          var isSelected = state.selectedCharacter === i && state.rewardsAssigned < 4;
+          cards[i].className = "character-card" + (isSelected ? " is-selected" : "");
+        }
+      }
+
+      function renderScreens() {
+        summaryScreen.className = "screen" + (state.screen === "summary" ? " is-active" : "");
+        rewardScreen.className = "screen" + (state.screen === "reward" ? " is-active" : "");
+        transitionScreen.className = "screen" + (state.screen === "transition" ? " is-active" : "");
+        summaryContinue.className = "primary-button primary-button--pink summary-continue" + (state.screen === "summary" ? " is-focused" : "");
+
+        rewardReturn.className = "primary-button primary-button--dark reward-return";
+        rewardContinue.className = "primary-button primary-button--pink reward-continue";
+
+        if (state.rewardsAssigned < 4) {
+          rewardContinue.className += " is-disabled";
+        }
+
+        if (state.screen === "reward" && state.rewardsAssigned >= 4) {
+          if (state.footerFocus === "return") {
+            rewardReturn.className += " is-focused";
+          } else {
+            rewardContinue.className += " is-focused";
+          }
+        }
+
+        if (state.screen === "summary") {
+          replayControl.style.display = "block";
+          replayControl.textContent = "Replay Intro";
+        } else if (state.screen === "reward") {
+          replayControl.style.display = "block";
+          replayControl.textContent = "Replay Signal";
+        } else {
+          replayControl.style.display = "none";
+        }
+      }
+
+      function renderAll() {
+        renderSummary();
+        renderRewardTrack();
+        renderRewardHeader();
+        renderRewardGrid();
+        renderScreens();
+      }
+
+      function moveSelection(step) {
+        if (state.screen !== "reward") {
+          return;
+        }
+
+        if (state.rewardsAssigned >= 4) {
+          state.footerFocus = state.footerFocus === "continue" ? "return" : "continue";
+          renderScreens();
+          playAudio(hoverSfx);
+          return;
+        }
+
+        state.selectedCharacter += step;
+        if (state.selectedCharacter < 0) {
+          state.selectedCharacter = state.party.length - 1;
+        }
+        if (state.selectedCharacter >= state.party.length) {
+          state.selectedCharacter = 0;
+        }
+
+        updateRewardSelection();
+        playAudio(hoverSfx);
+      }
+
+      function assignReward(index) {
+        var cardNodes;
+        var unit;
+
+        if (state.screen !== "reward" || state.rewardsAssigned >= 4) {
+          return;
+        }
+
+        unit = state.party[index];
+        if (!unit) {
+          return;
+        }
+
+        unit.stats.hp += rewardGain.hp;
+        unit.stats.atk += rewardGain.atk;
+        unit.stats.spd += rewardGain.spd;
+        unit.buffCount += 1;
+        state.rewardsAssigned += 1;
+        state.selectedCharacter = index;
+        state.footerFocus = "continue";
+
+        renderRewardTrack();
+        renderRewardHeader();
+        renderGridAndFooter();
+        playAudio(selectSfx);
+
+        cardNodes = rewardGrid.getElementsByClassName("character-card");
+        if (cardNodes[index]) {
+          cardNodes[index].className += " is-pulsing";
+          window.setTimeout(function () {
+            renderRewardGrid();
+            updateRewardSelection();
+          }, 320);
+        }
+      }
+
+      function renderGridAndFooter() {
+        renderRewardGrid();
+        renderScreens();
+      }
+
+      function setSignalArmed(isArmed) {
+        signalStrip.className = isArmed ? "signal-strip is-armed" : "signal-strip";
+        signalDot.className = isArmed ? "signal-dot is-armed" : "signal-dot";
+      }
+
+      function animateSignal() {
+        window.clearTimeout(signalTimeout);
+        setSignalArmed(false);
+        signalTimeout = window.setTimeout(function () {
+          setSignalArmed(true);
+          playAudio(lineSfx);
+        }, 60);
+      }
+
+      function goToSummary() {
+        state.screen = "summary";
+        renderScreens();
+        flashPage();
+        startSummaryIntro();
+      }
+
+      function goToReward() {
+        state.screen = "reward";
+        renderScreens();
+        renderRewardHeader();
+        renderRewardGrid();
+        playAudio(panelSfx);
+        flashPage();
+        animateSignal();
+      }
+
+      function goToTransition() {
+        state.screen = "transition";
+        renderScreens();
+        playAudio(selectSfx);
+        flashPage();
+      }
+
+      function syncScale() {
+        var stage = document.getElementById("stage");
+        var scaleX = window.innerWidth / 1280;
+        var scaleY = window.innerHeight / 720;
+        var scale = scaleX < scaleY ? scaleX : scaleY;
+        stage.style.transform = "scale(" + scale + ")";
+      }
+
+      document.addEventListener("keydown", function (event) {
+        if (state.screen === "summary") {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            goToReward();
+          } else if (event.key === "r" || event.key === "R") {
+            event.preventDefault();
+            startSummaryIntro();
+          }
+          return;
+        }
+
+        if (state.screen === "reward") {
+          if (state.rewardsAssigned < 4) {
+            if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+              event.preventDefault();
+              moveSelection(-1);
+            } else if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+              event.preventDefault();
+              moveSelection(1);
+            } else if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              assignReward(state.selectedCharacter);
+            }
+          } else if (event.key === "ArrowLeft" || event.key === "ArrowUp") {
+            event.preventDefault();
+            moveSelection(-1);
+          } else if (event.key === "ArrowRight" || event.key === "ArrowDown") {
+            event.preventDefault();
+            moveSelection(1);
+          } else if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            if (state.footerFocus === "return") {
+              goToSummary();
+            } else {
+              goToTransition();
+            }
+          } else if (event.key === "r" || event.key === "R") {
+            event.preventDefault();
+            animateSignal();
+          }
+        }
+      });
+
+      document.addEventListener("click", function (event) {
+        var target = event.target;
+        var card = closestWithClass(target, "character-card");
+        var summaryButton = closestWithClass(target, "summary-continue");
+        var returnButton = closestWithClass(target, "reward-return");
+        var rewardButton = closestWithClass(target, "reward-continue");
+        var replayButton = closestWithClass(target, "control-button");
+
+        if (replayButton) {
+          if (state.screen === "summary") {
+            startSummaryIntro();
+          } else if (state.screen === "reward") {
+            animateSignal();
+          }
+          return;
+        }
+
+        if (summaryButton && state.screen === "summary") {
+          goToReward();
+          return;
+        }
+
+        if (returnButton && state.screen === "reward") {
+          goToSummary();
+          return;
+        }
+
+        if (rewardButton && state.screen === "reward" && state.rewardsAssigned >= 4) {
+          goToTransition();
+          return;
+        }
+
+        if (card && state.screen === "reward") {
+          state.selectedCharacter = parseInt(card.getAttribute("data-index"), 10) || 0;
+          updateRewardSelection();
+          playAudio(hoverSfx);
+          if (state.rewardsAssigned < 4) {
+            assignReward(state.selectedCharacter);
+          }
+        }
+      });
+
+      document.addEventListener("mousemove", function (event) {
+        var card = closestWithClass(event.target, "character-card");
+        var summaryButton = closestWithClass(event.target, "summary-continue");
+        var returnButton = closestWithClass(event.target, "reward-return");
+        var rewardButton = closestWithClass(event.target, "reward-continue");
+        var replayButton = closestWithClass(event.target, "control-button");
+        var nextIndex;
+
+        if (summaryButton && state.screen === "summary") {
+          summaryContinue.className = "primary-button primary-button--pink summary-continue is-focused";
+          return;
+        }
+
+        if (replayButton) {
+          replayControl.className = "control-button is-focused";
+          return;
+        }
+
+        if (state.screen === "reward" && state.rewardsAssigned >= 4 && (rewardButton || returnButton)) {
+          state.footerFocus = rewardButton ? "continue" : "return";
+          renderScreens();
+          return;
+        }
+
+        replayControl.className = "control-button";
+
+        if (!card || state.screen !== "reward" || state.rewardsAssigned >= 4) {
+          return;
+        }
+
+        nextIndex = parseInt(card.getAttribute("data-index"), 10) || 0;
+        if (nextIndex !== state.selectedCharacter) {
+          state.selectedCharacter = nextIndex;
+          updateRewardSelection();
+          playAudio(hoverSfx);
+        }
+      });
+
+      function closestWithClass(element, className) {
+        while (element && element !== document.body) {
+          if (hasClass(element, className)) {
+            return element;
+          }
+          element = element.parentNode;
+        }
+        return null;
+      }
+
+      function hasClass(element, className) {
+        if (!element || !element.className || typeof element.className !== "string") {
+          return false;
+        }
+        return (" " + element.className + " ").indexOf(" " + className + " ") >= 0;
+      }
+
+      window.addEventListener("resize", syncScale);
+
+      state.party = [];
+      state.party.push(cloneCharacter(rosterSource[0]));
+      state.party.push(cloneCharacter(rosterSource[1]));
+      state.party.push(cloneCharacter(rosterSource[2]));
+      state.party.push(cloneCharacter(rosterSource[3]));
+      renderAll();
+      startSummaryIntro();
+      syncScale();
+    })();
+  </script>
+</body>
+</html>

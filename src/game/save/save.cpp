@@ -88,7 +88,8 @@ json progressionJson(const battle::PlayerProgression& progression) {
     return json{
         {"unlockedCharacterKeys", progression.unlockedCharacterKeys},
         {"currentPartyLineup", progression.currentPartyLineup},
-        {"clearedBattleKeys", progression.clearedBattleKeys}
+        {"clearedBattleKeys", progression.clearedBattleKeys},
+        {"stageBuffAssignments", progression.stageBuffAssignments}
     };
 }
 
@@ -109,6 +110,8 @@ bool parseProfileProgression(const json& root, battle::PlayerProgression& outPro
         progressionIt->value("currentPartyLineup", std::vector<std::string>{});
     outProgression.clearedBattleKeys =
         progressionIt->value("clearedBattleKeys", std::vector<std::string>{});
+    outProgression.stageBuffAssignments =
+        progressionIt->value("stageBuffAssignments", battle::StageBuffAssignments{});
     return true;
 }
 
@@ -412,7 +415,9 @@ std::optional<fs::path> findMatchingManualSavePath(const SaveGame& saveGame) {
         if (!candidate.has_value()) {
             continue;
         }
-        if (candidate->chapter != saveGame.chapter || candidate->entryIndex != saveGame.entryIndex) {
+        if (candidate->chapter != saveGame.chapter ||
+            candidate->saveContext != saveGame.saveContext ||
+            candidate->entryIndex != saveGame.entryIndex) {
             continue;
         }
 

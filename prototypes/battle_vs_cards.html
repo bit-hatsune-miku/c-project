@@ -1,0 +1,1346 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battle VS Cards Prototype</title>
+    <style>
+        @font-face {
+            font-family: "Space Mono";
+            src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+            font-weight: 400;
+        }
+
+        @font-face {
+            font-family: "Space Mono";
+            src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+            font-weight: 700;
+        }
+
+        @font-face {
+            font-family: "Noto Sans CJK";
+            src: url("../assets/fonts/NotoSansCJK-Regular.ttc") format("truetype");
+            font-weight: 400;
+        }
+
+        @font-face {
+            font-family: "Noto Sans CJK";
+            src: url("../assets/fonts/NotoSansCJK-Bold.ttc") format("truetype");
+            font-weight: 700;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #030507;
+            color: #fef7fb;
+            font-family: "Space Mono", monospace;
+        }
+
+        body {
+            position: relative;
+        }
+
+        button {
+            font: inherit;
+            color: inherit;
+        }
+
+        .prototype-root {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000000;
+        }
+
+        .stage-shell {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #000000;
+        }
+
+        .stage-screen {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 1280px;
+            height: 720px;
+            transform: translate(-50%, -50%);
+            transform-origin: center center;
+            overflow: hidden;
+            background-color: #000000;
+        }
+
+        .battle-underlay {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transform: scale(1.01);
+            transition:
+                opacity 300ms ease,
+                transform 420ms ease;
+        }
+
+        .battle-underlay.is-visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .battle-backdrop {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 68% 16%, rgba(255, 114, 148, 0.18), transparent 30%),
+                radial-gradient(circle at 18% 22%, rgba(106, 212, 245, 0.16), transparent 32%),
+                linear-gradient(180deg, #16111f 0%, #120e19 44%, #0e0a13 100%);
+        }
+
+        .battle-orb {
+            position: absolute;
+            border-radius: 999px;
+            pointer-events: none;
+        }
+
+        .battle-orb.one {
+            left: -160px;
+            top: -110px;
+            width: 520px;
+            height: 520px;
+            background-color: rgba(95, 210, 243, 0.10);
+            box-shadow: 0 0 120px rgba(95, 210, 243, 0.14);
+        }
+
+        .battle-orb.two {
+            right: -120px;
+            top: -70px;
+            width: 410px;
+            height: 410px;
+            background-color: rgba(236, 95, 102, 0.10);
+            box-shadow: 0 0 110px rgba(236, 95, 102, 0.14);
+        }
+
+        .vs-overlay {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .overlay-void {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000000;
+            transition: opacity 260ms ease;
+        }
+
+        .overlay-void.is-revealing {
+            opacity: 0;
+        }
+
+        .split-flare {
+            position: absolute;
+            left: 50%;
+            top: -700px;
+            width: 88px;
+            height: 2200px;
+            background:
+                linear-gradient(180deg, rgba(255, 236, 244, 0.96), rgba(255, 163, 194, 0.96));
+            box-shadow:
+                0 0 14px rgba(255, 192, 216, 0.30),
+                0 0 40px rgba(255, 173, 206, 0.24);
+            opacity: 0;
+            transform: translateX(-50%) rotate(0deg) scaleY(0);
+            transform-origin: center center;
+        }
+
+        .split-flare.is-dropping {
+            opacity: 1;
+            transform: translateX(-50%) rotate(0deg) scaleY(1);
+            transition:
+                opacity 90ms linear,
+                transform 260ms cubic-bezier(0.16, 1, 0.30, 1);
+        }
+
+        .split-flare.is-angled {
+            opacity: 1;
+            transform: translateX(-50%) rotate(18deg) scaleY(1);
+            transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .split-flare.is-fading {
+            opacity: 0;
+            transition: opacity 220ms ease;
+        }
+
+        .vs-card-shell {
+            position: absolute;
+            opacity: 0.98;
+        }
+
+        .vs-card-shell.left {
+            left: -222px;
+            top: -120px;
+            width: 920px;
+            height: 1080px;
+            transform: translate(-620px, 560px);
+        }
+
+        .vs-card-shell.right {
+            right: -226px;
+            top: -120px;
+            width: 920px;
+            height: 1080px;
+            transform: translate(620px, -560px);
+        }
+
+        .vs-card-shell.left.is-landed {
+            transform: translate(0, 0);
+            transition: transform 460ms cubic-bezier(0.16, 1, 0.30, 1);
+        }
+
+        .vs-card-shell.right.is-landed {
+            transform: translate(0, 0);
+            transition: transform 460ms cubic-bezier(0.16, 1, 0.30, 1);
+        }
+
+        .vs-card-shell.left.is-exiting {
+            transform: translate(-860px, 0);
+            transition: transform 500ms cubic-bezier(0.18, 1, 0.34, 1);
+        }
+
+        .vs-card-shell.right.is-exiting {
+            transform: translate(860px, 0);
+            transition: transform 500ms cubic-bezier(0.18, 1, 0.34, 1);
+        }
+
+        .vs-card-body {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            border-radius: 0;
+            overflow: hidden;
+            box-shadow:
+                0 34px 72px rgba(0, 0, 0, 0.46),
+                0 0 0 1px rgba(255, 255, 255, 0.10);
+        }
+
+        .vs-card-shell.left .vs-card-body.main {
+            left: 0;
+            width: 586px;
+            background-color: rgba(255, 251, 253, 0.98);
+            transform: skewX(-18deg);
+        }
+
+        .vs-card-shell.left .vs-card-body.tail {
+            left: 472px;
+            width: 358px;
+            background-color: rgba(255, 241, 247, 0.98);
+            transform: skewX(-18deg);
+        }
+
+        .vs-card-shell.right .vs-card-body.main {
+            right: 0;
+            width: 586px;
+            background-color: rgba(255, 251, 253, 0.98);
+            transform: skewX(-18deg);
+        }
+
+        .vs-card-shell.right .vs-card-body.tail {
+            right: 474px;
+            width: 358px;
+            background-color: rgba(255, 241, 247, 0.98);
+            transform: skewX(-18deg);
+        }
+
+        .vs-card-rim {
+            position: absolute;
+            top: 28px;
+            bottom: 28px;
+            border-radius: 0;
+            border: 1px solid rgba(255, 153, 191, 0.42);
+            opacity: 0.72;
+        }
+
+        .vs-card-shell.left .vs-card-rim.main {
+            left: 44px;
+            width: 510px;
+            transform: skewX(-18deg);
+        }
+
+        .vs-card-shell.left .vs-card-rim.tail {
+            left: 522px;
+            width: 224px;
+            transform: skewX(-18deg);
+        }
+
+        .vs-card-shell.right .vs-card-rim.main {
+            right: 44px;
+            width: 510px;
+            transform: skewX(-18deg);
+        }
+
+        .vs-card-shell.right .vs-card-rim.tail {
+            right: 522px;
+            width: 224px;
+            transform: skewX(-18deg);
+        }
+
+        .vs-card-glow {
+            position: absolute;
+            border-radius: 999px;
+            opacity: 0.72;
+        }
+
+        .vs-card-shell.left .vs-card-glow {
+            left: 96px;
+            top: 58px;
+            width: 304px;
+            height: 304px;
+            background-color: rgba(255, 178, 207, 0.16);
+            box-shadow: 0 0 126px rgba(255, 178, 207, 0.20);
+        }
+
+        .vs-card-shell.right .vs-card-glow {
+            right: 92px;
+            top: 62px;
+            width: 304px;
+            height: 304px;
+            background-color: rgba(255, 178, 207, 0.16);
+            box-shadow: 0 0 126px rgba(255, 178, 207, 0.20);
+        }
+
+        .vs-card-stripe {
+            position: absolute;
+            width: 12px;
+            border-radius: 999px;
+            background-color: rgba(255, 166, 199, 0.46);
+        }
+
+        .vs-card-shell.left .vs-card-stripe.one {
+            left: 124px;
+            top: 108px;
+            height: 562px;
+        }
+
+        .vs-card-shell.left .vs-card-stripe.two {
+            left: 148px;
+            top: 146px;
+            height: 468px;
+            background-color: rgba(255, 184, 213, 0.52);
+        }
+
+        .vs-card-shell.right .vs-card-stripe.one {
+            right: 124px;
+            top: 108px;
+            height: 562px;
+        }
+
+        .vs-card-shell.right .vs-card-stripe.two {
+            right: 148px;
+            top: 146px;
+            height: 468px;
+            background-color: rgba(255, 184, 213, 0.52);
+        }
+
+        .vs-card-inner {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .portrait-frame {
+            position: absolute;
+            width: 468px;
+            height: 664px;
+            border-radius: 34px;
+            overflow: hidden;
+            background-color: rgba(5, 8, 12, 0.26);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            box-shadow:
+                inset 0 0 0 1px rgba(255, 255, 255, 0.05),
+                0 24px 40px rgba(0, 0, 0, 0.24);
+        }
+
+        .vs-card-shell.left .portrait-frame {
+            left: 112px;
+            top: 152px;
+        }
+
+        .vs-card-shell.right .portrait-frame {
+            right: 112px;
+            top: 152px;
+        }
+
+        .portrait-frame::before {
+            content: "";
+            position: absolute;
+            left: 18px;
+            top: 18px;
+            right: 18px;
+            bottom: 18px;
+            border-radius: 26px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            pointer-events: none;
+        }
+
+        .portrait-stage {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .portrait-shadow {
+            position: absolute;
+            left: 50%;
+            bottom: 32px;
+            width: 286px;
+            height: 84px;
+            margin-left: -143px;
+            border-radius: 999px;
+            background-color: rgba(0, 0, 0, 0.26);
+            box-shadow: 0 0 46px rgba(0, 0, 0, 0.22);
+        }
+
+        .portrait-image {
+            position: absolute;
+            display: block;
+            max-width: none;
+        }
+
+        .name-stage {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 520px;
+            margin-left: -260px;
+            z-index: 70;
+            pointer-events: none;
+            text-align: center;
+            opacity: 1;
+            transition:
+                transform 500ms cubic-bezier(0.18, 1, 0.34, 1),
+                opacity 180ms ease;
+        }
+
+        .name-stage.right {
+            transform: translate(96px, -210px);
+        }
+
+        .name-stage.left {
+            transform: translate(-96px, 176px);
+        }
+
+        .name-stage.right.is-exiting {
+            transform: translate(458px, -210px);
+            opacity: 0;
+        }
+
+        .name-stage.left.is-exiting {
+            transform: translate(-458px, 176px);
+            opacity: 0;
+        }
+
+        .name-word {
+            margin-top: 0;
+            min-height: 74px;
+            white-space: nowrap;
+        }
+
+        .name-word.cjk {
+            font-family: "Noto Sans CJK", "Space Mono", sans-serif;
+            font-weight: 700;
+        }
+
+        .name-letter {
+            display: inline-block;
+            margin-left: 4px;
+            margin-right: 4px;
+            font-size: 52px;
+            line-height: 58px;
+            font-weight: 700;
+            font-style: italic;
+            letter-spacing: 0;
+            text-transform: uppercase;
+            color: #161018;
+            opacity: 0;
+            text-shadow:
+                0 14px 24px rgba(0, 0, 0, 0.28),
+                0 0 18px rgba(255, 196, 219, 0.28);
+        }
+
+        .name-word.cjk .name-letter {
+            font-style: normal;
+        }
+
+        .name-word.compact .name-letter {
+            margin-left: 2px;
+            margin-right: 2px;
+            font-size: 38px;
+            line-height: 44px;
+        }
+
+        .name-word.ultra .name-letter {
+            margin-left: 1px;
+            margin-right: 1px;
+            font-size: 31px;
+            line-height: 37px;
+        }
+
+        .name-space {
+            display: inline-block;
+            width: 18px;
+        }
+
+        .name-word.compact .name-space {
+            width: 12px;
+        }
+
+        .name-word.ultra .name-space {
+            width: 9px;
+        }
+
+        .name-letter.play {
+            animation: result-letter-drop 420ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .left .name-letter {
+            color: #161018;
+            text-shadow:
+                0 12px 22px rgba(0, 0, 0, 0.26),
+                0 0 20px rgba(255, 178, 207, 0.30);
+        }
+
+        .right .name-letter {
+            color: #161018;
+            text-shadow:
+                0 12px 22px rgba(0, 0, 0, 0.26),
+                0 0 20px rgba(255, 178, 207, 0.30);
+        }
+
+        .vs-cluster {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 0;
+            height: 0;
+            z-index: 50;
+            opacity: 1;
+            transition: opacity 120ms linear;
+        }
+
+        .vs-cluster.is-hidden {
+            opacity: 0;
+        }
+
+        .vs-cluster.is-shaking {
+            animation: vs-shake 180ms linear 2;
+        }
+
+        .vs-hit-anchor {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .vs-hit-anchor.v {
+            z-index: 1;
+            transform: translate(-118px, -156px);
+        }
+
+        .vs-hit-anchor.s {
+            z-index: 2;
+            transform: translate(-10px, -56px);
+        }
+
+        .vs-letter {
+            position: absolute;
+            left: 0;
+            top: 0;
+            font-size: 214px;
+            line-height: 1;
+            font-weight: 700;
+            color: #ffffff;
+            opacity: 0;
+            text-shadow:
+                0 18px 30px rgba(0, 0, 0, 0.42),
+                0 0 38px rgba(255, 255, 255, 0.22);
+        }
+
+        .vs-letter.v {
+            color: #ffffff;
+            text-shadow:
+                0 18px 30px rgba(0, 0, 0, 0.42),
+                0 0 38px rgba(255, 255, 255, 0.24);
+        }
+
+        .vs-letter.s {
+            color: #ff8fb8;
+            text-shadow:
+                0 18px 30px rgba(0, 0, 0, 0.42),
+                0 0 38px rgba(255, 170, 206, 0.36);
+        }
+
+        .vs-letter.is-visible {
+            animation: vs-letter-drop 440ms cubic-bezier(0.20, 1, 0.34, 1) forwards;
+        }
+
+        .debug-panel {
+            position: absolute;
+            left: 18px;
+            top: 18px;
+            width: 344px;
+            z-index: 120;
+            padding: 16px 16px 14px;
+            border-radius: 18px;
+            background-color: rgba(9, 11, 16, 0.84);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            box-shadow: 0 18px 34px rgba(0, 0, 0, 0.30);
+        }
+
+        .debug-kicker {
+            font-size: 10px;
+            line-height: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255, 245, 250, 0.46);
+        }
+
+        .debug-title {
+            margin-top: 8px;
+            font-size: 22px;
+            line-height: 24px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: #fff8fb;
+        }
+
+        .debug-copy {
+            margin-top: 10px;
+            font-size: 11px;
+            line-height: 18px;
+            color: rgba(255, 244, 249, 0.70);
+        }
+
+        .debug-section {
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.07);
+        }
+
+        .debug-label {
+            margin-bottom: 8px;
+            font-size: 10px;
+            line-height: 12px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(255, 245, 250, 0.42);
+        }
+
+        .button-row {
+            position: relative;
+        }
+
+        .debug-button {
+            display: inline-block;
+            min-width: 84px;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            background-color: rgba(255, 255, 255, 0.05);
+            color: rgba(255, 248, 251, 0.84);
+            font-size: 10px;
+            line-height: 12px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition:
+                transform 140ms ease,
+                background-color 140ms ease,
+                border-color 140ms ease,
+                box-shadow 140ms ease;
+        }
+
+        .debug-button:hover {
+            transform: translateY(-1px);
+            background-color: rgba(255, 255, 255, 0.10);
+        }
+
+        .debug-button.is-selected {
+            background-color: #6dd9ff;
+            border-color: #6dd9ff;
+            color: #081118;
+            box-shadow: 0 12px 22px rgba(109, 217, 255, 0.22);
+        }
+
+        .debug-button.replay {
+            background-color: #ff6ea4;
+            border-color: #ff6ea4;
+            color: #ffffff;
+            box-shadow: 0 12px 22px rgba(255, 110, 164, 0.20);
+        }
+
+        .debug-note {
+            margin-top: 4px;
+            font-size: 10px;
+            line-height: 15px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            color: rgba(255, 245, 250, 0.44);
+            text-transform: uppercase;
+        }
+
+        @keyframes result-letter-drop {
+            0% {
+                opacity: 0;
+                transform: translateY(-104px) scale(1.58);
+            }
+            54% {
+                opacity: 1;
+                transform: translateY(12px) scale(0.92);
+            }
+            76% {
+                opacity: 1;
+                transform: translateY(-3px) scale(1.05);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        @keyframes vs-letter-drop {
+            0% {
+                opacity: 0;
+                transform: translateY(-190px) scale(1.86) rotate(8deg);
+            }
+            52% {
+                opacity: 1;
+                transform: translateY(24px) scale(0.82) rotate(0deg);
+            }
+            76% {
+                opacity: 1;
+                transform: translateY(-8px) scale(1.09) rotate(0deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1) rotate(0deg);
+            }
+        }
+
+        @keyframes vs-shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-7px); }
+            50% { transform: translateX(8px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+
+        @media (max-width: 1120px) {
+            .debug-panel {
+                width: 294px;
+            }
+
+            .debug-title {
+                font-size: 18px;
+                line-height: 20px;
+            }
+
+            .vs-card-shell.left {
+                left: -210px;
+            }
+
+            .vs-card-shell.right {
+                right: -210px;
+            }
+
+            .vs-cluster {
+                transform: scale(0.90);
+                transform-origin: center center;
+            }
+        }
+
+        @media (max-width: 860px) {
+            .debug-panel {
+                width: 254px;
+            }
+
+            .vs-card-shell.left {
+                left: -288px;
+                top: -106px;
+                transform: translate(-500px, 500px) scale(0.86);
+                transform-origin: center center;
+            }
+
+            .vs-card-shell.right {
+                right: -288px;
+                top: -102px;
+                transform: translate(500px, -500px) scale(0.86);
+                transform-origin: center center;
+            }
+
+            .vs-card-shell.left.is-landed,
+            .vs-card-shell.right.is-landed {
+                transform: translate(0, 0) scale(0.86);
+            }
+
+            .vs-card-shell.left.is-exiting {
+                transform: translate(-760px, 0) scale(0.86);
+            }
+
+            .vs-card-shell.right.is-exiting {
+                transform: translate(760px, 0) scale(0.86);
+            }
+
+            .vs-cluster {
+                transform: scale(0.72);
+                width: 320px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="prototype-root">
+        <div class="stage-shell">
+            <div class="stage-screen" id="stage-screen">
+                <div class="battle-underlay" id="battle-underlay">
+                    <div class="battle-backdrop"></div>
+                    <div class="battle-orb one"></div>
+                    <div class="battle-orb two"></div>
+                </div>
+
+                <div class="vs-overlay" id="vs-overlay">
+                    <div class="overlay-void" id="overlay-void"></div>
+                    <div class="split-flare" id="split-flare"></div>
+
+                    <div class="vs-card-shell left" id="miku-card-shell">
+                        <div class="vs-card-body main"></div>
+                        <div class="vs-card-body tail"></div>
+                        <div class="vs-card-rim main"></div>
+                        <div class="vs-card-rim tail"></div>
+                        <div class="vs-card-glow"></div>
+                        <div class="vs-card-stripe one"></div>
+                        <div class="vs-card-stripe two"></div>
+                        <div class="vs-card-inner left">
+                            <div class="portrait-frame">
+                                <div class="portrait-stage">
+                                    <div class="portrait-shadow"></div>
+                                    <img class="portrait-image" id="miku-portrait" src="../assets/combat/sprites/miku.png" alt="Hatsune Miku">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="vs-card-shell right" id="boss-card-shell">
+                        <div class="vs-card-body main"></div>
+                        <div class="vs-card-body tail"></div>
+                        <div class="vs-card-rim main"></div>
+                        <div class="vs-card-rim tail"></div>
+                        <div class="vs-card-glow"></div>
+                        <div class="vs-card-stripe one"></div>
+                        <div class="vs-card-stripe two"></div>
+                        <div class="vs-card-inner right">
+                            <div class="portrait-frame">
+                                <div class="portrait-stage">
+                                    <div class="portrait-shadow"></div>
+                                    <img class="portrait-image" id="boss-portrait" src="../assets/combat/sprites/lyooBoss.png" alt="Lyoo">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="name-stage right" id="boss-name-stage">
+                        <div class="name-word" id="boss-name-word"></div>
+                    </div>
+
+                    <div class="name-stage left" id="miku-name-stage">
+                        <div class="name-word" id="miku-name-word"></div>
+                    </div>
+
+                    <div class="vs-cluster" id="vs-cluster">
+                        <div class="vs-hit-anchor v">
+                            <div class="vs-letter v" id="vs-letter-v">V</div>
+                        </div>
+                        <div class="vs-hit-anchor s">
+                            <div class="vs-letter s" id="vs-letter-s">S</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="debug-panel">
+            <div class="debug-kicker">Prototype</div>
+            <div class="debug-title">Violent VS Cards</div>
+            <div class="debug-copy">
+                Black cold-open, diagonal slam-in, judgement-style text drops, heavy center hit, then horizontal reveal into battle.
+            </div>
+
+            <div class="debug-section">
+                <div class="debug-label">Boss Preset</div>
+                <div class="button-row" id="boss-buttons"></div>
+            </div>
+
+            <div class="debug-section">
+                <div class="debug-label">Sequence</div>
+                <div class="button-row">
+                    <button class="debug-button replay" id="replay-button" type="button">Replay</button>
+                </div>
+                <div class="debug-note">
+                    Click once anywhere if your browser blocks autoplay audio.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var mikuName = "HATSUNE MIKU";
+            var presetIndex = 0;
+            var mikuPortraitPreset = {
+                width: 370,
+                left: 50,
+                top: 68
+            };
+
+            var presets = [
+                {
+                    key: "lyoo",
+                    label: "Lyoo",
+                    bossName: "LYOO",
+                    sprite: "../assets/combat/sprites/lyooBoss.png",
+                    alt: "Lyoo",
+                    width: 356,
+                    left: 58,
+                    top: 70
+                },
+                {
+                    key: "jiafei",
+                    label: "Jiafei",
+                    bossName: "JIAFEI",
+                    sprite: "../assets/combat/sprites/jiafei.png",
+                    alt: "Jiafei",
+                    width: 370,
+                    left: 50,
+                    top: 56
+                },
+                {
+                    key: "ari",
+                    label: "Ari",
+                    bossName: "ARIANA GRANDE",
+                    sprite: "../assets/combat/sprites/ariBoss.png",
+                    alt: "Ariana Grande",
+                    width: 344,
+                    left: 64,
+                    top: 76
+                },
+                {
+                    key: "luotianyi",
+                    label: "洛天依",
+                    bossName: "洛天依",
+                    sprite: "../assets/combat/sprites/luotianyi.png",
+                    alt: "洛天依",
+                    width: 382,
+                    left: 44,
+                    top: 52
+                }
+            ];
+
+            var timings = {
+                lineDrop: 20,
+                lineTilt: 320,
+                leftCard: 520,
+                rightCard: 920,
+                mikuName: 1240,
+                vsV: 1580,
+                vsS: 1720,
+                bossName: 1900,
+                exit: 3520,
+                reveal: 3620
+            };
+
+            var sfxPaths = {
+                lineDrop: "../assets/ui/sfx/Matchmaking_enqueue.wav",
+                lineTilt: "../assets/ui/sfx/Matchmaking_match-found.wav",
+                mikuIn: "../assets/ui/sfx/Menu_button-default-select.wav",
+                bossIn: "../assets/ui/sfx/Menu_button-daily-select.wav",
+                vsHit: "../assets/ui/sfx/Matchmaking_stage-segment.wav",
+                matchStartA: "../assets/ui/sfx/Gameplay_restart.wav",
+                matchStartB: "../assets/ui/sfx/Ranked_vs-swoosh.wav"
+            };
+
+            var letterCloudSfx = [
+                "../assets/ui/sfx/Cloud_appear-0.wav",
+                "../assets/ui/sfx/Cloud_appear-1.wav",
+                "../assets/ui/sfx/Cloud_appear-2.wav",
+                "../assets/ui/sfx/Cloud_appear-3.wav",
+                "../assets/ui/sfx/Cloud_appear-4.wav",
+                "../assets/ui/sfx/Cloud_appear-5.wav"
+            ];
+
+            var bossButtons = document.getElementById("boss-buttons");
+            var replayButton = document.getElementById("replay-button");
+            var stageScreen = document.getElementById("stage-screen");
+            var battleUnderlay = document.getElementById("battle-underlay");
+            var overlayVoid = document.getElementById("overlay-void");
+            var splitFlare = document.getElementById("split-flare");
+            var mikuCardShell = document.getElementById("miku-card-shell");
+            var bossCardShell = document.getElementById("boss-card-shell");
+            var mikuPortrait = document.getElementById("miku-portrait");
+            var bossPortrait = document.getElementById("boss-portrait");
+            var mikuNameStage = document.getElementById("miku-name-stage");
+            var bossNameStage = document.getElementById("boss-name-stage");
+            var mikuNameWord = document.getElementById("miku-name-word");
+            var bossNameWord = document.getElementById("boss-name-word");
+            var vsCluster = document.getElementById("vs-cluster");
+            var vsLetterV = document.getElementById("vs-letter-v");
+            var vsLetterS = document.getElementById("vs-letter-s");
+
+            var state = {
+                sequenceToken: 0,
+                timers: [],
+                sharedNameMode: ""
+            };
+
+            function schedule(fn, delay) {
+                var id = window.setTimeout(fn, delay);
+                state.timers.push(id);
+                return id;
+            }
+
+            function clearTimers() {
+                var index;
+                for (index = 0; index < state.timers.length; index += 1) {
+                    window.clearTimeout(state.timers[index]);
+                }
+                state.timers = [];
+            }
+
+            function playOneShot(path, volume) {
+                if (!path) {
+                    return;
+                }
+
+                try {
+                    var audio = new Audio(path);
+                    audio.preload = "auto";
+                    audio.volume = typeof volume === "number" ? volume : 1;
+                    var playPromise = audio.play();
+                    if (playPromise && playPromise.catch) {
+                        playPromise.catch(function () {});
+                    }
+                } catch (error) {}
+            }
+
+            function playLetterCloud(volume) {
+                var sfx = letterCloudSfx[Math.floor(Math.random() * letterCloudSfx.length)];
+                playOneShot(sfx, volume);
+            }
+
+            function updateStageScale() {
+                var scaleX = window.innerWidth / 1280;
+                var scaleY = window.innerHeight / 720;
+                var scale = Math.max(0.5, Math.min(scaleX, scaleY));
+                stageScreen.style.transform = "translate(-50%, -50%) scale(" + scale.toFixed(3) + ")";
+            }
+
+            function containsCjk(text) {
+                return /[\u3000-\u30ff\u3400-\u9fff\uf900-\ufaff\uff00-\uffef]/.test(text);
+            }
+
+            function stylePortrait(node, preset, side) {
+                if (side === "left") {
+                    node.style.width = String(mikuPortraitPreset.width) + "px";
+                    node.style.left = String(mikuPortraitPreset.left) + "px";
+                    node.style.top = String(mikuPortraitPreset.top) + "px";
+                    return;
+                }
+
+                if (!preset) {
+                    return;
+                }
+
+                node.style.width = String(preset.width) + "px";
+                node.style.left = String(preset.left) + "px";
+                node.style.top = String(preset.top) + "px";
+            }
+
+            function applyPreset(index) {
+                var preset = presets[index];
+                presetIndex = index;
+
+                bossPortrait.src = preset.sprite;
+                bossPortrait.alt = preset.alt;
+                stylePortrait(mikuPortrait, null, "left");
+                stylePortrait(bossPortrait, preset, "right");
+
+                bossNameWord.className = containsCjk(preset.bossName) ? "name-word cjk" : "name-word";
+
+                updateBossButtons();
+            }
+
+            function updateBossButtons() {
+                var buttons = bossButtons.getElementsByTagName("button");
+                var index;
+                for (index = 0; index < buttons.length; index += 1) {
+                    buttons[index].classList.toggle("is-selected", Number(buttons[index].getAttribute("data-index")) === presetIndex);
+                }
+            }
+
+            function clearNameStage(container) {
+                container.innerHTML = "";
+            }
+
+            function resolveNameMode(glyphCount) {
+                if (glyphCount >= 11) {
+                    return "ultra";
+                }
+                if (glyphCount >= 8) {
+                    return "compact";
+                }
+                return "";
+            }
+
+            function applyNameDensity(container) {
+                container.classList.remove("compact", "ultra");
+                if (state.sharedNameMode !== "") {
+                    container.classList.add(state.sharedNameMode);
+                }
+            }
+
+            function makeNameLetters(container, text, sideClass, token, startDelay, soundVolume) {
+                var visibleIndex = 0;
+                var index;
+                applyNameDensity(container);
+                clearNameStage(container);
+
+                for (index = 0; index < text.length; index += 1) {
+                    (function (character, delay) {
+                        schedule(function () {
+                            var span;
+
+                            if (token !== state.sequenceToken) {
+                                return;
+                            }
+
+                            if (character === " ") {
+                                span = document.createElement("span");
+                                span.className = "name-space";
+                                span.innerHTML = "&nbsp;";
+                                container.appendChild(span);
+                                return;
+                            }
+
+                            span = document.createElement("span");
+                            span.className = "name-letter play";
+                            span.textContent = character;
+                            container.appendChild(span);
+                            playLetterCloud(soundVolume);
+                        }, startDelay + delay);
+                    }(text.charAt(index), visibleIndex * 34));
+
+                    if (text.charAt(index) !== " ") {
+                        visibleIndex += 1;
+                    }
+                }
+
+                if (sideClass) {
+                    container.parentNode.className = "name-stage " + sideClass;
+                }
+            }
+
+            function resetSequenceVisuals() {
+                clearTimers();
+                state.sequenceToken += 1;
+
+                battleUnderlay.classList.remove("is-visible");
+                overlayVoid.classList.remove("is-revealing");
+                splitFlare.classList.remove("is-dropping");
+                splitFlare.classList.remove("is-angled");
+                splitFlare.classList.remove("is-fading");
+                mikuCardShell.className = "vs-card-shell left";
+                bossCardShell.className = "vs-card-shell right";
+                mikuNameStage.className = "name-stage left";
+                bossNameStage.className = "name-stage right";
+                vsCluster.classList.remove("is-shaking");
+                vsCluster.classList.remove("is-hidden");
+                vsLetterV.classList.remove("is-visible");
+                vsLetterS.classList.remove("is-visible");
+                clearNameStage(mikuNameWord);
+                clearNameStage(bossNameWord);
+            }
+
+            function startSequence() {
+                var token;
+                var preset = presets[presetIndex];
+                var sharedGlyphCount;
+
+                resetSequenceVisuals();
+                token = state.sequenceToken;
+                sharedGlyphCount = Math.max(
+                    mikuName.replace(/\s+/g, "").length,
+                    preset.bossName.replace(/\s+/g, "").length
+                );
+                state.sharedNameMode = resolveNameMode(sharedGlyphCount);
+
+                schedule(function () {
+                    if (token !== state.sequenceToken) {
+                        return;
+                    }
+                    splitFlare.classList.add("is-dropping");
+                    playOneShot(sfxPaths.lineDrop, 0.80);
+                }, timings.lineDrop);
+
+                schedule(function () {
+                    if (token !== state.sequenceToken) {
+                        return;
+                    }
+                    splitFlare.classList.add("is-angled");
+                    playOneShot(sfxPaths.lineTilt, 0.86);
+                }, timings.lineTilt);
+
+                schedule(function () {
+                    if (token !== state.sequenceToken) {
+                        return;
+                    }
+                    mikuCardShell.classList.add("is-landed");
+                    playOneShot(sfxPaths.mikuIn, 0.82);
+                }, timings.leftCard);
+
+                schedule(function () {
+                    if (token !== state.sequenceToken) {
+                        return;
+                    }
+                    bossCardShell.classList.add("is-landed");
+                    playOneShot(sfxPaths.bossIn, 0.82);
+                }, timings.rightCard);
+
+                schedule(function () {
+                    if (token !== state.sequenceToken) {
+                        return;
+                    }
+                    makeNameLetters(mikuNameWord, mikuName, "left", token, 0, 0.44);
+                }, timings.mikuName);
+
+                schedule(function () {
+                    if (token !== state.sequenceToken) {
+                        return;
+                    }
+                    vsLetterV.classList.add("is-visible");
+                    playOneShot(sfxPaths.vsHit, 0.86);
+                }, timings.vsV);
+
+                schedule(function () {
+                    if (token !== state.sequenceToken) {
+                        return;
+                    }
+                    vsLetterS.classList.add("is-visible");
+                    vsCluster.classList.remove("is-shaking");
+                    void vsCluster.offsetWidth;
+                    vsCluster.classList.add("is-shaking");
+                    playOneShot(sfxPaths.vsHit, 0.88);
+                }, timings.vsS);
+
+                schedule(function () {
+                    if (token !== state.sequenceToken) {
+                        return;
+                    }
+                    makeNameLetters(bossNameWord, preset.bossName, "right", token, 0, 0.46);
+                }, timings.bossName);
+
+                schedule(function () {
+                    if (token !== state.sequenceToken) {
+                        return;
+                    }
+                    vsCluster.classList.add("is-hidden");
+                    splitFlare.classList.add("is-fading");
+                    mikuNameStage.classList.add("is-exiting");
+                    bossNameStage.classList.add("is-exiting");
+                    mikuCardShell.classList.remove("is-landed");
+                    bossCardShell.classList.remove("is-landed");
+                    mikuCardShell.classList.add("is-exiting");
+                    bossCardShell.classList.add("is-exiting");
+                    playOneShot(sfxPaths.matchStartA, 0.85);
+                    playOneShot(sfxPaths.matchStartB, 0.92);
+                }, timings.exit);
+
+                schedule(function () {
+                    if (token !== state.sequenceToken) {
+                        return;
+                    }
+                    battleUnderlay.classList.add("is-visible");
+                    overlayVoid.classList.add("is-revealing");
+                }, timings.reveal);
+            }
+
+            function buildBossButtons() {
+                var index;
+                for (index = 0; index < presets.length; index += 1) {
+                    (function (buttonIndex) {
+                        var preset = presets[buttonIndex];
+                        var button = document.createElement("button");
+                        button.className = "debug-button";
+                        button.type = "button";
+                        button.textContent = preset.label;
+                        button.setAttribute("data-index", String(buttonIndex));
+                        button.addEventListener("click", function () {
+                            applyPreset(buttonIndex);
+                            startSequence();
+                        });
+                        bossButtons.appendChild(button);
+                    }(index));
+                }
+            }
+
+            replayButton.addEventListener("click", function () {
+                startSequence();
+            });
+
+            window.addEventListener("resize", updateStageScale);
+
+            document.addEventListener("pointerdown", function () {
+                playOneShot(letterCloudSfx[0], 0.0001);
+            }, { once: true });
+
+            buildBossButtons();
+            updateStageScale();
+            applyPreset(0);
+            startSequence();
+        }());
+    </script>
+</body>
+</html>

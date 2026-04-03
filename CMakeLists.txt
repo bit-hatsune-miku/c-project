@@ -83,6 +83,8 @@ set(BATTLE_CORE_SOURCES
     src/game/render/battle_party_staging.cpp
     src/game/render/battle_party_staging.h
     src/game/render/battle_scene_types.h
+    src/game/render/battle_stage.cpp
+    src/game/render/battle_stage.h
     src/game/render/battle_world_renderer.cpp
     src/game/render/battle_world_renderer.h
     src/game/core/easing.cpp
@@ -146,6 +148,8 @@ set(BATTLE_PRESENTATION_SOURCES
 set(BATTLE_DEMO_SOURCES
     src/game/demo_battle_session.cpp
     src/game/demo_battle_session.h
+    src/game/audio/battle_bgm_controller.cpp
+    src/game/audio/battle_bgm_controller.h
     src/game/battle_session_core.cpp
     src/game/battle_session_core.h
     src/game/demo/battle_party_setup.cpp
@@ -170,6 +174,9 @@ set(RMLUI_SELECTOR_SOURCES
     src/game/boss_selector_session.h
     src/game/party_loader_session.cpp
     src/game/party_loader_session.h
+    src/game/post_battle_session.cpp
+    src/game/post_battle_session.h
+    src/game/post_battle_types.h
 )
 
 set(FRONT_UI_SOURCES
@@ -349,6 +356,8 @@ if (ENABLE_RMLUI)
         src/rmlui_battle_main.cpp
         src/window.cpp
         src/window.h
+        src/game/audio/battle_bgm_controller.cpp
+        src/game/audio/battle_bgm_controller.h
         src/game/vn/vn_system.cpp
         src/game/vn/vn_system.h
         src/game/vn/vn_script.cpp

@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Battle Feedback Combo Prototype</title>
+    <style>
+        html, body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #111319;
+            color: #fff7fb;
+            font-family: "Space Mono", monospace;
+        }
+
+        body {
+            position: relative;
+            background-image:
+                radial-gradient(circle at 14% 22%, rgba(244, 196, 105, 0.14), transparent 26%),
+                radial-gradient(circle at 82% 16%, rgba(255, 103, 182, 0.12), transparent 24%),
+                linear-gradient(180deg, #171b24 0%, #0d1017 100%);
+        }
+
+        .stage-grid {
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 64px 64px;
+            opacity: 0.45;
+        }
+
+        .boss-proxy {
+            position: absolute;
+            right: 108px;
+            bottom: 160px;
+            width: 280px;
+            height: 280px;
+            border-radius: 28px;
+            background:
+                linear-gradient(180deg, rgba(255, 188, 200, 0.16), rgba(255, 188, 200, 0.02)),
+                rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 24px 44px rgba(0, 0, 0, 0.35);
+        }
+
+        .party-proxy {
+            position: absolute;
+            left: 68px;
+            bottom: 108px;
+            width: 540px;
+            height: 126px;
+        }
+
+        .party-proxy-card {
+            position: absolute;
+            bottom: 0;
+            width: 116px;
+            height: 116px;
+            border-radius: 22px;
+            background:
+                linear-gradient(180deg, rgba(255, 250, 253, 0.92), rgba(240, 235, 240, 0.86));
+            border: 1px solid rgba(25, 20, 31, 0.16);
+            box-shadow: 0 20px 34px rgba(0, 0, 0, 0.18);
+        }
+
+        .party-proxy-card:nth-child(1) { left: 0; }
+        .party-proxy-card:nth-child(2) { left: 138px; }
+        .party-proxy-card:nth-child(3) { left: 276px; }
+        .party-proxy-card:nth-child(4) { left: 414px; }
+
+        .battle-combo {
+            position: absolute;
+            right: 34px;
+            top: 112px;
+            width: 238px;
+            padding: 14px 16px 16px;
+            border-radius: 20px;
+            background:
+                linear-gradient(180deg, rgba(255, 252, 246, 0.96), rgba(245, 239, 234, 0.92));
+            border: 1px solid rgba(23, 20, 31, 0.14);
+            box-shadow: 0 20px 34px rgba(0, 0, 0, 0.24);
+            color: #191521;
+            overflow: hidden;
+        }
+
+        .battle-combo::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 5px;
+            background: linear-gradient(90deg, #f2bf69, #ff67b6, #6acff6);
+        }
+
+        .battle-combo-kicker {
+            font-size: 11px;
+            letter-spacing: 3px;
+            color: rgba(25, 21, 33, 0.48);
+        }
+
+        .battle-combo-row {
+            position: relative;
+            margin-top: 8px;
+            height: 48px;
+        }
+
+        .battle-combo-count {
+            position: absolute;
+            left: 0;
+            top: 0;
+            font-size: 40px;
+            line-height: 40px;
+            font-weight: 700;
+            letter-spacing: -1px;
+        }
+
+        .battle-combo-label {
+            position: absolute;
+            left: 92px;
+            top: 13px;
+            font-size: 14px;
+            letter-spacing: 2px;
+            color: rgba(25, 21, 33, 0.66);
+        }
+
+        .battle-combo-bonus {
+            margin-top: 8px;
+            padding: 8px 10px;
+            border-radius: 999px;
+            background: rgba(25, 21, 33, 0.08);
+            font-size: 12px;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+
+        .battle-combo-flare {
+            position: absolute;
+            right: -24px;
+            top: -20px;
+            width: 92px;
+            height: 92px;
+            border-radius: 92px;
+            background: radial-gradient(circle, rgba(255, 186, 78, 0.42), transparent 70%);
+            opacity: 0.45;
+            pointer-events: none;
+        }
+
+        .battle-combo.gain.cycle-a {
+            animation: combo-bump-a 0.55s ease-out;
+        }
+
+        .battle-combo.gain.cycle-b {
+            animation: combo-bump-b 0.55s ease-out;
+        }
+
+        .battle-combo.break {
+            background:
+                linear-gradient(180deg, rgba(255, 244, 244, 0.97), rgba(243, 224, 224, 0.93));
+        }
+
+        .battle-combo.break .battle-combo-bonus {
+            background: rgba(161, 38, 42, 0.12);
+            color: #7b2128;
+        }
+
+        .battle-combo.break.cycle-a {
+            animation: combo-break-a 0.72s ease-out;
+        }
+
+        .battle-combo.break.cycle-b {
+            animation: combo-break-b 0.72s ease-out;
+        }
+
+        .battle-judgement {
+            position: absolute;
+            right: 58px;
+            top: 276px;
+            width: 284px;
+            padding: 18px 20px 18px 24px;
+            border-radius: 24px;
+            background: rgba(10, 13, 21, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 22px 42px rgba(0, 0, 0, 0.34);
+            opacity: 0;
+            display: none;
+            transform: translateX(32px) scale(0.9);
+            overflow: hidden;
+        }
+
+        .battle-judgement.visible {
+            display: block;
+        }
+
+        .battle-judgement-rail {
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 6px;
+            background: #f0cd4d;
+        }
+
+        .battle-judgement-glow {
+            position: absolute;
+            right: -30px;
+            top: -20px;
+            width: 112px;
+            height: 112px;
+            border-radius: 112px;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 72%);
+            opacity: 0.65;
+        }
+
+        .battle-judgement-grade {
+            position: relative;
+            font-size: 34px;
+            line-height: 34px;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .battle-judgement-detail {
+            position: relative;
+            margin-top: 7px;
+            font-size: 14px;
+            letter-spacing: 2px;
+            color: rgba(255, 255, 255, 0.72);
+        }
+
+        .battle-judgement.perfect {
+            background: linear-gradient(180deg, rgba(39, 24, 12, 0.94), rgba(18, 14, 18, 0.94));
+        }
+
+        .battle-judgement.perfect .battle-judgement-rail,
+        .battle-judgement.perfect .battle-judgement-grade {
+            color: #ffe58a;
+            background: linear-gradient(180deg, #fff2ab, #f0cd4d);
+        }
+
+        .battle-judgement.good {
+            background: linear-gradient(180deg, rgba(10, 34, 29, 0.94), rgba(16, 18, 22, 0.94));
+        }
+
+        .battle-judgement.good .battle-judgement-rail,
+        .battle-judgement.good .battle-judgement-grade {
+            color: #7df0bc;
+            background: linear-gradient(180deg, #cbffe2, #52d39a);
+        }
+
+        .battle-judgement.okay {
+            background: linear-gradient(180deg, rgba(34, 21, 8, 0.94), rgba(16, 18, 22, 0.94));
+        }
+
+        .battle-judgement.okay .battle-judgement-rail,
+        .battle-judgement.okay .battle-judgement-grade {
+            color: #ffc777;
+            background: linear-gradient(180deg, #ffe3aa, #f0a84d);
+        }
+
+        .battle-judgement.flop {
+            background: linear-gradient(180deg, rgba(47, 12, 18, 0.94), rgba(16, 18, 22, 0.94));
+        }
+
+        .battle-judgement.flop .battle-judgement-rail,
+        .battle-judgement.flop .battle-judgement-grade {
+            color: #ff8f98;
+            background: linear-gradient(180deg, #ffd0d4, #ef6975);
+        }
+
+        .battle-judgement .battle-judgement-grade {
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .battle-judgement.visible.cycle-a {
+            animation: judgement-pop-a 0.95s ease-out;
+        }
+
+        .battle-judgement.visible.cycle-b {
+            animation: judgement-pop-b 0.95s ease-out;
+        }
+
+        .control-panel {
+            position: absolute;
+            left: 28px;
+            top: 30px;
+            width: 390px;
+            padding: 16px 18px 18px;
+            border-radius: 20px;
+            background: rgba(9, 12, 18, 0.84);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 18px 34px rgba(0, 0, 0, 0.28);
+        }
+
+        .control-title {
+            font-size: 13px;
+            letter-spacing: 3px;
+            color: rgba(255, 255, 255, 0.62);
+        }
+
+        .control-grid {
+            margin-top: 14px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .control-button {
+            padding: 11px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.06);
+            color: #fff7fb;
+            font: inherit;
+            letter-spacing: 1px;
+            cursor: pointer;
+        }
+
+        .control-button:hover {
+            background: rgba(255, 255, 255, 0.11);
+        }
+
+        .control-note {
+            margin-top: 12px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.68);
+        }
+
+        @keyframes judgement-pop-a {
+            0% {
+                opacity: 0;
+                transform: translateX(34px) scale(0.88);
+            }
+            16% {
+                opacity: 1;
+                transform: translateX(0) scale(1.04);
+            }
+            58% {
+                opacity: 1;
+                transform: translateX(0) scale(1.00);
+            }
+            100% {
+                opacity: 0;
+                transform: translateX(10px) scale(0.96);
+            }
+        }
+
+        @keyframes judgement-pop-b {
+            0% {
+                opacity: 0;
+                transform: translateX(34px) scale(0.88);
+            }
+            16% {
+                opacity: 1;
+                transform: translateX(0) scale(1.04);
+            }
+            58% {
+                opacity: 1;
+                transform: translateX(0) scale(1.00);
+            }
+            100% {
+                opacity: 0;
+                transform: translateX(10px) scale(0.96);
+            }
+        }
+
+        @keyframes combo-bump-a {
+            0% { transform: translateY(0) scale(1); }
+            35% { transform: translateY(-3px) scale(1.04); }
+            100% { transform: translateY(0) scale(1); }
+        }
+
+        @keyframes combo-bump-b {
+            0% { transform: translateY(0) scale(1); }
+            35% { transform: translateY(-3px) scale(1.04); }
+            100% { transform: translateY(0) scale(1); }
+        }
+
+        @keyframes combo-break-a {
+            0% { transform: translateX(0) scale(1); }
+            18% { transform: translateX(-6px) scale(1.03); }
+            38% { transform: translateX(4px) scale(0.99); }
+            100% { transform: translateX(0) scale(1); }
+        }
+
+        @keyframes combo-break-b {
+            0% { transform: translateX(0) scale(1); }
+            18% { transform: translateX(-6px) scale(1.03); }
+            38% { transform: translateX(4px) scale(0.99); }
+            100% { transform: translateX(0) scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="stage-grid"></div>
+    <div class="boss-proxy"></div>
+    <div class="party-proxy">
+        <div class="party-proxy-card"></div>
+        <div class="party-proxy-card"></div>
+        <div class="party-proxy-card"></div>
+        <div class="party-proxy-card"></div>
+    </div>
+
+    <div class="control-panel">
+        <div class="control-title">BATTLE FEEDBACK LAB</div>
+        <div class="control-grid">
+            <button class="control-button" data-grade="perfect" data-value="+24% DMG">PERFECT</button>
+            <button class="control-button" data-grade="good" data-value="+12% DMG">GOOD</button>
+            <button class="control-button" data-grade="okay" data-value="+4% RED">OKAY</button>
+            <button class="control-button" data-grade="flop" data-value="+0% SHIELD">FLOP</button>
+            <button class="control-button" id="combo-gain">COMBO +1</button>
+            <button class="control-button" id="combo-break">BREAK COMBO</button>
+            <button class="control-button" id="forced-perfect">FORCED PERFECT +0</button>
+            <button class="control-button" id="reset-all">RESET</button>
+        </div>
+        <div class="control-note">
+            Prototype mirrors the intended Rml structure: a persistent top-right combo card and a temporary
+            mid-right judgement popup with class-driven replay animations.
+        </div>
+    </div>
+
+    <div class="battle-combo" id="battle-combo">
+        <div class="battle-combo-flare"></div>
+        <div class="battle-combo-kicker">BATTLE STREAK</div>
+        <div class="battle-combo-row">
+            <div class="battle-combo-count" id="battle-combo-count">0</div>
+            <div class="battle-combo-label">HITS</div>
+        </div>
+        <div class="battle-combo-bonus" id="battle-combo-bonus">TEAM DMG +0.0%</div>
+    </div>
+
+    <div class="battle-judgement" id="battle-judgement">
+        <div class="battle-judgement-rail"></div>
+        <div class="battle-judgement-glow"></div>
+        <div class="battle-judgement-grade" id="battle-judgement-grade">PERFECT</div>
+        <div class="battle-judgement-detail" id="battle-judgement-detail">+24% DMG</div>
+    </div>
+
+    <script>
+        (function () {
+            var combo = 0;
+            var popupCycle = false;
+            var comboCycle = false;
+            var popupTimer = 0;
+
+            var comboRoot = document.getElementById("battle-combo");
+            var comboCount = document.getElementById("battle-combo-count");
+            var comboBonus = document.getElementById("battle-combo-bonus");
+            var popupRoot = document.getElementById("battle-judgement");
+            var popupGrade = document.getElementById("battle-judgement-grade");
+            var popupDetail = document.getElementById("battle-judgement-detail");
+
+            function setComboClasses(mode) {
+                comboCycle = !comboCycle;
+                comboRoot.classList.remove("gain", "break", "cycle-a", "cycle-b");
+                if (mode) {
+                    comboRoot.classList.add(mode);
+                }
+                comboRoot.classList.add(comboCycle ? "cycle-a" : "cycle-b");
+            }
+
+            function renderCombo() {
+                comboCount.textContent = String(combo);
+                comboBonus.textContent = "TEAM DMG +" + Math.min(combo * 0.1, 3.0).toFixed(1) + "%";
+            }
+
+            function showPopup(gradeClass, gradeText, detailText) {
+                popupCycle = !popupCycle;
+                popupRoot.classList.remove("perfect", "good", "okay", "flop", "cycle-a", "cycle-b", "visible");
+                popupRoot.classList.add("visible", gradeClass, popupCycle ? "cycle-a" : "cycle-b");
+                popupGrade.textContent = gradeText;
+                popupDetail.textContent = detailText;
+                if (popupTimer) {
+                    window.clearTimeout(popupTimer);
+                }
+                popupTimer = window.setTimeout(function () {
+                    popupRoot.classList.remove("visible");
+                }, 920);
+            }
+
+            function gainCombo() {
+                combo += 1;
+                renderCombo();
+                setComboClasses("gain");
+            }
+
+            function breakCombo() {
+                combo = 0;
+                renderCombo();
+                setComboClasses("break");
+            }
+
+            function neutralCombo() {
+                renderCombo();
+                comboRoot.classList.remove("gain", "break");
+            }
+
+            var buttons = document.querySelectorAll("[data-grade]");
+            for (var i = 0; i < buttons.length; ++i) {
+                buttons[i].addEventListener("click", function () {
+                    var gradeClass = this.getAttribute("data-grade");
+                    var gradeText = gradeClass.toUpperCase();
+                    var detailText = this.getAttribute("data-value");
+                    showPopup(gradeClass, gradeText, detailText);
+
+                    if (gradeClass === "perfect" || gradeClass === "good") {
+                        gainCombo();
+                    } else if (gradeClass === "flop") {
+                        breakCombo();
+                    } else {
+                        neutralCombo();
+                    }
+                });
+            }
+
+            document.getElementById("combo-gain").addEventListener("click", function () {
+                gainCombo();
+            });
+
+            document.getElementById("combo-break").addEventListener("click", function () {
+                breakCombo();
+                showPopup("flop", "FLOP", "+0% DMG");
+            });
+
+            document.getElementById("forced-perfect").addEventListener("click", function () {
+                showPopup("perfect", "PERFECT", "+0% HEAL");
+                neutralCombo();
+            });
+
+            document.getElementById("reset-all").addEventListener("click", function () {
+                combo = 0;
+                renderCombo();
+                comboRoot.classList.remove("gain", "break", "cycle-a", "cycle-b");
+                popupRoot.classList.remove("visible", "perfect", "good", "okay", "flop", "cycle-a", "cycle-b");
+            });
+
+            renderCombo();
+            showPopup("perfect", "PERFECT", "+18% DMG");
+        }());
+    </script>
+</body>
+</html>

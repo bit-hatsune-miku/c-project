@@ -28,7 +28,30 @@ void applyBossOffenseResult(const AbilityExecutionContext& context,
     bossCurrentHp = std::max(0, bossCurrentHp - amount);
 }
 
-} // namespace
+} /**
+ * @brief Execute an ability's effect, mutating boss HP and party characters as appropriate.
+ *
+ * Applies the provided ability from `context` to update `bossCurrentHp` and to modify
+ * `characters` (healing, reviving, or adding shields). Behavior varies by ability type:
+ * - Special-case ultimate (ability id "8888" or presentationId "wechatalipay_ultimate"): subtracts
+ *   the sum of all alive characters' shield values from `bossCurrentHp` without consuming shields.
+ * - Attack / Debuff: computes final damage from `context.baseDamage`, `ability.multiplier`,
+ *   `context.presentationMultiplier`, and `context.comboMultiplier`, enforces a minimum of 1 when
+ *   nonzero, and applies it to `bossCurrentHp` (damage may instead heal the boss depending on
+ *   `context.playerDamageHealsBoss`).
+ * - Heal: determines a base heal from `context.baseHeal` or `ability.flatHeal`, scales by
+ *   `context.presentationMultiplier`, rounds and enforces a minimum of 1 when nonzero; if the
+ *   ability targets all allies, applies healing to alive characters and revives dead characters
+ *   when `ability.reviveDeadAllies` is true.
+ * - Shield: computes a shield amount from the caster's base shield scaled by
+ *   `context.presentationMultiplier` and adds that shield to targets according to the ability's
+ *   target rule.
+ * - Buff: no effect.
+ *
+ * @param context Execution parameters and ability definition used to compute effects.
+ * @param[out] bossCurrentHp Reference to the boss's current HP; may be increased or decreased.
+ * @param[in,out] characters Vector of party characters that may be healed, revived, or granted shields.
+ */
 
 void executeAbilityEffect(const AbilityExecutionContext& context,
                           int& bossCurrentHp,
@@ -57,7 +80,10 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
     switch (ability.type) {
         case AbilityType::Attack: {
             const int finalDamage = normalizeDamage(static_cast<int>(
-                context.baseDamage * ability.multiplier * context.presentationMultiplier
+                context.baseDamage *
+                ability.multiplier *
+                context.presentationMultiplier *
+                context.comboMultiplier
             ));
             applyBossOffenseResult(context, finalDamage, bossCurrentHp);
             break;
@@ -109,7 +135,10 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
         case AbilityType::Debuff:
             if (ability.multiplier > 0.0f) {
                 const int finalDamage = normalizeDamage(static_cast<int>(
-                    context.baseDamage * ability.multiplier * context.presentationMultiplier
+                    context.baseDamage *
+                    ability.multiplier *
+                    context.presentationMultiplier *
+                    context.comboMultiplier
                 ));
                 applyBossOffenseResult(context, finalDamage, bossCurrentHp);
             }

@@ -76,6 +76,18 @@ bool parseNestedUnitAbilities(const json& unitJson,
     return true;
 }
 
+/**
+ * @brief Loads nested ability definitions from a JSON asset and merges them into an ability map.
+ *
+ * Reads the JSON at the given relative asset path, expects a top-level object where each entry
+ * contains nested ability definitions for a unit, and parses those nested abilities into the
+ * provided output map (overwriting any existing entries with the same id).
+ *
+ * @param relativePath Path to the JSON asset, relative to the assets root.
+ * @param label Optional label used in error messages when reading/parsing the file (may be null).
+ * @param outAbilities Map that will be populated with parsed AbilityDefinition entries keyed by id.
+ * @return true if the file was read and all nested abilities were parsed and merged successfully, false otherwise.
+ */
 bool loadNestedAbilityDefinitionsFromFile(const std::string& relativePath,
                                           const char* label,
                                           std::unordered_map<std::string, AbilityDefinition>& outAbilities) {
@@ -97,6 +109,113 @@ bool loadNestedAbilityDefinitionsFromFile(const std::string& relativePath,
     return true;
 }
 
+/**
+ * @brief Populates a PresentationTuningProfile from a JSON tuning object.
+ *
+ * Initializes \p outProfile to defaults, sets its profileId and phaseIndex,
+ * and copies optional numeric entries from \p tuningJson:
+ * - "intParams": numeric entries copied into outProfile.intParams after conversion to int
+ * - "floatParams": numeric entries copied into outProfile.floatParams
+ *
+ * Entries with the wrong JSON type are ignored. If \p tuningJson is not an
+ * object, outProfile is still initialized with the provided profileId and phaseIndex.
+ *
+ * @param tuningJson JSON object containing optional "intParams" and "floatParams".
+ * @param profileId Identifier to assign to the profile.
+ * @param phaseIndex Phase index to assign to the profile.
+ * @param outProfile Destination profile that will be initialized and populated.
+ */
+void parsePresentationTuningProfile(const json& tuningJson,
+                                    const std::string& profileId,
+                                    int phaseIndex,
+                                    PresentationTuningProfile& outProfile) {
+    outProfile = PresentationTuningProfile{};
+    outProfile.profileId = profileId;
+    outProfile.phaseIndex = phaseIndex;
+
+    if (!tuningJson.is_object()) {
+        return;
+    }
+
+    if (const auto intParamsIt = tuningJson.find("intParams");
+        intParamsIt != tuningJson.end() && intParamsIt->is_object()) {
+        for (auto it = intParamsIt->begin(); it != intParamsIt->end(); ++it) {
+            if (!it.value().is_number()) {
+                continue;
+            }
+            outProfile.intParams[it.key()] = static_cast<int>(it.value().get<double>());
+        }
+    }
+
+    if (const auto floatParamsIt = tuningJson.find("floatParams");
+        floatParamsIt != tuningJson.end() && floatParamsIt->is_object()) {
+        for (auto it = floatParamsIt->begin(); it != floatParamsIt->end(); ++it) {
+            if (!it.value().is_number()) {
+                continue;
+            }
+            outProfile.floatParams[it.key()] = it.value().get<float>();
+        }
+    }
+}
+
+/**
+ * @brief Populates a boss phase definition from JSON.
+ *
+ * Initializes outPhase to defaults; if phaseJson is an object, marks the phase as configured
+ * and reads optional fields `atkBonusPercent`, `bgm`, and `bgmVolume`. It also sets
+ * outPhase.tuningProfile from a nested `presentation` object when present, otherwise
+ * assigns a default profileId derived from bossKey and phaseIndex and sets the profile's phaseIndex.
+ *
+ * @param phaseJson JSON object describing the phase; ignored if not an object (outPhase remains defaults).
+ * @param bossKey Base key of the boss used to synthesize a default tuning profile id when needed.
+ * @param phaseIndex Zero-based index of the phase (used in the synthesized profile id and stored in the profile).
+ * @param outPhase Destination structure that will be overwritten with parsed/defaulted phase data.
+ */
+void parseBossPhaseDefinition(const json& phaseJson,
+                              const std::string& bossKey,
+                              int phaseIndex,
+                              BossDefinition::PhaseDefinition& outPhase) {
+    outPhase = BossDefinition::PhaseDefinition{};
+    if (!phaseJson.is_object()) {
+        return;
+    }
+
+    outPhase.configured = true;
+    outPhase.atkBonusPercent = phaseJson.value("atkBonusPercent", 0);
+    outPhase.bgm = phaseJson.value("bgm", "");
+    if (const auto bgmVolumeIt = phaseJson.find("bgmVolume");
+        bgmVolumeIt != phaseJson.end() && bgmVolumeIt->is_number()) {
+        outPhase.bgmVolume = bgmVolumeIt->get<float>();
+    }
+
+    if (const auto presentationIt = phaseJson.find("presentation");
+        presentationIt != phaseJson.end()) {
+        parsePresentationTuningProfile(
+            *presentationIt,
+            bossKey + ".phase" + std::to_string(phaseIndex + 1),
+            phaseIndex,
+            outPhase.tuningProfile
+        );
+    } else {
+        outPhase.tuningProfile = PresentationTuningProfile{};
+        outPhase.tuningProfile.profileId = bossKey + ".phase" + std::to_string(phaseIndex + 1);
+        outPhase.tuningProfile.phaseIndex = phaseIndex;
+    }
+}
+
+/**
+ * @brief Parses a JSON object into a BossDefinition and validates top-level structure.
+ *
+ * Parses fields from `bossJson` into `outBoss`, populating identifiers, assets, stats,
+ * ability references, music settings, and optional phase data. If a `"phases"` object
+ * is present it will parse up to `"phase1"`, `"phase2"`, and `"phase3"` and set
+ * `outBoss.hasPhaseData` when any phase is configured.
+ *
+ * @param bossJson JSON value expected to be an object containing boss data.
+ * @param key The lookup key used as the boss definition's `key` and default `title`.
+ * @param outBoss Output structure that will be overwritten with the parsed boss definition.
+ * @return true if `bossJson` is an object and parsing succeeded; `outBoss` is not modified on failure.
+ */
 bool parseBossDefinition(const json& bossJson, const std::string& key, BossDefinition& outBoss) {
     if (!bossJson.is_object()) {
         return false;
@@ -118,6 +237,20 @@ bool parseBossDefinition(const json& bossJson, const std::string& key, BossDefin
     outBoss.bgm = bossJson.value("bgm", "");
     outBoss.bgmVolume = bossJson.value("bgmVolume", 1.0f);
     outBoss.ability = outBoss.skillAbility;
+
+    if (const auto phasesIt = bossJson.find("phases"); phasesIt != bossJson.end() && phasesIt->is_object()) {
+        static constexpr std::array<const char*, 3> kPhaseKeys = {"phase1", "phase2", "phase3"};
+        bool anyConfigured = false;
+        for (size_t phaseIndex = 0; phaseIndex < kPhaseKeys.size(); ++phaseIndex) {
+            const auto phaseIt = phasesIt->find(kPhaseKeys[phaseIndex]);
+            if (phaseIt == phasesIt->end()) {
+                continue;
+            }
+            parseBossPhaseDefinition(*phaseIt, key, static_cast<int>(phaseIndex), outBoss.phases[phaseIndex]);
+            anyConfigured = anyConfigured || outBoss.phases[phaseIndex].configured;
+        }
+        outBoss.hasPhaseData = anyConfigured;
+    }
     return true;
 }
 
@@ -214,6 +347,19 @@ bool isBattleDefinitionValid(const BattleDefinition& battle) {
     return true;
 }
 
+/**
+ * @brief Parses a battle JSON object into a BattleDefinition and validates it.
+ *
+ * Populates `outBattle` with fields from `battleJson`, applying defaults for missing values,
+ * reading optional `buffs` and `specialRules`, resolving the party size, and enforcing consistency
+ * rules. If `battleJson` is not an object or the resulting definition fails validation, no
+ * assignment to `outBattle` is performed.
+ *
+ * @param battleKey Optional override for the battle's key; if empty the function uses `battleJson["key"]`.
+ * @param battleJson JSON object containing battle fields (e.g., id, name, bossKey, lineup, buffs).
+ * @param outBattle Destination for the parsed and validated BattleDefinition.
+ * @return `true` if the JSON was parsed and validated successfully, `false` otherwise.
+ */
 bool fillBattleDefinitionFromJson(const std::string& battleKey,
                                   const json& battleJson,
                                   BattleDefinition& outBattle) {
@@ -224,6 +370,7 @@ bool fillBattleDefinitionFromJson(const std::string& battleKey,
     BattleDefinition battle;
     battle.key = battleKey.empty() ? battleJson.value("key", "") : battleKey;
     battle.id = battleJson.value("id", -1);
+    battle.storyOrder = battleJson.value("storyOrder", battle.id);
     battle.name = battleJson.value("name", battle.key);
     battle.description = battleJson.value("description", "");
     battle.type = battleJson.value("type", "");
@@ -232,10 +379,17 @@ bool fillBattleDefinitionFromJson(const std::string& battleKey,
     battle.storyScript = battleJson.value("storyScript", "");
     battle.victoryStoryScript = battleJson.value("victoryStoryScript", "");
     battle.defeatStoryScript = battleJson.value("defeatStoryScript", "");
+    battle.nextStoryScript = battleJson.value("nextStoryScript", "");
     battle.selectorVisible = battleJson.value("selectorVisible", false);
     battle.isLineupFixed = battleJson.value("isLineupFixed", true);
     battle.lineup = battleJson.value("lineup", std::vector<std::string>{});
     battle.lockedLineup = battleJson.value("lockedLineup", std::vector<std::string>{});
+    if (battleJson.contains("buffs") && battleJson.at("buffs").is_object()) {
+        const json& buffsJson = battleJson.at("buffs");
+        battle.buffs.hp = buffsJson.value("hp", 0);
+        battle.buffs.atk = buffsJson.value("atk", 0);
+        battle.buffs.spd = buffsJson.value("spd", 0);
+    }
     if (battleJson.contains("specialRules") && battleJson.at("specialRules").is_object()) {
         const json& specialRulesJson = battleJson.at("specialRules");
         battle.specialRules.playerDamageHealsBoss =
@@ -476,6 +630,18 @@ bool loadBattleDefinitionById(int battleId, BattleDefinition& outBattle) {
     return true;
 }
 
+/**
+ * @brief Loads all battle definitions from assets/combat/battles.json into the provided vector.
+ *
+ * Populates outBattles with parsed BattleDefinition objects found in the JSON root (either the
+ * top-level array or the object under the "battles" key), then sorts the collection by
+ * storyOrder, id, and key.
+ *
+ * @param outBattles Destination vector that will be cleared and replaced with the loaded battles.
+ * @return true if the JSON file was read and every battle entry was parsed successfully; false if
+ *         the file cannot be read, the JSON root/container is invalid, or any battle definition
+ *         fails validation/parsing.
+ */
 bool loadAllBattleDefinitions(std::vector<BattleDefinition>& outBattles) {
     outBattles.clear();
 
@@ -520,6 +686,9 @@ bool loadAllBattleDefinitions(std::vector<BattleDefinition>& outBattles) {
     }
 
     std::sort(outBattles.begin(), outBattles.end(), [](const BattleDefinition& lhs, const BattleDefinition& rhs) {
+        if (lhs.storyOrder != rhs.storyOrder) {
+            return lhs.storyOrder < rhs.storyOrder;
+        }
         if (lhs.id != rhs.id) {
             return lhs.id < rhs.id;
         }

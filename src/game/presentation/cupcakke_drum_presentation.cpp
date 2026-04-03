@@ -44,6 +44,7 @@ void CupcakkeDrumPresentation::start() {
     inputWindow_.active = true;
     pendingAbilityAudioCues_ = 1;
     pendingHitEvents_ = 0;
+    pendingFeedbackEvents_.clear();
 }
 
 void CupcakkeDrumPresentation::update(float deltaTime) {
@@ -99,10 +100,29 @@ void CupcakkeDrumPresentation::onSpacePressed() {
     }
 
     ++pressCount_;
+
+    PresentationFeedbackEvent event;
+    event.signal = PresentationFeedbackSignal::forcedPerfect();
+    event.multiplier = getInputMultiplier();
+    event.comboEligible = true;
+    event.rewardText =
+        "+" + std::to_string(std::max(0, static_cast<int>(std::lround((event.multiplier - 1.0f) * 100.0f)))) +
+        "% DMG";
+    pendingFeedbackEvents_.push_back(event);
 }
 
 float CupcakkeDrumPresentation::getInputMultiplier() const {
     return std::min(kCupcakkeMaxMultiplier, 1.0f + (static_cast<float>(pressCount_) * kCupcakkePressBonus));
+}
+
+PresentationFeedbackSignal CupcakkeDrumPresentation::getFeedbackSignal() const {
+    return PresentationFeedbackSignal::forcedPerfect();
+}
+
+std::vector<PresentationFeedbackEvent> CupcakkeDrumPresentation::consumeFeedbackEvents() {
+    std::vector<PresentationFeedbackEvent> events;
+    events.swap(pendingFeedbackEvents_);
+    return events;
 }
 
 std::string CupcakkeDrumPresentation::getInputResultText() const {

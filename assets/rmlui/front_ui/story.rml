@@ -8,13 +8,22 @@
         <div id="story-bg-color" class="is-hidden"></div>
         <img id="story-bg-art-prev" src="" class="is-hidden"/>
         <img id="story-bg-art" src="" class="is-hidden"/>
-        <div id="story-dialogue-box">
-            <div id="story-speaker-name"></div>
-            <div id="story-portrait-frame">
-                <img id="story-portrait-img" src="" class="is-hidden"/>
-            </div>
-            <div id="story-dialogue-copy">
-                <div id="story-dialogue-text"></div>
+        <div id="story-dialogue-container">
+            <div id="story-speaker-name" class="is-hidden"></div>
+            <div id="story-dialogue-shell">
+                <div id="story-dialogue-box">
+                    <div id="story-dialogue-inner">
+                        <div id="story-portrait-frame">
+                            <img id="story-portrait-img" src="" class="is-hidden"/>
+                        </div>
+                        <div id="story-dialogue-text-area">
+                            <div id="story-dialogue-copy">
+                                <div id="story-dialogue-text"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="story-dialogue-advance"></div>
+                </div>
             </div>
         </div>
     </div>

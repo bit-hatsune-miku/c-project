@@ -603,6 +603,20 @@ private:
         context_->SetDensityIndependentPixelRatio(std::max(scale, 0.01f));
     }
 
+    /**
+     * @brief Loads battle and player data into the session and prepares the roster and initial selection.
+     *
+     * Populates internal session state from the provided battle definition and player progression:
+     * - stores the provided definitions,
+     * - loads the boss definition and resolves its description,
+     * - loads character definitions, filters them to the visible/allowed set, applies progression bonuses,
+     *   and resolves roster/stage image paths,
+     * - initializes the selected lineup (honoring locked and fixed lineup rules) and focus/scroll state.
+     *
+     * @param battleDefinition Source battle configuration that determines party constraints, locked lineup, and boss key.
+     * @param progression Player progression used to determine visible characters and to apply per-character bonuses.
+     * @return bool `true` if data loaded and session state initialized successfully; `false` on failure (e.g., missing resources or no roster available).
+     */
     bool loadBattleData(const BattleDefinition& battleDefinition,
                         const PlayerProgression& progression) {
         battleDefinition_ = battleDefinition;
@@ -654,6 +668,7 @@ private:
 
             Entry entry;
             entry.character = character;
+            applyCharacterProgressionBonuses(entry.character, progression_);
             entry.rosterImagePath = resolveRuntimeImagePath("icons", character.assets);
             if (entry.rosterImagePath.empty()) {
                 entry.rosterImagePath = resolveRuntimeImagePath("sprites", character.assets);

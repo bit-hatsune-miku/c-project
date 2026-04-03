@@ -19,10 +19,96 @@
 #include "render/battle_combat_begin_animation.h"
 #include "render/battle_feedback.h"
 #include "render/battle_scene_types.h"
+#include "render/battle_stage.h"
 #include "render/battle_ui.h"
 #include "render/camera_3d.h"
 #include "render/free_view_camera_debug_log.h"
 
+/**
+ * Initialize the battle session with renderer, battle definition, and party composition.
+ * @param renderer SDL renderer used for all session rendering.
+ * @param battleDefinition Definition describing the battle (stage, boss, rules).
+ * @param partyKeys Identifiers for party members in order.
+ * @param hooks Optional callbacks for host integration and presentation hooks.
+ * @returns `true` if initialization succeeded and the session is ready, `false` on failure.
+ */
+/**
+ * Shut down the session and release all owned resources.
+ * Calls the shutdown hook if provided.
+ */
+/**
+ * Process a single SDL event for the session (input, window events, etc.).
+ * @param event The SDL event to handle.
+ */
+/**
+ * Advance the session state by the given time delta.
+ * @param deltaSeconds Time in seconds since the last update.
+ */
+/**
+ * Render the full battle scene into the provided renderer at the specified size.
+ * @param renderer SDL renderer to draw into.
+ * @param screenWidth Current viewport width in pixels.
+ * @param screenHeight Current viewport height in pixels.
+ */
+/**
+ * Capture a snapshot of the current frame's core rendering and presentation state.
+ * @param screenWidth Current viewport width in pixels.
+ * @param screenHeight Current viewport height in pixels.
+ * @returns A BattleFrameSnapshot containing camera, stage pointer, entities, feedback anchors,
+ *          shake offsets, focused entity index, timing flags, and active presentation pointers.
+ */
+/**
+ * Render the "below world" compatibility pass (background/stage) into the renderer.
+ * @param renderer SDL renderer to draw into.
+ * @param screenWidth Current viewport width in pixels.
+ * @param screenHeight Current viewport height in pixels.
+ */
+/**
+ * Render the "mid world" compatibility pass (entities and optional feedback) into the renderer.
+ * @param renderer SDL renderer to draw into.
+ * @param screenWidth Current viewport width in pixels.
+ * @param screenHeight Current viewport height in pixels.
+ * @param includeFeedback When `true`, render feedback popups during this pass.
+ */
+/**
+ * Render the overlay compatibility pass (HUD, overlays, optional feedback) into the renderer.
+ * @param renderer SDL renderer to draw into.
+ * @param screenWidth Current viewport width in pixels.
+ * @param screenHeight Current viewport height in pixels.
+ * @param includeFeedback When `true`, render feedback popups during the overlay pass.
+ */
+/**
+ * Indicates whether a compatibility-style overlay pass is available/required.
+ * @returns `true` if an overlay pass should be performed, `false` otherwise.
+ */
+/**
+ * Indicates whether any feedback popups are currently visible.
+ * @returns `true` if one or more feedback popups are visible, `false` otherwise.
+ */
+/**
+ * Indicates whether the session has reached its finished state.
+ * @returns `true` if the session is finished and should be discarded, `false` otherwise.
+ */
+/**
+ * Indicates whether the combat-begin camera animation is currently active.
+ * @returns `true` if the combat-begin animation is playing, `false` otherwise.
+ */
+/**
+ * Set a transient HUD hint message.
+ * @param text Hint text to display.
+ * @param displayMs Duration in milliseconds to display the hint; `0` to use internal default or persistent behavior.
+ */
+/**
+ * Clear the currently displayed HUD hint immediately.
+ */
+/**
+ * Access the mutable BattleManager driving game logic.
+ * @returns Reference to the internal BattleManager.
+ */
+/**
+ * Access the const BattleManager driving game logic.
+ * @returns Const reference to the internal BattleManager.
+ */
 namespace battle {
 
 // Generic SDL2-based battle session runtime.
@@ -32,6 +118,7 @@ class BattleSessionCore {
 public:
     struct BattleFrameSnapshot {
         Camera3D camera{};
+        const render::StageDefinition* stage = nullptr;
         std::vector<render::SceneEntity> entities;
         std::vector<render::FeedbackEntityAnchor> feedbackAnchors;
         std::vector<float> shakeOffsetsX;
@@ -66,6 +153,9 @@ public:
         // Called at the start of each update frame with the manager and deltaSeconds.
         // Use for narrative state updates, vn::update, etc.
         std::function<void(BattleManager&, float)> onPreUpdate;
+
+        // Called once per boss phase transition after manager state has been updated.
+        std::function<void(const BossPhaseTransition&, BattleManager&)> onBossPhaseTransition;
 
         // Return true to keep the battle session alive after the manager reports
         // battle over, for host-managed timing such as death voice playback.
@@ -111,7 +201,7 @@ public:
     };
 
     bool initialize(SDL_Renderer* renderer,
-                    const std::string& bossKey,
+                    const BattleDefinition& battleDefinition,
                     const std::vector<std::string>& partyKeys,
                     Hooks hooks = {});
 
@@ -145,7 +235,10 @@ public:
 private:
     int computeFocusedEntityIndex() const;
     std::vector<render::FeedbackEntityAnchor> buildFeedbackAnchors() const;
+    bool handleManualUltimateHotkey(SDL_Keycode key);
     void maybeStartUltimateTurnSplash(const flow::PreviewActorContext& preview, bool dialogueActive);
+    void startBossPhaseIntro(const BossPhaseTransition& transition);
+    void updateBossPhaseIntro(float deltaSeconds);
     void updateSceneEntities(float deltaSeconds, bool bossActing, int actingPartyIndex);
     void computeCharacterPositions(bool bossActing, int actingPartyIndex);
     void updateCharacterVisibilityTransitions(float deltaSeconds);
@@ -161,7 +254,7 @@ private:
     std::vector<render::SceneEntity> entities_;
     std::map<std::string, SDL_Texture*> textureByAsset_;
     std::map<std::string, SDL_Texture*> iconByAsset_;
-    SDL_Texture* floorTileTexture_ = nullptr;
+    render::StageRenderData stageRenderData_{};
 
     ui::BattleHud hud_;
     Camera3D camera_;
@@ -177,6 +270,16 @@ private:
     AbilityPresentation* activePresentation_ = nullptr;
     std::unique_ptr<SplashArtAnimation> activeUltimateTurnSplash_;
     int previewUltimateSplashPartyIndex_ = -1;
+
+    struct BossPhaseIntroState {
+        bool active = false;
+        int phaseIndex = -1;
+        std::string hintText;
+        float elapsed = 0.0f;
+        float duration = 0.90f;
+        Camera3D startCamera{};
+        Camera3D goalCamera{};
+    } bossPhaseIntro_;
 
     // Set by runPresentationInteraction during the splash pre-loop;
     // called between world render and SDL_RenderPresent each frame.

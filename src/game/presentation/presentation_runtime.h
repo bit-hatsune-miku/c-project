@@ -16,6 +16,7 @@ struct PlaybackResult {
     float multiplier = 1.0f;
     std::string resultText;
     int correctToneCount = 0;
+    PresentationFeedbackSignal feedbackSignal{};
 };
 
 struct PlaybackStateRefs {
@@ -30,6 +31,7 @@ struct PlaybackCallbacks {
     std::function<void(int cueCount)> onAbilityAudioCues;
     std::function<void(int hitEvents, int damageLabelHitCount)> onHitEvents;
     std::function<void(const std::vector<PresentationAudioCommand>& commands)> onAudioCommands;
+    std::function<void(SDL_Keycode key)> onUnhandledKeyDown;
     std::function<void(float deltaSeconds)> onPostUpdate;
     std::function<void()> onBossPresentationFrame;
     std::function<void()> renderAndPresentFrame;

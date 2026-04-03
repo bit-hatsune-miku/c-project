@@ -9,10 +9,8 @@
 #include <iomanip>
 #include <iostream>
 #include <optional>
-#include <set>
 #include <sstream>
 #include <string>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -52,11 +50,14 @@ constexpr const char* kDocumentPath = "assets/rmlui/previews/battle_selector_pre
 constexpr const char* kLoadingOverlayDocumentPath = "assets/rmlui/shared/loading_overlay.rml";
 constexpr const char* kScrollSfxRelativePath = "assets/ui/sfx/Selection_roulette-3.wav";
 constexpr const char* kConfirmSfxRelativePath = "assets/ui/sfx/SongSelect_confirm-selection.wav";
-constexpr const char* kFinaleBattleKey = "lyoo_plot_twist";
-
 class CallbackEventListener final : public Rml::EventListener {
 public:
-    explicit CallbackEventListener(std::function<void(Rml::Event&)> callback)
+    /**
+         * @brief Constructs a CallbackEventListener that forwards processed events to the given callable.
+         *
+         * @param callback Callable invoked with the Rml::Event when ProcessEvent is called.
+         */
+        explicit CallbackEventListener(std::function<void(Rml::Event&)> callback)
         : callback_(std::move(callback)) {}
 
     void ProcessEvent(Rml::Event& event) override {
@@ -245,14 +246,12 @@ public:
     void shutdown() {
         initialized_ = false;
         finished_ = false;
-        negativeHeld_ = false;
-        positiveHeld_ = false;
-        holdNegativeElapsed_ = 0.0f;
-        holdPositiveElapsed_ = 0.0f;
+        clearHeldDirectionalInput();
         toastTimer_ = 0.0f;
         visualSelectionIndex_ = 0.0f;
         targetVisualSelectionIndex_ = 0.0f;
         focusZone_ = FocusZone::Carousel;
+        footerSelection_ = FooterAction::ReplayStory;
         confirmVisible_ = false;
         confirmChoice_ = ConfirmChoice::Back;
         confirmTarget_.reset();
@@ -260,10 +259,9 @@ public:
         pressedCardIndex_.reset();
         pressedConfirmCardIndex_.reset();
         pressedConfirmChoice_.reset();
-        pressedFinaleButton_ = false;
-        pressedConfirmFinaleButton_ = false;
+        pressedFooterAction_.reset();
+        pressedConfirmFooterAction_.reset();
         launchRequest_.reset();
-        finaleBattle_.reset();
 
         sfxPlayer_.shutdown();
         scrollSfxPath_.clear();
@@ -287,7 +285,8 @@ public:
         infoAtkElement_ = nullptr;
         infoSpdElement_ = nullptr;
         infoHintElement_ = nullptr;
-        finaleButtonElement_ = nullptr;
+        replayStoryButtonElement_ = nullptr;
+        straightToBattleButtonElement_ = nullptr;
         toastElement_ = nullptr;
         confirmOverlayElement_ = nullptr;
         confirmTitleElement_ = nullptr;
@@ -324,6 +323,14 @@ public:
         windowHost_ = nullptr;
     }
 
+    /**
+     * @brief Handle an SDL input event and update selector UI state accordingly.
+     *
+     * Processes window resize, keyboard, and mouse events to update focus, selection,
+     * confirmation overlay, and pressed-state tracking; delegates raw input to RmlSDL.
+     *
+     * @param event The SDL event to handle.
+     */
     void handleEvent(const SDL_Event& event) {
         if (!initialized_ || context_ == nullptr || window_ == nullptr) {
             return;
@@ -382,6 +389,8 @@ public:
                         negativeHeld_ = true;
                         holdNegativeElapsed_ = 0.0f;
                         moveSelection(-1, true);
+                    } else {
+                        moveFooterSelection(-1, true);
                     }
                     break;
 
@@ -390,6 +399,8 @@ public:
                         positiveHeld_ = true;
                         holdPositiveElapsed_ = 0.0f;
                         moveSelection(1, true);
+                    } else {
+                        moveFooterSelection(1, true);
                     }
                     break;
 
@@ -398,17 +409,16 @@ public:
                     break;
 
                 case SDLK_DOWN:
-                    setFocusZone(FocusZone::Finale, true);
+                    if (focusZone_ == FocusZone::Carousel) {
+                        setFocusZone(FocusZone::Footer, true);
+                        clearHeldDirectionalInput();
+                    }
                     break;
 
                 case SDLK_RETURN:
                 case SDLK_KP_ENTER:
                 case SDLK_SPACE:
-                    if (focusZone_ == FocusZone::Finale) {
-                        openConfirmForFinale();
-                    } else {
-                        openConfirmForSelected();
-                    }
+                    openConfirmForSelected();
                     break;
 
                 default:
@@ -426,6 +436,13 @@ public:
                 } else if (hitTestElement(mouseX, mouseY, confirmProceedElement_)) {
                     setConfirmChoice(ConfirmChoice::Proceed, true);
                 }
+            } else if (const std::optional<std::size_t> hoveredCard = hitTestCard(mouseX, mouseY);
+                       hoveredCard.has_value()) {
+                focusZone_ = FocusZone::Carousel;
+                setSelectedIndex(*hoveredCard, true);
+            } else if (const std::optional<FooterAction> hoveredAction = hitTestFooterAction(mouseX, mouseY);
+                       hoveredAction.has_value()) {
+                selectFooterAction(*hoveredAction, true);
             }
         }
 
@@ -439,9 +456,10 @@ public:
                     pressedConfirmCardIndex_ = hoveredCard;
                     focusZone_ = FocusZone::Carousel;
                     setSelectedIndex(*hoveredCard, true);
-                } else if (hitTestElement(mouseX, mouseY, finaleButtonElement_)) {
-                    pressedConfirmFinaleButton_ = true;
-                    setFocusZone(FocusZone::Finale, true);
+                } else if (const std::optional<FooterAction> hoveredAction = hitTestFooterAction(mouseX, mouseY);
+                           hoveredAction.has_value()) {
+                    pressedConfirmFooterAction_ = hoveredAction;
+                    selectFooterAction(*hoveredAction, true);
                 }
             }
         }
@@ -452,8 +470,8 @@ public:
             pressedCardIndex_.reset();
             pressedConfirmCardIndex_.reset();
             pressedConfirmChoice_.reset();
-            pressedFinaleButton_ = false;
-            pressedConfirmFinaleButton_ = false;
+            pressedFooterAction_.reset();
+            pressedConfirmFooterAction_.reset();
 
             if (confirmVisible_) {
                 if (hitTestElement(mouseX, mouseY, confirmBackElement_)) {
@@ -467,10 +485,12 @@ public:
                        hoveredCard.has_value()) {
                 pressedCardIndex_ = hoveredCard;
                 focusZone_ = FocusZone::Carousel;
+                setSelectedIndex(*hoveredCard, false);
                 return;
-            } else if (hitTestElement(mouseX, mouseY, finaleButtonElement_)) {
-                pressedFinaleButton_ = true;
-                setFocusZone(FocusZone::Finale, true);
+            } else if (const std::optional<FooterAction> hoveredAction = hitTestFooterAction(mouseX, mouseY);
+                       hoveredAction.has_value()) {
+                pressedFooterAction_ = hoveredAction;
+                selectFooterAction(*hoveredAction, false);
                 return;
             }
         }
@@ -495,24 +515,26 @@ public:
                 pressedConfirmChoice_.reset();
                 pressedCardIndex_.reset();
                 pressedConfirmCardIndex_.reset();
-                pressedFinaleButton_ = false;
-                pressedConfirmFinaleButton_ = false;
+                pressedFooterAction_.reset();
+                pressedConfirmFooterAction_.reset();
                 return;
             }
 
             const std::optional<std::size_t> releasedCard = hitTestCard(mouseX, mouseY);
+            const std::optional<FooterAction> releasedAction = hitTestFooterAction(mouseX, mouseY);
             if (pressedCardIndex_.has_value() && releasedCard == pressedCardIndex_) {
                 focusZone_ = FocusZone::Carousel;
                 setSelectedIndex(*releasedCard, true);
-            } else if (pressedFinaleButton_ && hitTestElement(mouseX, mouseY, finaleButtonElement_)) {
-                setFocusZone(FocusZone::Finale, false);
+            } else if (pressedFooterAction_.has_value() && releasedAction == pressedFooterAction_) {
+                selectFooterAction(*releasedAction, false);
+                openConfirmForSelected();
             }
 
             pressedCardIndex_.reset();
             pressedConfirmCardIndex_.reset();
             pressedConfirmChoice_.reset();
-            pressedFinaleButton_ = false;
-            pressedConfirmFinaleButton_ = false;
+            pressedFooterAction_.reset();
+            pressedConfirmFooterAction_.reset();
         }
 
         if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_RIGHT) {
@@ -524,17 +546,18 @@ public:
             }
 
             const std::optional<std::size_t> releasedCard = hitTestCard(mouseX, mouseY);
+            const std::optional<FooterAction> releasedAction = hitTestFooterAction(mouseX, mouseY);
             if (pressedConfirmCardIndex_.has_value() && releasedCard == pressedConfirmCardIndex_) {
                 focusZone_ = FocusZone::Carousel;
                 setSelectedIndex(*releasedCard, false);
                 openConfirmForEntry(*releasedCard);
-            } else if (pressedConfirmFinaleButton_ && hitTestElement(mouseX, mouseY, finaleButtonElement_)) {
-                setFocusZone(FocusZone::Finale, false);
-                openConfirmForFinale();
+            } else if (pressedConfirmFooterAction_.has_value() && releasedAction == pressedConfirmFooterAction_) {
+                selectFooterAction(*releasedAction, false);
+                openConfirmForSelected();
             }
 
             pressedConfirmCardIndex_.reset();
-            pressedConfirmFinaleButton_ = false;
+            pressedConfirmFooterAction_.reset();
         }
 
         if (event.type == SDL_KEYUP) {
@@ -624,7 +647,12 @@ public:
 private:
     enum class FocusZone {
         Carousel,
-        Finale,
+        Footer,
+    };
+
+    enum class FooterAction {
+        ReplayStory,
+        StraightToBattle,
     };
 
     enum class ConfirmChoice {
@@ -634,7 +662,6 @@ private:
 
     enum class ConfirmTargetType {
         Entry,
-        Finale,
     };
 
     struct ConfirmTarget {
@@ -723,6 +750,18 @@ private:
         context_->SetDensityIndependentPixelRatio(std::max(scale, 0.01f));
     }
 
+    /**
+     * @brief Loads selectable boss entries from battle definitions and prepares session selection state.
+     *
+     * Populates the session's entries list with battles that are marked visible to the selector and
+     * have been cleared in the current saved progression. For each entry the corresponding boss
+     * definition and an optional sprite path are resolved; when boss metadata is available the
+     * entry's instruction hint may be overridden from that metadata. The function also resets
+     * selection indices and sets focus to the carousel.
+     *
+     * @return true if at least one entry was loaded into the selector; false if no entries were
+     *         added or if battle definitions could not be loaded.
+     */
     bool loadEntries() {
         entries_.clear();
         progression_ = save::loadCurrentProgression();
@@ -736,21 +775,8 @@ private:
         const std::string bossPath = battle::loader::resolveAssetPath("assets/combat/boss.json");
         const bool loadedBossMeta = battle::loader::readJsonRoot(bossPath, bossRoot, "boss");
 
-        std::sort(battles.begin(), battles.end(), [](const battle::BattleDefinition& lhs,
-                                                     const battle::BattleDefinition& rhs) {
-            return lhs.id < rhs.id;
-        });
-
-        const std::unordered_set<std::string> clearedKeys(
-            progression_.clearedBattleKeys.begin(),
-            progression_.clearedBattleKeys.end());
-
         for (const battle::BattleDefinition& battle : battles) {
-            if (battle.key == kFinaleBattleKey) {
-                finaleBattle_ = battle;
-            }
-
-            if (!battle.selectorVisible) {
+            if (!battle.selectorVisible || !::battle::hasClearedBattle(progression_, battle.key)) {
                 continue;
             }
 
@@ -764,7 +790,7 @@ private:
             entry.boss = boss;
             entry.spritePath = resolveSelectorSpritePath(boss.assets);
             entry.tag = battleTag(battle);
-            entry.defeated = clearedKeys.find(battle.key) != clearedKeys.end();
+            entry.defeated = true;
             entry.instructionHint = "Preview interaction hint not available yet.";
 
             if (loadedBossMeta && bossRoot.is_object()) {
@@ -823,6 +849,18 @@ private:
         return true;
     }
 
+    /**
+     * @brief Cache frequently accessed UI elements from the loaded Rml document.
+     *
+     * Queries the active document for elements with fixed IDs and stores pointers
+     * to them for later UI updates. If no document is loaded, the function
+     * returns without modifying cached pointers.
+     *
+     * Cached elements include: boss track, idol rank value, info panel portrait,
+     * name, battle, copy text, HP/ATK/SPD values, instruction hint, footer action
+     * buttons (replay/straight-to-battle), toast, and confirm overlay/title/body
+     * and its Back/Proceed controls.
+     */
     void cacheElements() {
         if (document_ == nullptr) {
             return;
@@ -838,7 +876,8 @@ private:
         infoAtkElement_ = document_->GetElementById("info-atk");
         infoSpdElement_ = document_->GetElementById("info-spd");
         infoHintElement_ = document_->GetElementById("info-hint");
-        finaleButtonElement_ = document_->GetElementById("finale-button");
+        replayStoryButtonElement_ = document_->GetElementById("replay-story-button");
+        straightToBattleButtonElement_ = document_->GetElementById("straight-to-battle-button");
         toastElement_ = document_->GetElementById("selector-toast");
         confirmOverlayElement_ = document_->GetElementById("selector-confirm");
         confirmTitleElement_ = document_->GetElementById("selector-confirm-title");
@@ -847,6 +886,15 @@ private:
         confirmProceedElement_ = document_->GetElementById("selector-confirm-proceed");
     }
 
+    /**
+     * @brief Builds the carousel markup for all entries and caches card elements.
+     *
+     * Constructs the inner RML for the boss track from the current `entries_`,
+     * injects it into `trackElement_`, then collects and caches the button
+     * elements and their portrait image elements. If an entry includes a
+     * `spritePath`, that path is applied to the corresponding portrait image's
+     * `src` attribute. If `trackElement_` is null, the function does nothing.
+     */
     void buildTrack() {
         if (trackElement_ == nullptr) {
             return;
@@ -859,11 +907,7 @@ private:
                    << "<div class=\"boss-card-frame\">"
                    << "<div class=\"boss-card-topline\">"
                    << "<div class=\"boss-card-code\">" << escapeRml((i + 1 < 10 ? "0" : "") + std::to_string(i + 1)) << "</div>"
-                   << "<div class=\"boss-card-state";
-            if (entry.defeated) {
-                markup << " is-cleared";
-            }
-            markup << "\">" << escapeRml(entry.defeated ? "Cleared" : "Open") << "</div>"
+                   << "<div class=\"boss-card-state is-cleared\">Cleared</div>"
                    << "</div>"
                    << "<div class=\"boss-card-tag\">" << escapeRml(entry.tag) << "</div>"
                    << "<div class=\"boss-card-portrait\">"
@@ -894,18 +938,26 @@ private:
         }
     }
 
+    /**
+     * @brief Attach Rml event listeners for the selector document.
+     *
+     * If no document is loaded, this function does nothing. When a document is present,
+     * it is intended to register event handlers required by the UI; currently no handlers
+     * are registered (no-op).
+     */
     void attachListeners() {
         if (document_ == nullptr) {
             return;
         }
     }
 
-    bool isFinaleUnlocked() const {
-        const std::size_t clearedVisibleCount = static_cast<std::size_t>(std::count_if(
-            entries_.begin(), entries_.end(), [](const Entry& entry) { return entry.defeated; }));
-        return !entries_.empty() && clearedVisibleCount == entries_.size();
-    }
-
+    /**
+     * @brief Update the UI to match the session's current selection and focus state.
+     *
+     * Applies the animated carousel layout and synchronizes visible UI elements with the
+     * session's selection, focus zone, footer selection, confirmation visibility/choice,
+     * selected card highlighting, displayed idol rank, and info panel contents.
+     */
     void applySelection() {
         if (entries_.empty()) {
             return;
@@ -913,9 +965,15 @@ private:
 
         updateAnimatedLayout();
 
-        if (finaleButtonElement_ != nullptr) {
-            finaleButtonElement_->SetClass("is-focused", focusZone_ == FocusZone::Finale);
-            finaleButtonElement_->SetClass("is-locked", !isFinaleUnlocked());
+        if (replayStoryButtonElement_ != nullptr) {
+            replayStoryButtonElement_->SetClass(
+                "focused",
+                focusZone_ == FocusZone::Footer && footerSelection_ == FooterAction::ReplayStory);
+        }
+        if (straightToBattleButtonElement_ != nullptr) {
+            straightToBattleButtonElement_->SetClass(
+                "focused",
+                focusZone_ == FocusZone::Footer && footerSelection_ == FooterAction::StraightToBattle);
         }
 
         if (confirmOverlayElement_ != nullptr) {
@@ -940,19 +998,7 @@ private:
             }
         }
 
-        const std::set<std::string> clearedKeys(
-            progression_.clearedBattleKeys.begin(),
-            progression_.clearedBattleKeys.end());
-        int idolRank = 0;
-        for (const Entry& entry : entries_) {
-            if (clearedKeys.find(entry.battle.key) != clearedKeys.end()) {
-                ++idolRank;
-            }
-        }
-        if (finaleBattle_.has_value() &&
-            clearedKeys.find(finaleBattle_->key) != clearedKeys.end()) {
-            ++idolRank;
-        }
+        const int idolRank = static_cast<int>(entries_.size());
         if (rankValueElement_ != nullptr) {
             rankValueElement_->SetInnerRML(std::to_string(idolRank));
         }
@@ -1086,6 +1132,15 @@ private:
         }
     }
 
+    /**
+     * @brief Change the current UI focus zone and update the selection layout.
+     *
+     * Updates the session's focus zone to the given value and reapplies selection/layout.
+     * Optionally plays the scroll sound effect when the focus change should be audible.
+     *
+     * @param zone New focus zone to set (e.g., carousel or footer).
+     * @param shouldPlayScrollSfx If `true`, play the scroll sound effect after changing focus.
+     */
     void setFocusZone(FocusZone zone, bool shouldPlayScrollSfx) {
         if (focusZone_ == zone) {
             return;
@@ -1098,7 +1153,79 @@ private:
         }
     }
 
+    /**
+     * @brief Selects a footer action and moves focus to the footer.
+     *
+     * Updates the current footer selection and focus zone, reapplies UI selection layout,
+     * and optionally plays the scroll sound effect.
+     *
+     * @param action The footer action to select.
+     * @param shouldPlayScrollSfx If `true`, play the scroll SFX after applying the selection.
+     */
+    void selectFooterAction(FooterAction action, bool shouldPlayScrollSfx) {
+        if (focusZone_ == FocusZone::Footer && footerSelection_ == action) {
+            return;
+        }
+
+        footerSelection_ = action;
+        focusZone_ = FocusZone::Footer;
+        applySelection();
+        if (shouldPlayScrollSfx) {
+            playScrollSfx();
+        }
+    }
+
+    /**
+     * @brief Moves the footer action selection by one step, toggling between replay and straight-to-battle.
+     *
+     * Positive `delta` advances to the next footer action; negative `delta` moves to the previous action. A `delta` of zero has no effect.
+     *
+     * @param delta Positive to move forward, negative to move backward, zero does nothing.
+     * @param shouldPlayScrollSfx If true, play the scroll selection sound effect when the selection changes.
+     */
+    void moveFooterSelection(int delta, bool shouldPlayScrollSfx) {
+        if (delta == 0) {
+            return;
+        }
+
+        if (delta > 0) {
+            selectFooterAction(footerSelection_ == FooterAction::ReplayStory
+                                   ? FooterAction::StraightToBattle
+                                   : FooterAction::ReplayStory,
+                               shouldPlayScrollSfx);
+        } else {
+            selectFooterAction(footerSelection_ == FooterAction::StraightToBattle
+                                   ? FooterAction::ReplayStory
+                                   : FooterAction::StraightToBattle,
+                               shouldPlayScrollSfx);
+        }
+    }
+
+    /**
+     * @brief Activates the currently selected entry.
+     *
+     * If a selection exists, triggers the configured footer action for that entry (for example, start the practice battle or replay the story route).
+     * If no entries are loaded, this function does nothing.
+     */
     void activateSelected() {
+        if (entries_.empty()) {
+            return;
+        }
+
+        activateFooterAction();
+    }
+
+    /**
+     * @brief Initiates the footer-selected action by preparing a launch request.
+     *
+     * If there are no entries, this is a no-op. Otherwise plays the confirmation
+     * sound and sets `launchRequest_` to a `LaunchRequest` whose mode is
+     * `PracticeReplayStory` when the footer selection is `ReplayStory` and the
+     * selected entry contains a non-empty `storyScript`; in all other cases the
+     * mode is `PracticeStraightToBattle`. The launch payload string is the entry's
+     * `storyScript` when replaying a story, or the entry's `battle.key` otherwise.
+     */
+    void activateFooterAction() {
         if (entries_.empty()) {
             return;
         }
@@ -1106,25 +1233,12 @@ private:
         const Entry& entry = entries_[selectedIndex_];
         playConfirmSfx();
         launchRequest_ = LaunchRequest{
-            entry.battle.storyScript.empty() ? LaunchRequest::Type::Battle : LaunchRequest::Type::Story,
-            entry.battle.storyScript.empty() ? entry.battle.key : entry.battle.storyScript,
-        };
-    }
-
-    void activateFinale() {
-        if (!isFinaleUnlocked()) {
-            showToast("Defeat every rival before becoming an idol.");
-            return;
-        }
-        if (!finaleBattle_.has_value()) {
-            showToast("Finale battle is not configured.");
-            return;
-        }
-
-        playConfirmSfx();
-        launchRequest_ = LaunchRequest{
-            finaleBattle_->storyScript.empty() ? LaunchRequest::Type::Battle : LaunchRequest::Type::Story,
-            finaleBattle_->storyScript.empty() ? finaleBattle_->key : finaleBattle_->storyScript,
+            footerSelection_ == FooterAction::ReplayStory && !entry.battle.storyScript.empty()
+                ? LaunchRequest::Mode::PracticeReplayStory
+                : LaunchRequest::Mode::PracticeStraightToBattle,
+            footerSelection_ == FooterAction::ReplayStory && !entry.battle.storyScript.empty()
+                ? entry.battle.storyScript
+                : entry.battle.key,
         };
     }
 
@@ -1136,6 +1250,14 @@ private:
         openConfirmForEntry(selectedIndex_);
     }
 
+    /**
+     * @brief Open the confirmation overlay for the specified entry.
+     *
+     * Focuses the carousel, selects the entry at the given index without playing scroll sound,
+     * marks that entry as the pending confirmation target, and shows the confirmation dialog.
+     *
+     * @param index Index of the entry to confirm. If there are no entries, this is a no-op.
+     */
     void openConfirmForEntry(std::size_t index) {
         if (entries_.empty()) {
             return;
@@ -1147,21 +1269,15 @@ private:
         showConfirm();
     }
 
-    void openConfirmForFinale() {
-        if (!isFinaleUnlocked()) {
-            showToast("Defeat every rival before becoming an idol.");
-            return;
-        }
-        if (!finaleBattle_.has_value()) {
-            showToast("Finale battle is not configured.");
-            return;
-        }
-
-        focusZone_ = FocusZone::Finale;
-        confirmTarget_ = ConfirmTarget{ConfirmTargetType::Finale, 0};
-        showConfirm();
-    }
-
+    /**
+     * @brief Show the confirmation overlay for the current confirm target.
+     *
+     * Displays the confirm UI for the currently set confirm target, resets the
+     * confirm choice to `Back`, clears held-input state and timers, and updates
+     * the UI to reflect the change. Plays the confirm sound if the overlay is
+     * not already visible or if the target has changed since the last shown
+     * confirmation.
+     */
     void showConfirm() {
         const bool targetChanged =
             !confirmVisible_ ||
@@ -1176,10 +1292,7 @@ private:
 
         confirmVisible_ = true;
         confirmChoice_ = ConfirmChoice::Back;
-        negativeHeld_ = false;
-        positiveHeld_ = false;
-        holdNegativeElapsed_ = 0.0f;
-        holdPositiveElapsed_ = 0.0f;
+        clearHeldDirectionalInput();
         lastShownConfirmTarget_ = confirmTarget_;
         applySelection();
     }
@@ -1206,6 +1319,14 @@ private:
         applySelection();
     }
 
+    /**
+     * @brief Confirms or cancels the currently visible confirmation overlay.
+     *
+     * If the confirmation overlay is not visible this is a no-op. If the user chose Back,
+     * the overlay is closed. If the user chose Proceed, the pending confirm target is
+     * consumed; when a target exists the function selects that entry (without playing the
+     * scroll sound) and activates it. The UI selection state is reapplied after handling.
+     */
     void activateConfirmSelection() {
         if (!confirmVisible_) {
             return;
@@ -1224,12 +1345,8 @@ private:
 
         const ConfirmTarget target = *confirmTarget_;
         confirmTarget_.reset();
-        if (target.type == ConfirmTargetType::Finale) {
-            activateFinale();
-        } else {
-            setSelectedIndex(target.entryIndex, false);
-            activateSelected();
-        }
+        setSelectedIndex(target.entryIndex, false);
+        activateSelected();
         applySelection();
     }
 
@@ -1245,6 +1362,16 @@ private:
         return element->IsPointWithinElement(point);
     }
 
+    /**
+     * @brief Finds the top-most carousel card under a point.
+     *
+     * Tests each cached card element for a hit at the given document-space coordinates and returns
+     * the index of the visible card whose z-index is greatest when multiple cards overlap.
+     *
+     * @param x X coordinate in the Rml document / UI coordinate space.
+     * @param y Y coordinate in the Rml document / UI coordinate space.
+     * @return std::optional<std::size_t> Index of the hit card if one was found, empty otherwise.
+     */
     std::optional<std::size_t> hitTestCard(float x, float y) const {
         std::optional<std::size_t> bestIndex;
         float bestZIndex = -1000000.0f;
@@ -1265,30 +1392,82 @@ private:
         return bestIndex;
     }
 
+    /**
+     * @brief Determine which footer action (if any) is under the given point.
+     *
+     * @param x X coordinate in UI coordinate space (pixels).
+     * @param y Y coordinate in UI coordinate space (pixels).
+     * @return std::optional<FooterAction> `FooterAction::ReplayStory` if the point hits the replay button,
+     * `FooterAction::StraightToBattle` if it hits the straight-to-battle button, `std::nullopt` otherwise.
+     *
+     * The replay button is tested before the straight-to-battle button and takes precedence if both overlap.
+     */
+    std::optional<FooterAction> hitTestFooterAction(float x, float y) const {
+        if (hitTestElement(x, y, replayStoryButtonElement_)) {
+            return FooterAction::ReplayStory;
+        }
+        if (hitTestElement(x, y, straightToBattleButtonElement_)) {
+            return FooterAction::StraightToBattle;
+        }
+        return std::nullopt;
+    }
+
+    /**
+     * @brief Produce the localized title text for the confirmation overlay.
+     *
+     * Returns a prompt appropriate to the current confirmation target and selected footer action:
+     * - If there is no confirmation target or there are no entries, returns "Pick This Rival?".
+     * - If the selected footer action is ReplayStory and the targeted entry has a non-empty story script, returns "Replay This Story?".
+     * - Otherwise, returns "Start Practice Battle?".
+     *
+     * @return std::string The confirmation overlay title.
+     */
     std::string confirmTitleRml() const {
-        if (!confirmTarget_.has_value()) {
+        if (!confirmTarget_.has_value() || entries_.empty()) {
             return "Pick This Rival?";
         }
 
-        return confirmTarget_->type == ConfirmTargetType::Finale
-            ? "Become An Idol?"
-            : "Pick This Rival?";
+        const Entry& entry = entries_[confirmTarget_->entryIndex % entries_.size()];
+        const bool replayStory =
+            footerSelection_ == FooterAction::ReplayStory && !entry.battle.storyScript.empty();
+        return replayStory ? "Replay This Story?" : "Start Practice Battle?";
     }
 
+    /**
+     * @brief Builds the Rml-formatted body text for the confirmation dialog.
+     *
+     * When no confirm target is set or there are no entries, returns a generic prompt.
+     * Otherwise returns either a "Replay the story route for:" message (when the selected
+     * footer action is ReplayStory and the entry has a non-empty story script) or a
+     * "Jump straight into practice battle against:" message. Both variants include the
+     * escaped destination text "{boss title} / {battle name}" with a line break before it.
+     *
+     * @return std::string The Rml/HTML body to display in the confirm overlay.
+     */
     std::string confirmBodyRml() const {
-        if (!confirmTarget_.has_value()) {
+        if (!confirmTarget_.has_value() || entries_.empty()) {
             return "Are you sure you want to pick this rival?";
         }
 
-        if (confirmTarget_->type == ConfirmTargetType::Finale) {
-            return "Are you sure you want to become an idol and enter the finale?";
-        }
-
         const Entry& entry = entries_[confirmTarget_->entryIndex % entries_.size()];
-        return "Are you sure you want to pick this rival?<br/><br/>" +
-               escapeRml(entry.boss.title) + " / " + escapeRml(entry.battle.name);
+        const bool replayStory =
+            footerSelection_ == FooterAction::ReplayStory && !entry.battle.storyScript.empty();
+        const std::string destination = escapeRml(entry.boss.title) + " / " + escapeRml(entry.battle.name);
+        if (replayStory) {
+            return "Replay the story route for:<br/><br/>" + destination;
+        }
+        return "Jump straight into practice battle against:<br/><br/>" + destination;
     }
 
+    /**
+     * @brief Process held directional input and generate repeated selection moves based on hold timing.
+     *
+     * Updates internal hold timers for the negative and positive directions and, when the initial
+     * hold delay and subsequent repeat intervals elapse, invokes moveSelection to step the carousel
+     * (playing scroll SFX when movements occur).
+     *
+     * @param deltaSeconds Time elapsed since the last update, in seconds.
+     */
     void updateHeldInput(float deltaSeconds) {
         const auto updateDirection = [deltaSeconds](bool held, float& elapsed) -> bool {
             if (!held) {
@@ -1315,6 +1494,13 @@ private:
         if (updateDirection(positiveHeld_, holdPositiveElapsed_)) {
             moveSelection(1, true);
         }
+    }
+
+    void clearHeldDirectionalInput() {
+        negativeHeld_ = false;
+        positiveHeld_ = false;
+        holdNegativeElapsed_ = 0.0f;
+        holdPositiveElapsed_ = 0.0f;
     }
 
     void updateVisualSelection(float deltaSeconds) {
@@ -1403,12 +1589,12 @@ private:
     game::audio::WavOneShotPlayer sfxPlayer_;
     std::vector<Entry> entries_;
     battle::PlayerProgression progression_;
-    std::optional<battle::BattleDefinition> finaleBattle_;
     std::optional<LaunchRequest> launchRequest_;
     std::size_t selectedIndex_ = 0;
     float visualSelectionIndex_ = 0.0f;
     float targetVisualSelectionIndex_ = 0.0f;
     FocusZone focusZone_ = FocusZone::Carousel;
+    FooterAction footerSelection_ = FooterAction::ReplayStory;
     bool negativeHeld_ = false;
     bool positiveHeld_ = false;
     float holdNegativeElapsed_ = 0.0f;
@@ -1431,7 +1617,8 @@ private:
     Rml::Element* infoAtkElement_ = nullptr;
     Rml::Element* infoSpdElement_ = nullptr;
     Rml::Element* infoHintElement_ = nullptr;
-    Rml::Element* finaleButtonElement_ = nullptr;
+    Rml::Element* replayStoryButtonElement_ = nullptr;
+    Rml::Element* straightToBattleButtonElement_ = nullptr;
     Rml::Element* toastElement_ = nullptr;
     Rml::Element* confirmOverlayElement_ = nullptr;
     Rml::Element* confirmTitleElement_ = nullptr;
@@ -1447,11 +1634,17 @@ private:
     std::optional<std::size_t> pressedCardIndex_;
     std::optional<std::size_t> pressedConfirmCardIndex_;
     std::optional<ConfirmChoice> pressedConfirmChoice_;
-    bool pressedFinaleButton_ = false;
-    bool pressedConfirmFinaleButton_ = false;
+    std::optional<FooterAction> pressedFooterAction_;
+    std::optional<FooterAction> pressedConfirmFooterAction_;
 };
 
-Session::Session()
+/**
+     * @brief Constructs a Session and initializes its private implementation.
+     *
+     * Allocates and stores the SessionImpl instance that encapsulates platform and
+     * UI-specific session state and behavior.
+     */
+    Session::Session()
     : impl_(std::make_unique<SessionImpl>()) {}
 
 Session::~Session() = default;

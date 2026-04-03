@@ -24,19 +24,149 @@ constexpr float kCharacterGapWorld          = 1200.0f;
 constexpr float kDuelCharacterSlotX         = -0.5f * kCharacterGapWorld;
 constexpr float kDuelBossSlotX              = 0.0f;
 constexpr float kDuelCharacterBaseY         = 300.0f;
+constexpr float kBossPhaseIntroDurationSeconds = 0.90f;
 constexpr float kCharacterVisibilityAnimSeconds = 0.22f;
 constexpr float kCharacterVisibilityOffsetPx    = 70.0f;
+constexpr float kBossPhaseIntroStartOffsetX = -170.0f;
+constexpr float kBossPhaseIntroStartOffsetY = 40.0f;
+constexpr float kBossPhaseIntroStartOffsetZ = -125.0f;
+constexpr float kBossPhaseIntroEndOffsetX = -180.0f;
+constexpr float kBossPhaseIntroEndOffsetY = 80.0f;
+constexpr float kBossPhaseIntroEndOffsetZ = -129.0f;
+constexpr float kBossPhaseIntroLookOffsetY = -10.0f;
+constexpr float kBossPhaseIntroLookOffsetZ = -95.0f;
+constexpr float kPi = 3.14159265359f;
+
+/**
+ * @brief Convert an angle from radians to degrees.
+ *
+ * @param radians Angle in radians.
+ * @return float Angle in degrees.
+ */
+float radiansToDegrees(float radians) {
+    return radians * (180.0f / kPi);
+}
 
 using WorldEntity = render::SceneEntity;
+
+/**
+ * @brief Maps numeric key presses to a party member index.
+ *
+ * Converts SDL key codes for the number keys 1–4 (including keypad variants) to the corresponding party index.
+ *
+ * @param key SDL key code to map.
+ * @return int Party index `0`–`3` for keys `1`–`4` (or keypad equivalents), `-1` if the key does not correspond to a party index.
+ */
+int manualUltimatePartyIndexFromKey(SDL_Keycode key) {
+    switch (key) {
+        case SDLK_1:
+        case SDLK_KP_1:
+            return 0;
+        case SDLK_2:
+        case SDLK_KP_2:
+            return 1;
+        case SDLK_3:
+        case SDLK_KP_3:
+            return 2;
+        case SDLK_4:
+        case SDLK_KP_4:
+            return 3;
+        default:
+            return -1;
+    }
+}
+
+/**
+ * @brief Produces a short hint string for entering a boss phase.
+ *
+ * @param phaseIndex Phase transition index: `1` maps to the message for entering phase two, `2` maps to the message for entering phase three; other values produce a generic phase-entry message.
+ * @return std::string The hint text to display: "ENTERING PHASE TWO" for `phaseIndex == 1`, "ENTERING PHASE THREE" for `phaseIndex == 2`, or "ENTERING NEW PHASE" otherwise.
+ */
+std::string bossPhaseHintText(int phaseIndex) {
+    switch (phaseIndex) {
+        case 1:
+            return "ENTERING PHASE TWO";
+        case 2:
+            return "ENTERING PHASE THREE";
+        default:
+            return "ENTERING NEW PHASE";
+    }
+}
+
+/**
+ * @brief Creates a camera positioned for the start of a boss phase intro.
+ *
+ * @param bossEntity The boss world entity whose position is used as the reference.
+ * @return Camera3D Camera placed at an offset from the boss with focal length set for the intro.
+ */
+Camera3D makeBossPhaseIntroStartCamera(const WorldEntity& bossEntity) {
+    Camera3D camera;
+    camera.posX = bossEntity.worldX + kBossPhaseIntroStartOffsetX;
+    camera.posY = bossEntity.worldY + kBossPhaseIntroStartOffsetY;
+    camera.posZ = bossEntity.worldZ + kBossPhaseIntroStartOffsetZ;
+    camera.focalLength = 38000.0f;
+    return camera;
+}
+
+/**
+ * @brief Creates the target camera used at the end of a boss phase intro.
+ *
+ * Constructs a Camera3D positioned relative to the provided boss entity using
+ * the predefined end-offset constants and a fixed focal length suitable for
+ * the boss phase cinematic.
+ *
+ * @param bossEntity The boss world entity used as the positional anchor.
+ * @return Camera3D Camera positioned at the boss-phase intro end offset with the configured focal length.
+ */
+Camera3D makeBossPhaseIntroEndCamera(const WorldEntity& bossEntity) {
+    Camera3D camera;
+    camera.posX = bossEntity.worldX + kBossPhaseIntroEndOffsetX;
+    camera.posY = bossEntity.worldY + kBossPhaseIntroEndOffsetY;
+    camera.posZ = bossEntity.worldZ + kBossPhaseIntroEndOffsetZ;
+    camera.focalLength = 36000.0f;
+    return camera;
+}
+
+/**
+ * @brief Orient the camera to look at a target point near the boss.
+ *
+ * Sets the camera's yawDegrees and pitchDegrees so the camera is aimed at a point
+ * offset from the boss entity by the module's boss-intro look offsets. Angles are
+ * assigned in degrees.
+ *
+ * @param camera Camera object to modify (yawDegrees and pitchDegrees will be set).
+ * @param bossEntity Boss entity whose world position defines the look target.
+ */
+void aimCameraAtBossIntroTarget(Camera3D& camera, const WorldEntity& bossEntity) {
+    const float lookX = bossEntity.worldX;
+    const float lookY = bossEntity.worldY + kBossPhaseIntroLookOffsetY;
+    const float lookZ = bossEntity.worldZ + kBossPhaseIntroLookOffsetZ;
+    const float dx = lookX - camera.posX;
+    const float dy = lookY - camera.posY;
+    const float dz = lookZ - camera.posZ;
+    const float horizontalDist = std::sqrt((dx * dx) + (dy * dy));
+    camera.yawDegrees = radiansToDegrees(std::atan2(-dx, dy));
+    camera.pitchDegrees = radiansToDegrees(std::atan2(dz, std::max(1.0f, horizontalDist)));
+}
 
 } // namespace
 
 // ---------------------------------------------------------------------------
 // initialize / shutdown
-// ---------------------------------------------------------------------------
+/**
+ * @brief Initializes the battle session, prepares assets, camera, entities, and hooks.
+ *
+ * Initializes the internal battle manager and runtime state for a new battle session, registers the ability presentation runner, loads required sprite and icon textures and stage render data, configures camera staging and combat begin animation, and prepares entity and HUD/feedback state for rendering and updates.
+ *
+ * @param renderer SDL renderer used to load and render textures and sprites.
+ * @param battleDefinition Definition of the battle to initialize (boss, stage, and related data).
+ * @param partyKeys Ordered list of party member keys used to construct the player party.
+ * @param hooks Callback hooks and platform integrations to use during the session.
+ * @return bool `true` if initialization completed successfully and the session is ready, `false` on failure.
+ */
 
 bool BattleSessionCore::initialize(SDL_Renderer* renderer,
-                                   const std::string& bossKey,
+                                   const BattleDefinition& battleDefinition,
                                    const std::vector<std::string>& partyKeys,
                                    Hooks hooks) {
     shutdown();
@@ -47,7 +177,7 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
         return runPresentationInteraction(context);
     });
 
-    if (!manager_.initialize(bossKey, partyKeys)) {
+    if (!manager_.initialize(battleDefinition, partyKeys)) {
         std::cerr << "[BattleSessionCore] Battle initialization failed\n";
         return false;
     }
@@ -109,7 +239,13 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
         }
     }
 
-    floorTileTexture_ = render::createBattleWorldFloorTileTexture(renderer);
+    if (!render::loadStageRenderData(renderer, battleDefinition.stageKey, stageRenderData_)) {
+        std::cerr << "[BattleSessionCore] Stage initialization failed\n";
+        return false;
+    }
+    Camera3D goalCamera = render::makeDefaultBattleCamera();
+    render::applyStageCameraOverride(stageRenderData_.definition.camera, goalCamera);
+    cameraStaging_.setGoalCamera(goalCamera);
     cameraStaging_.reset(camera_);
 
     SDL_Texture* mikuSprite = nullptr;
@@ -127,6 +263,7 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
     feedback_.reset(manager_);
     activeUltimateTurnSplash_.reset();
     previewUltimateSplashPartyIndex_ = -1;
+    bossPhaseIntro_ = BossPhaseIntroState{};
     processedBattleEventCount_ = manager_.getRecentActionEvents().size();
     discardNextUpdateDelta_ = false;
     finished_    = false;
@@ -134,6 +271,14 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
     return true;
 }
 
+/**
+ * @brief Releases all runtime resources and resets the battle session to an uninitialized state.
+ *
+ * Clears camera debug logs, unregisters the presentation runner, destroys cached textures and stage
+ * render data, shuts down feedback and HUD state, clears entities and presentation/splash state,
+ * invokes the shutdown hook if present, and resets internal counters and flags so the session may be
+ * reinitialized or destroyed.
+ */
 void BattleSessionCore::shutdown() {
     freeViewCameraDebugLog_.clear();
     ability::setPresentationInteractionRunner(nullptr);
@@ -149,16 +294,14 @@ void BattleSessionCore::shutdown() {
     }
     iconByAsset_.clear();
 
-    if (floorTileTexture_ != nullptr) {
-        SDL_DestroyTexture(floorTileTexture_);
-        floorTileTexture_ = nullptr;
-    }
+    render::destroyStageRenderData(stageRenderData_);
 
     feedback_.shutdown();
     hud_.reset();
     entities_.clear();
     activeUltimateTurnSplash_.reset();
     previewUltimateSplashPartyIndex_ = -1;
+    bossPhaseIntro_ = BossPhaseIntroState{};
 
     if (hooks_.onShutdown) hooks_.onShutdown();
     hooks_ = {};
@@ -171,7 +314,17 @@ void BattleSessionCore::shutdown() {
 
 // ---------------------------------------------------------------------------
 // handleEvent
-// ---------------------------------------------------------------------------
+/**
+ * @brief Process a single SDL input event to control the battle session.
+ *
+ * Handles keyboard and mouse-wheel input to finish the session, toggle and
+ * control free camera view, request or start manual ultimate turns, skip or
+ * advance ultimate splash animations, and trigger the default player turn (and
+ * subsequent automatic turns when allowed). Ignores key-repeat events and
+ * consumes input while the combat-begin animation is active.
+ *
+ * @param event The SDL event to handle.
+ */
 
 void BattleSessionCore::handleEvent(const SDL_Event& event) {
     if (!initialized_ || finished_) return;
@@ -194,6 +347,7 @@ void BattleSessionCore::handleEvent(const SDL_Event& event) {
             if (event.key.keysym.sym == SDLK_SPACE) {
                 activeUltimateTurnSplash_->skip();
             }
+            (void)handleManualUltimateHotkey(event.key.keysym.sym);
             return;
         }
 
@@ -209,6 +363,7 @@ void BattleSessionCore::handleEvent(const SDL_Event& event) {
             }
             return;
         }
+        if (handleManualUltimateHotkey(event.key.keysym.sym)) return;
         if (event.key.keysym.sym != SDLK_SPACE) return;
 
         const flow::PreviewActorContext preview = flow::inspectPreviewActor(manager_);
@@ -249,7 +404,16 @@ void BattleSessionCore::handleEvent(const SDL_Event& event) {
 
 // ---------------------------------------------------------------------------
 // update
-// ---------------------------------------------------------------------------
+/**
+ * @brief Advance the battle session state by a frame.
+ *
+ * Processes boss-phase transitions and combat-begin animation, updates entity layouts,
+ * boss-phase intro camera animation, active ultimate splash animations, camera staging
+ * (including optional free-view controls), and feedback synchronization; also evaluates
+ * battle completion and updates internal timing accumulators.
+ *
+ * @param deltaSeconds Time elapsed since the previous update, in seconds.
+ */
 
 void BattleSessionCore::update(float deltaSeconds) {
     if (!initialized_ || finished_) return;
@@ -265,6 +429,28 @@ void BattleSessionCore::update(float deltaSeconds) {
     if (discardNextUpdateDelta_) {
         discardNextUpdateDelta_ = false;
         deltaSeconds = 0.0f;
+    }
+
+    while (const std::optional<BossPhaseTransition> transition = manager_.consumeBossPhaseTransition()) {
+        startBossPhaseIntro(*transition);
+        if (hooks_.onBossPhaseTransition) {
+            hooks_.onBossPhaseTransition(*transition, manager_);
+        }
+    }
+
+    if (bossPhaseIntro_.active) {
+        const flow::PreviewActorContext preview = flow::inspectPreviewActor(manager_);
+        bool bossActing = true;
+        int actingPartyIndex = -1;
+        if (preview.valid && preview.type == ParticipantType::Character) {
+            bossActing = false;
+            actingPartyIndex = preview.partyIndex;
+        }
+        updateSceneEntities(deltaSeconds, bossActing, actingPartyIndex);
+        updateBossPhaseIntro(deltaSeconds);
+        feedback_.syncFromManager(manager_, presentationPlaybackActive_);
+        feedback_.update(deltaSeconds);
+        return;
     }
 
     if (hooks_.onPreUpdate) hooks_.onPreUpdate(manager_, deltaSeconds);
@@ -360,7 +546,17 @@ void BattleSessionCore::update(float deltaSeconds) {
 
 // ---------------------------------------------------------------------------
 // render
-// ---------------------------------------------------------------------------
+/**
+ * @brief Renders the current battle frame to the given SDL renderer.
+ *
+ * Draws the scene (backdrop, floor, props), all world entities with per-entity shake offsets,
+ * HUD and presentation overlays, and feedback popups. Respects combat-begin animation playback,
+ * blackout state, and presentation layering when deciding where to render feedback.
+ *
+ * @param renderer SDL renderer to draw into.
+ * @param screenWidth Width of the rendering target in pixels.
+ * @param screenHeight Height of the rendering target in pixels.
+ */
 
 void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int screenHeight) {
     if (!initialized_ || finished_) return;
@@ -379,14 +575,29 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
                            255);
     SDL_RenderClear(renderer);
 
+    render::renderBattleBackdrop(
+        renderer,
+        screenWidth,
+        screenHeight,
+        snapshot.camera,
+        stageRenderData_
+    );
     render::renderBattleFloor(
         renderer,
         screenWidth,
         screenHeight,
         snapshot.camera,
-        snapshot.renderFloor ? floorTileTexture_ : nullptr
+        stageRenderData_.definition.floor,
+        snapshot.renderFloor ? stageRenderData_.floorTexture : nullptr
     );
     renderCompatibilityBelowWorld(renderer, screenWidth, screenHeight);
+    render::renderBattleProps(
+        renderer,
+        screenWidth,
+        screenHeight,
+        snapshot.camera,
+        stageRenderData_.props
+    );
 
     render::renderBattleEntities(
         renderer,
@@ -433,9 +644,25 @@ void BattleSessionCore::render(SDL_Renderer* renderer, int screenWidth, int scre
     if (hooks_.onPostRender) hooks_.onPostRender();
 }
 
+/**
+ * @brief Capture a render-time snapshot of the current battle frame.
+ *
+ * Constructs and returns a BattleFrameSnapshot populated with the current
+ * camera (with screen center set from the provided dimensions), a pointer to
+ * the active stage definition, the current entity list and feedback anchors,
+ * focused entity index, accumulated frame time, presentation and rendering
+ * flags, active presentation/overlay pointers, the active ultimate-splash
+ * animation pointer, and per-entity horizontal shake offsets computed from
+ * feedback state.
+ *
+ * @param screenWidth Width of the render target in pixels; used to set the camera screen center.
+ * @param screenHeight Height of the render target in pixels; used to set the camera screen center.
+ * @return BattleFrameSnapshot Snapshot of all data required by the renderer for the current frame.
+ */
 BattleSessionCore::BattleFrameSnapshot BattleSessionCore::buildFrameSnapshot(int screenWidth, int screenHeight) const {
     BattleFrameSnapshot snapshot;
     snapshot.camera = camera_;
+    snapshot.stage = &stageRenderData_.definition;
     snapshot.camera.screenCenterX = screenWidth * 0.5f;
     snapshot.camera.screenCenterY = screenHeight * 0.5f;
     snapshot.entities = entities_;
@@ -596,8 +823,69 @@ std::vector<render::FeedbackEntityAnchor> BattleSessionCore::buildFeedbackAnchor
 
 // ---------------------------------------------------------------------------
 // private helpers
-// ---------------------------------------------------------------------------
+/**
+ * @brief Handles numeric hotkeys to request a manual ultimate turn for a party member.
+ *
+ * If the pressed key maps to a party index, this requests a manual ultimate turn from the battle
+ * manager. Depending on the request result, it may produce a HUD hint describing why the ultimate
+ * could not be queued (meter not ready, already queued, or unavailable).
+ *
+ * @param key SDL key code for the pressed key (numeric keys `1–4` and keypad `KP_1–KP_4` map to party indices).
+ * @return bool `true` if the key was handled (it mapped to a party index or battle input was blocked), `false` if the key did not map to any party index.
+ */
 
+bool BattleSessionCore::handleManualUltimateHotkey(SDL_Keycode key) {
+    const int partyIndex = manualUltimatePartyIndexFromKey(key);
+    if (partyIndex < 0) {
+        return false;
+    }
+
+    const bool battleInputEnabled = hooks_.isSpaceEnabledForBattle
+        ? hooks_.isSpaceEnabledForBattle()
+        : true;
+    if (!battleInputEnabled || manager_.isBattleOver()) {
+        return true;
+    }
+
+    const ManualUltimateRequestResult result = manager_.requestManualUltimateTurn(partyIndex);
+    switch (result) {
+        case ManualUltimateRequestResult::Queued:
+            break;
+        case ManualUltimateRequestResult::MeterNotReady: {
+            const BattleState& battleState = manager_.getBattleState();
+            const std::string actorLabel =
+                (partyIndex >= 0 && static_cast<size_t>(partyIndex) < battleState.party.size())
+                    ? battleState.party[static_cast<size_t>(partyIndex)].title
+                    : ("ALLY " + std::to_string(partyIndex + 1));
+            const int charge = manager_.getCharacterUltimateCharge(partyIndex);
+            const int required = manager_.getCharacterUltimateRequired(partyIndex);
+            const int missing = std::max(0, required - charge);
+            setHint(
+                actorLabel + " NEEDS " + std::to_string(missing) + " MORE " +
+                (missing == 1 ? "ABILITY." : "ABILITIES."),
+                1800
+            );
+            break;
+        }
+        case ManualUltimateRequestResult::AlreadyQueued:
+            setHint("ULTIMATE ALREADY QUEUED.", 1400);
+            break;
+        case ManualUltimateRequestResult::Unavailable:
+            setHint("ULTIMATE NOT AVAILABLE.", 1400);
+            break;
+    }
+
+    return true;
+}
+
+/**
+ * @brief Starts an ultimate-turn splash animation when the upcoming preview indicates a player character's manual ultimate.
+ *
+ * Checks the provided preview context and, if it represents a non-auto, extra-turn ultimate for a valid party character and no other presentation or splash is active, creates and starts the splash animation and records which party index triggered it.
+ *
+ * @param preview Preview actor context describing the next actor and action.
+ * @param dialogueActive If true, suppresses starting the splash (dialogue blocks splash playback).
+ */
 void BattleSessionCore::maybeStartUltimateTurnSplash(const flow::PreviewActorContext& preview, bool dialogueActive) {
     if (dialogueActive || presentationPlaybackActive_ || activeUltimateTurnSplash_) {
         return;
@@ -640,6 +928,87 @@ void BattleSessionCore::maybeStartUltimateTurnSplash(const flow::PreviewActorCon
     previewUltimateSplashPartyIndex_ = preview.partyIndex;
 }
 
+/**
+ * @brief Begins the boss phase intro sequence and configures its camera and hint.
+ *
+ * Activates the boss phase intro state for the given transition, sets the phase
+ * index and hint text, computes start/goal cameras aimed at the boss, sets the
+ * current camera to the intro start pose, and displays the phase hint.
+ */
+void BattleSessionCore::startBossPhaseIntro(const BossPhaseTransition& transition) {
+    int bossEntityIndex = -1;
+    for (int index = 0; index < static_cast<int>(entities_.size()); ++index) {
+        if (entities_[static_cast<size_t>(index)].isBoss) {
+            bossEntityIndex = index;
+            break;
+        }
+    }
+    if (bossEntityIndex < 0 || static_cast<size_t>(bossEntityIndex) >= entities_.size()) {
+        return;
+    }
+
+    bossPhaseIntro_.active = true;
+    bossPhaseIntro_.phaseIndex = transition.toPhaseIndex;
+    bossPhaseIntro_.hintText = bossPhaseHintText(transition.toPhaseIndex);
+    bossPhaseIntro_.elapsed = 0.0f;
+    bossPhaseIntro_.duration = kBossPhaseIntroDurationSeconds;
+    bossPhaseIntro_.startCamera =
+        makeBossPhaseIntroStartCamera(entities_[static_cast<size_t>(bossEntityIndex)]);
+    bossPhaseIntro_.goalCamera =
+        makeBossPhaseIntroEndCamera(entities_[static_cast<size_t>(bossEntityIndex)]);
+    aimCameraAtBossIntroTarget(bossPhaseIntro_.startCamera, entities_[static_cast<size_t>(bossEntityIndex)]);
+    aimCameraAtBossIntroTarget(bossPhaseIntro_.goalCamera, entities_[static_cast<size_t>(bossEntityIndex)]);
+    camera_ = bossPhaseIntro_.startCamera;
+    setHint(bossPhaseIntro_.hintText);
+}
+
+/**
+ * @brief Advances the boss-phase intro sequence, animating the camera and hint.
+ *
+ * Progresses the timed boss phase intro by the given delta and interpolates the scene camera
+ * from the stored start pose to the goal pose using an ease-out quint easing curve.
+ * When the intro completes the intro state is deactivated, the camera is snapped to the goal,
+ * and the hint text is cleared.
+ *
+ * @param deltaSeconds Time elapsed since the last update in seconds.
+ */
+void BattleSessionCore::updateBossPhaseIntro(float deltaSeconds) {
+    if (!bossPhaseIntro_.active) {
+        return;
+    }
+
+    setHint(bossPhaseIntro_.hintText);
+    bossPhaseIntro_.elapsed += deltaSeconds;
+    const float t = easing::clamp01(bossPhaseIntro_.elapsed / std::max(0.001f, bossPhaseIntro_.duration));
+    const float eased = easing::easeOutQuint(t);
+
+    camera_.posX = easing::lerp(bossPhaseIntro_.startCamera.posX, bossPhaseIntro_.goalCamera.posX, eased);
+    camera_.posY = easing::lerp(bossPhaseIntro_.startCamera.posY, bossPhaseIntro_.goalCamera.posY, eased);
+    camera_.posZ = easing::lerp(bossPhaseIntro_.startCamera.posZ, bossPhaseIntro_.goalCamera.posZ, eased);
+    camera_.pitchDegrees = easing::lerp(
+        bossPhaseIntro_.startCamera.pitchDegrees, bossPhaseIntro_.goalCamera.pitchDegrees, eased);
+    camera_.yawDegrees = easing::lerp(
+        bossPhaseIntro_.startCamera.yawDegrees, bossPhaseIntro_.goalCamera.yawDegrees, eased);
+    camera_.focalLength = easing::lerp(
+        bossPhaseIntro_.startCamera.focalLength, bossPhaseIntro_.goalCamera.focalLength, eased);
+
+    if (t >= 1.0f) {
+        bossPhaseIntro_.active = false;
+        camera_ = bossPhaseIntro_.goalCamera;
+        clearHint();
+    }
+}
+
+/**
+ * @brief Updates character layout and visibility transitions for the current turn.
+ *
+ * Updates entity positions according to whether the boss is acting and which party member is acting,
+ * then advances per-entity visibility/alpha/vertical-offset animations using the supplied frame delta.
+ *
+ * @param deltaSeconds Time elapsed since the last update, in seconds.
+ * @param bossActing True if the boss is currently acting and the layout should reflect a boss-centric turn.
+ * @param actingPartyIndex Index of the party member who is acting, or -1 if none/not applicable.
+ */
 void BattleSessionCore::updateSceneEntities(float deltaSeconds, bool bossActing, int actingPartyIndex) {
     computeCharacterPositions(bossActing, actingPartyIndex);
     updateCharacterVisibilityTransitions(deltaSeconds);
@@ -692,6 +1061,18 @@ void BattleSessionCore::updateCharacterVisibilityTransitions(float deltaSeconds)
     }
 }
 
+/**
+ * @brief Plays an ability presentation for the given context and applies its in-game effects.
+ *
+ * Runs the full presentation playback (rendering frames, routing audio callbacks, and handling
+ * unhandled input) while keeping the battle scene synchronized for correct camera and projectile
+ * framing. During playback this function may apply healing, damage, feedback events, and other
+ * presentation-driven effects to the battle manager; it also updates scene layout, HUD hints,
+ * overlay rendering, and presentation-related state used by the session.
+ *
+ * @param context PresentationContext describing the caster, target, ability id, and presentation id.
+ * @return float Damage/heal multiplier produced by the presentation (or 1.0 if playback was not run).
+ */
 float BattleSessionCore::runPresentationInteraction(const PresentationContext& context) {
     if (!initialized_ || finished_ || renderer_ == nullptr) return 1.0f;
 
@@ -756,6 +1137,9 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
     callbacks.overlayCasterSpriteTexture = casterSprite;
     callbacks.overlayTargetSpriteTexture = targetSprite;
     callbacks.onWindowResized     = hooks_.onWindowResized;
+    callbacks.onUnhandledKeyDown  = [this](SDL_Keycode key) {
+        (void)handleManualUltimateHotkey(key);
+    };
     callbacks.onAudioCommands     = [&](const std::vector<PresentationAudioCommand>& commands) {
         if (commands.empty()) {
             return;
@@ -806,7 +1190,7 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
 
         int baseAtk = 0;
         if (context.isBoss) {
-            baseAtk = manager_.getBattleState().boss.atk;
+            baseAtk = manager_.getBossEffectiveAtk();
         } else {
             const BattleState& state = manager_.getBattleState();
             if (context.casterIndex >= 0 &&
@@ -826,10 +1210,6 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         const int perHitDamage = std::max(1, totalDamage / std::max(1, damageLabelHitCount));
         const int presentationTargetPartyIndex = context.isBoss ? context.targetIndex : -1;
 
-        // DEBUG LOGGING
-        printf("[LuotianyiBossPresentation DEBUG] baseAtk=%.2f, abilityMult=%.2f, hitDamageMultiplier=%.2f, totalDamageRaw=%.2f, totalDamage=%d, perHitDamage=%d, hitEvents=%d, damageLabelHitCount=%d\n",
-            (float)baseAtk, abilityMult, hitDamageMultiplier, totalDamageRaw, totalDamage, perHitDamage, hitEvents, damageLabelHitCount);
-
         manager_.applyPresentationHitDamage(
             context.isBoss,
             perHitDamage,
@@ -848,12 +1228,22 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             presentationTargetPartyIndex
         );
     };
+    bool consumedPresentationFeedback = false;
     callbacks.onPostUpdate = [&](float deltaSeconds) {
         const bool useCenteredPartyLayout =
             activePresentation_ != nullptr &&
             activePresentation_->shouldUseCenteredPartyLayout();
         const bool bossActingLayout = context.isBoss || useCenteredPartyLayout;
         const int actingPartyIndex = bossActingLayout ? -1 : context.casterIndex;
+
+        if (activePresentation_ != nullptr) {
+            const std::vector<PresentationFeedbackEvent> feedbackEvents =
+                activePresentation_->consumeFeedbackEvents();
+            for (const PresentationFeedbackEvent& feedbackEvent : feedbackEvents) {
+                manager_.applyPresentationFeedback(context.isBoss, feedbackEvent);
+                consumedPresentationFeedback = true;
+            }
+        }
 
         updateSceneEntities(deltaSeconds, bossActingLayout, actingPartyIndex);
         feedback_.syncFromManager(manager_, presentationPlaybackActive_);
@@ -918,6 +1308,13 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         context.presentationId == "rang_wo_men_shuo_zhong_wen" &&
         result.correctToneCount > 0) {
         manager_.addLuotianyiCorrectTones(result.correctToneCount);
+    }
+
+    if (!consumedPresentationFeedback && result.feedbackSignal.valid()) {
+        PresentationFeedbackEvent finalFeedback;
+        finalFeedback.signal = result.feedbackSignal;
+        finalFeedback.multiplier = result.multiplier;
+        manager_.applyPresentationFeedback(context.isBoss, finalFeedback);
     }
 
     if (hooks_.onPresentationEnd) {

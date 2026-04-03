@@ -8,8 +8,13 @@
 
 namespace battle::render {
 
+Camera3D makeDefaultBattleCamera();
+
 class BattleCameraStaging {
 public:
+    BattleCameraStaging();
+
+    void setGoalCamera(const Camera3D& camera);
     void reset(Camera3D& camera);
     void snapToGoalCamera(Camera3D& camera) const;
 
@@ -52,6 +57,7 @@ private:
     std::string pendingCharacterTurnToken_;
     bool queuedCharacterTurnIntro_ = false;
     float cameraOscillationTime_ = 0.0f;
+    Camera3D goalCamera_{};
 };
 
 } // namespace battle::render

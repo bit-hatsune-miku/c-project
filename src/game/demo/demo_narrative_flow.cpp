@@ -10,7 +10,16 @@
 
 namespace battle::demo {
 
-bool DemoNarrativeFlow::initialize() {
+/**
+ * @brief Initializes the demo narrative flow by loading dialogue scripts and resetting runtime state.
+ *
+ * Loads required VN dialogue scripts, clears and initializes runtime flags and counters, and either
+ * starts the intro dialogue immediately or defers it based on the parameter.
+ *
+ * @param deferIntroDialogue If `true`, do not start the intro dialogue immediately but mark it pending when intro lines exist; if `false`, start the intro dialogue right away.
+ * @return true on successful load and initialization; `false` if any script fails to load (in which case state is reset).
+ */
+bool DemoNarrativeFlow::initialize(bool deferIntroDialogue) {
     shutdown();
 
     if (!loadDialogueLinesFromScript("assets/vn/json/demo.json", introDialogueLines_) ||
@@ -22,8 +31,9 @@ bool DemoNarrativeFlow::initialize() {
         return false;
     }
 
-    dialogueInProgress_ = true;
+    dialogueInProgress_ = false;
     spaceEnabledForBattle_ = false;
+    introDialoguePending_ = false;
     currentDialogueLine_ = 0;
     hasShownMikuFirstSkillTutorial_ = false;
     hasShownMikuFirstUltimateTutorial_ = false;
@@ -31,10 +41,21 @@ bool DemoNarrativeFlow::initialize() {
     pendingPostLyooAttackAfterMikuUltimateTutorial_ = false;
     hasShownBossDefeatedDialogue_ = false;
 
-    startDialogueSequence(introDialogueLines_);
+    if (deferIntroDialogue) {
+        introDialoguePending_ = !introDialogueLines_.empty();
+    } else {
+        startDialogueSequence(introDialogueLines_);
+    }
     return true;
 }
 
+/**
+ * @brief Reset narrative state and clear all loaded dialogue sequences.
+ *
+ * Clears all dialogue line buffers, cancels any active or pending dialogue, and
+ * resets runtime flags and counters related to tutorial progression, automatic
+ * triggers, and battle-space interaction.
+ */
 void DemoNarrativeFlow::shutdown() {
     introDialogueLines_.clear();
     postMikuSkillDialogueLines_.clear();
@@ -45,6 +66,7 @@ void DemoNarrativeFlow::shutdown() {
     activeDialogueLines_ = nullptr;
     dialogueInProgress_ = false;
     spaceEnabledForBattle_ = false;
+    introDialoguePending_ = false;
     currentDialogueLine_ = 0;
 
     hasShownMikuFirstSkillTutorial_ = false;
@@ -58,10 +80,42 @@ bool DemoNarrativeFlow::isDialogueInProgress() const {
     return dialogueInProgress_;
 }
 
+/**
+ * @brief Indicates whether the space key is enabled for battle interaction.
+ *
+ * @return `true` if space input is enabled for battle, `false` otherwise.
+ */
 bool DemoNarrativeFlow::isSpaceEnabledForBattle() const {
     return spaceEnabledForBattle_;
 }
 
+/**
+ * @brief Starts the intro dialogue if it was deferred.
+ *
+ * If an intro dialogue is pending, clears the pending flag and starts the
+ * intro dialogue sequence when intro lines are available. Does nothing when
+ * no intro is pending.
+ */
+void DemoNarrativeFlow::startIntroDialogueIfPending() {
+    if (!introDialoguePending_) {
+        return;
+    }
+
+    introDialoguePending_ = false;
+    if (!introDialogueLines_.empty()) {
+        startDialogueSequence(introDialogueLines_);
+    }
+}
+
+/**
+ * @brief Handles user "space" input while a dialogue sequence is active.
+ *
+ * If no dialogue is in progress this is a no-op. If the current visual novel
+ * line is still animating, the input is forwarded to the VN input handler.
+ * If the current line is finished, advances to the next line and displays it;
+ * if the sequence is exhausted, resets the VN state and finishes the dialogue
+ * sequence.
+ */
 void DemoNarrativeFlow::onDialogueSpacePressed() {
     if (!dialogueInProgress_) {
         return;

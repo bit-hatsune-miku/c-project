@@ -29,6 +29,29 @@ constexpr float kMenuIntroDuration = 0.52f;
 constexpr float kMenuIntroStagger = 0.09f;
 constexpr float kMenuIntroTravel = 230.0f;
 
+/**
+ * Determines whether Practice Mode is unlocked for the provided application state.
+ *
+ * @param state Current application state containing progression and unlock data.
+ * @return `true` if the character "lyoo" is unlocked in `state.progression`, `false` otherwise.
+ */
+bool practiceModeUnlocked(const AppState& state) {
+    return ::battle::hasUnlockedCharacter(state.progression, "lyoo");
+}
+
+/**
+ * @brief Show the practice-mode locked notice to the player.
+ *
+ * Sets the global notice text to the predefined practice-mode locked message and
+ * starts the notice timer so the message will be displayed for 2.6 seconds.
+ *
+ * @param state Application state to modify.
+ */
+void showPracticeModeLockedNotice(AppState& state) {
+    state.noticeText = kPracticeModeLockedNotice;
+    state.noticeTimer = 2.6f;
+}
+
 struct MenuButton {
     MainMenuAction action;
     const char* label;
@@ -36,7 +59,7 @@ struct MenuButton {
 };
 
 constexpr std::array<MenuButton, 5> kMenuButtons{{
-    {MainMenuAction::Start, "Start", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 246.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
+    {MainMenuAction::Start, "Story Mode", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 246.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
     {MainMenuAction::Load, "Load", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 320.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
     {MainMenuAction::Battle, "Battle Selector", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 394.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
     {MainMenuAction::Settings, "Settings", SDL_FRect{kMenuShellRect.x + kMenuContentInsetX, 468.0f, kMenuShellRect.w - kMenuContentInsetX * 2.0f, 58.0f}},
@@ -136,15 +159,33 @@ private:
         return nullptr;
     }
 
+    /**
+     * Activates the selected main-menu action, performing the corresponding state transitions or UI operations.
+     *
+     * Executes the effect for the given menu action:
+     * - Story Mode: starts story mode.
+     * - Load: opens the load menu and returns to the main menu when finished.
+     * - Battle: if practice mode is unlocked, enters the boss selector; otherwise shows a locked notice.
+     * - Settings: switches to the settings screen, with the display-mode item selected and a return target of Main Menu.
+     * - Exit: closes the application window.
+     *
+     * @param state Application state that may be modified by the action.
+     * @param window Window controller used for screen transitions and closing the app.
+     * @param action The main-menu action to activate.
+     */
     void activate(AppState& state, Window& window, MainMenuAction action) const {
         switch (action) {
             case MainMenuAction::Start:
-                beginStory(state);
+                (void)beginStoryMode(state, window);
                 break;
             case MainMenuAction::Load:
                 openLoadMenu(state, ScreenState::MainMenu);
                 break;
             case MainMenuAction::Battle:
+                if (!practiceModeUnlocked(state)) {
+                    showPracticeModeLockedNotice(state);
+                    break;
+                }
                 beginBossSelector(state);
                 break;
             case MainMenuAction::Settings:
@@ -300,19 +341,33 @@ const MainMenuController& mainMenuController() {
     return controller;
 }
 
-}  // namespace
+}  /**
+ * @brief Apply the selected main-menu action and update application state or trigger a screen transition.
+ *
+ * Performs the effect of the given `action`: updates `state.mainSelection` and then starts story mode,
+ * opens the load menu, enters the boss selector (or shows a locked notice if practice is unavailable),
+ * switches to the settings screen, or closes the window.
+ *
+ * @param state Mutable application state that will be updated to reflect the action and any resulting screen changes.
+ * @param window Platform window used for operations such as starting story mode or closing the application.
+ * @param action The main-menu action to apply.
+ */
 
 void applyMainMenuAction(AppState& state, Window& window, MainMenuAction action) {
     state.mainSelection = action;
 
     switch (action) {
         case MainMenuAction::Start:
-            beginStory(state);
+            (void)beginStoryMode(state, window);
             break;
         case MainMenuAction::Load:
             openLoadMenu(state, ScreenState::MainMenu);
             break;
         case MainMenuAction::Battle:
+            if (!practiceModeUnlocked(state)) {
+                showPracticeModeLockedNotice(state);
+                break;
+            }
             beginBossSelector(state);
             break;
         case MainMenuAction::Settings:
