@@ -654,7 +654,7 @@ private:
 
             Entry entry;
             entry.character = character;
-            applyCharacterProgressionBonuses(entry.character, progression_);
+            applyCharacterProgressionBonuses(entry.character, progression_, std::nullopt);
             entry.rosterImagePath = resolveRuntimeImagePath("icons", character.assets);
             if (entry.rosterImagePath.empty()) {
                 entry.rosterImagePath = resolveRuntimeImagePath("sprites", character.assets);
