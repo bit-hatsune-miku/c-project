@@ -1553,7 +1553,6 @@
 
             function setMode(mode) {
                 var allowedScenarios = scenarioKeysByMode[mode];
-                clearDemoTimers();
                 state.mode = mode;
                 if (allowedScenarios.indexOf(state.scenario) === -1) {
                     state.scenario = allowedScenarios[0];
@@ -1565,7 +1564,6 @@
             }
 
             function setScenario(scenarioKey) {
-                clearDemoTimers();
                 state.scenario = scenarioKey;
                 state.mode = scenarios[scenarioKey].mode;
                 refreshModeButtons();

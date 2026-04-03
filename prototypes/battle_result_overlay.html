@@ -1024,6 +1024,7 @@
           try {
             bgmAudio = new Audio(bgmPath);
             bgmAudio.loop = true;
+            bgmAudio.volume = 0.34;
             bgmAudio.preload = "auto";
           } catch (error) {
             bgmAudio = null;
@@ -1038,8 +1039,6 @@
           return;
         }
 
-        bgmAudio.volume = 0.34;
-        bgmAudio.currentTime = 0;
         bgmAudio.play().catch(function () {});
       }
 
@@ -1061,8 +1060,6 @@
 
           if (ratio >= 1) {
             bgmAudio.volume = 0;
-            bgmAudio.pause();
-            bgmAudio.currentTime = 0;
             return;
           }
 
