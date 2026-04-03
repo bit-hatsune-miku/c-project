@@ -1,0 +1,1970 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Story Competition Bracket Prototype</title>
+  <style>
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+
+    :root {
+      --paper: #fffdfd;
+      --paper-soft: #fff7fb;
+      --ink: #17141f;
+      --ink-soft: rgba(23, 20, 31, 0.58);
+      --ink-faint: rgba(23, 20, 31, 0.18);
+      --pink: #ff67b6;
+      --pink-soft: rgba(255, 103, 182, 0.14);
+      --pink-shadow: rgba(255, 103, 182, 0.22);
+      --cyan-soft: rgba(95, 211, 244, 0.14);
+      --panel: rgba(255, 255, 255, 0.92);
+      --line: rgba(23, 20, 31, 0.11);
+      --motion: linear;
+      --ui-font: "Space Mono", "Noto Sans CJK SC", "Noto Sans CJK JP", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at 14% 14%, rgba(255, 103, 182, 0.1), transparent 24%),
+        radial-gradient(circle at 84% 78%, rgba(95, 211, 244, 0.08), transparent 24%),
+        linear-gradient(180deg, #ffffff 0%, var(--paper-soft) 100%);
+      color: var(--ink);
+      font-family: var(--ui-font);
+      overflow: hidden;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background:
+        repeating-linear-gradient(
+          -18deg,
+          rgba(23, 20, 31, 0.018) 0,
+          rgba(23, 20, 31, 0.018) 1px,
+          transparent 1px,
+          transparent 72px
+        );
+      pointer-events: none;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+    }
+
+    .prototype {
+      position: relative;
+      height: 100vh;
+      padding: 0.85rem 1rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      min-height: 3.1rem;
+      position: relative;
+      z-index: 2;
+    }
+
+    .topbar-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+    }
+
+    .topbar-rank {
+      margin: 0;
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: 0.16rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.84);
+    }
+
+    .topbar-rank strong {
+      color: var(--pink);
+    }
+
+    .topbar-mode {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.42rem;
+      padding: 0.48rem 0.74rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.84);
+      border: 1px solid rgba(23, 20, 31, 0.09);
+      box-shadow: 0 0.8rem 1.8rem rgba(23, 20, 31, 0.05);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.16rem;
+      text-transform: uppercase;
+    }
+
+    .topbar-mode-dot {
+      width: 0.55rem;
+      height: 0.55rem;
+      border-radius: 50%;
+      background: var(--pink);
+      box-shadow: 0 0 0 0.24rem rgba(255, 103, 182, 0.16);
+    }
+
+    .menu-logo {
+      width: min(13rem, 24vw);
+      min-width: 9rem;
+      object-fit: contain;
+      filter: contrast(1.03);
+    }
+
+    .controls {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+      flex-wrap: wrap;
+      padding: 0.65rem 0.8rem;
+      border-radius: 1.25rem;
+      background: rgba(255, 255, 255, 0.86);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+      box-shadow: 0 1rem 2rem rgba(23, 20, 31, 0.05);
+    }
+
+    .control-label {
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.16rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+      margin-right: 0.05rem;
+    }
+
+    .chip-row {
+      display: inline-flex;
+      gap: 0.38rem;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      border: 0;
+      min-height: 2.1rem;
+      padding: 0.46rem 0.88rem;
+      border-radius: 0.95rem;
+      background: rgba(23, 20, 31, 0.06);
+      cursor: pointer;
+      transition:
+        transform 220ms var(--motion),
+        box-shadow 220ms ease,
+        background-color 220ms ease,
+        color 220ms ease,
+        opacity 220ms ease;
+    }
+
+    .chip:hover,
+    .chip:focus-visible {
+      transform: translateY(-1px);
+      box-shadow: 0 0.75rem 1.4rem rgba(23, 20, 31, 0.08);
+      outline: none;
+    }
+
+    .chip.is-active,
+    .chip.is-primary {
+      background: var(--pink);
+      color: #ffffff;
+      box-shadow: 0 1rem 2.2rem var(--pink-shadow);
+    }
+
+    .layout {
+      min-height: 0;
+      flex: 1;
+      display: flex;
+      gap: 0.8rem;
+      position: relative;
+      z-index: 1;
+    }
+
+    .stage {
+      position: relative;
+      min-width: 0;
+      flex: 1 1 auto;
+      border-radius: 1.9rem;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.26)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0));
+      border: 1px solid rgba(23, 20, 31, 0.08);
+      box-shadow:
+        0 1.7rem 3.6rem rgba(23, 20, 31, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+      overflow: hidden;
+    }
+
+    .stage::before {
+      content: "";
+      position: absolute;
+      inset: 0.85rem;
+      border-radius: 1.45rem;
+      border: 1px solid rgba(23, 20, 31, 0.05);
+      pointer-events: none;
+    }
+
+    .stage-header {
+      position: absolute;
+      left: 1.25rem;
+      right: 1.25rem;
+      top: 1.05rem;
+      z-index: 2;
+    }
+
+    .stage-kicker {
+      margin: 0;
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.28rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+    }
+
+    .stage-title {
+      margin: 0.42rem 0 0;
+      font-size: clamp(1.55rem, 1.6vw, 2.15rem);
+      font-weight: 700;
+      line-height: 1.02;
+      text-transform: uppercase;
+    }
+
+    .stage-subtitle {
+      margin: 0.38rem 0 0;
+      max-width: 54rem;
+      font-size: 0.7rem;
+      line-height: 1.55;
+      letter-spacing: 0.08rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.48);
+    }
+
+    .bracket-viewport {
+      position: absolute;
+      left: 0.65rem;
+      right: 0.65rem;
+      top: 5.85rem;
+      bottom: 4.9rem;
+      overflow: hidden;
+    }
+
+    .bracket-canvas {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1280px;
+      height: 720px;
+      transform-origin: top left;
+      overflow: hidden;
+    }
+
+    .segment {
+      position: absolute;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.22);
+      box-shadow: 0 0 0.55rem rgba(23, 20, 31, 0.08);
+      transition: background-color 240ms ease, opacity 240ms ease;
+    }
+
+    .segment.is-route {
+      background: rgba(255, 103, 182, 0.34);
+      box-shadow: 0 0 0.85rem rgba(255, 103, 182, 0.18);
+    }
+
+    .segment.is-route.is-active {
+      background: var(--pink);
+      box-shadow: 0 0 1.1rem rgba(255, 103, 182, 0.28);
+    }
+
+    .bracket-node {
+      position: absolute;
+      border: 0;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+      transition:
+        transform 260ms var(--motion),
+        opacity 220ms ease,
+        filter 220ms ease;
+    }
+
+    .bracket-node:focus-visible {
+      outline: none;
+    }
+
+    .bracket-node-shell {
+      position: absolute;
+      inset: 0;
+      border-radius: 1rem;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      box-shadow:
+        0 0.95rem 1.9rem rgba(23, 20, 31, 0.06),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.36);
+      transition:
+        background-color 240ms ease,
+        border-color 240ms ease,
+        box-shadow 240ms ease;
+    }
+
+    .bracket-node-art {
+      position: absolute;
+      inset: 0.36rem;
+      border-radius: 0.75rem;
+      background:
+        radial-gradient(circle at 50% 24%, rgba(255, 103, 182, 0.14), transparent 42%),
+        rgba(23, 20, 31, 0.045);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+      overflow: hidden;
+    }
+
+    .bracket-node-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .bracket-node-copy {
+      display: none;
+    }
+
+    .bracket-node.is-focused,
+    .bracket-node.is-current {
+      transform: translateY(-2px);
+      filter: brightness(1.02);
+    }
+
+    .bracket-node.is-focused .bracket-node-shell,
+    .bracket-node.is-current .bracket-node-shell {
+      background: rgba(255, 103, 182, 0.98);
+      border-color: rgba(255, 103, 182, 0.92);
+      box-shadow:
+        0 1.15rem 2.4rem var(--pink-shadow),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+    }
+
+    .bracket-node.is-cleared .bracket-node-shell {
+      background: rgba(255, 103, 182, 0.12);
+      border-color: rgba(255, 103, 182, 0.24);
+    }
+
+    .bracket-node.is-locked {
+      opacity: 0.48;
+      cursor: default;
+    }
+
+    .bracket-node.is-locked .bracket-node-shell {
+      background: rgba(232, 228, 234, 0.88);
+      box-shadow: 0 0.8rem 1.5rem rgba(23, 20, 31, 0.04);
+    }
+
+    .bracket-node.is-ghost,
+    .bracket-node.is-player-path,
+    .bracket-node.is-entry,
+    .bracket-node.is-winner-slot {
+      cursor: default;
+    }
+
+    .bracket-node.is-ghost {
+      opacity: 0.26;
+    }
+
+    .bracket-node.is-ghost .bracket-node-shell {
+      background: rgba(23, 20, 31, 0.04);
+      border-style: dashed;
+    }
+
+    .bracket-node.is-ghost .bracket-node-art {
+      background: rgba(23, 20, 31, 0.05);
+      border-style: dashed;
+    }
+
+    .bracket-node.is-player .bracket-node-shell,
+    .bracket-node.is-player-path .bracket-node-shell,
+    .bracket-node.is-champion .bracket-node-shell {
+      background:
+        linear-gradient(160deg, rgba(255, 255, 255, 0.98), rgba(255, 255, 255, 0.84)),
+        linear-gradient(135deg, rgba(255, 103, 182, 0.12), rgba(95, 211, 244, 0.08));
+      border-color: rgba(255, 103, 182, 0.22);
+    }
+
+    .bracket-node.is-player-path {
+      opacity: 0.72;
+    }
+
+    .bracket-node.is-entry {
+      opacity: 0.72;
+    }
+
+    .bracket-node.is-entry .bracket-node-shell {
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .bracket-node.is-winner-slot {
+      opacity: 0.3;
+    }
+
+    .bracket-node.is-winner-slot .bracket-node-shell {
+      background: rgba(255, 255, 255, 0.56);
+      border-style: dashed;
+      box-shadow: none;
+    }
+
+    .bracket-node.is-winner-slot .bracket-node-art {
+      background: rgba(23, 20, 31, 0.035);
+      border-style: dashed;
+    }
+
+    .bracket-node.is-champion .bracket-node-shell {
+      box-shadow:
+        0 1.3rem 2.8rem rgba(255, 103, 182, 0.18),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.36);
+    }
+
+    .stage-footer {
+      position: absolute;
+      left: 1.25rem;
+      right: 1.25rem;
+      bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.8rem;
+      z-index: 2;
+    }
+
+    .stage-helper {
+      margin: 0;
+      font-size: 0.66rem;
+      font-weight: 700;
+      letter-spacing: 0.16rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.44);
+    }
+
+    .stage-action {
+      position: relative;
+      min-width: 15rem;
+      height: 3.45rem;
+      border: 0;
+      padding: 0 1rem;
+      border-radius: 1.1rem;
+      background: transparent;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 0.16rem;
+      font-weight: 700;
+    }
+
+    .stage-action-shell {
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: rgba(255, 255, 255, 0.94);
+      border: 1px solid rgba(23, 20, 31, 0.13);
+      box-shadow:
+        0 1rem 2rem rgba(23, 20, 31, 0.06),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.36);
+      transform: skewX(-14deg);
+      transition: transform 220ms var(--motion), box-shadow 220ms ease, background-color 220ms ease;
+    }
+
+    .stage-action-inner {
+      position: relative;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      transform: skewX(-14deg);
+    }
+
+    .stage-action-inner > * {
+      transform: skewX(14deg);
+    }
+
+    .stage-action-accent {
+      width: 0.62rem;
+      height: 1.72rem;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.16);
+      transition: background-color 220ms ease;
+    }
+
+    .stage-action:hover .stage-action-shell,
+    .stage-action:focus-visible .stage-action-shell,
+    .stage-action.is-primary .stage-action-shell {
+      transform: skewX(-14deg) translateY(-2px);
+      background: rgba(255, 255, 255, 0.99);
+      border-color: rgba(255, 103, 182, 0.28);
+      box-shadow:
+        0 1.1rem 2.4rem rgba(255, 103, 182, 0.15),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.42);
+      outline: none;
+    }
+
+    .stage-action:hover .stage-action-accent,
+    .stage-action:focus-visible .stage-action-accent,
+    .stage-action.is-primary .stage-action-accent {
+      background: rgba(255, 103, 182, 0.44);
+    }
+
+    .info-panel {
+      position: relative;
+      flex: 0 0 min(23rem, 29vw);
+      min-width: 18.5rem;
+      border-radius: 1.9rem;
+      padding: 1.2rem 1.15rem 1.05rem;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.84)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0));
+      border: 1px solid rgba(23, 20, 31, 0.09);
+      box-shadow:
+        0 1.4rem 2.8rem rgba(23, 20, 31, 0.08),
+        inset 0 0 0 1px rgba(255, 255, 255, 0.34);
+      overflow: hidden;
+    }
+
+    .info-kicker {
+      margin: 0;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.24rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+    }
+
+    .info-portrait {
+      position: relative;
+      margin-top: 0.8rem;
+      height: min(15rem, 27vh);
+      border-radius: 1.35rem;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(255, 103, 182, 0.18), transparent 44%),
+        rgba(23, 20, 31, 0.045);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .info-portrait img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      padding: 0.8rem;
+    }
+
+    .info-name {
+      margin: 0.82rem 0 0;
+      font-size: clamp(1.25rem, 0.9vw + 1rem, 1.8rem);
+      font-weight: 700;
+      line-height: 1.04;
+    }
+
+    .info-battle {
+      margin: 0.32rem 0 0;
+      font-size: 0.78rem;
+      letter-spacing: 0.08rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.5);
+    }
+
+    .info-copy {
+      margin: 0.8rem 0 0;
+      font-size: 0.82rem;
+      line-height: 1.62;
+      color: rgba(23, 20, 31, 0.74);
+    }
+
+    .info-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+      margin-top: 0.95rem;
+      padding-top: 0.9rem;
+      border-top: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .info-row-label {
+      margin: 0 0 0.16rem;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.16rem;
+      text-transform: uppercase;
+      color: rgba(23, 20, 31, 0.42);
+    }
+
+    .info-row-value {
+      margin: 0;
+      font-size: 0.82rem;
+      line-height: 1.54;
+      color: rgba(23, 20, 31, 0.78);
+    }
+
+    .info-row-value.is-status {
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08rem;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 1rem;
+      z-index: 60;
+      min-width: 14rem;
+      padding: 0.8rem 1.05rem;
+      border-radius: 999px;
+      background: rgba(23, 20, 31, 0.9);
+      color: #ffffff;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12rem;
+      text-transform: uppercase;
+      text-align: center;
+      transform: translate(-50%, 1rem);
+      opacity: 0;
+      transition: transform 220ms var(--motion), opacity 220ms ease;
+      pointer-events: none;
+    }
+
+    .toast.is-visible {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    .intro-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 260ms ease;
+    }
+
+    .intro-overlay.is-visible {
+      opacity: 1;
+    }
+
+    .intro-backdrop {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 50% 38%, rgba(255, 103, 182, 0.1), transparent 34%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(255, 247, 251, 0.96));
+    }
+
+    .intro-bracket-shell {
+      position: absolute;
+      left: 4vw;
+      right: 4vw;
+      top: 5vh;
+      bottom: 7vh;
+      overflow: hidden;
+    }
+
+    .intro-bracket {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 1280px;
+      height: 720px;
+      transform-origin: top left;
+    }
+
+    .intro-route-token,
+    .intro-opponent-token {
+      position: absolute;
+      z-index: 5;
+      transition:
+        left 1050ms var(--motion),
+        top 1050ms var(--motion),
+        transform 420ms var(--motion),
+        opacity 260ms ease;
+    }
+
+    .intro-route-token.is-hidden,
+    .intro-opponent-token.is-hidden {
+      opacity: 0;
+    }
+
+    .intro-route-token.is-dashing,
+    .intro-opponent-token.is-dashing {
+      transition:
+        left 280ms cubic-bezier(0.55, 0, 0.86, 0.34),
+        top 280ms cubic-bezier(0.55, 0, 0.86, 0.34),
+        transform 180ms ease,
+        opacity 180ms ease;
+    }
+
+    .intro-rival-proxy.is-thrown {
+      transform: translate3d(2.2rem, 14rem, 0) rotate(24deg);
+      opacity: 0;
+      transition: transform 760ms cubic-bezier(0.16, 0.86, 0.26, 1), opacity 540ms ease;
+    }
+
+    .intro-impact-flash {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 11rem;
+      height: 11rem;
+      margin-left: -5.5rem;
+      margin-top: -5.5rem;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, rgba(255, 103, 182, 0.86) 0, rgba(255, 103, 182, 0.18) 54%, rgba(255, 103, 182, 0) 76%);
+      opacity: 0;
+      transform: scale(0.18);
+      transition: opacity 220ms ease, transform 220ms ease;
+    }
+
+    .intro-impact-flash.is-visible {
+      opacity: 1;
+      transform: scale(1.14);
+    }
+
+    .vs-shell {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity 220ms ease;
+    }
+
+    .vs-shell.is-visible {
+      opacity: 1;
+    }
+
+    .vs-split {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    .vs-half {
+      position: absolute;
+      inset: 0;
+    }
+
+    .vs-half.left {
+      clip-path: polygon(0 0, 58% 0, 43% 100%, 0 100%);
+      background:
+        radial-gradient(circle at 34% 20%, rgba(95, 211, 244, 0.32), transparent 34%),
+        linear-gradient(135deg, rgba(10, 28, 50, 0.94), rgba(42, 104, 160, 0.88));
+    }
+
+    .vs-half.right {
+      clip-path: polygon(57% 0, 100% 0, 100% 100%, 42% 100%);
+      background:
+        radial-gradient(circle at 72% 20%, rgba(255, 103, 182, 0.36), transparent 34%),
+        linear-gradient(135deg, rgba(70, 15, 34, 0.95), rgba(190, 40, 100, 0.9));
+    }
+
+    .vs-card {
+      position: absolute;
+      width: 68vw;
+      height: 108vh;
+      top: -6vh;
+      border-radius: 2.6rem;
+      overflow: hidden;
+      box-shadow: 0 2.2rem 4.5rem rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      transition: transform 760ms var(--motion), opacity 320ms ease;
+    }
+
+    .vs-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.08)),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0));
+      pointer-events: none;
+    }
+
+    .vs-card.left {
+      left: -16vw;
+      background:
+        radial-gradient(circle at 28% 18%, rgba(95, 211, 244, 0.34), transparent 32%),
+        linear-gradient(180deg, rgba(10, 26, 44, 0.95), rgba(34, 81, 132, 0.9));
+      transform: translate3d(-78%, -104%, 0) rotate(-12deg);
+    }
+
+    .vs-card.right {
+      right: -16vw;
+      background:
+        radial-gradient(circle at 72% 22%, rgba(255, 103, 182, 0.36), transparent 34%),
+        linear-gradient(180deg, rgba(64, 11, 28, 0.95), rgba(176, 30, 92, 0.9));
+      transform: translate3d(78%, 104%, 0) rotate(12deg);
+    }
+
+    .vs-card.is-entered.left,
+    .vs-card.is-entered.right {
+      transform: translate3d(0, 0, 0) rotate(0deg);
+    }
+
+    .vs-card.is-exiting.left {
+      transform: translate3d(-24%, 0, 0) rotate(0deg);
+    }
+
+    .vs-card.is-exiting.right {
+      transform: translate3d(24%, 0, 0) rotate(0deg);
+    }
+
+    .vs-card-portrait {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .vs-card-portrait img {
+      max-width: 112%;
+      max-height: 104%;
+      object-fit: contain;
+      filter: drop-shadow(0 1.5rem 2.6rem rgba(0, 0, 0, 0.24));
+    }
+
+    .vs-card-inner {
+      position: absolute;
+      left: 1.9rem;
+      right: 1.9rem;
+      bottom: 2.1rem;
+      color: #ffffff;
+    }
+
+    .vs-card-kicker {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.26rem;
+      text-transform: uppercase;
+      opacity: 0.78;
+    }
+
+    .vs-card-name {
+      margin-top: 0.45rem;
+      font-size: clamp(2.2rem, 3.9vw, 4.6rem);
+      font-weight: 700;
+      line-height: 0.92;
+      text-transform: uppercase;
+      text-wrap: balance;
+    }
+
+    .vs-letters {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 10;
+      display: flex;
+      gap: 0.1rem;
+      color: #ffffff;
+      text-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.28);
+    }
+
+    .vs-letter {
+      display: inline-block;
+      font-size: clamp(5rem, 11vw, 8.6rem);
+      font-weight: 700;
+      line-height: 1;
+      opacity: 0;
+      transform: translateY(-150%) rotate(10deg);
+      transition: transform 280ms var(--motion), opacity 220ms ease;
+    }
+
+    .vs-letter.is-visible {
+      opacity: 1;
+      transform: translateY(0) rotate(0deg);
+    }
+
+    .vs-letters.is-shaking {
+      animation: vs-shake 180ms linear 2;
+    }
+
+    @keyframes vs-shake {
+      0% { transform: translate(-50%, -50%) translateX(0); }
+      25% { transform: translate(-50%, -50%) translateX(-7px); }
+      50% { transform: translate(-50%, -50%) translateX(8px); }
+      75% { transform: translate(-50%, -50%) translateX(-5px); }
+      100% { transform: translate(-50%, -50%) translateX(0); }
+    }
+
+    @media (max-width: 1120px) {
+      .layout {
+        flex-direction: column;
+      }
+
+      .info-panel {
+        flex-basis: auto;
+        min-width: 0;
+      }
+    }
+
+    @media (max-width: 760px) {
+      html,
+      body {
+        overflow: auto;
+      }
+
+      .prototype {
+        height: auto;
+        min-height: 100vh;
+      }
+
+      .topbar {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .menu-logo {
+        width: min(12rem, 60vw);
+      }
+
+      .stage {
+        min-height: 32rem;
+      }
+
+      .stage-footer {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .stage-action {
+        min-width: 0;
+        width: 100%;
+      }
+
+      .vs-card {
+        width: 90vw;
+      }
+
+      .vs-card.left {
+        left: -28vw;
+      }
+
+      .vs-card.right {
+        right: -28vw;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="prototype">
+    <header class="topbar">
+      <div class="topbar-meta">
+        <p class="topbar-rank">Idol Rank: <strong id="idol-rank-value">0</strong></p>
+        <div class="topbar-mode">
+          <span class="topbar-mode-dot" aria-hidden="true"></span>
+          <span id="topbar-mode-label">Story Competition</span>
+        </div>
+      </div>
+      <img class="menu-logo" src="../assets/vn/backgrounds/General_Art/MainMenuTitle.png" alt="Game logo">
+    </header>
+
+    <section class="controls" aria-label="Prototype controls">
+      <span class="control-label">Load</span>
+      <div class="chip-row">
+        <button class="chip" id="reload-data-button" type="button">Reload</button>
+      </div>
+      <span class="control-label">Mode</span>
+      <div class="chip-row">
+        <button class="chip is-active" id="mode-story-button" type="button">Story</button>
+        <button class="chip" id="mode-practice-button" type="button">Practice</button>
+      </div>
+      <span class="control-label">Clears</span>
+      <div class="chip-row">
+        <button class="chip" id="clears-less-button" type="button">-1</button>
+        <button class="chip" id="clears-more-button" type="button">+1</button>
+      </div>
+      <span class="control-label">Focus</span>
+      <div class="chip-row" id="focus-chip-row"></div>
+      <div class="chip-row">
+        <button class="chip is-primary" id="play-intro-button" type="button">Play Intro</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <section class="stage">
+        <div class="stage-header">
+          <p class="stage-kicker" id="stage-kicker">Idol Competition</p>
+          <h1 class="stage-title" id="stage-title">Story Competition Bracket</h1>
+          <p class="stage-subtitle" id="stage-subtitle">Bottom-up bracket pairings show the current match and the next feeder match at the same time so Story Mode reads as one tournament climb.</p>
+        </div>
+
+        <div class="bracket-viewport">
+          <div class="bracket-canvas" id="bracket-canvas"></div>
+        </div>
+
+        <div class="stage-footer">
+          <p class="stage-helper" id="stage-helper">Story auto-targets the next uncleared rival. Practice keeps the same bracket but only cleared matches are replayable.</p>
+          <button class="stage-action is-primary" id="stage-action" type="button">
+            <span class="stage-action-shell" aria-hidden="true"></span>
+            <span class="stage-action-inner">
+              <span class="stage-action-accent" aria-hidden="true"></span>
+              <span id="stage-action-label">Continue Story</span>
+            </span>
+          </button>
+        </div>
+      </section>
+
+      <aside class="info-panel">
+        <p class="info-kicker">Match File</p>
+        <div class="info-portrait">
+          <img id="info-portrait" alt="">
+        </div>
+        <h2 class="info-name" id="info-name">Lyoo</h2>
+        <p class="info-battle" id="info-battle">Prologue & Tutorial</p>
+        <p class="info-copy" id="info-copy">The first trial. Lyoo challenges Miku to prove she is worthy of entering the competition.</p>
+
+        <div class="info-meta">
+          <div>
+            <p class="info-row-label">Status</p>
+            <p class="info-row-value is-status" id="info-status">Current Rival</p>
+          </div>
+          <div>
+            <p class="info-row-label">Story Progress</p>
+            <p class="info-row-value" id="info-progress">0 / 5 rounds cleared</p>
+          </div>
+          <div>
+            <p class="info-row-label">Interaction Hint</p>
+            <p class="info-row-value" id="info-hint">Press SPACE as each pulse reaches the party to parry and reduce damage.</p>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <div class="intro-overlay" id="intro-overlay" aria-hidden="true">
+      <div class="intro-backdrop"></div>
+      <div class="intro-bracket-shell">
+        <div class="intro-bracket" id="intro-bracket"></div>
+      </div>
+      <div class="intro-impact-flash" id="intro-impact-flash"></div>
+      <div class="vs-shell" id="vs-shell">
+        <div class="vs-split">
+          <div class="vs-half left"></div>
+          <div class="vs-half right"></div>
+        </div>
+        <div class="vs-card left" id="vs-card-left">
+          <div class="vs-card-portrait"><img id="vs-card-left-image" alt=""></div>
+          <div class="vs-card-inner">
+            <div class="vs-card-kicker">Player Side</div>
+            <div class="vs-card-name" id="vs-card-left-name">HATSUNE MIKU</div>
+          </div>
+        </div>
+        <div class="vs-card right" id="vs-card-right">
+          <div class="vs-card-portrait"><img id="vs-card-right-image" alt=""></div>
+          <div class="vs-card-inner">
+            <div class="vs-card-kicker">Boss Side</div>
+            <div class="vs-card-name" id="vs-card-right-name">LYOO</div>
+          </div>
+        </div>
+        <div class="vs-letters" id="vs-letters">
+          <span class="vs-letter" id="vs-letter-v">V</span>
+          <span class="vs-letter" id="vs-letter-s">S</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast" id="prototype-toast" aria-live="polite"></div>
+  </main>
+
+  <script>
+    const sampleBattles = [
+      {
+        key: "tutorial_vs_lyoo",
+        order: 1,
+        bossName: "Lyoo",
+        battleName: "Prologue & Tutorial",
+        description: "The first trial. Lyoo challenges Miku to prove she is worthy of entering the BIT Underground Idol Competition.",
+        hint: "Press SPACE as each pulse reaches the party to parry and reduce damage.",
+        icon: "../assets/combat/icons/lyooBoss.png",
+        sprite: "../assets/combat/sprites/lyooBoss.png"
+      },
+      {
+        key: "wild_scent_flowers",
+        order: 2,
+        bossName: "Jiafei",
+        battleName: "The Smell Of Wildflowers",
+        description: "A style-heavy duel built around movement, timing, and crowd energy.",
+        hint: "Press LEFT or RIGHT to dodge each wave in that screen direction.",
+        icon: "../assets/combat/icons/jiafei.png",
+        sprite: "../assets/combat/sprites/jiafei.png"
+      },
+      {
+        key: "scan_to_pay",
+        order: 3,
+        bossName: "微信姐 & 支付宝姐",
+        battleName: "Scan To Pay",
+        description: "A dual-pressure battle that still needs to feel like one tournament stop in the same bracket.",
+        hint: "Use ARROW KEYS to move the phone and keep its center cursor away from the QR code.",
+        icon: "../assets/combat/sprites/wechatalipayBoss.png",
+        sprite: "../assets/combat/sprites/wechatalipayBoss.png"
+      },
+      {
+        key: "ari_boss_demo",
+        order: 4,
+        bossName: "Ariana Grande",
+        battleName: "Break Free",
+        description: "A whistle-note showdown staged as a bracket climb rather than a disconnected boss select.",
+        hint: "Press SPACE right after each attack starts to reduce damage.",
+        icon: "../assets/combat/icons/ariBoss.png",
+        sprite: "../assets/combat/sprites/ariBoss.png"
+      },
+      {
+        key: "luotianyi_boss_demo",
+        order: 5,
+        bossName: "洛天依",
+        battleName: "听力考试现在开始",
+        description: "A listening-exam duel that sits at the top of the current story bracket path.",
+        hint: "Listen to the 4 tones, then press 1 2 3 4 in the same order.",
+        icon: "../assets/combat/sprites/luotianyi.png",
+        sprite: "../assets/combat/sprites/luotianyi.png"
+      }
+    ];
+
+    const player = {
+      name: "Hatsune Miku",
+      displayName: "HATSUNE MIKU",
+      icon: "../assets/combat/icons/miku.png",
+      sprite: "../assets/combat/sprites/miku.png"
+    };
+
+    const sfxPaths = {
+      slide: "../assets/ui/sfx/ArgonPro_normal-sliderslide.wav",
+      discard: "../assets/ui/sfx/Ranked_card-discard-1.wav",
+      impact: "../assets/ui/sfx/Ranked_vs-impact.wav",
+      windup: "../assets/ui/sfx/Ranked_vs-windup.wav",
+      slam: "../assets/ui/sfx/UI_overlay-big-pop-in.wav",
+      swoosh: "../assets/ui/sfx/Results_swoosh-up.wav",
+      letter: "../assets/ui/sfx/UI_shutter.wav"
+    };
+
+    const state = {
+      mode: "story",
+      clearedCount: 0,
+      selectedKey: sampleBattles[0].key,
+      introPlaying: false,
+      audioUnlocked: false
+    };
+
+    const focusChipRow = document.getElementById("focus-chip-row");
+    const bracketCanvas = document.getElementById("bracket-canvas");
+    const introBracket = document.getElementById("intro-bracket");
+    const introOverlay = document.getElementById("intro-overlay");
+    const introImpactFlash = document.getElementById("intro-impact-flash");
+    const vsShell = document.getElementById("vs-shell");
+    const vsCardLeft = document.getElementById("vs-card-left");
+    const vsCardRight = document.getElementById("vs-card-right");
+    const vsCardLeftImage = document.getElementById("vs-card-left-image");
+    const vsCardRightImage = document.getElementById("vs-card-right-image");
+    const vsCardLeftName = document.getElementById("vs-card-left-name");
+    const vsCardRightName = document.getElementById("vs-card-right-name");
+    const vsLetters = document.getElementById("vs-letters");
+    const vsLetterV = document.getElementById("vs-letter-v");
+    const vsLetterS = document.getElementById("vs-letter-s");
+    const prototypeToast = document.getElementById("prototype-toast");
+
+    const infoPortrait = document.getElementById("info-portrait");
+    const infoName = document.getElementById("info-name");
+    const infoBattle = document.getElementById("info-battle");
+    const infoCopy = document.getElementById("info-copy");
+    const infoStatus = document.getElementById("info-status");
+    const infoProgress = document.getElementById("info-progress");
+    const infoHint = document.getElementById("info-hint");
+    const idolRankValue = document.getElementById("idol-rank-value");
+    const topbarModeLabel = document.getElementById("topbar-mode-label");
+    const stageKicker = document.getElementById("stage-kicker");
+    const stageTitle = document.getElementById("stage-title");
+    const stageSubtitle = document.getElementById("stage-subtitle");
+    const stageHelper = document.getElementById("stage-helper");
+    const stageActionLabel = document.getElementById("stage-action-label");
+    const VIRTUAL_WIDTH = 1280;
+    const VIRTUAL_HEIGHT = 720;
+
+    function clamp(value, min, max) {
+      return Math.min(Math.max(value, min), max);
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function sleep(ms) {
+      return new Promise((resolve) => window.setTimeout(resolve, ms));
+    }
+
+    function showToast(message, duration = 1400) {
+      prototypeToast.textContent = message;
+      prototypeToast.classList.add("is-visible");
+      window.clearTimeout(showToast._timer);
+      showToast._timer = window.setTimeout(() => {
+        prototypeToast.classList.remove("is-visible");
+      }, duration);
+    }
+
+    function unlockAudio() {
+      state.audioUnlocked = true;
+    }
+
+    function playSfx(key, volume = 0.9) {
+      return;
+    }
+
+    window.addEventListener("pointerdown", unlockAudio, { once: true });
+    window.addEventListener("keydown", unlockAudio, { once: true });
+
+    function buildModel() {
+      const rounds = sampleBattles.map((battle, index) => ({
+        ...battle,
+        cleared: index < state.clearedCount
+      }));
+
+      const nextUnclearedIndex = rounds.findIndex((round) => !round.cleared);
+      const effectiveNext = nextUnclearedIndex === -1 ? rounds.length : nextUnclearedIndex;
+      const storySelectedKey = rounds[Math.min(effectiveNext, rounds.length - 1)].key;
+
+      if (state.mode === "story") {
+        state.selectedKey = storySelectedKey;
+      } else if (
+        !rounds.some((round) => round.key === state.selectedKey && round.cleared)
+      ) {
+        const fallback = rounds[Math.max(0, Math.min(effectiveNext - 1, rounds.length - 1))] || rounds[0];
+        state.selectedKey = fallback ? fallback.key : storySelectedKey;
+      }
+
+      return {
+        rounds,
+        nextUnclearedIndex: effectiveNext,
+        finaleUnlocked: effectiveNext >= rounds.length
+      };
+    }
+
+    function buildSymmetricEntrants(model) {
+      const bossCount = model.rounds.length;
+      const leafCount = 2 ** bossCount;
+      const leaves = Array.from({ length: leafCount }, () => ({
+        kind: "fake",
+        icon: "",
+        label: "NPC"
+      }));
+
+      leaves[0] = {
+        kind: "miku",
+        icon: player.icon,
+        label: player.name
+      };
+
+      model.rounds.forEach((round, index) => {
+        const start = 2 ** index;
+        const size = 2 ** index;
+        leaves[start] = {
+          kind: "boss",
+          key: round.key,
+          icon: round.icon,
+          label: round.bossName,
+          roundIndex: index
+        };
+        for (let cursor = start + 1; cursor < start + size; cursor += 1) {
+          leaves[cursor] = {
+            kind: "fake",
+            icon: "",
+            label: "NPC"
+          };
+        }
+      });
+
+      return leaves;
+    }
+
+    function rectFromCenter(cx, cy, width, height) {
+      return {
+        x: cx - width * 0.5,
+        y: cy - height * 0.5,
+        width,
+        height
+      };
+    }
+
+    function centerOf(rect) {
+      return {
+        x: rect.x + rect.width * 0.5,
+        y: rect.y + rect.height * 0.5
+      };
+    }
+
+    function leftAnchorOf(rect) {
+      return {
+        x: rect.x + rect.width,
+        y: rect.y + rect.height * 0.5
+      };
+    }
+
+    function rightAnchorOf(rect) {
+      return {
+        x: rect.x,
+        y: rect.y + rect.height * 0.5
+      };
+    }
+
+    function rectWithRightAnchor(rect) {
+      return rect;
+    }
+
+    function rectWithLeftAnchor(rect) {
+      return rect;
+    }
+
+    function rectCenteredOnPoint(point, width, height) {
+      return rectFromCenter(point.x, point.y, width, height);
+    }
+
+    function orthogonalSegments(a, b, classes = []) {
+      const segments = [];
+      const thickness = 4;
+      const verticalFirst = {
+        x: a.x - thickness * 0.5,
+        y: Math.min(a.y, b.y),
+        width: thickness,
+        height: Math.abs(a.y - b.y)
+      };
+      const horizontalSecond = {
+        x: Math.min(a.x, b.x),
+        y: b.y - thickness * 0.5,
+        width: Math.abs(a.x - b.x),
+        height: thickness
+      };
+      segments.push({ rect: verticalFirst, classes });
+      segments.push({ rect: horizontalSecond, classes });
+      return segments;
+    }
+
+    function verticalSegment(x, y0, y1, classes = []) {
+      const thickness = 4;
+      const top = Math.round(Math.min(y0, y1));
+      const height = Math.max(thickness, Math.round(Math.abs(y1 - y0)));
+      return {
+        rect: {
+          x: Math.round(x - thickness * 0.5),
+          y: top,
+          width: thickness,
+          height
+        },
+        classes
+      };
+    }
+
+    function horizontalSegment(x0, x1, y, classes = []) {
+      const thickness = 4;
+      const left = Math.round(Math.min(x0, x1) - thickness * 0.5);
+      const width = Math.max(thickness, Math.round(Math.abs(x1 - x0) + thickness));
+      return {
+        rect: {
+          x: left,
+          y: Math.round(y - thickness * 0.5),
+          width,
+          height: thickness
+        },
+        classes
+      };
+    }
+
+    function buildLayout(bounds, rounds) {
+      const width = bounds.width;
+      const height = bounds.height;
+      const count = rounds.length;
+      const leafCount = 2 ** count;
+      const horizontalMargin = clamp(width * 0.022, 18, 28);
+      const usableWidth = Math.max(1, width - horizontalMargin * 2);
+      const leafStep = usableWidth / Math.max(1, leafCount - 1);
+      const idealNodeSize = clamp(Math.min(width, height) * 0.115, 60, 86);
+      const nodeSize = clamp(Math.min(idealNodeSize, leafStep * 0.72), 18, 86);
+      const championSize = clamp(nodeSize * 1.16, 22, 92);
+      const topPadding = 22;
+      const bottomPadding = 14;
+      const startRowCenterY = height - bottomPadding - nodeSize * 0.5;
+      const firstMatchCenterY = startRowCenterY - clamp(height * 0.18, 92, 126);
+      const upperSpan = Math.max(0, firstMatchCenterY - (topPadding + championSize * 0.5) - 28);
+      const upperStep = count > 1 ? upperSpan / Math.max(1, count - 1) : 0;
+      const startX = horizontalMargin;
+
+      const leaves = Array.from({ length: leafCount }, (_, index) => ({
+        index,
+        rect: rectFromCenter(startX + leafStep * index, startRowCenterY, nodeSize, nodeSize)
+      }));
+
+      const roundsLayout = [];
+      for (let roundIndex = 0; roundIndex < count; roundIndex += 1) {
+        const matchCount = 2 ** (count - roundIndex - 1);
+        const subtreeLeafSpan = 2 ** (roundIndex + 1);
+        const roundCenterY = firstMatchCenterY - upperStep * roundIndex;
+        const matches = [];
+
+        for (let matchIndex = 0; matchIndex < matchCount; matchIndex += 1) {
+          const leafStart = matchIndex * subtreeLeafSpan;
+          const leafEnd = leafStart + subtreeLeafSpan - 1;
+          const firstLeafCenter = centerOf(leaves[leafStart].rect);
+          const lastLeafCenter = centerOf(leaves[leafEnd].rect);
+          const subtreeWidth = Math.max(nodeSize * 1.65, lastLeafCenter.x - firstLeafCenter.x);
+          const centerX = (firstLeafCenter.x + lastLeafCenter.x) * 0.5;
+          const slotOffset = clamp(subtreeWidth * 0.18, nodeSize * 0.85, subtreeWidth * 0.32);
+          matches.push({
+            leafStart,
+            leafEnd,
+            leftRect: rectFromCenter(centerX - slotOffset, roundCenterY, nodeSize, nodeSize),
+            rightRect: rectFromCenter(centerX + slotOffset, roundCenterY, nodeSize, nodeSize),
+            centerX,
+            centerY: roundCenterY
+          });
+        }
+
+        roundsLayout.push(matches);
+      }
+
+      const levels = roundsLayout.map((matches) => {
+        const match = matches[0];
+        const leftAnchor = leftAnchorOf(match.leftRect);
+        const rightAnchor = rightAnchorOf(match.rightRect);
+        const meetPoint = { x: match.centerX, y: match.centerY };
+        return {
+          routeLeftCornerRect: rectCenteredOnPoint(leftAnchor, nodeSize, nodeSize),
+          routeRightCornerRect: rectCenteredOnPoint(rightAnchor, nodeSize, nodeSize),
+          routeMeetRect: rectCenteredOnPoint(meetPoint, nodeSize, nodeSize)
+        };
+      });
+
+      return {
+        leafCount,
+        leaves,
+        roundsLayout,
+        levels,
+        championRect: rectFromCenter(width * 0.5, topPadding + championSize * 0.5, championSize, championSize),
+        routeStartRect() {
+          return leaves[0].rect;
+        },
+        rivalStartRect(roundIndex) {
+          return leaves[2 ** roundIndex].rect;
+        },
+        ghostStartRect(roundIndex) {
+          return leaves[Math.min(leafCount - 1, 2 ** roundIndex + 1)].rect;
+        },
+        routeEntryRect(roundIndex) {
+          return roundsLayout[roundIndex][0].leftRect;
+        },
+        rivalSlotRect(roundIndex) {
+          return roundsLayout[roundIndex][0].rightRect;
+        }
+      };
+    }
+
+    function scaleCanvas(container) {
+      const parent = container.parentElement;
+      if (!parent) {
+        return;
+      }
+      const availableWidth = parent.clientWidth || VIRTUAL_WIDTH;
+      const availableHeight = parent.clientHeight || VIRTUAL_HEIGHT;
+      const scale = Math.min(availableWidth / VIRTUAL_WIDTH, availableHeight / VIRTUAL_HEIGHT);
+      const offsetX = Math.round((availableWidth - VIRTUAL_WIDTH * scale) * 0.5);
+      const offsetY = Math.round((availableHeight - VIRTUAL_HEIGHT * scale) * 0.5);
+      container.style.width = `${VIRTUAL_WIDTH}px`;
+      container.style.height = `${VIRTUAL_HEIGHT}px`;
+      container.style.transform = `translate(${offsetX}px, ${offsetY}px) scale(${scale})`;
+    }
+
+    function copyRect(rect) {
+      return {
+        x: rect.x,
+        y: rect.y,
+        width: rect.width,
+        height: rect.height
+      };
+    }
+
+    function setNodeRect(node, rect) {
+      node.style.left = `${rect.x}px`;
+      node.style.top = `${rect.y}px`;
+      node.style.width = `${rect.width}px`;
+      node.style.height = `${rect.height}px`;
+    }
+
+    function createSegment(rect, classes = []) {
+      const segment = document.createElement("div");
+      segment.className = ["segment", ...classes].filter(Boolean).join(" ");
+      segment.style.left = `${rect.x}px`;
+      segment.style.top = `${rect.y}px`;
+      segment.style.width = `${rect.width}px`;
+      segment.style.height = `${rect.height}px`;
+      return segment;
+    }
+
+    function createNode(rect, classes, imagePath, label = "") {
+      const node = document.createElement("button");
+      node.type = "button";
+      node.className = ["bracket-node", ...classes].filter(Boolean).join(" ");
+      node.style.left = `${rect.x}px`;
+      node.style.top = `${rect.y}px`;
+      node.style.width = `${rect.width}px`;
+      node.style.height = `${rect.height}px`;
+      node.setAttribute("aria-label", label || "Bracket node");
+      node.innerHTML = `
+        <span class="bracket-node-shell" aria-hidden="true"></span>
+        <span class="bracket-node-art">${imagePath ? `<img src="${imagePath}" alt="">` : ""}</span>
+        <span class="bracket-node-copy"></span>
+      `;
+      return node;
+    }
+
+    function setNodeImage(node, imagePath) {
+      const art = node.querySelector(".bracket-node-art");
+      if (!art) {
+        return;
+      }
+      art.innerHTML = imagePath ? `<img src="${imagePath}" alt="">` : "";
+    }
+
+    function renderFocusChips(model) {
+      focusChipRow.innerHTML = "";
+      model.rounds.forEach((round, index) => {
+        const chip = document.createElement("button");
+        chip.className = "chip";
+        chip.type = "button";
+        chip.textContent = `${index + 1}. ${round.bossName}`;
+        if (state.mode === "practice" && state.selectedKey === round.key) {
+          chip.classList.add("is-active");
+        }
+        if (state.mode === "practice" && !round.cleared) {
+          chip.style.opacity = "0.42";
+        }
+        chip.addEventListener("click", () => {
+          if (state.mode === "practice") {
+            state.selectedKey = round.key;
+            render();
+          } else {
+            showToast("Story Mode stays locked to the next uncleared rival.");
+          }
+        });
+        focusChipRow.appendChild(chip);
+      });
+    }
+
+    function roundStatusText(model, round, roundIndex) {
+      if (state.mode === "practice") {
+        if (!round.cleared) {
+          return "Locked";
+        }
+        return round.key === state.selectedKey ? "Replay Target" : "Cleared Rival";
+      }
+      if (round.cleared) {
+        return "Cleared";
+      }
+      if (roundIndex === model.nextUnclearedIndex) {
+        return "Next Story Match";
+      }
+      return "Future Rival";
+    }
+
+    function selectedRound(model) {
+      return model.rounds.find((round) => round.key === state.selectedKey) || model.rounds[0];
+    }
+
+    function renderInfo(model) {
+      idolRankValue.textContent = state.clearedCount;
+      infoProgress.textContent = `${state.clearedCount} / ${model.rounds.length} rounds cleared`;
+
+      const round = selectedRound(model);
+      infoPortrait.src = round.sprite;
+      infoPortrait.alt = round.bossName;
+      infoName.textContent = round.bossName;
+      infoBattle.textContent = round.battleName;
+      infoCopy.textContent = round.description;
+      infoStatus.textContent = roundStatusText(model, round, model.rounds.indexOf(round));
+      infoHint.textContent = round.hint;
+    }
+
+    function selectableRound(model) {
+      const round = model.rounds.find((round) => round.key === state.selectedKey) || null;
+      if (!round) {
+        return null;
+      }
+      if (state.mode === "practice" && !round.cleared) {
+        return null;
+      }
+      return round;
+    }
+
+    function renderBracket(container, model, options = {}) {
+      const interactive = options.interactive !== false;
+      scaleCanvas(container);
+      const layout = buildLayout(
+        {
+          width: VIRTUAL_WIDTH,
+          height: VIRTUAL_HEIGHT
+        },
+        model.rounds
+      );
+
+      container.innerHTML = "";
+      const entrants = buildSymmetricEntrants(model);
+
+      const selectedIndex = Math.max(0, model.rounds.findIndex((round) => round.key === state.selectedKey));
+
+      const routeMatchNodes = [];
+      const feederRivalNodes = [];
+
+      layout.leaves.forEach((leaf, index) => {
+        const entrant = entrants[index];
+        const classes = [];
+        if (entrant.kind === "miku") {
+          classes.push("is-player");
+        } else if (entrant.kind === "boss") {
+          classes.push("is-rival", "is-entry");
+          if (entrant.roundIndex === selectedIndex) {
+            classes.push("is-focused");
+          }
+          if (model.rounds[entrant.roundIndex].cleared) {
+            classes.push("is-cleared");
+          }
+          if (state.mode === "practice" && !model.rounds[entrant.roundIndex].cleared) {
+            classes.push("is-locked");
+          }
+        } else {
+          classes.push("is-entry", "is-ghost");
+        }
+        const leafNode = createNode(leaf.rect, classes, entrant.icon, entrant.label);
+        if (interactive && entrant.kind === "boss") {
+          leafNode.addEventListener("click", () => {
+            state.selectedKey = entrant.key;
+            render();
+          });
+        } else {
+          leafNode.disabled = true;
+        }
+        container.appendChild(leafNode);
+      });
+
+      layout.roundsLayout.forEach((roundMatches, roundIndex) => {
+        roundMatches.forEach((match, matchIndex) => {
+          const matchClasses = [];
+          const leftSlotCenter = centerOf(match.leftRect);
+          const rightSlotCenter = centerOf(match.rightRect);
+          const leftSlotAnchor = leftAnchorOf(match.leftRect);
+          const rightSlotAnchor = rightAnchorOf(match.rightRect);
+          const midX = (leftSlotAnchor.x + rightSlotAnchor.x) * 0.5;
+          const matchY = leftSlotAnchor.y;
+
+          if (roundIndex === 0) {
+            const leftLeafCenter = centerOf(layout.leaves[match.leafStart].rect);
+            const rightLeafCenter = centerOf(layout.leaves[match.leafStart + 1].rect);
+            container.appendChild(createSegment(verticalSegment(leftLeafCenter.x, leftLeafCenter.y, matchY, matchClasses).rect, matchClasses));
+            container.appendChild(createSegment(horizontalSegment(leftLeafCenter.x, leftSlotAnchor.x, matchY, matchClasses).rect, matchClasses));
+            container.appendChild(createSegment(verticalSegment(rightLeafCenter.x, rightLeafCenter.y, matchY, matchClasses).rect, matchClasses));
+            container.appendChild(createSegment(horizontalSegment(rightLeafCenter.x, rightSlotAnchor.x, matchY, matchClasses).rect, matchClasses));
+          } else {
+            const previousLeft = layout.roundsLayout[roundIndex - 1][matchIndex * 2];
+            const previousRight = layout.roundsLayout[roundIndex - 1][matchIndex * 2 + 1];
+            const previousLeftMidX = previousLeft.centerX;
+            const previousLeftTopY = previousLeft.centerY;
+            const previousRightMidX = previousRight.centerX;
+            const previousRightTopY = previousRight.centerY;
+
+            container.appendChild(createSegment(verticalSegment(previousLeftMidX, previousLeftTopY, matchY, matchClasses).rect, matchClasses));
+            container.appendChild(createSegment(horizontalSegment(previousLeftMidX, leftSlotAnchor.x, matchY, matchClasses).rect, matchClasses));
+            container.appendChild(createSegment(verticalSegment(previousRightMidX, previousRightTopY, matchY, matchClasses).rect, matchClasses));
+            container.appendChild(createSegment(horizontalSegment(previousRightMidX, rightSlotAnchor.x, matchY, matchClasses).rect, matchClasses));
+          }
+
+          container.appendChild(createSegment(horizontalSegment(leftSlotAnchor.x, rightSlotAnchor.x, matchY, matchClasses).rect, matchClasses));
+
+          const upperTargetY =
+            roundIndex === layout.roundsLayout.length - 1
+              ? centerOf(layout.championRect).y
+              : layout.roundsLayout[roundIndex + 1][Math.floor(matchIndex * 0.5)].centerY;
+          container.appendChild(createSegment(verticalSegment(midX, matchY - 2, upperTargetY, matchClasses).rect, matchClasses));
+
+          const leftClasses = ["is-winner-slot"];
+          const rightClasses = ["is-winner-slot"];
+          if (roundIndex > 0) {
+            leftClasses.push("is-player-path");
+          }
+          if (roundIndex === selectedIndex && matchIndex === 0) {
+            leftClasses.push("is-focused");
+            rightClasses.push("is-focused");
+          }
+
+          const leftNode = createNode(match.leftRect, leftClasses, "", "Winner slot");
+          leftNode.disabled = true;
+          container.appendChild(leftNode);
+
+          const rightNode = createNode(match.rightRect, rightClasses, "", "Winner slot");
+          if (interactive && roundIndex < model.rounds.length) {
+            const routeRound = model.rounds[Math.min(roundIndex, model.rounds.length - 1)];
+            rightNode.addEventListener("click", () => {
+              state.selectedKey = routeRound.key;
+              render();
+            });
+          } else {
+            rightNode.disabled = true;
+          }
+          container.appendChild(rightNode);
+
+          if (matchIndex === 0) {
+            routeMatchNodes.push(rightNode);
+          } else {
+            feederRivalNodes.push(leftNode);
+          }
+        });
+      });
+
+      const championClasses = ["is-champion"];
+      if (selectedIndex === model.rounds.length - 1) {
+        championClasses.push("is-current", "is-focused");
+      }
+      const championNode = createNode(layout.championRect, championClasses, player.icon, "Summit");
+      championNode.disabled = true;
+      container.appendChild(championNode);
+
+      return {
+        layout,
+        routeMatchNodes,
+        feederRivalNodes
+      };
+    }
+
+    function syncCopy(model) {
+      const inStory = state.mode === "story";
+      topbarModeLabel.textContent = inStory ? "Story Competition" : "Practice Bracket";
+      stageKicker.textContent = inStory ? "Idol Competition" : "Practice Mode";
+      stageTitle.textContent = inStory ? "Story Competition Bracket" : "Practice Competition Bracket";
+      stageSubtitle.textContent = inStory
+        ? "Bottom-up match pairings keep the tournament readable: Miku's live match sits beside the next feeder match that prepares the following opponent."
+        : "Practice keeps the exact same bracket surface, but locked rivals stay visible until they are cleared in Story Mode.";
+      stageHelper.textContent = inStory
+        ? "Story follows the highlighted route upward one opponent at a time."
+        : "Practice lets you focus cleared bracket stops while future rivals remain inert.";
+
+      const selected = selectableRound(model);
+      if (!selected) {
+        stageActionLabel.textContent = "Match Locked";
+      } else if (inStory && model.nextUnclearedIndex >= model.rounds.length) {
+        stageActionLabel.textContent = "Tournament Cleared";
+      } else {
+        stageActionLabel.textContent = inStory ? "Continue Story" : "Replay Match";
+      }
+
+      document.getElementById("mode-story-button").classList.toggle("is-active", inStory);
+      document.getElementById("mode-practice-button").classList.toggle("is-active", !inStory);
+    }
+
+    function render() {
+      const model = buildModel();
+      renderFocusChips(model);
+      syncCopy(model);
+      renderInfo(model);
+      renderBracket(bracketCanvas, model);
+    }
+
+    async function playIntro() {
+      if (state.introPlaying) {
+        return;
+      }
+
+      const model = buildModel();
+      const selected = selectableRound(model);
+      if (!selected) {
+        showToast("Selected rival is still locked.");
+        return;
+      }
+
+      const targetIndex = model.rounds.findIndex((round) => round.key === state.selectedKey);
+
+      if (targetIndex < 0) {
+        return;
+      }
+
+      state.introPlaying = true;
+      introOverlay.classList.add("is-visible");
+      introImpactFlash.classList.remove("is-visible");
+      vsShell.classList.remove("is-visible");
+      vsCardLeft.classList.remove("is-entered", "is-exiting");
+      vsCardRight.classList.remove("is-entered", "is-exiting");
+      vsLetterV.classList.remove("is-visible");
+      vsLetterS.classList.remove("is-visible");
+      vsLetters.classList.remove("is-shaking");
+
+      const { layout, routeMatchNodes, feederRivalNodes } = renderBracket(introBracket, model, { interactive: false });
+
+      let routeRect = copyRect(layout.routeStartRect());
+      const routeToken = createNode(routeRect, ["is-player"], player.icon, player.name);
+      routeToken.classList.add("intro-route-token");
+      routeToken.disabled = true;
+      introBracket.appendChild(routeToken);
+
+      const openingRival = model.rounds[0];
+      let opponentRect = copyRect(layout.rivalStartRect(0));
+      const opponentToken = createNode(opponentRect, ["is-rival", openingRival.cleared ? "is-cleared" : ""], openingRival.icon, openingRival.bossName);
+      opponentToken.classList.add("intro-opponent-token");
+      opponentToken.disabled = true;
+      introBracket.appendChild(opponentToken);
+
+      routeMatchNodes.forEach((node) => {
+        node.classList.add("intro-rival-proxy");
+      });
+      feederRivalNodes.forEach((node) => {
+        node.classList.add("intro-rival-proxy");
+      });
+
+      vsCardLeftImage.src = player.sprite;
+      vsCardLeftImage.alt = player.name;
+      vsCardLeftName.textContent = player.displayName;
+      vsCardRightImage.src = selected.sprite;
+      vsCardRightImage.alt = selected.bossName;
+      vsCardRightName.textContent = selected.bossName.toUpperCase();
+
+      await sleep(900);
+
+      async function moveTokenToMatch(token, currentRect, cornerRect, meetRect) {
+        const verticalRect = copyRect(currentRect);
+        verticalRect.y = cornerRect.y;
+        setNodeRect(token, verticalRect);
+        await sleep(520);
+
+        const horizontalRect = copyRect(meetRect);
+        horizontalRect.y = cornerRect.y;
+        setNodeRect(token, horizontalRect);
+        await sleep(520);
+
+        return horizontalRect;
+      }
+
+      async function collideRound(roundIndex, isClearedRound) {
+        const level = layout.levels[roundIndex];
+        routeToken.classList.remove("is-dashing");
+        opponentToken.classList.remove("is-dashing", "is-hidden");
+        routeToken.style.transform = "translateX(0)";
+        opponentToken.style.transform = "translateX(0)";
+        [routeRect, opponentRect] = await Promise.all([
+          moveTokenToMatch(routeToken, routeRect, level.routeLeftCornerRect, level.routeMeetRect),
+          moveTokenToMatch(opponentToken, opponentRect, level.routeRightCornerRect, level.routeMeetRect)
+        ]);
+
+        if (isClearedRound) {
+          opponentToken.classList.add("is-thrown");
+          if (routeMatchNodes[roundIndex]) {
+            routeMatchNodes[roundIndex].classList.add("is-thrown");
+          }
+          await sleep(620);
+        }
+      }
+
+      for (let index = 0; index < targetIndex; index += 1) {
+        await collideRound(index, true);
+
+        const nextIndex = index + 1;
+        const nextRound = model.rounds[nextIndex];
+        const nextStartRect = layout.rivalStartRect(nextIndex);
+
+        if (routeMatchNodes[index]) {
+          routeMatchNodes[index].classList.add("is-thrown");
+        }
+        if (feederRivalNodes[index]) {
+          feederRivalNodes[index].classList.add("is-thrown");
+        }
+
+        routeToken.classList.remove("is-dashing");
+
+        opponentToken.classList.remove("is-thrown", "is-dashing");
+        opponentToken.style.transform = "translateX(0)";
+        setNodeImage(opponentToken, nextRound.icon);
+        opponentRect = copyRect(nextStartRect);
+        setNodeRect(opponentToken, opponentRect);
+
+        await sleep(200);
+        await sleep(1020);
+      }
+
+      await collideRound(targetIndex, false);
+
+      routeToken.classList.add("is-hidden");
+      opponentToken.classList.add("is-hidden");
+      await sleep(260);
+
+      introOverlay.classList.remove("is-visible");
+      introBracket.innerHTML = "";
+      routeToken.remove();
+      opponentToken.remove();
+      state.introPlaying = false;
+    }
+
+    document.getElementById("reload-data-button").addEventListener("click", () => {
+      state.clearedCount = 0;
+      state.mode = "story";
+      state.selectedKey = sampleBattles[0].key;
+      render();
+      showToast("Sample bracket reloaded.");
+    });
+
+    document.getElementById("mode-story-button").addEventListener("click", () => {
+      state.mode = "story";
+      render();
+    });
+
+    document.getElementById("mode-practice-button").addEventListener("click", () => {
+      state.mode = "practice";
+      render();
+    });
+
+    document.getElementById("clears-less-button").addEventListener("click", () => {
+      state.clearedCount = clamp(state.clearedCount - 1, 0, sampleBattles.length);
+      render();
+    });
+
+    document.getElementById("clears-more-button").addEventListener("click", () => {
+      state.clearedCount = clamp(state.clearedCount + 1, 0, sampleBattles.length);
+      render();
+    });
+
+    document.getElementById("play-intro-button").addEventListener("click", () => {
+      void playIntro();
+    });
+
+    document.getElementById("stage-action").addEventListener("click", () => {
+      void playIntro();
+    });
+
+    window.addEventListener("resize", () => {
+      render();
+    });
+
+    render();
+  </script>
+</body>
+</html>

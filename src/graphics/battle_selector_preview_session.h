@@ -38,7 +38,12 @@ public:
 private:
     enum class FocusZone {
         Carousel,
-        Finale,
+        Footer,
+    };
+
+    enum class FooterAction {
+        ReplayStory,
+        StraightToBattle,
     };
 
     struct EventListenerBinding {
@@ -74,7 +79,9 @@ private:
     void moveSelection(int delta, bool shouldPlayScrollSfx);
     void setFocusZone(FocusZone zone, bool shouldPlayScrollSfx);
     void activateSelected();
-    void activateFinale();
+    void moveFooterSelection(int delta, bool shouldPlayScrollSfx);
+    void activateFooterAction();
+    void selectFooterAction(FooterAction action, bool shouldPlayScrollSfx);
     void updateHeldInput(float deltaSeconds);
     void updateVisualSelection(float deltaSeconds);
     void updateToast(float deltaSeconds);
@@ -105,6 +112,7 @@ private:
     float visualSelectionIndex_ = 0.0f;
     float targetVisualSelectionIndex_ = 0.0f;
     FocusZone focusZone_ = FocusZone::Carousel;
+    FooterAction footerSelection_ = FooterAction::ReplayStory;
     bool negativeHeld_ = false;
     bool positiveHeld_ = false;
     float holdNegativeElapsed_ = 0.0f;
@@ -124,7 +132,8 @@ private:
     Rml::Element* infoAtkElement_ = nullptr;
     Rml::Element* infoSpdElement_ = nullptr;
     Rml::Element* infoHintElement_ = nullptr;
-    Rml::Element* finaleButtonElement_ = nullptr;
+    Rml::Element* replayStoryButtonElement_ = nullptr;
+    Rml::Element* straightToBattleButtonElement_ = nullptr;
     Rml::Element* toastElement_ = nullptr;
     std::vector<Rml::Element*> cardElements_;
     std::vector<Rml::Element*> cardPortraitImageElements_;

@@ -3,6 +3,7 @@
 #include <array>
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include <SDL2/SDL.h>
 
@@ -63,18 +64,24 @@ struct MikuRhythmGame {
         float      flashTimer = 0.0f;   // counts down from kFlashDuration
     };
 
+    struct ResolvedNoteFeedback {
+        NoteResult result = NoteResult::Pending;
+        float projectedAverageAccuracy = 0.0f;
+    };
+
     // -----------------------------------------------------------------------
     // Public interface
     // -----------------------------------------------------------------------
     void        start();
     void        update(float dt);
-    void        onKeyPressed(SDL_Keycode key);
+    bool        onKeyPressed(SDL_Keycode key);
     void        render(SDL_Renderer* renderer, int screenW, int screenH);
 
     bool        isComplete()         const;
     float       getAverageAccuracy() const; // 0.0 – 1.0
     float       getInputMultiplier() const; // 1.0 + kMaxDamageBonus * accuracy
     std::string getResultText()      const;
+    std::vector<ResolvedNoteFeedback> consumeResolvedFeedback();
 
     // Hint shown by the HUD banner before the game starts
     static const char* hintText() {
@@ -85,9 +92,12 @@ private:
     float elapsed_       = 0.0f;
     int   resolvedCount_ = 0;
     std::array<Lane, kLaneCount> lanes_{};
+    std::vector<ResolvedNoteFeedback> pendingResolvedFeedback_;
 
     static float     accuracyForResult(NoteResult result);
     static SDL_Color resultFlashColor(NoteResult result);
+    float averageResolvedAccuracy() const;
+    void resolveLane(Lane& lane, NoteResult result);
 };
 
 } // namespace battle

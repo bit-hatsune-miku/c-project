@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Boss Warning Prototype</title>
+  <style>
+    :root {
+      --red: #ff2d2d;
+      --red-soft: rgba(255, 45, 45, 0.26);
+      --flash-ms: 980ms;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    .stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10vh 4vw;
+    }
+
+    .stack {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: min(18rem, 18vw);
+      display: grid;
+      gap: 3.6rem;
+    }
+
+    .stack.left {
+      left: 4vw;
+    }
+
+    .stack.right {
+      right: 4vw;
+    }
+
+    .warning {
+      position: relative;
+      width: min(17rem, 18vw);
+      aspect-ratio: 1 / 1;
+      animation: blink var(--flash-ms) steps(1, end) infinite;
+    }
+
+    .warning .outer,
+    .warning .inner {
+      position: absolute;
+      inset: 0;
+      clip-path: polygon(50% 4%, 96% 92%, 4% 92%);
+    }
+
+    .warning .outer {
+      background: var(--red-soft);
+      filter: drop-shadow(0 0 14px rgba(255, 45, 45, 0.45));
+      transform: scale(1.08);
+    }
+
+    .warning .inner {
+      inset: 0.42rem;
+      background: rgba(255, 45, 45, 0.14);
+      box-shadow: inset 0 0 0 0.42rem var(--red);
+    }
+
+    .warning .mark {
+      position: absolute;
+      inset: 20% 0 0;
+      display: grid;
+      place-items: center;
+      color: var(--red);
+      font-family: "Arial Black", sans-serif;
+      font-size: clamp(5rem, 6.6vw, 6.5rem);
+      line-height: 1;
+      text-shadow: 0 0 10px rgba(255, 45, 45, 0.35);
+    }
+
+    @keyframes blink {
+      0%, 56% {
+        opacity: 1;
+      }
+      57%, 100% {
+        opacity: 0.16;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="stack left" aria-label="Left warning stack">
+      <div class="warning"><div class="outer"></div><div class="inner"></div><div class="mark">!</div></div>
+      <div class="warning"><div class="outer"></div><div class="inner"></div><div class="mark">!</div></div>
+    </section>
+    <section class="stack right" aria-label="Right warning stack">
+      <div class="warning"><div class="outer"></div><div class="inner"></div><div class="mark">!</div></div>
+      <div class="warning"><div class="outer"></div><div class="inner"></div><div class="mark">!</div></div>
+    </section>
+  </main>
+</body>
+</html>

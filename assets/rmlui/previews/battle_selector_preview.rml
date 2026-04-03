@@ -1,6 +1,6 @@
 <rml>
 <head>
-    <title>Battle Selector Preview</title>
+    <title>Practice Mode Preview</title>
     <link type="text/rcss" href="../shared/ui_music_bars.rcss"/>
     <style>
         body {
@@ -256,16 +256,31 @@
             color: #ffffff;
         }
 
-        #finale-button {
+        #selector-actions {
             position: absolute;
-            left: 199dp;
-            bottom: 30dp;
+            left: 190dp;
+            bottom: 28dp;
             width: 392dp;
+            height: 68dp;
+        }
+
+        .selector-action-button {
+            position: absolute;
+            top: 0;
+            width: 190dp;
             height: 68dp;
             cursor: pointer;
         }
 
-        #finale-button-frame {
+        #replay-story-button {
+            left: 0;
+        }
+
+        #straight-to-battle-button {
+            right: 0;
+        }
+
+        .selector-action-frame {
             position: absolute;
             left: 0;
             top: 0;
@@ -276,9 +291,10 @@
             border-radius: 20dp;
             box-shadow: 0 12dp 24dp rgba(23, 20, 31, 12);
             transform: skewX(-14deg);
+            transition: background-color 0.28s cubic-out, border-color 0.28s cubic-out, box-shadow 0.28s cubic-out;
         }
 
-        #finale-button-inner {
+        .selector-action-inner {
             position: absolute;
             left: 0;
             top: 0;
@@ -287,9 +303,9 @@
             transform: skewX(14deg);
         }
 
-        #finale-button-accent {
+        .selector-action-accent {
             position: absolute;
-            left: 58dp;
+            left: 22dp;
             top: 18dp;
             width: 10dp;
             height: 32dp;
@@ -297,34 +313,30 @@
             border-radius: 999dp;
         }
 
-        #finale-button-label {
+        .selector-action-label {
             position: absolute;
-            left: 86dp;
-            top: 22dp;
-            font-size: 20dp;
+            left: 44dp;
+            top: 24dp;
+            font-size: 12dp;
             font-style: normal;
             font-weight: bold;
-            letter-spacing: 2dp;
+            letter-spacing: 1dp;
             text-transform: uppercase;
             color: #17141f;
         }
 
-        #finale-button.is-focused #finale-button-frame {
+        .selector-action-button.is-focused .selector-action-frame {
             background-color: #ff67b6;
             border: 2dp #ff67b6;
             box-shadow: 0 20dp 36dp rgba(255, 103, 182, 42);
         }
 
-        #finale-button.is-focused #finale-button-accent {
+        .selector-action-button.is-focused .selector-action-accent {
             background-color: rgba(255, 255, 255, 82);
         }
 
-        #finale-button.is-focused #finale-button-label {
+        .selector-action-button.is-focused .selector-action-label {
             color: #ffffff;
-        }
-
-        #finale-button.is-locked {
-            opacity: 0.58;
         }
 
         #selector-divider {
@@ -667,18 +679,27 @@
 
         <div id="selector-stage">
             <div id="selector-stage-outline"></div>
-            <div id="stage-kicker">BATTLE SELECTOR</div>
+            <div id="stage-kicker">PRACTICE MODE</div>
             <div id="stage-title">SELECT A RIVAL</div>
             <div id="selector-mouse-hint">Left Click To Select / Right Click Or Enter To Confirm</div>
             <div id="boss-track"></div>
 
-            <button id="finale-button">
-                <div id="finale-button-frame"></div>
-                <div id="finale-button-inner">
-                    <div id="finale-button-accent"></div>
-                    <div id="finale-button-label">Become an Idol</div>
-                </div>
-            </button>
+            <div id="selector-actions">
+                <button id="replay-story-button" class="selector-action-button">
+                    <div class="selector-action-frame"></div>
+                    <div class="selector-action-inner">
+                        <div class="selector-action-accent"></div>
+                        <div class="selector-action-label">REPLAY STORY</div>
+                    </div>
+                </button>
+                <button id="straight-to-battle-button" class="selector-action-button">
+                    <div class="selector-action-frame"></div>
+                    <div class="selector-action-inner">
+                        <div class="selector-action-accent"></div>
+                        <div class="selector-action-label">STRAIGHT TO BATTLE</div>
+                    </div>
+                </button>
+            </div>
         </div>
 
         <div id="selector-divider"></div>
@@ -736,7 +757,7 @@
             </div>
         </div>
 
-        <div id="helper-copy">LEFT / RIGHT TO CYCLE. HOLD TO KEEP SCROLLING. UP / DOWN TO REACH BECOME AN IDOL.</div>
+        <div id="helper-copy">LEFT / RIGHT TO CYCLE. DOWN TO REACH ACTIONS. LEFT CLICK TO SELECT. ENTER OR RIGHT CLICK TO CONFIRM.</div>
         <div id="selector-toast"></div>
     </div>
 </body>

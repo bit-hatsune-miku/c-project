@@ -4,6 +4,24 @@
 #include <cmath>
 
 namespace battle {
+namespace {
+
+PresentationFeedbackSignal signalForResolvedNote(MikuRhythmGame::NoteResult result) {
+    switch (result) {
+        case MikuRhythmGame::NoteResult::Perfect:
+            return PresentationFeedbackSignal::graded(1.0f);
+        case MikuRhythmGame::NoteResult::Good:
+            return PresentationFeedbackSignal::graded(0.66f);
+        case MikuRhythmGame::NoteResult::Ok:
+            return PresentationFeedbackSignal::graded(0.33f);
+        case MikuRhythmGame::NoteResult::Miss:
+        case MikuRhythmGame::NoteResult::Pending:
+        default:
+            return PresentationFeedbackSignal::graded(0.0f);
+    }
+}
+
+} // namespace
 
 MikuSingPresentation::MikuSingPresentation(
     float casterWorldX, float casterWorldY, float casterWorldZ,
@@ -36,6 +54,7 @@ void MikuSingPresentation::start() {
     nextSpawnTime_    = 0.1f;
     notesSpawned_     = 0;
     pendingHitEvents_ = 0;
+    pendingFeedbackEvents_.clear();
     notes_.clear();
 }
 
@@ -46,6 +65,9 @@ void MikuSingPresentation::update(float deltaTime) {
     // ── Phase 1: rhythm mini-game ────────────────────────────────────────────
     if (phase_ == Phase::RhythmGame) {
         rhythmGame_.update(deltaTime);
+        for (const MikuRhythmGame::ResolvedNoteFeedback& feedback : rhythmGame_.consumeResolvedFeedback()) {
+            pendingFeedbackEvents_.push_back(buildImmediateFeedbackEvent(feedback));
+        }
         if (rhythmGame_.isComplete()) {
             phase_            = Phase::Animation;
             elapsedTime_      = 0.0f;
@@ -220,10 +242,11 @@ int MikuSingPresentation::getDamageLabelHitCount() const {
 // ---------------------------------------------------------------------------
 // Input forwarding
 // ---------------------------------------------------------------------------
-void MikuSingPresentation::onKeyPressed(SDL_Keycode key) {
+bool MikuSingPresentation::onKeyPressed(SDL_Keycode key) {
     if (phase_ == Phase::RhythmGame) {
-        rhythmGame_.onKeyPressed(key);
+        return rhythmGame_.onKeyPressed(key);
     }
+    return false;
 }
 
 int MikuSingPresentation::consumeAbilityAudioCues() {
@@ -238,12 +261,39 @@ float MikuSingPresentation::getInputMultiplier() const {
     return rhythmGame_.getInputMultiplier();
 }
 
+PresentationFeedbackSignal MikuSingPresentation::getFeedbackSignal() const {
+    return PresentationFeedbackSignal::graded(rhythmGame_.getAverageAccuracy());
+}
+
+std::vector<PresentationFeedbackEvent> MikuSingPresentation::consumeFeedbackEvents() {
+    std::vector<PresentationFeedbackEvent> events;
+    events.swap(pendingFeedbackEvents_);
+    return events;
+}
+
 std::string MikuSingPresentation::getInputResultText() const {
     return rhythmGame_.getResultText();
 }
 
 bool MikuSingPresentation::shouldRenderAboveHud() const {
     return phase_ != Phase::RhythmGame;
+}
+
+PresentationFeedbackEvent MikuSingPresentation::buildImmediateFeedbackEvent(
+    const MikuRhythmGame::ResolvedNoteFeedback& feedback) const {
+    const float projectedAccuracy = std::clamp(feedback.projectedAverageAccuracy, 0.0f, 1.0f);
+    const float projectedMultiplier = 1.0f + (MikuRhythmGame::kMaxDamageBonus * projectedAccuracy);
+    const int projectedBonusPercent = std::max(
+        0,
+        static_cast<int>(std::lround((projectedMultiplier - 1.0f) * 100.0f))
+    );
+
+    PresentationFeedbackEvent event;
+    event.signal = signalForResolvedNote(feedback.result);
+    event.multiplier = projectedMultiplier;
+    event.comboEligible = true;
+    event.rewardText = "+" + std::to_string(projectedBonusPercent) + "% DMG";
+    return event;
 }
 
 // ---------------------------------------------------------------------------

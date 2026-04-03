@@ -20,7 +20,8 @@ public:
     void update(float deltaTime) override;
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
-    void onKeyPressed(SDL_Keycode key) override;
+    bool onKeyPressed(SDL_Keycode key) override;
+    void setTuningProfile(const PresentationTuningProfile& profile) override;
 
     bool shouldHideNonCasterCharacters() const override;
     bool overridesCamera() const override;
@@ -29,6 +30,8 @@ public:
     bool shouldRenderAboveHud() const override;
 
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
+    std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     float consumeHitDamageMultiplier() override;
     int consumeHitEvents() override;
     int getDamageLabelHitCount() const override;
@@ -44,7 +47,10 @@ private:
 
     static std::string resolvePath(const std::string& relativePath);
 
+    void rebuildTotalDuration();
+    void generateToneSequence();
     void queueAudioCommand(PresentationAudioCommandType type, const std::string& id, float volume = 1.0f);
+    PresentationFeedbackEvent buildImmediateFeedbackEvent(bool enteredCorrectTone) const;
     void finalizeInput();
     void drawToneSlot(SDL_Renderer* renderer,
                       const SDL_FRect& rect,
@@ -66,6 +72,7 @@ private:
     std::array<int, 4> toneSequence_{{1, 2, 3, 4}};
     std::vector<int> userInputs_;
     std::vector<PresentationAudioCommand> pendingAudioCommands_;
+    std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
     std::mt19937 rng_;
 
     Phase phase_ = Phase::Input;
@@ -80,6 +87,10 @@ private:
     bool hitQueued_ = false;
     bool resultHitQueued_ = false;
     bool acceptingInput_ = false;
+    float answerDurationSeconds_ = 7.0f;
+    float toneIntervalSeconds_ = 0.90f;
+    float postSequenceDelaySeconds_ = 0.60f;
+    bool exactDuplicatePair_ = false;
 };
 
 } // namespace battle

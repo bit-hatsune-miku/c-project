@@ -15,6 +15,7 @@ enum class EntryType {
 
 struct ScriptEntry {
     std::string speaker;
+    std::string color;
     std::string text;
     EntryType type;
     std::string background;
@@ -54,7 +55,17 @@ struct Script {
     std::string title;
     std::string scriptId;
     std::string endReturnScreen;
+    bool credits;
     std::vector<ScriptEntry> entries;
+
+    Script()
+        : chapter(0)
+        , title()
+        , scriptId()
+        , endReturnScreen()
+        , credits(false)
+        , entries()
+    {}
 };
 
 // Load a VN script from a JSON file

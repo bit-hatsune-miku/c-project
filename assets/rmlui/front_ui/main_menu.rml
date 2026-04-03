@@ -25,7 +25,7 @@
         </div>
 
         <div id="main-menu-ui-layer">
-            <div id="menu-title-hint">PLAY MENU</div>
+            <div id="menu-title-hint">STORY MODE</div>
 
             <div id="menu-stack">
                 <button id="menu-button-start" class="menu-button is-selected">
@@ -82,6 +82,7 @@
                 <div id="menu-status-copy"></div>
             </div>
 
+            <div id="menu-notice"></div>
             <div id="corner-kicker">ARROWS OR WASD TO MOVE. ENTER, SPACE, OR CLICK TO CHOOSE.</div>
         </div>
 

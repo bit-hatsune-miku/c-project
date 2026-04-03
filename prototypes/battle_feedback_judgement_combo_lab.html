@@ -1,0 +1,1806 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battle Feedback Judgement + Combo Lab</title>
+    <style>
+        @font-face {
+            font-family: "Space Mono";
+            src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+            font-weight: 400;
+        }
+
+        @font-face {
+            font-family: "Space Mono";
+            src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+            font-weight: 700;
+        }
+
+        html,
+        body {
+            margin: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #0f0b16;
+            color: #fff7fb;
+            font-family: "Space Mono", monospace;
+        }
+
+        body {
+            position: relative;
+            background:
+                radial-gradient(circle at 78% 18%, rgba(255, 103, 182, 0.14), transparent 17%),
+                radial-gradient(circle at 16% 82%, rgba(106, 207, 246, 0.12), transparent 24%),
+                linear-gradient(180deg, #181120 0%, #120d18 46%, #0d0a13 100%);
+        }
+
+        .app-shell {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .control-panel {
+            position: absolute;
+            left: 18px;
+            top: 18px;
+            bottom: 18px;
+            width: 348px;
+            padding: 18px 18px 16px;
+            border-radius: 26px;
+            background:
+                linear-gradient(180deg, rgba(255, 252, 249, 0.97), rgba(247, 240, 243, 0.93));
+            border: 1px solid rgba(20, 15, 28, 0.14);
+            box-shadow:
+                0 26px 44px rgba(0, 0, 0, 0.30),
+                0 0 34px rgba(255, 103, 182, 0.11);
+            color: #1a1523;
+            overflow: hidden;
+        }
+
+        .control-panel::before {
+            content: "";
+            position: absolute;
+            left: 16px;
+            top: 16px;
+            right: 16px;
+            bottom: 16px;
+            border-radius: 18px;
+            border: 1px solid rgba(20, 15, 28, 0.05);
+            pointer-events: none;
+        }
+
+        .panel-scroll {
+            position: absolute;
+            left: 18px;
+            top: 18px;
+            right: 18px;
+            bottom: 16px;
+            overflow: auto;
+            padding-right: 6px;
+        }
+
+        .panel-kicker {
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(26, 21, 35, 0.46);
+        }
+
+        .panel-title {
+            margin-top: 8px;
+            font-size: 26px;
+            line-height: 30px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .panel-copy {
+            margin-top: 10px;
+            font-size: 12px;
+            line-height: 20px;
+            color: rgba(26, 21, 35, 0.72);
+        }
+
+        .panel-note {
+            margin-top: 12px;
+            padding: 11px 12px;
+            border-radius: 16px;
+            background: rgba(255, 103, 182, 0.09);
+            color: rgba(26, 21, 35, 0.76);
+            font-size: 11px;
+            line-height: 18px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .section {
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px solid rgba(26, 21, 35, 0.08);
+        }
+
+        .section-kicker {
+            margin-bottom: 10px;
+            font-size: 11px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(26, 21, 35, 0.44);
+        }
+
+        .button-cluster {
+            position: relative;
+        }
+
+        .button-cluster button {
+            margin-right: 6px;
+            margin-bottom: 8px;
+        }
+
+        .lab-button {
+            min-width: 88px;
+            padding: 10px 12px;
+            border: 1px solid rgba(26, 21, 35, 0.12);
+            border-radius: 14px;
+            background: rgba(26, 21, 35, 0.06);
+            color: #1a1523;
+            font: inherit;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition:
+                transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+                background-color 0.18s ease,
+                border-color 0.18s ease,
+                box-shadow 0.18s ease,
+                color 0.18s ease,
+                opacity 0.18s ease;
+        }
+
+        .lab-button:hover {
+            transform: translateY(-1px);
+            background: rgba(26, 21, 35, 0.11);
+        }
+
+        .lab-button.selected {
+            background: #ff67b6;
+            border-color: #ff67b6;
+            color: #fff7fb;
+            box-shadow: 0 12px 24px rgba(255, 103, 182, 0.28);
+        }
+
+        .lab-button.grade-perfect.selected,
+        .lab-button.grade-perfect:hover {
+            background: #ff67b6;
+            border-color: #ff67b6;
+            color: #fff7fb;
+        }
+
+        .lab-button.grade-good.selected,
+        .lab-button.grade-good:hover {
+            background: #59d5ae;
+            border-color: #59d5ae;
+            color: #0f1715;
+        }
+
+        .lab-button.grade-okay.selected,
+        .lab-button.grade-okay:hover {
+            background: #f4c06d;
+            border-color: #f4c06d;
+            color: #24190c;
+        }
+
+        .lab-button.grade-flop.selected,
+        .lab-button.grade-flop:hover {
+            background: #ec5f66;
+            border-color: #ec5f66;
+            color: #fff7fb;
+        }
+
+        .lab-button.disabled,
+        .lab-button:disabled {
+            opacity: 0.28;
+            cursor: default;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .scenario-card,
+        .sfx-card,
+        .rule-card {
+            position: relative;
+            margin-top: 10px;
+            padding: 14px 14px 12px;
+            border-radius: 18px;
+            background: rgba(26, 21, 35, 0.05);
+            border: 1px solid rgba(26, 21, 35, 0.08);
+            overflow: hidden;
+        }
+
+        .scenario-card::before,
+        .sfx-card::before,
+        .rule-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #f4c06d, #ff67b6, #6acff6);
+        }
+
+        .scenario-family {
+            font-size: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: rgba(26, 21, 35, 0.48);
+        }
+
+        .scenario-name {
+            margin-top: 8px;
+            font-size: 17px;
+            line-height: 21px;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .scenario-copy,
+        .rule-copy,
+        .sfx-copy {
+            margin-top: 8px;
+            font-size: 11px;
+            line-height: 18px;
+            color: rgba(26, 21, 35, 0.72);
+        }
+
+        .sfx-row {
+            margin-top: 8px;
+            font-size: 11px;
+            line-height: 17px;
+            color: rgba(26, 21, 35, 0.72);
+        }
+
+        .sfx-tone {
+            display: inline-block;
+            min-width: 64px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .sfx-tone.perfect {
+            color: #d72a84;
+        }
+
+        .sfx-tone.good {
+            color: #148964;
+        }
+
+        .sfx-tone.okay {
+            color: #a36a14;
+        }
+
+        .sfx-tone.flop {
+            color: #b22d37;
+        }
+
+        .stage-shell {
+            position: absolute;
+            left: 390px;
+            top: 18px;
+            right: 18px;
+            bottom: 18px;
+            overflow: hidden;
+            border-radius: 34px;
+            background:
+                radial-gradient(circle at 78% 16%, rgba(255, 103, 182, 0.16), transparent 16%),
+                radial-gradient(circle at 18% 84%, rgba(255, 103, 182, 0.10), transparent 24%),
+                linear-gradient(180deg, #241931 0%, #181120 48%, #110c17 100%);
+            border: 1px solid rgba(255, 255, 255, 0.07);
+            box-shadow:
+                0 34px 64px rgba(0, 0, 0, 0.34),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+        }
+
+        .stage-shell::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                repeating-linear-gradient(-18deg,
+                    rgba(255, 255, 255, 0.02) 0,
+                    rgba(255, 255, 255, 0.02) 1px,
+                    transparent 1px,
+                    transparent 84px);
+            opacity: 0.34;
+            pointer-events: none;
+        }
+
+        .safe-stage {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 1280px;
+            height: 720px;
+            margin-left: -640px;
+            margin-top: -360px;
+            transform: scale(0.92);
+            transform-origin: center center;
+        }
+
+        .boss-band {
+            position: absolute;
+            left: 156px;
+            top: 24px;
+            width: 960px;
+            height: 102px;
+        }
+
+        .boss-kicker {
+            font-size: 12px;
+            letter-spacing: 5px;
+            text-transform: uppercase;
+            text-align: center;
+            color: rgba(255, 247, 251, 0.54);
+        }
+
+        .boss-name {
+            margin-top: 10px;
+            font-size: 34px;
+            line-height: 34px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            text-align: center;
+            color: #fff8fb;
+        }
+
+        .boss-meter-shell {
+            position: absolute;
+            left: 210px;
+            top: 52px;
+            width: 540px;
+            height: 36px;
+            border-radius: 20px;
+            background: rgba(255, 250, 253, 0.95);
+            border: 1px solid rgba(25, 20, 31, 0.16);
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+            transform: skewX(-18deg);
+            overflow: hidden;
+        }
+
+        .boss-meter-lane {
+            position: absolute;
+            left: 4px;
+            top: 4px;
+            width: 532px;
+            height: 28px;
+            border-radius: 15px;
+            background: rgba(25, 20, 31, 0.10);
+            transform: skewX(18deg);
+            overflow: hidden;
+        }
+
+        .boss-meter-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 76%;
+            height: 28px;
+            background: linear-gradient(90deg, #ff9aa2, #ec5f66 58%, #b93546 100%);
+        }
+
+        .boss-meter-trim {
+            position: absolute;
+            left: 18px;
+            top: 7px;
+            right: 18px;
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #fff7fb;
+        }
+
+        .combat-arena {
+            position: absolute;
+            left: 82px;
+            top: 136px;
+            width: 1116px;
+            height: 520px;
+            overflow: hidden;
+        }
+
+        .arena-fog {
+            position: absolute;
+            left: 130px;
+            bottom: 34px;
+            width: 800px;
+            height: 122px;
+            border-radius: 999px;
+            background: radial-gradient(circle, rgba(255, 185, 219, 0.18), rgba(255, 185, 219, 0.04) 50%, transparent 74%);
+            opacity: 0.92;
+        }
+
+        .boss-proxy {
+            position: absolute;
+            right: 70px;
+            top: 48px;
+            width: 310px;
+            height: 316px;
+        }
+
+        .boss-frame {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 310px;
+            height: 316px;
+            border-radius: 34px;
+            background:
+                linear-gradient(180deg, rgba(255, 244, 246, 0.16), rgba(255, 244, 246, 0.03)),
+                rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow:
+                0 28px 52px rgba(0, 0, 0, 0.28),
+                0 0 34px rgba(236, 95, 102, 0.11);
+        }
+
+        .boss-frame::before {
+            content: "";
+            position: absolute;
+            left: 22px;
+            top: 16px;
+            right: 22px;
+            height: 8px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, rgba(244, 192, 109, 0.76), rgba(236, 95, 102, 0.92));
+        }
+
+        .boss-portrait {
+            position: absolute;
+            left: 22px;
+            top: 34px;
+            width: 266px;
+            height: 248px;
+            border-radius: 28px;
+            background:
+                radial-gradient(circle at 68% 24%, rgba(255, 202, 208, 0.34), transparent 22%),
+                linear-gradient(180deg, rgba(236, 95, 102, 0.28), rgba(50, 10, 22, 0.12)),
+                linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0.02));
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+
+        .boss-portrait::before {
+            content: "";
+            position: absolute;
+            left: 42px;
+            top: 26px;
+            width: 172px;
+            height: 172px;
+            border-radius: 172px;
+            background:
+                radial-gradient(circle at 50% 38%, rgba(255, 244, 247, 0.48), rgba(255, 177, 197, 0.22) 42%, rgba(35, 16, 26, 0.0) 68%);
+            opacity: 0.94;
+        }
+
+        .boss-portrait::after {
+            content: "";
+            position: absolute;
+            left: 80px;
+            bottom: 24px;
+            width: 112px;
+            height: 72px;
+            border-radius: 72px 72px 26px 26px;
+            background: linear-gradient(180deg, rgba(255, 244, 247, 0.30), rgba(255, 173, 194, 0.16));
+            box-shadow: 0 0 30px rgba(255, 194, 206, 0.12);
+        }
+
+        .boss-tag {
+            position: absolute;
+            left: 26px;
+            bottom: 18px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(19, 14, 24, 0.74);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            font-size: 12px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #fff7fb;
+        }
+
+        .party-rack {
+            position: absolute;
+            left: 36px;
+            bottom: 44px;
+            width: 620px;
+            height: 164px;
+        }
+
+        .unit-card {
+            position: absolute;
+            bottom: 0;
+            width: 134px;
+            height: 150px;
+        }
+
+        .unit-card.unit-1 { left: 0; }
+        .unit-card.unit-2 { left: 156px; }
+        .unit-card.unit-3 { left: 312px; }
+        .unit-card.unit-4 { left: 468px; }
+
+        .unit-plate {
+            position: absolute;
+            left: 0;
+            top: 20px;
+            width: 134px;
+            height: 126px;
+            border-radius: 28px;
+            background:
+                linear-gradient(180deg, rgba(255, 251, 254, 0.96), rgba(244, 236, 240, 0.90));
+            border: 1px solid rgba(24, 19, 31, 0.14);
+            box-shadow: 0 20px 34px rgba(0, 0, 0, 0.20);
+        }
+
+        .unit-portrait {
+            position: absolute;
+            left: 16px;
+            top: 36px;
+            width: 102px;
+            height: 58px;
+            border-radius: 18px;
+            background:
+                radial-gradient(circle at 50% 30%, rgba(255, 255, 255, 0.88), rgba(255, 255, 255, 0.18) 46%, transparent 64%),
+                linear-gradient(180deg, rgba(255, 103, 182, 0.22), rgba(79, 37, 85, 0.10));
+            border: 1px solid rgba(24, 19, 31, 0.10);
+        }
+
+        .unit-portrait::before {
+            content: "";
+            position: absolute;
+            left: 28px;
+            top: 8px;
+            width: 46px;
+            height: 46px;
+            border-radius: 46px;
+            background: radial-gradient(circle at 50% 36%, rgba(255, 246, 249, 0.72), rgba(255, 194, 220, 0.22) 56%, transparent 70%);
+        }
+
+        .unit-name {
+            position: absolute;
+            left: 18px;
+            top: 102px;
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: rgba(26, 21, 35, 0.50);
+        }
+
+        .unit-hp {
+            position: absolute;
+            left: 18px;
+            top: 116px;
+            width: 98px;
+            height: 10px;
+            border-radius: 999px;
+            background: rgba(26, 21, 35, 0.10);
+            overflow: hidden;
+        }
+
+        .unit-hp-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 10px;
+            background: linear-gradient(90deg, #84f0b8, #3fc088);
+        }
+
+        .unit-card.unit-1 .unit-hp-fill { width: 80px; }
+        .unit-card.unit-2 .unit-hp-fill { width: 66px; }
+        .unit-card.unit-3 .unit-hp-fill { width: 90px; }
+        .unit-card.unit-4 .unit-hp-fill { width: 58px; }
+
+        .unit-ult {
+            position: absolute;
+            left: 30px;
+            top: 0;
+            width: 74px;
+            height: 30px;
+            border-radius: 999px;
+            background: rgba(14, 12, 20, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            text-align: center;
+            font-size: 11px;
+            line-height: 28px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #fff7fb;
+            box-shadow: 0 12px 18px rgba(0, 0, 0, 0.18);
+        }
+
+        .combo-card {
+            position: absolute;
+            right: 46px;
+            top: 150px;
+            width: 170px;
+            padding: 14px 14px 12px;
+            border-radius: 22px;
+            background:
+                linear-gradient(180deg, rgba(255, 251, 254, 0.98), rgba(246, 239, 242, 0.95));
+            border: 1px solid rgba(26, 21, 35, 0.14);
+            box-shadow:
+                0 18px 34px rgba(0, 0, 0, 0.24),
+                0 0 24px rgba(255, 103, 182, 0.06);
+            color: #1a1523;
+            overflow: hidden;
+        }
+
+        .combo-card::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(90deg, #f4c06d, #ff67b6 58%, #6acff6);
+        }
+
+        .combo-card.gain.cycle-a {
+            animation: combo-bump-a 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .combo-card.gain.cycle-b {
+            animation: combo-bump-b 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .combo-card.break {
+            background:
+                linear-gradient(180deg, rgba(255, 245, 246, 0.98), rgba(247, 228, 231, 0.96));
+        }
+
+        .combo-card.break.cycle-a {
+            animation: combo-break-a 0.76s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .combo-card.break.cycle-b {
+            animation: combo-break-b 0.76s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .combo-flare {
+            position: absolute;
+            right: -16px;
+            top: -18px;
+            width: 82px;
+            height: 82px;
+            border-radius: 82px;
+            background: radial-gradient(circle, rgba(255, 184, 96, 0.38), transparent 68%);
+            opacity: 0.54;
+        }
+
+        .combo-row {
+            position: relative;
+            height: 52px;
+        }
+
+        .combo-count {
+            position: relative;
+            text-align: center;
+            font-size: 46px;
+            line-height: 46px;
+            font-weight: 700;
+            letter-spacing: -1px;
+            color: #1a1523;
+        }
+
+        .combo-bonus {
+            position: relative;
+            margin-top: 8px;
+            padding: 7px 10px;
+            border-radius: 999px;
+            text-align: center;
+            font-size: 11px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            background: rgba(26, 21, 35, 0.08);
+            color: #1a1523;
+        }
+
+        .combo-meter {
+            position: relative;
+            margin-top: 10px;
+            height: 8px;
+            border-radius: 999px;
+            background: rgba(26, 21, 35, 0.10);
+            overflow: hidden;
+        }
+
+        .combo-meter-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 0;
+            height: 8px;
+            background: linear-gradient(90deg, #ff67b6 0%, #f4c06d 52%, #6acff6 100%);
+            transition: width 0.24s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .judgement-shell {
+            position: absolute;
+            right: 40px;
+            top: 304px;
+            width: 430px;
+            height: 180px;
+            pointer-events: none;
+        }
+
+        .judgement-card {
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 430px;
+            opacity: 0;
+            transform: translateX(28px) scale(0.96);
+            text-align: right;
+            --judge-stroke: rgba(24, 16, 31, 0.96);
+            --judge-depth: rgba(0, 0, 0, 0.44);
+            --judge-glow: rgba(255, 255, 255, 0.14);
+        }
+
+        .judgement-card.visible {
+            opacity: 1;
+        }
+
+        .judgement-card.visible.cycle-a {
+            animation: judgement-enter-a 1.12s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .judgement-card.visible.cycle-b {
+            animation: judgement-enter-b 1.12s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .judgement-card.perfect {
+            --judge-stroke: rgba(84, 18, 55, 0.98);
+            --judge-depth: rgba(21, 8, 16, 0.52);
+            --judge-glow: rgba(255, 103, 182, 0.24);
+        }
+
+        .judgement-card.good {
+            --judge-stroke: rgba(13, 66, 48, 0.98);
+            --judge-depth: rgba(7, 16, 12, 0.52);
+            --judge-glow: rgba(89, 213, 174, 0.22);
+        }
+
+        .judgement-card.okay {
+            --judge-stroke: rgba(101, 61, 13, 0.98);
+            --judge-depth: rgba(22, 13, 7, 0.52);
+            --judge-glow: rgba(244, 192, 109, 0.22);
+        }
+
+        .judgement-card.flop {
+            --judge-stroke: rgba(106, 22, 33, 0.98);
+            --judge-depth: rgba(23, 8, 10, 0.54);
+            --judge-glow: rgba(236, 95, 102, 0.22);
+        }
+
+        .judgement-word {
+            position: relative;
+            height: 86px;
+            white-space: nowrap;
+        }
+
+        .judgement-letter {
+            display: inline-block;
+            margin-left: 6px;
+            font-size: 72px;
+            line-height: 82px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            opacity: 0;
+            transform: translateY(-54px) scale(1.62);
+            text-shadow:
+                -2px 0 0 var(--judge-stroke),
+                2px 0 0 var(--judge-stroke),
+                0 -2px 0 var(--judge-stroke),
+                0 2px 0 var(--judge-stroke),
+                -2px -2px 0 var(--judge-stroke),
+                2px -2px 0 var(--judge-stroke),
+                -2px 2px 0 var(--judge-stroke),
+                2px 2px 0 var(--judge-stroke),
+                0 0 16px var(--judge-glow),
+                0 14px 24px var(--judge-depth);
+        }
+
+        .judgement-space {
+            display: inline-block;
+            width: 18px;
+        }
+
+        .judgement-letter.perfect {
+            animation: letter-drop-perfect 0.44s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .judgement-letter.good {
+            animation: letter-drop-good 0.44s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .judgement-letter.okay {
+            animation: letter-drop-okay 0.44s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .judgement-letter.flop {
+            animation: letter-drop-flop 0.44s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .judgement-detail {
+            position: relative;
+            margin-top: 2px;
+            font-size: 20px;
+            line-height: 24px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            opacity: 0;
+            transform: translateY(10px);
+            text-shadow:
+                -1px 0 0 var(--judge-stroke),
+                1px 0 0 var(--judge-stroke),
+                0 -1px 0 var(--judge-stroke),
+                0 1px 0 var(--judge-stroke),
+                0 0 12px var(--judge-glow),
+                0 10px 18px var(--judge-depth);
+        }
+
+        .judgement-detail.visible.cycle-a {
+            animation: judgement-detail-in-a 0.26s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .judgement-detail.visible.cycle-b {
+            animation: judgement-detail-in-b 0.26s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+
+        .judgement-card.perfect .judgement-detail {
+            color: #ffc2e4;
+        }
+
+        .judgement-card.good .judgement-detail {
+            color: #b8ffe2;
+        }
+
+        .judgement-card.okay .judgement-detail {
+            color: #ffe6b8;
+        }
+
+        .judgement-card.flop .judgement-detail {
+            color: #ffc1c5;
+        }
+
+        .heal-layer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 1280px;
+            height: 720px;
+            pointer-events: none;
+        }
+
+        .heal-pop {
+            position: absolute;
+            min-width: 76px;
+            padding: 8px 12px;
+            margin-left: -38px;
+            border-radius: 999px;
+            background: rgba(13, 32, 24, 0.92);
+            border: 1px solid rgba(184, 255, 226, 0.20);
+            box-shadow:
+                0 14px 28px rgba(0, 0, 0, 0.24),
+                0 0 28px rgba(89, 213, 174, 0.14);
+            text-align: center;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: #cbffe8;
+            opacity: 0;
+        }
+
+        .heal-pop.cycle-a {
+            animation: heal-rise-a 0.86s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        .heal-pop.cycle-b {
+            animation: heal-rise-b 0.86s cubic-bezier(0.22, 1, 0.36, 1);
+        }
+
+        @keyframes combo-bump-a {
+            0% { transform: translateY(0) scale(1); }
+            34% { transform: translateY(-4px) scale(1.04); }
+            100% { transform: translateY(0) scale(1); }
+        }
+
+        @keyframes combo-bump-b {
+            0% { transform: translateY(0) scale(1); }
+            34% { transform: translateY(-4px) scale(1.04); }
+            100% { transform: translateY(0) scale(1); }
+        }
+
+        @keyframes combo-break-a {
+            0% { transform: translateX(0) scale(1); }
+            18% { transform: translateX(-6px) scale(1.03); }
+            42% { transform: translateX(5px) scale(0.99); }
+            100% { transform: translateX(0) scale(1); }
+        }
+
+        @keyframes combo-break-b {
+            0% { transform: translateX(0) scale(1); }
+            18% { transform: translateX(-6px) scale(1.03); }
+            42% { transform: translateX(5px) scale(0.99); }
+            100% { transform: translateX(0) scale(1); }
+        }
+
+        @keyframes judgement-enter-a {
+            0% {
+                opacity: 0;
+                transform: translateX(28px) scale(0.96);
+            }
+            14% {
+                opacity: 1;
+                transform: translateX(0) scale(1.02);
+            }
+            70% {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateX(10px) scale(0.99);
+            }
+        }
+
+        @keyframes judgement-enter-b {
+            0% {
+                opacity: 0;
+                transform: translateX(28px) scale(0.96);
+            }
+            14% {
+                opacity: 1;
+                transform: translateX(0) scale(1.02);
+            }
+            70% {
+                opacity: 1;
+                transform: translateX(0) scale(1);
+            }
+            100% {
+                opacity: 0;
+                transform: translateX(10px) scale(0.99);
+            }
+        }
+
+        @keyframes letter-drop-perfect {
+            0% {
+                opacity: 0;
+                transform: translateY(-54px) scale(1.62);
+                color: #5c173f;
+            }
+            54% {
+                opacity: 1;
+                transform: translateY(8px) scale(0.94);
+                color: #ff8ecb;
+            }
+            78% {
+                transform: translateY(-2px) scale(1.06);
+                color: #ff77bc;
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                color: #ff67b6;
+            }
+        }
+
+        @keyframes letter-drop-good {
+            0% {
+                opacity: 0;
+                transform: translateY(-54px) scale(1.62);
+                color: #154d39;
+            }
+            54% {
+                opacity: 1;
+                transform: translateY(8px) scale(0.94);
+                color: #8cf0ca;
+            }
+            78% {
+                transform: translateY(-2px) scale(1.06);
+                color: #67dfb6;
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                color: #59d5ae;
+            }
+        }
+
+        @keyframes letter-drop-okay {
+            0% {
+                opacity: 0;
+                transform: translateY(-54px) scale(1.62);
+                color: #6a4210;
+            }
+            54% {
+                opacity: 1;
+                transform: translateY(8px) scale(0.94);
+                color: #ffd395;
+            }
+            78% {
+                transform: translateY(-2px) scale(1.06);
+                color: #f8c87b;
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                color: #f4c06d;
+            }
+        }
+
+        @keyframes letter-drop-flop {
+            0% {
+                opacity: 0;
+                transform: translateY(-54px) scale(1.62);
+                color: #6f1a24;
+            }
+            54% {
+                opacity: 1;
+                transform: translateY(8px) scale(0.94);
+                color: #ff9da5;
+            }
+            78% {
+                transform: translateY(-2px) scale(1.06);
+                color: #f97d84;
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+                color: #ec5f66;
+            }
+        }
+
+        @keyframes heal-rise-a {
+            0% {
+                opacity: 0;
+                transform: translateY(14px) scale(0.92);
+            }
+            18% {
+                opacity: 1;
+                transform: translateY(0) scale(1.04);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-28px) scale(0.98);
+            }
+        }
+
+        @keyframes heal-rise-b {
+            0% {
+                opacity: 0;
+                transform: translateY(14px) scale(0.92);
+            }
+            18% {
+                opacity: 1;
+                transform: translateY(0) scale(1.04);
+            }
+            100% {
+                opacity: 0;
+                transform: translateY(-28px) scale(0.98);
+            }
+        }
+
+        @keyframes judgement-detail-in-a {
+            0% {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes judgement-detail-in-b {
+            0% {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-shell">
+        <div class="control-panel">
+            <div class="panel-scroll">
+                <div class="panel-kicker">Battle Feedback Lab</div>
+                <div class="panel-title">Judgement Drop + Battle-Long Combo</div>
+                <div class="panel-copy">
+                    Single-file prototype only. Built to stay close to a later RmlUi HUD port:
+                    positioned blocks, class-driven states, conservative transforms, opacity, shadows,
+                    gradients, and keyframes.
+                </div>
+                <div class="panel-note">
+                    Combo rule in this mock: Perfect / Good / Okay each grant +1 combo. Flop breaks the streak and pays out a tiny heal to all allies based on the combo that was lost.
+                </div>
+
+                <div class="section">
+                    <div class="section-kicker">Presentation Family</div>
+                    <div class="button-cluster" id="mode-buttons">
+                        <button class="lab-button mode-button" data-mode="accuracy">Accuracy</button>
+                        <button class="lab-button mode-button" data-mode="fullbonus">Full Bonus</button>
+                        <button class="lab-button mode-button" data-mode="binary">Binary</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-kicker">Scenario</div>
+                    <div class="button-cluster" id="scenario-buttons">
+                        <button class="lab-button scenario-button" data-scenario="miku">Miku Rhythm</button>
+                        <button class="lab-button scenario-button" data-scenario="wechat">WeChat Scan</button>
+                        <button class="lab-button scenario-button" data-scenario="cupcakke">Cupcakke Spam</button>
+                        <button class="lab-button scenario-button" data-scenario="lyooheal">Lyoo Heal</button>
+                        <button class="lab-button scenario-button" data-scenario="luotianyi">Luo Tianyi Guess</button>
+                        <button class="lab-button scenario-button" data-scenario="jiafei">Jiafei Dodge</button>
+                    </div>
+                    <div class="scenario-card">
+                        <div class="scenario-family" id="scenario-family">Accuracy / Spectrum</div>
+                        <div class="scenario-name" id="scenario-name">Miku Ability Presentation</div>
+                        <div class="scenario-copy" id="scenario-copy"></div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-kicker">Resolve Result</div>
+                    <div class="button-cluster" id="result-buttons">
+                        <button class="lab-button grade-perfect" data-grade="perfect">Perfect</button>
+                        <button class="lab-button grade-good" data-grade="good">Good</button>
+                        <button class="lab-button grade-okay" data-grade="okay">Okay</button>
+                        <button class="lab-button grade-flop" data-grade="flop">Flop</button>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-kicker">Utilities</div>
+                    <div class="button-cluster">
+                        <button class="lab-button" id="combo-plus">Combo +1</button>
+                        <button class="lab-button" id="break-now">Break Combo</button>
+                        <button class="lab-button" id="demo-burst">Demo Burst</button>
+                        <button class="lab-button" id="reset-all">Reset All</button>
+                    </div>
+                    <div class="rule-card">
+                        <div class="scenario-family">Prototype Defaults</div>
+                        <div class="rule-copy">
+                            Diminishing curve target: 100 combo settles near +10% team damage.
+                            Break payout in this mock is intentionally tiny and only exists to visualize the post-combo heal moment.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-kicker">Prototype SFX Picks</div>
+                    <div class="sfx-card">
+                        <div class="sfx-copy">These are local defaults only. Button-triggered playback works in browser after any user interaction.</div>
+                        <div class="sfx-row"><span class="sfx-tone perfect">Perfect</span> `SongSelect_select-random.wav`</div>
+                        <div class="sfx-row"><span class="sfx-tone good">Good</span> `Selection_roulette-4.wav`</div>
+                        <div class="sfx-row"><span class="sfx-tone okay">Okay</span> `Selection_roulette-0.wav`</div>
+                        <div class="sfx-row"><span class="sfx-tone flop">Flop</span> `UI_notification-error.wav`</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="stage-shell">
+            <div class="safe-stage">
+                <div class="boss-band">
+                    <div class="boss-kicker">Battle Demo</div>
+                    <div class="boss-name">Jiafei Encore Battle</div>
+                    <div class="boss-meter-shell">
+                        <div class="boss-meter-lane">
+                            <div class="boss-meter-fill"></div>
+                            <div class="boss-meter-trim">312 / 420 HP</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="combat-arena">
+                    <div class="arena-fog"></div>
+
+                    <div class="boss-proxy">
+                        <div class="boss-frame"></div>
+                        <div class="boss-portrait"></div>
+                        <div class="boss-tag">Boss Focus</div>
+                    </div>
+
+                    <div class="party-rack">
+                        <div class="unit-card unit-1">
+                            <div class="unit-ult">2 / 3</div>
+                            <div class="unit-plate"></div>
+                            <div class="unit-portrait"></div>
+                            <div class="unit-name">Miku</div>
+                            <div class="unit-hp"><div class="unit-hp-fill"></div></div>
+                        </div>
+                        <div class="unit-card unit-2">
+                            <div class="unit-ult">3 / 4</div>
+                            <div class="unit-plate"></div>
+                            <div class="unit-portrait"></div>
+                            <div class="unit-name">Lyoo</div>
+                            <div class="unit-hp"><div class="unit-hp-fill"></div></div>
+                        </div>
+                        <div class="unit-card unit-3">
+                            <div class="unit-ult">1 / 3</div>
+                            <div class="unit-plate"></div>
+                            <div class="unit-portrait"></div>
+                            <div class="unit-name">Cupcakke</div>
+                            <div class="unit-hp"><div class="unit-hp-fill"></div></div>
+                        </div>
+                        <div class="unit-card unit-4">
+                            <div class="unit-ult">4 / 5</div>
+                            <div class="unit-plate"></div>
+                            <div class="unit-portrait"></div>
+                            <div class="unit-name">Luo Tianyi</div>
+                            <div class="unit-hp"><div class="unit-hp-fill"></div></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="combo-card" id="combo-card">
+                    <div class="combo-flare"></div>
+                    <div class="combo-row">
+                        <div class="combo-count" id="combo-count">0</div>
+                    </div>
+                    <div class="combo-bonus" id="combo-bonus">+0.0% DMG</div>
+                    <div class="combo-meter">
+                        <div class="combo-meter-fill" id="combo-meter-fill"></div>
+                    </div>
+                </div>
+
+                <div class="judgement-shell">
+                    <div class="judgement-card" id="judgement-card">
+                        <div class="judgement-word" id="judgement-word"></div>
+                        <div class="judgement-detail" id="judgement-detail">DMG +0.0%</div>
+                    </div>
+                </div>
+
+                <div class="heal-layer" id="heal-layer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            var scenarios = {
+                miku: {
+                    mode: "accuracy",
+                    family: "Accuracy / Spectrum",
+                    title: "Miku Ability Presentation",
+                    stageTitle: "Miku Rhythm Timing Window",
+                    copy: "Timing accuracy decides the judgement. The player can land anywhere from Flop to Perfect depending on how cleanly they hit the rhythm tiles.",
+                    effectLabel: "DMG",
+                    rewards: {
+                        perfect: "+24% DMG",
+                        good: "+14% DMG",
+                        okay: "+6% DMG",
+                        flop: "+0% DMG"
+                    },
+                    lines: {
+                        perfect: "Dead-center input. The note lands exactly on beat.",
+                        good: "Clean hit. Slight drift, still strong.",
+                        okay: "Late but accepted. The song keeps moving.",
+                        flop: "Missed window. The phrase falls apart."
+                    }
+                },
+                wechat: {
+                    mode: "accuracy",
+                    family: "Accuracy / Spectrum",
+                    title: "WeChat / Alipay Scan",
+                    stageTitle: "QR Capture Speed Test",
+                    copy: "Scanning speed sets the reward tier. No scan is a Flop, a late scan can be Okay, and a very fast lock-in reaches Perfect.",
+                    effectLabel: "SHIELD",
+                    rewards: {
+                        perfect: "+22% SHIELD",
+                        good: "+14% SHIELD",
+                        okay: "+7% SHIELD",
+                        flop: "+0% SHIELD"
+                    },
+                    lines: {
+                        perfect: "Instant scan lock. The QR snaps into place.",
+                        good: "Fast enough. The scan catches cleanly.",
+                        okay: "Slow confirmation. It still resolves.",
+                        flop: "No scan. The window expires."
+                    }
+                },
+                cupcakke: {
+                    mode: "fullbonus",
+                    family: "Full Bonus",
+                    title: "Cupcakke Drum Spam",
+                    stageTitle: "Cupcakke Full Bonus Burst",
+                    copy: "This family always resolves to Perfect. Spamming is optional, but it is still a full bonus and still grants +1 combo in this design.",
+                    effectLabel: "DMG",
+                    rewards: {
+                        perfect: "+18% DMG",
+                        flop: "+0% DMG"
+                    },
+                    lines: {
+                        perfect: "Full bonus. The crowd surge lands no matter what."
+                    }
+                },
+                lyooheal: {
+                    mode: "fullbonus",
+                    family: "Full Bonus",
+                    title: "Lyoo Group Heal",
+                    stageTitle: "Lyoo Encore Heal Burst",
+                    copy: "Healing mash bonus mode. The player may push extra inputs for flavor, but the outcome is still a guaranteed Perfect and still feeds the combo tracker.",
+                    effectLabel: "HEAL",
+                    rewards: {
+                        perfect: "+20% HEAL",
+                        flop: "+0% HEAL"
+                    },
+                    lines: {
+                        perfect: "Full bonus. Extra inputs only sweeten the spectacle."
+                    }
+                },
+                luotianyi: {
+                    mode: "binary",
+                    family: "Binary",
+                    title: "Luo Tianyi Tone Guess",
+                    stageTitle: "Luo Tianyi Binary Guess",
+                    copy: "Binary presentation. The player is either right or wrong. There is no Good or Okay middle state here.",
+                    effectLabel: "ATK",
+                    rewards: {
+                        perfect: "+60% ATK",
+                        flop: "+0% ATK"
+                    },
+                    lines: {
+                        perfect: "Correct answer. The tone lock is exact.",
+                        flop: "Wrong answer. The buff collapses."
+                    }
+                },
+                jiafei: {
+                    mode: "binary",
+                    family: "Binary",
+                    title: "Jiafei Dodge Sequence",
+                    stageTitle: "Jiafei Binary Dodge",
+                    copy: "Binary dodge challenge. You dodge it or you do not. This mock still routes the clean success into Perfect and the failure into Flop.",
+                    effectLabel: "DMG",
+                    rewards: {
+                        perfect: "+30% DMG",
+                        flop: "+0% DMG"
+                    },
+                    lines: {
+                        perfect: "Clean dodge. The party escapes the crash.",
+                        flop: "Hit confirmed. The dodge fails."
+                    }
+                }
+            };
+
+            var scenarioKeysByMode = {
+                accuracy: ["miku", "wechat"],
+                fullbonus: ["cupcakke", "lyooheal"],
+                binary: ["luotianyi", "jiafei"]
+            };
+
+            var sfxPaths = {
+                perfect: "../assets/ui/sfx/SongSelect_select-random.wav",
+                good: "../assets/ui/sfx/Selection_roulette-4.wav",
+                okay: "../assets/ui/sfx/Selection_roulette-0.wav",
+                flop: "../assets/ui/sfx/UI_notification-error.wav"
+            };
+
+            var state = {
+                combo: 0,
+                mode: "accuracy",
+                scenario: "miku",
+                comboCycle: false,
+                judgementCycle: false,
+                healCycle: false,
+                hideJudgementTimer: 0,
+                hideHealTimer: 0,
+                demoTimerIds: [],
+                letterTimerIds: []
+            };
+
+            var comboCard = document.getElementById("combo-card");
+            var comboCount = document.getElementById("combo-count");
+            var comboBonus = document.getElementById("combo-bonus");
+            var comboMeterFill = document.getElementById("combo-meter-fill");
+
+            var scenarioFamily = document.getElementById("scenario-family");
+            var scenarioName = document.getElementById("scenario-name");
+            var scenarioCopy = document.getElementById("scenario-copy");
+
+            var judgementCard = document.getElementById("judgement-card");
+            var judgementWord = document.getElementById("judgement-word");
+            var judgementDetail = document.getElementById("judgement-detail");
+
+            var healLayer = document.getElementById("heal-layer");
+
+            var modeButtons = document.querySelectorAll(".mode-button");
+            var scenarioButtons = document.querySelectorAll(".scenario-button");
+            var resultButtons = document.querySelectorAll("[data-grade]");
+
+            var healAnchors = [
+                { left: 118, top: 560 },
+                { left: 274, top: 560 },
+                { left: 430, top: 560 },
+                { left: 586, top: 560 }
+            ];
+
+            var audioBank = createAudioBank();
+
+            function createAudioBank() {
+                var bank = {};
+                var key;
+                for (key in sfxPaths) {
+                    if (Object.prototype.hasOwnProperty.call(sfxPaths, key)) {
+                        bank[key] = new Audio(sfxPaths[key]);
+                        bank[key].preload = "auto";
+                        bank[key].volume = 0.48;
+                    }
+                }
+                return bank;
+            }
+
+            function playSfx(grade) {
+                var audio = audioBank[grade];
+                if (!audio) {
+                    return;
+                }
+                try {
+                    audio.pause();
+                    audio.currentTime = 0;
+                    var promise = audio.play();
+                    if (promise && promise.catch) {
+                        promise.catch(function () {});
+                    }
+                } catch (error) {}
+            }
+
+            function comboDamageBonus(combo) {
+                var safeCombo = Math.max(0, combo);
+                return Math.min(10, 10 * (1 - Math.exp(-safeCombo / 22)));
+            }
+
+            function comboBreakHeal(combo) {
+                if (combo <= 0) {
+                    return 0;
+                }
+                return Math.max(1, Math.floor(combo / 25));
+            }
+
+            function renderCombo() {
+                comboCount.textContent = String(state.combo);
+                comboBonus.textContent = "+" + comboDamageBonus(state.combo).toFixed(1) + "% DMG";
+                comboMeterFill.style.width = String(Math.min(100, state.combo)) + "%";
+            }
+
+            function pulseCombo(mode) {
+                state.comboCycle = !state.comboCycle;
+                comboCard.className = "combo-card";
+                if (mode) {
+                    comboCard.className += " " + mode + " " + (state.comboCycle ? "cycle-a" : "cycle-b");
+                }
+            }
+
+            function clearDemoTimers() {
+                var index;
+                for (index = 0; index < state.demoTimerIds.length; index += 1) {
+                    window.clearTimeout(state.demoTimerIds[index]);
+                }
+                state.demoTimerIds = [];
+            }
+
+            function refreshModeButtons() {
+                var index;
+                for (index = 0; index < modeButtons.length; index += 1) {
+                    modeButtons[index].classList.toggle("selected", modeButtons[index].getAttribute("data-mode") === state.mode);
+                }
+            }
+
+            function refreshScenarioButtons() {
+                var index;
+                for (index = 0; index < scenarioButtons.length; index += 1) {
+                    scenarioButtons[index].classList.toggle("selected", scenarioButtons[index].getAttribute("data-scenario") === state.scenario);
+                }
+            }
+
+            function refreshScenarioCard() {
+                var scenario = scenarios[state.scenario];
+                scenarioFamily.textContent = scenario.family;
+                scenarioName.textContent = scenario.title;
+                scenarioCopy.textContent = scenario.copy;
+            }
+
+            function refreshResultButtons() {
+                var index;
+                var button;
+                var grade;
+                var enabled;
+                for (index = 0; index < resultButtons.length; index += 1) {
+                    button = resultButtons[index];
+                    grade = button.getAttribute("data-grade");
+                    enabled = (state.mode === "accuracy") ||
+                        (state.mode === "fullbonus" && grade === "perfect") ||
+                        (state.mode === "binary" && (grade === "perfect" || grade === "flop"));
+                    button.disabled = !enabled;
+                    button.classList.toggle("disabled", !enabled);
+                    button.classList.remove("selected");
+                }
+
+                if (state.mode === "fullbonus") {
+                    document.querySelector("[data-grade='perfect']").textContent = "Full Bonus";
+                } else {
+                    document.querySelector("[data-grade='perfect']").textContent = "Perfect";
+                }
+            }
+
+            function setMode(mode) {
+                var allowedScenarios = scenarioKeysByMode[mode];
+                clearDemoTimers();
+                state.mode = mode;
+                if (allowedScenarios.indexOf(state.scenario) === -1) {
+                    state.scenario = allowedScenarios[0];
+                }
+                refreshModeButtons();
+                refreshScenarioButtons();
+                refreshScenarioCard();
+                refreshResultButtons();
+            }
+
+            function setScenario(scenarioKey) {
+                clearDemoTimers();
+                state.scenario = scenarioKey;
+                state.mode = scenarios[scenarioKey].mode;
+                refreshModeButtons();
+                refreshScenarioButtons();
+                refreshScenarioCard();
+                refreshResultButtons();
+            }
+
+            function clearLetterTimers() {
+                var index;
+                for (index = 0; index < state.letterTimerIds.length; index += 1) {
+                    window.clearTimeout(state.letterTimerIds[index]);
+                }
+                state.letterTimerIds = [];
+            }
+
+            function queueJudgementLetters(label, grade) {
+                var index;
+                var delayStep = 34;
+
+                clearLetterTimers();
+                judgementWord.innerHTML = "";
+
+                for (index = 0; index < label.length; index += 1) {
+                    (function (letter, delay) {
+                        state.letterTimerIds.push(window.setTimeout(function () {
+                            var span = document.createElement("span");
+                            if (letter === " ") {
+                                span.className = "judgement-space";
+                                span.innerHTML = "&nbsp;";
+                            } else {
+                                span.className = "judgement-letter " + grade;
+                                span.textContent = letter;
+                            }
+                            judgementWord.appendChild(span);
+                        }, delay));
+                    }(label.charAt(index), index * delayStep));
+                }
+            }
+
+            function showJudgement(grade, detailText) {
+                var label = grade.toUpperCase();
+                state.judgementCycle = !state.judgementCycle;
+
+                judgementCard.className = "judgement-card " + grade + " visible " + (state.judgementCycle ? "cycle-a" : "cycle-b");
+                judgementDetail.textContent = detailText;
+                judgementDetail.className = "judgement-detail visible " + (state.judgementCycle ? "cycle-a" : "cycle-b");
+                queueJudgementLetters(label, grade);
+
+                window.clearTimeout(state.hideJudgementTimer);
+                state.hideJudgementTimer = window.setTimeout(function () {
+                    judgementCard.className = "judgement-card " + grade;
+                    judgementDetail.className = "judgement-detail";
+                    judgementWord.innerHTML = "";
+                    clearLetterTimers();
+                }, 1120);
+            }
+
+            function showHealBurst(amount) {
+                var index;
+                var pop;
+                state.healCycle = !state.healCycle;
+                healLayer.innerHTML = "";
+                for (index = 0; index < healAnchors.length; index += 1) {
+                    pop = document.createElement("div");
+                    pop.className = "heal-pop " + (state.healCycle ? "cycle-a" : "cycle-b");
+                    pop.style.left = String(healAnchors[index].left) + "px";
+                    pop.style.top = String(healAnchors[index].top) + "px";
+                    pop.textContent = "+" + amount;
+                    healLayer.appendChild(pop);
+                }
+
+                window.clearTimeout(state.hideHealTimer);
+                state.hideHealTimer = window.setTimeout(function () {
+                    healLayer.innerHTML = "";
+                }, 1080);
+            }
+
+            function presentationRewardText(grade) {
+                var scenario = scenarios[state.scenario];
+                if (scenario.rewards && scenario.rewards[grade]) {
+                    return scenario.rewards[grade];
+                }
+                return "+0% " + (scenario.effectLabel || "DMG");
+            }
+
+            function resolveGrade(requestedGrade, options) {
+                var actualGrade = requestedGrade;
+                var detailText;
+                var lostCombo;
+                var healAmount;
+                var shouldClearDemo = !options || options.clearDemo !== false;
+
+                if (shouldClearDemo) {
+                    clearDemoTimers();
+                }
+
+                if (state.mode === "fullbonus") {
+                    actualGrade = "perfect";
+                }
+
+                if (state.mode === "binary" && actualGrade !== "perfect" && actualGrade !== "flop") {
+                    return;
+                }
+
+                if (state.mode === "fullbonus" && requestedGrade !== "perfect") {
+                    return;
+                }
+
+                if (actualGrade === "flop") {
+                    lostCombo = state.combo;
+                    healAmount = comboBreakHeal(lostCombo);
+                    state.combo = 0;
+                    renderCombo();
+                    pulseCombo("break");
+                    if (lostCombo > 0) {
+                        showHealBurst(healAmount);
+                    }
+                    detailText = presentationRewardText("flop");
+                } else {
+                    state.combo += 1;
+                    renderCombo();
+                    pulseCombo("gain");
+                    detailText = presentationRewardText(actualGrade);
+                }
+
+                playSfx(actualGrade);
+                showJudgement(actualGrade, detailText);
+            }
+
+            function addComboSilently(options) {
+                var shouldClearDemo = !options || options.clearDemo !== false;
+                if (shouldClearDemo) {
+                    clearDemoTimers();
+                }
+                state.combo += 1;
+                renderCombo();
+                pulseCombo("gain");
+            }
+
+            function breakComboSilently(options) {
+                var lostCombo = state.combo;
+                var healAmount = comboBreakHeal(lostCombo);
+                var shouldClearDemo = !options || options.clearDemo !== false;
+                if (shouldClearDemo) {
+                    clearDemoTimers();
+                }
+                state.combo = 0;
+                renderCombo();
+                pulseCombo("break");
+                if (lostCombo > 0) {
+                    showHealBurst(healAmount);
+                }
+            }
+
+            function resetAll() {
+                clearDemoTimers();
+                window.clearTimeout(state.hideJudgementTimer);
+                window.clearTimeout(state.hideHealTimer);
+                state.combo = 0;
+                renderCombo();
+                comboCard.className = "combo-card";
+                judgementCard.className = "judgement-card";
+                judgementWord.innerHTML = "";
+                judgementDetail.className = "judgement-detail";
+                judgementDetail.textContent = "DMG +0.0%";
+                healLayer.innerHTML = "";
+                clearLetterTimers();
+                setScenario("miku");
+            }
+
+            function demoSequence() {
+                var sequence;
+                var index;
+                var delay = 0;
+
+                clearDemoTimers();
+
+                if (state.mode === "accuracy") {
+                    sequence = ["perfect", "good", "okay", "perfect", "flop"];
+                } else if (state.mode === "fullbonus") {
+                    sequence = ["perfect", "perfect", "perfect", "perfect", "flop"];
+                } else {
+                    sequence = ["perfect", "flop", "perfect"];
+                }
+
+                for (index = 0; index < sequence.length; index += 1) {
+                    (function (grade, wait) {
+                        state.demoTimerIds.push(window.setTimeout(function () {
+                            if (grade === "flop" && state.mode === "fullbonus") {
+                                breakComboSilently({ clearDemo: false });
+                                showJudgement("flop", presentationRewardText("flop"));
+                                playSfx("flop");
+                                return;
+                            }
+                            resolveGrade(grade, { clearDemo: false });
+                        }, wait));
+                    }(sequence[index], delay));
+                    delay += 760;
+                }
+            }
+
+            function bindEvents() {
+                var index;
+                for (index = 0; index < modeButtons.length; index += 1) {
+                    modeButtons[index].addEventListener("click", function () {
+                        setMode(this.getAttribute("data-mode"));
+                    });
+                }
+
+                for (index = 0; index < scenarioButtons.length; index += 1) {
+                    scenarioButtons[index].addEventListener("click", function () {
+                        setScenario(this.getAttribute("data-scenario"));
+                    });
+                }
+
+                for (index = 0; index < resultButtons.length; index += 1) {
+                    resultButtons[index].addEventListener("click", function () {
+                        if (this.disabled) {
+                            return;
+                        }
+                        resolveGrade(this.getAttribute("data-grade"));
+                    });
+                }
+
+                document.getElementById("combo-plus").addEventListener("click", addComboSilently);
+                document.getElementById("break-now").addEventListener("click", breakComboSilently);
+                document.getElementById("demo-burst").addEventListener("click", demoSequence);
+                document.getElementById("reset-all").addEventListener("click", resetAll);
+            }
+
+            bindEvents();
+            renderCombo();
+            setScenario("miku");
+        }());
+    </script>
+</body>
+</html>

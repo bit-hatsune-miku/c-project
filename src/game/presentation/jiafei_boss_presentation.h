@@ -20,8 +20,9 @@ public:
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     void renderBelowWorld(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
+    void setTuningProfile(const PresentationTuningProfile& profile) override;
 
-    void onKeyPressed(SDL_Keycode key) override;
+    bool onKeyPressed(SDL_Keycode key) override;
     bool shouldHideNonCasterCharacters() const override;
     bool shouldRenderCasterEntity() const override;
     bool shouldRenderBossEntity() const override;
@@ -34,6 +35,8 @@ public:
     void setTargetWorldPosition(float x, float y, float z) override;
 
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
+    std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     float consumeHitDamageMultiplier() override;
     int consumeAbilityAudioCues() override;
     int consumeHitEvents() override;
@@ -48,18 +51,27 @@ private:
         Complete
     };
 
+    enum class PatternMode {
+        AlternateSideSafe,
+        RandomSideSafe,
+        RandomAnySafe
+    };
+
     void ensureTexturesLoaded(SDL_Renderer* renderer);
     SDL_Texture* loadTextureFallback(SDL_Renderer* renderer, const std::string& path) const;
     float interp(float a, float b, float t) const;
     float waveImpactTimeSeconds() const;
     bool isCorrectDodgeDirection(int direction) const;
+    void chooseNextSafeLane();
+    int resolvePlayerLane() const;
     int resolveWaveHeadHits() const;
     void updateDodgeMotion(float deltaTime);
     float currentDodgeOffsetWorld() const;
     bool computeHeadRenderState(const Camera3D& camera,
                                 bool& outBehindTarget,
+                                SDL_FPoint& outLeftScreen,
                                 SDL_FPoint& outMidScreen,
-                                SDL_FPoint& outSideScreen,
+                                SDL_FPoint& outRightScreen,
                                 float& outHeadSize,
                                 Uint8& outAlpha) const;
     void renderHeads(SDL_Renderer* renderer, const Camera3D& camera, bool behindTargetPass);
@@ -72,10 +84,12 @@ private:
     float targetZ_ = 0.0f;
 
     Phase phase_ = Phase::Intro;
+    PatternMode patternMode_ = PatternMode::AlternateSideSafe;
     int focusedPartyIndex_ = -1;
     int totalWaves_ = 8;
     int currentWave_ = 0;
     bool sideFromLeft_ = false;
+    int safeLane_ = -1;
     float waveElapsed_ = 0.0f;
     float waveDuration_ = 1.35f;
     bool inputReceived_ = false;
@@ -88,6 +102,7 @@ private:
     bool waveImpactResolved_ = false;
     int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;
+    std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
 
     float damageMultiplier_ = 1.0f;
 
@@ -103,6 +118,8 @@ private:
     };
 
     DodgeMotionState dodgeMotionState_ = DodgeMotionState::Idle;
+    float dodgeTravelSeconds_ = 0.11f;
+    float dodgeReturnSeconds_ = 0.06f;
 };
 
 } // namespace battle

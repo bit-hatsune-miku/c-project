@@ -29,6 +29,7 @@ constexpr int kBaseWindowH = 720;
 bool gInitialized = false;
 
 std::string gSpeakerName;
+std::string gAccentColor;
 std::string gText;
 std::string gVoicePath;
 std::string gBgmPath;
@@ -1542,12 +1543,14 @@ void showLine(
     const std::string& bgmPath,
     float bgmVolume,
     bool bgmStop,
-    std::optional<bool> bgmPause
+    std::optional<bool> bgmPause,
+    const std::string& accentColor
 ) {
     const bool hasBgmVolume = bgmVolume >= 0.0f;
 
     setText(text);
     setSpeakerName(speakerName);
+    gAccentColor = isHexColorString(accentColor) ? accentColor : std::string();
     setIcon(iconPath, iconFrameCount, iconFps);
     setVoice(voicePath);
     requestBgmTransition(bgmPath, hasBgmVolume, bgmVolume, bgmStop, bgmPause);
@@ -1633,6 +1636,7 @@ void reset() {
     clearPreviousBackgroundAssets();
 
     gSpeakerName.clear();
+    gAccentColor.clear();
     gText.clear();
     gVoicePath.clear();
     gBgmPath.clear();
@@ -1832,6 +1836,7 @@ bool consumeAdvanceRequest() {
 PresentationState getPresentationState() {
     PresentationState state;
     state.speakerName = gSpeakerName;
+    state.accentColor = gAccentColor;
     state.iconPath = gIconPath;
     state.backgroundPath = (gBackgroundKind == BackgroundKind::Image) ? gBackgroundPath : std::string();
     state.backgroundColor = (gBackgroundKind == BackgroundKind::Color) ? gBackgroundColorHex : std::string();

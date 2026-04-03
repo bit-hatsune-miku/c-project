@@ -14,6 +14,18 @@ body {
     height: 100%;
 }
 
+#hud-root.vs-intro-blocking #hud-edge-layer,
+#hud-root.vs-intro-blocking .battle-combo,
+#hud-root.vs-intro-blocking .battle-judgement,
+#hud-root.vs-intro-blocking .battle-tutorial,
+#hud-root.vs-intro-blocking .battle-rhythm,
+#hud-root.vs-intro-blocking .battle-result,
+#hud-root.vs-intro-blocking .battle-hint,
+#hud-root.vs-intro-blocking .battle-toast,
+#hud-root.vs-intro-blocking .battle-pause {
+    display: none;
+}
+
 #hud-edge-layer {
     position: absolute;
     left: 0;
@@ -30,6 +42,133 @@ body {
     top: 0;
     width: 1280px;
     height: 720px;
+}
+
+.battle-combo {
+    position: absolute;
+    right: 18dp;
+    top: 18dp;
+    width: 116dp;
+    padding: 8dp 10dp 10dp;
+    background-color: rgba(18, 14, 24, 176);
+    border: 1dp rgba(255, 255, 255, 24);
+    border-radius: 16dp;
+    box-shadow: 0 12dp 24dp rgba(0, 0, 0, 22);
+}
+
+.battle-combo-count {
+    text-align: right;
+    color: #fff8fb;
+    font-size: 30dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    line-height: 1;
+}
+
+.battle-combo-bonus {
+    margin-top: 6dp;
+    text-align: right;
+    color: rgba(255, 244, 249, 214);
+    font-size: 10dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+}
+
+.battle-combo-meter {
+    position: relative;
+    margin-top: 8dp;
+    width: 100%;
+    height: 6dp;
+    background-color: rgba(255, 255, 255, 18);
+    border-radius: 999dp;
+    overflow: hidden;
+}
+
+.battle-combo-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0%;
+    height: 6dp;
+    background-color: #ff67b6;
+    decorator: linear-gradient(to right, #ff67b6 0%, #f4c06d 52%, #6acff6 100%);
+    border-radius: 999dp;
+    box-shadow: 0 0 12dp rgba(255, 103, 182, 70);
+}
+
+.battle-judgement {
+    position: absolute;
+    right: 42dp;
+    top: 304dp;
+    width: 430dp;
+    opacity: 0;
+    display: none;
+    text-align: right;
+    pointer-events: none;
+}
+
+.battle-judgement-word {
+    width: 100%;
+    height: 86dp;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.battle-judgement-letter {
+    display: inline-block;
+    margin-left: 6dp;
+    font-size: 72dp;
+    line-height: 82dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    text-transform: uppercase;
+}
+
+.battle-judgement-space {
+    display: inline-block;
+    width: 18dp;
+}
+
+.battle-judgement-reward {
+    display: none;
+    margin-top: 2dp;
+    color: rgba(255, 248, 251, 226);
+    font-size: 20dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    text-transform: uppercase;
+}
+
+.battle-judgement.perfect .battle-judgement-letter {
+    font-effect: outline(2dp #541237), shadow(0 10dp rgba(84, 18, 55, 132));
+}
+
+.battle-judgement.good .battle-judgement-letter {
+    font-effect: outline(2dp #0d4230), shadow(0 10dp rgba(13, 66, 48, 132));
+}
+
+.battle-judgement.okay .battle-judgement-letter {
+    font-effect: outline(2dp #653d0d), shadow(0 10dp rgba(101, 61, 13, 132));
+}
+
+.battle-judgement.flop .battle-judgement-letter {
+    font-effect: outline(2dp #6a1621), shadow(0 10dp rgba(106, 22, 33, 132));
+}
+
+.battle-judgement.perfect .battle-judgement-reward {
+    font-effect: outline(1dp #541237);
+}
+
+.battle-judgement.good .battle-judgement-reward {
+    font-effect: outline(1dp #0d4230);
+}
+
+.battle-judgement.okay .battle-judgement-reward {
+    font-effect: outline(1dp #653d0d);
+}
+
+.battle-judgement.flop .battle-judgement-reward {
+    font-effect: outline(1dp #6a1621);
 }
 
 @keyframes active-turn-bounce {
@@ -75,6 +214,7 @@ body {
         opacity: 1;
     }
 }
+
 
 .turn-rail {
     position: absolute;
@@ -746,6 +886,680 @@ body {
     height: 30dp;
     background-color: #47d7ff;
     box-shadow: 0 0 16dp rgba(71, 215, 255, 62);
+}
+
+.battle-result {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 40;
+}
+
+.battle-result.active {
+    display: block;
+}
+
+.battle-result-dim {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    opacity: 0;
+    background-color: rgba(8, 6, 12, 196);
+}
+
+.battle-result-focus {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 1040dp;
+    height: 540dp;
+    margin-left: -520dp;
+    margin-top: -270dp;
+}
+
+.battle-result-kicker {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 84dp;
+    color: rgba(255, 243, 249, 136);
+    font-size: 16dp;
+    font-weight: bold;
+    letter-spacing: 8dp;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(10dp);
+}
+
+.battle-result-word-shell {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 148dp;
+    height: 158dp;
+    text-align: center;
+}
+
+.battle-result-word {
+    display: inline-block;
+    width: auto;
+    height: 158dp;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.battle-result-letter {
+    display: inline-block;
+    margin-left: 10dp;
+    font-size: 138dp;
+    line-height: 148dp;
+    font-weight: bold;
+    letter-spacing: 4dp;
+    text-transform: uppercase;
+}
+
+.battle-result-space {
+    display: inline-block;
+    width: 30dp;
+}
+
+.battle-result.victory .battle-result-letter {
+    font-effect: outline(4dp #541237), shadow(0 16dp rgba(84, 18, 55, 142));
+}
+
+.battle-result.defeat .battle-result-letter {
+    font-effect: outline(4dp #6a1621), shadow(0 16dp rgba(106, 22, 33, 146));
+}
+
+.battle-result-button {
+    position: absolute;
+    left: 50%;
+    top: 346dp;
+    width: 410dp;
+    height: 72dp;
+    margin-left: -205dp;
+    padding: 0;
+    background-color: transparent;
+    border: 0;
+    overflow: visible;
+}
+
+.battle-result-button-stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    transform: translateY(42dp) scale(0.88);
+}
+
+.battle-result-button-shell {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 22dp;
+    transform: skewX(-18deg);
+}
+
+.battle-result-button-content {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    transform: skewX(18deg);
+}
+
+.battle-result.victory .battle-result-button-shell {
+    background-color: #ff67b6;
+    border: 2dp #ff67b6;
+    box-shadow: 0 16dp 28dp rgba(255, 103, 182, 34);
+}
+
+.battle-result.defeat .battle-result-button-shell {
+    background-color: rgba(255, 251, 253, 238);
+    border: 2dp rgba(255, 255, 255, 34);
+    box-shadow: 0 16dp 28dp rgba(0, 0, 0, 24);
+}
+
+.battle-result-button-accent {
+    position: absolute;
+    left: 22dp;
+    top: 18dp;
+    width: 10dp;
+    height: 34dp;
+    border-radius: 999dp;
+}
+
+.battle-result.victory .battle-result-button-accent {
+    background-color: rgba(255, 255, 255, 182);
+}
+
+.battle-result.defeat .battle-result-button-accent {
+    background-color: rgba(23, 20, 31, 42);
+}
+
+.battle-result-button-code {
+    position: absolute;
+    left: 48dp;
+    top: 24dp;
+    width: 34dp;
+    font-size: 11dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+}
+
+.battle-result.victory .battle-result-button-code {
+    color: rgba(255, 255, 255, 214);
+}
+
+.battle-result.defeat .battle-result-button-code {
+    color: rgba(23, 20, 31, 132);
+}
+
+.battle-result-button-main {
+    position: absolute;
+    left: 96dp;
+    top: 14dp;
+    right: 124dp;
+}
+
+.battle-result-button-label {
+    font-size: 22dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    text-transform: uppercase;
+}
+
+.battle-result.victory .battle-result-button-label {
+    color: #ffffff;
+}
+
+.battle-result.defeat .battle-result-button-label {
+    color: #17141f;
+}
+
+.battle-result-button-sub {
+    margin-top: 4dp;
+    font-size: 10dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    text-transform: uppercase;
+}
+
+.battle-result.victory .battle-result-button-sub {
+    color: rgba(255, 255, 255, 194);
+}
+
+.battle-result.defeat .battle-result-button-sub {
+    color: rgba(23, 20, 31, 126);
+}
+
+.battle-result-button-tail {
+    position: absolute;
+    right: 22dp;
+    top: 22dp;
+    width: 84dp;
+    height: 24dp;
+    border-radius: 12dp;
+}
+
+.battle-result.victory .battle-result-button-tail {
+    background-color: rgba(255, 255, 255, 28);
+    border: 1dp rgba(255, 255, 255, 116);
+}
+
+.battle-result.defeat .battle-result-button-tail {
+    background-color: rgba(255, 103, 182, 18);
+    border: 1dp rgba(23, 20, 31, 22);
+}
+
+@keyframes battle-vs-shake {
+    from {
+        transform: translateX(0dp);
+    }
+    25% {
+        transform: translateX(-7dp);
+    }
+    50% {
+        transform: translateX(8dp);
+    }
+    75% {
+        transform: translateX(-5dp);
+    }
+    to {
+        transform: translateX(0dp);
+    }
+}
+
+.battle-vs-intro {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 1280dp;
+    height: 720dp;
+    z-index: 90;
+    pointer-events: none;
+}
+
+.battle-vs-intro.active {
+    display: block;
+}
+
+.battle-vs-intro-void {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: #000000;
+    opacity: 1;
+    transition: opacity 0.26s linear;
+}
+
+.battle-vs-intro.void-cleared .battle-vs-intro-void {
+    opacity: 0;
+}
+
+.battle-vs-intro-splitter {
+    position: absolute;
+    left: 50%;
+    top: -700dp;
+    width: 88dp;
+    height: 2200dp;
+    opacity: 0;
+    background-color: #ffb1cc;
+    decorator: linear-gradient(to bottom, #fff0f6 0%, #ffb1cc 100%);
+    box-shadow: 0 0 14dp rgba(255, 192, 216, 76), 0 0 40dp rgba(255, 173, 206, 62);
+    transform: translateX(-50%) rotate(0deg) scaleY(0);
+    transform-origin: 50% 50%;
+}
+
+.battle-vs-intro.split-dropping .battle-vs-intro-splitter {
+    opacity: 1;
+    transform: translateX(-50%) rotate(0deg) scaleY(1);
+    transition: opacity 0.09s linear, transform 0.26s cubic-out;
+}
+
+.battle-vs-intro.split-angled .battle-vs-intro-splitter {
+    opacity: 1;
+    transform: translateX(-50%) rotate(18deg) scaleY(1);
+    transition: transform 0.22s cubic-out;
+}
+
+.battle-vs-intro.split-fading .battle-vs-intro-splitter {
+    opacity: 0;
+    transition: opacity 0.22s linear;
+}
+
+.battle-vs-card {
+    position: absolute;
+    opacity: 0.98;
+}
+
+.battle-vs-card.left {
+    left: -222dp;
+    top: -120dp;
+    width: 920dp;
+    height: 1080dp;
+    transform: translate(-620dp, 560dp);
+}
+
+.battle-vs-card.right {
+    right: -226dp;
+    top: -120dp;
+    width: 920dp;
+    height: 1080dp;
+    transform: translate(620dp, -560dp);
+}
+
+.battle-vs-intro.left-landed .battle-vs-card.left {
+    transform: translate(0dp, 0dp);
+    transition: transform 0.46s cubic-out;
+}
+
+.battle-vs-intro.right-landed .battle-vs-card.right {
+    transform: translate(0dp, 0dp);
+    transition: transform 0.46s cubic-out;
+}
+
+.battle-vs-intro.exiting .battle-vs-card.left {
+    transform: translate(-860dp, 0dp);
+    transition: transform 0.50s cubic-out;
+}
+
+.battle-vs-intro.exiting .battle-vs-card.right {
+    transform: translate(860dp, 0dp);
+    transition: transform 0.50s cubic-out;
+}
+
+.battle-vs-card-body {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 0;
+    box-shadow: 0 34dp 72dp rgba(0, 0, 0, 118), 0 0 0 1dp rgba(255, 255, 255, 26);
+}
+
+.battle-vs-card.left .battle-vs-card-body.main {
+    left: 0;
+    width: 586dp;
+    background-color: rgba(255, 251, 253, 250);
+    transform: skewX(-18deg);
+}
+
+.battle-vs-card.left .battle-vs-card-body.tail {
+    left: 472dp;
+    width: 358dp;
+    background-color: rgba(255, 241, 247, 250);
+    transform: skewX(-18deg);
+}
+
+.battle-vs-card.right .battle-vs-card-body.main {
+    right: 0;
+    width: 586dp;
+    background-color: rgba(255, 251, 253, 250);
+    transform: skewX(-18deg);
+}
+
+.battle-vs-card.right .battle-vs-card-body.tail {
+    right: 474dp;
+    width: 358dp;
+    background-color: rgba(255, 241, 247, 250);
+    transform: skewX(-18deg);
+}
+
+.battle-vs-card-rim {
+    position: absolute;
+    top: 28dp;
+    bottom: 28dp;
+    border-radius: 0;
+    border: 1dp rgba(255, 153, 191, 108);
+    opacity: 0.72;
+}
+
+.battle-vs-card.left .battle-vs-card-rim.main {
+    left: 44dp;
+    width: 510dp;
+    transform: skewX(-18deg);
+}
+
+.battle-vs-card.left .battle-vs-card-rim.tail {
+    left: 522dp;
+    width: 224dp;
+    transform: skewX(-18deg);
+}
+
+.battle-vs-card.right .battle-vs-card-rim.main {
+    right: 44dp;
+    width: 510dp;
+    transform: skewX(-18deg);
+}
+
+.battle-vs-card.right .battle-vs-card-rim.tail {
+    right: 522dp;
+    width: 224dp;
+    transform: skewX(-18deg);
+}
+
+.battle-vs-card-glow {
+    position: absolute;
+    width: 304dp;
+    height: 304dp;
+    border-radius: 999dp;
+    opacity: 0.72;
+    background-color: rgba(255, 178, 207, 42);
+    box-shadow: 0 0 126dp rgba(255, 178, 207, 52);
+}
+
+.battle-vs-card.left .battle-vs-card-glow {
+    left: 96dp;
+    top: 58dp;
+}
+
+.battle-vs-card.right .battle-vs-card-glow {
+    right: 92dp;
+    top: 62dp;
+}
+
+.battle-vs-card-stripe {
+    position: absolute;
+    width: 12dp;
+    border-radius: 999dp;
+    background-color: rgba(255, 166, 199, 118);
+}
+
+.battle-vs-card.left .battle-vs-card-stripe.one {
+    left: 124dp;
+    top: 108dp;
+    height: 562dp;
+}
+
+.battle-vs-card.left .battle-vs-card-stripe.two {
+    left: 148dp;
+    top: 146dp;
+    height: 468dp;
+    background-color: rgba(255, 184, 213, 132);
+}
+
+.battle-vs-card.right .battle-vs-card-stripe.one {
+    right: 124dp;
+    top: 108dp;
+    height: 562dp;
+}
+
+.battle-vs-card.right .battle-vs-card-stripe.two {
+    right: 148dp;
+    top: 146dp;
+    height: 468dp;
+    background-color: rgba(255, 184, 213, 132);
+}
+
+.battle-vs-card-inner {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.battle-vs-portrait-frame {
+    position: absolute;
+    width: 468dp;
+    height: 664dp;
+    border-radius: 34dp;
+    overflow: hidden;
+    clip: always;
+    background-color: rgba(5, 8, 12, 66);
+    border: 1dp rgba(255, 255, 255, 26);
+    box-shadow: inset 0 0 0 1dp rgba(255, 255, 255, 14), 0 24dp 40dp rgba(0, 0, 0, 62);
+}
+
+.battle-vs-card.left .battle-vs-portrait-frame {
+    left: 112dp;
+    top: 152dp;
+}
+
+.battle-vs-card.right .battle-vs-portrait-frame {
+    right: 112dp;
+    top: 152dp;
+}
+
+.battle-vs-portrait-stage {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    clip: always;
+}
+
+.battle-vs-portrait-shadow {
+    position: absolute;
+    left: 50%;
+    bottom: 32dp;
+    width: 286dp;
+    height: 84dp;
+    margin-left: -143dp;
+    border-radius: 999dp;
+    background-color: rgba(0, 0, 0, 66);
+    box-shadow: 0 0 46dp rgba(0, 0, 0, 56);
+}
+
+.battle-vs-portrait-image {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.battle-vs-name-stage {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 520dp;
+    margin-left: -260dp;
+    z-index: 70;
+    text-align: center;
+    opacity: 1;
+    transition: transform 0.50s cubic-out, opacity 0.18s linear;
+}
+
+.battle-vs-name-stage.right {
+    transform: translate(96dp, -210dp);
+}
+
+.battle-vs-name-stage.left {
+    transform: translate(-96dp, 176dp);
+}
+
+.battle-vs-intro.exiting .battle-vs-name-stage.right {
+    transform: translate(458dp, -210dp);
+    opacity: 0;
+}
+
+.battle-vs-intro.exiting .battle-vs-name-stage.left {
+    transform: translate(-458dp, 176dp);
+    opacity: 0;
+}
+
+.battle-vs-name-word {
+    min-height: 74dp;
+    white-space: nowrap;
+    transform-origin: 50% 50%;
+}
+
+.battle-vs-name-word.latin {
+    transform: skewX(-10deg);
+}
+
+.battle-vs-name-letter {
+    display: inline-block;
+    margin-left: 4dp;
+    margin-right: 4dp;
+    font-size: 52dp;
+    line-height: 58dp;
+    font-weight: bold;
+    letter-spacing: 0;
+    text-transform: uppercase;
+    color: #161018;
+    font-effect: shadow(0 12dp rgba(0, 0, 0, 66));
+}
+
+.battle-vs-name-word.compact .battle-vs-name-letter {
+    margin-left: 2dp;
+    margin-right: 2dp;
+    font-size: 38dp;
+    line-height: 44dp;
+}
+
+.battle-vs-name-word.ultra .battle-vs-name-letter {
+    margin-left: 1dp;
+    margin-right: 1dp;
+    font-size: 31dp;
+    line-height: 37dp;
+}
+
+.battle-vs-name-space {
+    display: inline-block;
+    width: 18dp;
+}
+
+.battle-vs-name-word.compact .battle-vs-name-space {
+    width: 12dp;
+}
+
+.battle-vs-name-word.ultra .battle-vs-name-space {
+    width: 9dp;
+}
+
+.battle-vs-cluster {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 0;
+    height: 0;
+    z-index: 60;
+    opacity: 1;
+    transition: opacity 0.12s linear;
+}
+
+.battle-vs-intro.vs-hidden .battle-vs-cluster {
+    opacity: 0;
+}
+
+.battle-vs-intro.vs-shaking .battle-vs-cluster {
+    animation: battle-vs-shake 0.18s linear 2;
+}
+
+.battle-vs-hit-anchor {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 0;
+}
+
+.battle-vs-hit-anchor.v {
+    z-index: 1;
+    transform: translate(-118dp, -156dp);
+}
+
+.battle-vs-hit-anchor.s {
+    z-index: 2;
+    transform: translate(-10dp, -56dp);
+}
+
+.battle-vs-letter {
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-size: 214dp;
+    line-height: 1;
+    font-weight: bold;
+    opacity: 0;
+}
+
+.battle-vs-letter.v {
+    color: #ffffff;
+    font-effect: shadow(0 18dp rgba(0, 0, 0, 108));
+}
+
+.battle-vs-letter.s {
+    color: #ff8fb8;
+    font-effect: shadow(0 18dp rgba(0, 0, 0, 108));
 }
 
 .battle-hint {

@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <iostream>
+#include <vector>
 
 #include "../../platform/path_resolution.h"
 
@@ -23,50 +25,75 @@ SDL_Color colorFromKey(const std::string& key, bool boss) {
     return boss ? SDL_Color{static_cast<Uint8>(std::min(255, r + 30)), 90, 90, 255} : SDL_Color{r, g, b, 255};
 }
 
-std::optional<SDL_Texture*> tryLoadCombatSpriteTexture(SDL_Renderer* renderer, const std::string& assetName) {
+std::optional<SDL_Texture*> tryLoadTextureFromPath(SDL_Renderer* renderer, const std::string& path) {
 #ifdef BATTLE_ENABLE_IMAGE
-    const std::string pngPath = platform::path::resolvePath("assets/combat/sprites/" + assetName + ".png");
-    if (!std::filesystem::exists(pngPath)) {
+    if (renderer == nullptr || path.empty()) {
         return std::nullopt;
     }
-    SDL_Surface* surface = IMG_Load(pngPath.c_str());
+
+    const std::string resolvedPath = platform::path::resolvePath(path);
+    if (!std::filesystem::exists(resolvedPath)) {
+        return std::nullopt;
+    }
+
+    SDL_Surface* surface = IMG_Load(resolvedPath.c_str());
     if (surface == nullptr) {
+        std::cerr << "[Battle] IMG_Load failed for '" << path << "': " << IMG_GetError() << "\n";
         return std::nullopt;
     }
+
+    SDL_RendererInfo rendererInfo{};
+    if (SDL_GetRendererInfo(renderer, &rendererInfo) == 0 && rendererInfo.max_texture_width > 0
+        && rendererInfo.max_texture_height > 0) {
+        if (surface->w > rendererInfo.max_texture_width || surface->h > rendererInfo.max_texture_height) {
+            std::cerr << "[Battle] Texture too large for renderer: '" << path << "' (" << surface->w << "x" << surface->h
+                      << "), max is " << rendererInfo.max_texture_width << "x" << rendererInfo.max_texture_height
+                      << ". Resize the image and try again.\n";
+            SDL_FreeSurface(surface);
+            return std::nullopt;
+        }
+    }
+
     SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
     SDL_FreeSurface(surface);
     if (texture == nullptr) {
+        std::cerr << "[Battle] SDL_CreateTextureFromSurface failed for '" << path << "': " << SDL_GetError() << "\n";
         return std::nullopt;
     }
     return texture;
 #else
     (void)renderer;
-    (void)assetName;
+    (void)path;
     return std::nullopt;
 #endif
 }
 
-std::optional<SDL_Texture*> tryLoadCombatIconTexture(SDL_Renderer* renderer, const std::string& assetName) {
-#ifdef BATTLE_ENABLE_IMAGE
-    const std::string pngPath = platform::path::resolvePath("assets/combat/icons/" + assetName + ".png");
-    if (!std::filesystem::exists(pngPath)) {
-        return std::nullopt;
+std::optional<SDL_Texture*> tryLoadCombatSpriteTexture(SDL_Renderer* renderer, const std::string& assetName) {
+    const std::vector<std::string> candidates = {
+        "assets/combat/sprites/" + assetName + ".png",
+        "assets/combat/sprites/" + assetName + ".webp"
+    };
+    for (const std::string& candidate : candidates) {
+        if (const auto texture = tryLoadTextureFromPath(renderer, candidate); texture.has_value()) {
+            return texture;
+        }
     }
-    SDL_Surface* surface = IMG_Load(pngPath.c_str());
-    if (surface == nullptr) {
-        return std::nullopt;
-    }
-    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
-    SDL_FreeSurface(surface);
-    if (texture == nullptr) {
-        return std::nullopt;
-    }
-    return texture;
-#else
-    (void)renderer;
     (void)assetName;
     return std::nullopt;
-#endif
+}
+
+std::optional<SDL_Texture*> tryLoadCombatIconTexture(SDL_Renderer* renderer, const std::string& assetName) {
+    const std::vector<std::string> candidates = {
+        "assets/combat/icons/" + assetName + ".png",
+        "assets/combat/icons/" + assetName + ".webp"
+    };
+    for (const std::string& candidate : candidates) {
+        if (const auto texture = tryLoadTextureFromPath(renderer, candidate); texture.has_value()) {
+            return texture;
+        }
+    }
+    (void)assetName;
+    return std::nullopt;
 }
 
 } // namespace battle::render

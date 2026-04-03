@@ -102,6 +102,7 @@ void LuotianyiSkillPresentation::start() {
     phase_ = Phase::Input;
     userInputs_.clear();
     pendingAudioCommands_.clear();
+    pendingFeedbackEvents_.clear();
     toneSequence_ = {1, 2, 3, 4};
     std::shuffle(toneSequence_.begin(), toneSequence_.end(), rng_);
     nextTonePlaybackIndex_ = 0;
@@ -266,15 +267,22 @@ bool LuotianyiSkillPresentation::isComplete() const {
     return phase_ == Phase::Complete;
 }
 
-void LuotianyiSkillPresentation::onKeyPressed(SDL_Keycode key) {
+bool LuotianyiSkillPresentation::onKeyPressed(SDL_Keycode key) {
     if (phase_ != Phase::Input || !acceptingInput_ || userInputs_.size() >= toneSequence_.size()) {
-        return;
+        return false;
     }
     const int tone = mapToneFromKey(key);
     if (tone <= 0) {
-        return;
+        return false;
     }
+    const size_t inputIndex = userInputs_.size();
+    const bool enteredCorrectTone = tone == toneSequence_[inputIndex];
     userInputs_.push_back(tone);
+    pendingFeedbackEvents_.push_back(buildImmediateFeedbackEvent(
+        enteredCorrectTone,
+        static_cast<int>(userInputs_.size())
+    ));
+    return true;
 }
 
 bool LuotianyiSkillPresentation::shouldHideNonCasterCharacters() const {
@@ -295,6 +303,16 @@ bool LuotianyiSkillPresentation::shouldRenderAboveHud() const {
 
 float LuotianyiSkillPresentation::getInputMultiplier() const {
     return inputMultiplier_;
+}
+
+PresentationFeedbackSignal LuotianyiSkillPresentation::getFeedbackSignal() const {
+    return {};
+}
+
+std::vector<PresentationFeedbackEvent> LuotianyiSkillPresentation::consumeFeedbackEvents() {
+    std::vector<PresentationFeedbackEvent> events;
+    events.swap(pendingFeedbackEvents_);
+    return events;
 }
 
 std::string LuotianyiSkillPresentation::getInputResultText() const {
@@ -330,6 +348,32 @@ void LuotianyiSkillPresentation::queueAudioCommand(PresentationAudioCommandType 
                                                     const std::string& id,
                                                     float volume) {
     pendingAudioCommands_.push_back(PresentationAudioCommand{type, resolvePath(id), volume});
+}
+
+PresentationFeedbackEvent LuotianyiSkillPresentation::buildImmediateFeedbackEvent(bool enteredCorrectTone,
+                                                                                  int enteredCount) const {
+    const int safeEnteredCount = std::clamp(enteredCount, 1, 4);
+    int currentCorrect = 0;
+    for (int i = 0; i < safeEnteredCount; ++i) {
+        if (userInputs_[static_cast<size_t>(i)] == toneSequence_[static_cast<size_t>(i)]) {
+            ++currentCorrect;
+        }
+    }
+
+    const int effectiveCorrect = safeEnteredCount >= 4
+        ? currentCorrect
+        : std::clamp(static_cast<int>(std::lround((static_cast<float>(currentCorrect) / safeEnteredCount) * 4.0f)), 0, 4);
+    const float projectedMultiplier = multiplierForCorrectCount(effectiveCorrect);
+    const int atkPercent = static_cast<int>(std::lround(60.0f * projectedMultiplier));
+
+    PresentationFeedbackEvent event;
+    event.signal = PresentationFeedbackSignal::binary(enteredCorrectTone);
+    event.multiplier = projectedMultiplier;
+    event.comboEligible = true;
+    event.rewardText = atkPercent >= 0
+        ? ("+" + std::to_string(atkPercent) + "% ATK")
+        : (std::to_string(atkPercent) + "% ATK");
+    return event;
 }
 
 void LuotianyiSkillPresentation::finalizeInput() {

@@ -20,6 +20,7 @@ enum class ScreenState {
     MainMenu,
     BossSelector,
     PartyLoader,
+    PostBattle,
     Settings,
     LoadGameMenu,
     LoadConfirmDelete,
@@ -39,8 +40,20 @@ enum class MainMenuAction {
     Exit
 };
 
+enum class StoryFlowMode {
+    Campaign,
+    PracticeReplay
+};
+
+enum class BattleFlowMode {
+    Direct,
+    CampaignStory,
+    PracticeReplayStory
+};
+
 inline constexpr const char* kMainMenuBackgroundArtPath = "assets/vn/backgrounds/General_Art/mainmenu art.png";
 inline constexpr const char* kMainMenuTitleLogoPath = "assets/vn/backgrounds/General_Art/MainMenuTitle.png";
+inline constexpr const char* kPracticeModeLockedNotice = "Practice Mode unlocks after the tutorial.";
 
 struct MainMenuPresentation {
     MainMenuAction action;
@@ -62,10 +75,10 @@ inline constexpr std::array<MainMenuPresentation, 5> kMainMenuPresentation{{
      "menu-button-label-start",
      "menu-button-detail-start",
      "01",
-     "PLAY",
-     "CHAPTER 0 / STORY",
-     "ENTER THE OPENING SIGNAL",
-     "Start chapter 0 from the first scene of the visual novel."},
+     "STORY MODE",
+     "CONTINUE / NEW GAME",
+     "CONTINUE THE NARRATIVE",
+     "Resume the latest valid save, or start from the beginning if none exists."},
     {MainMenuAction::Load,
      "menu-button-load",
      "menu-button-code-load",
@@ -82,9 +95,9 @@ inline constexpr std::array<MainMenuPresentation, 5> kMainMenuPresentation{{
      "menu-button-label-battle",
      "menu-button-detail-battle",
      "03",
-     "BATTLE SELECTOR",
+     "PRACTICE MODE",
      "BOSS LINEUP / STORY ENTRY",
-     "OPEN THE BATTLE SELECTOR",
+     "REPLAY STORIES OR TRANSFER BUFFS",
      "Browse bosses, preview progress, and launch a battle or its linked story scene."},
     {MainMenuAction::Settings,
      "menu-button-settings",
@@ -179,6 +192,7 @@ struct AppState {
     float pauseIntroTime = 0.0f;
     GameSettings settings;
     StorySession story;
+    StoryFlowMode storyFlowMode = StoryFlowMode::Campaign;
     battle::PlayerProgression progression;
     std::string noticeText;
     float noticeTimer = 0.0f;
@@ -189,10 +203,12 @@ struct AppState {
     ScreenState storyEndReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleKey;
     std::vector<std::string> pendingBattlePartyLineup;
-    bool pendingBattleLaunchedFromStory = false;
+    BattleFlowMode pendingBattleFlowMode = BattleFlowMode::Direct;
     ScreenState pendingBattleReturnScreen = ScreenState::MainMenu;
     std::string pendingBattleWinScript;
     std::string pendingBattleLoseScript;
+    std::string pendingBattleNextStoryScript;
+    std::string pendingStoryNextScript;
     std::string pendingLoadPath;
     std::string pendingOverwriteSavePath;
     std::string pendingDeletePath;
@@ -244,7 +260,10 @@ bool mapWindowPointToReference(float windowX, float windowY, int windowWidth, in
 
 void beginStory(AppState& state,
                 const std::string& scriptRef = std::string(),
-                ScreenState endReturnScreen = ScreenState::MainMenu);
+                ScreenState endReturnScreen = ScreenState::MainMenu,
+                bool autosaveOnStart = true,
+                StoryFlowMode flowMode = StoryFlowMode::Campaign);
+bool beginStoryMode(AppState& state, Window& window);
 void beginBossSelector(AppState& state);
 void beginBattleDemo(AppState& state);
 void beginBattle(AppState& state, int battleId);  // dispatches to the right battle by ID

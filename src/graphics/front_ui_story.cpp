@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <functional>
+#include <sstream>
 #include <utility>
 
 #include <RmlUi/Core/Context.h>
@@ -18,6 +19,7 @@ namespace graphics::frontui {
 namespace {
 
 constexpr float kBackgroundFadeDurationSeconds = 0.30f;
+constexpr const char* kDefaultDialogueAccentColor = "#ff63b0";
 
 class CallbackEventListener final : public Rml::EventListener {
 public:
@@ -61,6 +63,55 @@ std::string escapeRmlText(const std::string& text) {
     return escaped;
 }
 
+int hexNibble(char ch) {
+    if (ch >= '0' && ch <= '9') {
+        return ch - '0';
+    }
+    if (ch >= 'a' && ch <= 'f') {
+        return 10 + (ch - 'a');
+    }
+    if (ch >= 'A' && ch <= 'F') {
+        return 10 + (ch - 'A');
+    }
+    return 0;
+}
+
+int hexByte(const std::string& text, std::size_t offset) {
+    return hexNibble(text[offset]) * 16 + hexNibble(text[offset + 1]);
+}
+
+std::string formatAlpha(float value) {
+    std::ostringstream stream;
+    stream.setf(std::ios::fixed);
+    stream.precision(3);
+    stream << std::clamp(value, 0.0f, 1.0f);
+    return stream.str();
+}
+
+std::string resolveDialogueAccentColor(const std::string& accentColor) {
+    return vn::isHexColorString(accentColor) ? accentColor : std::string(kDefaultDialogueAccentColor);
+}
+
+std::string rgbaColorString(const std::string& color, float alphaMultiplier) {
+    std::string hex = color;
+    if (!hex.empty() && hex.front() == '#') {
+        hex.erase(hex.begin());
+    }
+    if (hex.size() != 6 && hex.size() != 8) {
+        return "rgba(255, 99, 176, " + formatAlpha(alphaMultiplier) + ")";
+    }
+
+    const int red = hexByte(hex, 0);
+    const int green = hexByte(hex, 2);
+    const int blue = hexByte(hex, 4);
+    const float alpha = (hex.size() == 8)
+        ? (static_cast<float>(hexByte(hex, 6)) / 255.0f) * alphaMultiplier
+        : alphaMultiplier;
+
+    return "rgba(" + std::to_string(red) + ", " + std::to_string(green) + ", " +
+           std::to_string(blue) + ", " + formatAlpha(alpha) + ")";
+}
+
 std::string toRmlAssetSource(const std::string& path, const Rml::ElementDocument& document) {
     if (path.empty()) {
         return std::string();
@@ -98,6 +149,7 @@ bool StoryDocumentController::bind(Rml::ElementDocument& document, const AppStat
     fadingOutBackground_.clear();
     lastPortrait_.clear();
     lastSpeaker_.clear();
+    lastAccentColor_.clear();
     lastText_.clear();
     lastVisibleCharacters_ = 0;
     lastTotalVisibleCharacters_ = 0;
@@ -120,6 +172,7 @@ void StoryDocumentController::unbind() {
     fadingOutBackground_.clear();
     lastPortrait_.clear();
     lastBackgroundColor_.clear();
+    lastAccentColor_.clear();
 }
 
 void StoryDocumentController::sync(const AppState& state) {
@@ -302,6 +355,25 @@ void StoryDocumentController::syncPresentation() {
         }
         releaseDocumentTexture(*document_, previousPortraitSource);
         lastPortrait_ = presentation.iconPath;
+    }
+
+    const std::string accentColor = resolveDialogueAccentColor(presentation.accentColor);
+    if (accentColor != lastAccentColor_) {
+        if (Rml::Element* element = document_->GetElementById("story-speaker-name")) {
+            element->SetProperty("background-color", accentColor);
+            element->SetProperty("box-shadow", "0 10dp 24dp " + rgbaColorString(accentColor, 0.28f));
+        }
+        if (Rml::Element* element = document_->GetElementById("story-portrait-frame")) {
+            element->SetProperty(
+                "box-shadow",
+                "0 12dp 30dp rgba(23, 20, 31, 0.10), inset 0 0 0 1dp rgba(255, 255, 255, 0.60), 0 0 0 1dp " +
+                    accentColor);
+            element->SetProperty("border-color", accentColor);
+        }
+        if (Rml::Element* element = document_->GetElementById("story-dialogue-advance")) {
+            element->SetProperty("border-top-color", accentColor);
+        }
+        lastAccentColor_ = accentColor;
     }
 
     if (presentation.speakerName != lastSpeaker_) {

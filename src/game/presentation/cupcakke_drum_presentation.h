@@ -18,6 +18,8 @@ public:
     bool isComplete() const override;
     void onSpacePressed() override;
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
+    std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     std::string getInputResultText() const override;
     int consumeAbilityAudioCues() override;
     int consumeHitEvents() override;
@@ -46,6 +48,7 @@ private:
     int pressCount_ = 0;
     int pendingAbilityAudioCues_ = 0;
     int pendingHitEvents_ = 0;
+    std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
 };
 
 } // namespace battle

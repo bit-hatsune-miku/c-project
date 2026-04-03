@@ -1,0 +1,281 @@
+{
+  "stages": {
+    "default_stage": {
+      "floor": {
+        "centerX": -300.0,
+        "centerY": 1150.0,
+        "width": 2800.0,
+        "depth": 3200.0,
+        "tileSize": 200.0,
+        "baseColor": "#2E313C",
+        "accentColor": "#343845"
+      },
+      "backdrop": {
+        "mode": "skybox",
+        "skybox": {
+          "front": "assets/vn/backgrounds/ch0/5.png",
+          "back": "assets/vn/backgrounds/ch3/1.png",
+          "left": "assets/vn/backgrounds/ch4/1.png",
+          "right": "assets/vn/backgrounds/ch5/1.png",
+          "top": "assets/vn/backgrounds/finale/2.png",
+          "bottom": "assets/vn/backgrounds/finale/4.png"
+        },
+        "gradientTopColor": "#181C28",
+        "gradientBottomColor": "#05070B"
+      },
+      "props": []
+    },
+    "tutorial_test_stage": {
+      "floor": {
+        "centerX": -260.0,
+        "centerY": 1220.0,
+        "width": 1600.0,
+        "depth": 1900.0,
+        "tileSize": 180.0,
+        "baseColor": "#5A2D44",
+        "accentColor": "#5A2D44"
+      },
+      "backdrop": {
+        "mode": "panorama",
+        "image": "assets/combat/skies/panorama1_8192.jpg",
+        "gradientTopColor": "#294766",
+        "gradientBottomColor": "#06111B"
+      },
+      "props": [
+        {
+          "texture": "assets/combat/presentations/miku/diandong.png",
+          "worldX": -1050.0,
+          "worldY": 1750.0,
+          "worldZ": 35.0,
+          "pixelWidth": 430,
+          "pixelHeight": 300,
+          "tint": "#CFFFFF",
+          "alpha": 0.46
+        },
+        {
+          "texture": "assets/combat/presentations/cupcakke/niagarafalls.png",
+          "worldX": 560.0,
+          "worldY": 1860.0,
+          "worldZ": 55.0,
+          "pixelWidth": 620,
+          "pixelHeight": 340,
+          "tint": "#FFFFFF",
+          "alpha": 0.34
+        },
+        {
+          "texture": "assets/combat/presentations/wechatalipay/weixin.png",
+          "worldX": -120.0,
+          "worldY": 1570.0,
+          "worldZ": 70.0,
+          "pixelWidth": 360,
+          "pixelHeight": 360,
+          "tint": "#C4FFF0",
+          "alpha": 0.30
+        }
+      ],
+      "camera": {
+        "posX": -425.0,
+        "posY": 72.0,
+        "posZ": -150.0,
+        "pitchDegrees": 6.5,
+        "yawDegrees": 3.4,
+        "focalLength": 53500.0
+      }
+    },
+    "debug_panorama_stage": {
+      "floor": {
+        "centerX": -300.0,
+        "centerY": 1180.0,
+        "width": 3000.0,
+        "depth": 3400.0,
+        "tileSize": 200.0,
+        "baseColor": "#1E3344",
+        "accentColor": "#2E536B"
+      },
+      "backdrop": {
+        "mode": "panorama",
+        "image": "assets/vn/backgrounds/ch5/1.png",
+        "gradientTopColor": "#294766",
+        "gradientBottomColor": "#06111B"
+      },
+      "props": []
+    },
+    "debug_skybox_stage": {
+      "floor": {
+        "centerX": -280.0,
+        "centerY": 1200.0,
+        "width": 3200.0,
+        "depth": 3600.0,
+        "tileSize": 220.0,
+        "baseColor": "#35243D",
+        "accentColor": "#4F3559"
+      },
+      "backdrop": {
+        "mode": "skybox",
+        "gradientTopColor": "#171924",
+        "gradientBottomColor": "#05060B",
+        "skybox": {
+          "front": "assets/vn/backgrounds/ch0/5.png",
+          "back": "assets/vn/backgrounds/ch3/1.png",
+          "left": "assets/vn/backgrounds/ch4/1.png",
+          "right": "assets/vn/backgrounds/ch5/1.png",
+          "top": "assets/vn/backgrounds/finale/2.png",
+          "bottom": "assets/vn/backgrounds/finale/4.png"
+        }
+      },
+      "props": []
+    },
+    "wildflower_stage": {
+      "floor": {
+        "centerX": -250.0,
+        "centerY": 1180.0,
+        "width": 3100.0,
+        "depth": 3500.0,
+        "tileSize": 220.0,
+        "baseColor": "#4B4357",
+        "accentColor": "#5B5369"
+      },
+      "backdrop": {
+        "image": "assets/vn/backgrounds/ch1/1.png",
+        "gradientTopColor": "#4F6073",
+        "gradientBottomColor": "#162029"
+      },
+      "props": []
+    },
+    "scan_to_pay_stage": {
+      "floor": {
+        "centerX": -320.0,
+        "centerY": 1120.0,
+        "width": 3200.0,
+        "depth": 3400.0,
+        "tileSize": 200.0,
+        "baseColor": "#243646",
+        "accentColor": "#335269"
+      },
+      "backdrop": {
+        "mode": "parallax",
+        "image": "assets/vn/backgrounds/ch3/1.png",
+        "gradientTopColor": "#183243",
+        "gradientBottomColor": "#08141B"
+      },
+      "props": [
+        {
+          "texture": "assets/combat/presentations/wechatalipay/weixin.png",
+          "worldX": -980.0,
+          "worldY": 1700.0,
+          "worldZ": 40.0,
+          "pixelWidth": 420,
+          "pixelHeight": 420,
+          "tint": "#AFFFF4",
+          "alpha": 0.38
+        },
+        {
+          "texture": "assets/combat/presentations/wechatalipay/zhifu.png",
+          "worldX": 380.0,
+          "worldY": 1580.0,
+          "worldZ": 55.0,
+          "pixelWidth": 420,
+          "pixelHeight": 420,
+          "tint": "#FFD8B6",
+          "alpha": 0.34
+        }
+      ]
+    },
+    "whistle_note_stage": {
+      "floor": {
+        "centerX": -340.0,
+        "centerY": 1180.0,
+        "width": 2600.0,
+        "depth": 3000.0,
+        "tileSize": 180.0,
+        "baseColor": "#31304A",
+        "accentColor": "#46446A"
+      },
+      "backdrop": {
+        "image": "assets/vn/backgrounds/ch4/1.png",
+        "gradientTopColor": "#1F2740",
+        "gradientBottomColor": "#0A101B"
+      },
+      "props": []
+    },
+    "yinlong_stage": {
+      "floor": {
+        "centerX": -290.0,
+        "centerY": 1240.0,
+        "width": 3300.0,
+        "depth": 3800.0,
+        "tileSize": 240.0,
+        "baseColor": "#32404F",
+        "accentColor": "#465A70"
+      },
+      "backdrop": {
+        "mode": "panorama", 
+        "image": "assets/vn/backgrounds/ch5/1.png",
+        "gradientTopColor": "#496585",
+        "gradientBottomColor": "#111C29"
+      },
+      "props": [
+        {
+          "texture": "assets/combat/presentations/luotianyi/yinlong.png",
+          "worldX": -220.0,
+          "worldY": 1880.0,
+          "worldZ": 90.0,
+          "pixelWidth": 780,
+          "pixelHeight": 430,
+          "tint": "#EAF6FF",
+          "alpha": 0.28
+        }
+      ],
+      "camera": {
+        "posX": 0.0,
+        "posY": 60.0,
+        "posZ": -155.0,
+        "pitchDegrees": 6.0,
+        "yawDegrees": 3.0,
+        "focalLength": 52000.0
+      }
+    },
+    "twilight_stage": {
+      "floor": {
+        "centerX": -320.0,
+        "centerY": 1240.0,
+        "width": 3400.0,
+        "depth": 4000.0,
+        "tileSize": 240.0,
+        "baseColor": "#3A2F48",
+        "accentColor": "#514161"
+      },
+      "backdrop": {
+        "image": "assets/vn/backgrounds/finale/2.png",
+        "gradientTopColor": "#2A2035",
+        "gradientBottomColor": "#09060D"
+      },
+      "props": []
+    },
+    "corruption_stage": {
+      "floor": {
+        "centerX": -340.0,
+        "centerY": 1280.0,
+        "width": 3600.0,
+        "depth": 4200.0,
+        "tileSize": 240.0,
+        "baseColor": "#2E1D30",
+        "accentColor": "#472F4B"
+      },
+      "backdrop": {
+        "image": "assets/vn/backgrounds/finale/4.png",
+        "gradientTopColor": "#2A1025",
+        "gradientBottomColor": "#050204"
+      },
+      "props": [],
+      "camera": {
+        "posX": -430.0,
+        "posY": 70.0,
+        "posZ": -165.0,
+        "pitchDegrees": 4.0,
+        "yawDegrees": 2.5,
+        "focalLength": 54000.0
+      }
+    }
+  }
+}

@@ -200,6 +200,19 @@
         </div>
 
         <div id="safe-stage">
+            <div class="battle-combo" id="battle-combo">
+                <div class="battle-combo-count" id="battle-combo-count">0</div>
+                <div class="battle-combo-bonus" id="battle-combo-bonus">+0% DMG</div>
+                <div class="battle-combo-meter">
+                    <div class="battle-combo-fill" id="battle-combo-fill"></div>
+                </div>
+            </div>
+
+            <div class="battle-judgement" id="battle-judgement">
+                <div class="battle-judgement-word" id="battle-judgement-word"></div>
+                <div class="battle-judgement-reward" id="battle-judgement-reward"></div>
+            </div>
+
             <div class="battle-tutorial" id="battle-tutorial">
                 <div class="battle-tutorial-card">
                     <div class="battle-tutorial-layout">
@@ -220,6 +233,88 @@
                 <div class="battle-rhythm-lane">
                     <div class="battle-rhythm-window"></div>
                     <div class="battle-rhythm-pulse" id="battle-rhythm-pulse"></div>
+                </div>
+            </div>
+
+            <div class="battle-result" id="battle-result">
+                <div class="battle-result-dim" id="battle-result-dim"></div>
+                <div class="battle-result-focus">
+                    <div class="battle-result-kicker" id="battle-result-kicker">BATTLE RESOLVED</div>
+                    <div class="battle-result-word-shell" id="battle-result-word-shell">
+                        <div class="battle-result-word" id="battle-result-word"></div>
+                    </div>
+                    <button class="battle-result-button" id="battle-result-button">
+                        <div class="battle-result-button-stage" id="battle-result-button-stage">
+                            <div class="battle-result-button-shell"></div>
+                            <div class="battle-result-button-content">
+                                <div class="battle-result-button-accent"></div>
+                                <div class="battle-result-button-code">01</div>
+                                <div class="battle-result-button-main">
+                                    <div class="battle-result-button-label" id="battle-result-button-label">CONTINUE</div>
+                                    <div class="battle-result-button-sub" id="battle-result-button-sub">Advance to the next story beat.</div>
+                                </div>
+                                <div class="battle-result-button-tail"></div>
+                            </div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="battle-vs-intro" id="battle-vs-intro">
+                <div class="battle-vs-intro-void" id="battle-vs-intro-void"></div>
+                <div class="battle-vs-intro-splitter" id="battle-vs-intro-splitter"></div>
+
+                <div class="battle-vs-card left" id="battle-vs-card-left">
+                    <div class="battle-vs-card-body main"></div>
+                    <div class="battle-vs-card-body tail"></div>
+                    <div class="battle-vs-card-rim main"></div>
+                    <div class="battle-vs-card-rim tail"></div>
+                    <div class="battle-vs-card-glow"></div>
+                    <div class="battle-vs-card-stripe one"></div>
+                    <div class="battle-vs-card-stripe two"></div>
+                    <div class="battle-vs-card-inner">
+                        <div class="battle-vs-portrait-frame">
+                            <div class="battle-vs-portrait-stage">
+                                <div class="battle-vs-portrait-shadow"></div>
+                                <div class="battle-vs-portrait-image" id="battle-vs-portrait-left"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="battle-vs-card right" id="battle-vs-card-right">
+                    <div class="battle-vs-card-body main"></div>
+                    <div class="battle-vs-card-body tail"></div>
+                    <div class="battle-vs-card-rim main"></div>
+                    <div class="battle-vs-card-rim tail"></div>
+                    <div class="battle-vs-card-glow"></div>
+                    <div class="battle-vs-card-stripe one"></div>
+                    <div class="battle-vs-card-stripe two"></div>
+                    <div class="battle-vs-card-inner">
+                        <div class="battle-vs-portrait-frame">
+                            <div class="battle-vs-portrait-stage">
+                                <div class="battle-vs-portrait-shadow"></div>
+                                <div class="battle-vs-portrait-image" id="battle-vs-portrait-right"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="battle-vs-name-stage right" id="battle-vs-name-stage-right">
+                    <div class="battle-vs-name-word" id="battle-vs-name-word-right"></div>
+                </div>
+
+                <div class="battle-vs-name-stage left" id="battle-vs-name-stage-left">
+                    <div class="battle-vs-name-word" id="battle-vs-name-word-left"></div>
+                </div>
+
+                <div class="battle-vs-cluster" id="battle-vs-cluster">
+                    <div class="battle-vs-hit-anchor v">
+                        <div class="battle-vs-letter v" id="battle-vs-letter-v">V</div>
+                    </div>
+                    <div class="battle-vs-hit-anchor s">
+                        <div class="battle-vs-letter s" id="battle-vs-letter-s">S</div>
+                    </div>
                 </div>
             </div>
 

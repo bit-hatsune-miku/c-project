@@ -13,6 +13,7 @@ namespace battle {
 void MikuRhythmGame::start() {
     elapsed_       = 0.0f;
     resolvedCount_ = 0;
+    pendingResolvedFeedback_.clear();
 
     // Fisher-Yates shuffle: randomly assign the 4 columns to the 4 spawn slots
     // so notes appear in a different order each cast.
@@ -60,10 +61,7 @@ void MikuRhythmGame::update(float dt) {
             && lane.result == NoteResult::Pending
             && elapsed_ > lane.hitTime + kOkWindowSec)
         {
-            lane.result     = NoteResult::Miss;
-            lane.flashTimer = kFlashDuration;
-            lane.resolved   = true;
-            ++resolvedCount_;
+            resolveLane(lane, NoteResult::Miss);
         }
     }
 }
@@ -71,13 +69,13 @@ void MikuRhythmGame::update(float dt) {
 // ---------------------------------------------------------------------------
 // onKeyPressed
 // ---------------------------------------------------------------------------
-void MikuRhythmGame::onKeyPressed(SDL_Keycode key) {
+bool MikuRhythmGame::onKeyPressed(SDL_Keycode key) {
     // Map key to column index
     int pressedColumn = -1;
     for (int i = 0; i < kLaneCount; ++i) {
         if (kLaneKeys[i] == key) { pressedColumn = i; break; }
     }
-    if (pressedColumn < 0) return;
+    if (pressedColumn < 0) return false;
 
     // Find the unresolved note in this column
     for (Lane& lane : lanes_) {
@@ -86,16 +84,17 @@ void MikuRhythmGame::onKeyPressed(SDL_Keycode key) {
         if (lane.result != NoteResult::Pending) continue;
 
         const float delta = std::fabs(elapsed_ - lane.hitTime);
-        if      (delta <= kPerfectWindowSec) lane.result = NoteResult::Perfect;
-        else if (delta <= kGoodWindowSec)    lane.result = NoteResult::Good;
-        else if (delta <= kOkWindowSec)      lane.result = NoteResult::Ok;
-        else return; // outside window — ignore, note will auto-miss later
+        NoteResult result = NoteResult::Pending;
+        if      (delta <= kPerfectWindowSec) result = NoteResult::Perfect;
+        else if (delta <= kGoodWindowSec)    result = NoteResult::Good;
+        else if (delta <= kOkWindowSec)      result = NoteResult::Ok;
+        else return true; // outside window — ignore, note will auto-miss later
 
-        lane.flashTimer = kFlashDuration;
-        lane.resolved   = true;
-        ++resolvedCount_;
-        return;
+        resolveLane(lane, result);
+        return true;
     }
+
+    return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -126,6 +125,12 @@ float MikuRhythmGame::getInputMultiplier() const {
     return 1.0f + kMaxDamageBonus * getAverageAccuracy();
 }
 
+std::vector<MikuRhythmGame::ResolvedNoteFeedback> MikuRhythmGame::consumeResolvedFeedback() {
+    std::vector<ResolvedNoteFeedback> feedback;
+    feedback.swap(pendingResolvedFeedback_);
+    return feedback;
+}
+
 std::string MikuRhythmGame::getResultText() const {
     const int accPct   = static_cast<int>(std::round(getAverageAccuracy() * 100.0f));
     const int bonusPct = static_cast<int>(std::round((getInputMultiplier() - 1.0f) * 100.0f));
@@ -146,6 +151,37 @@ SDL_Color MikuRhythmGame::resultFlashColor(NoteResult result) {
         case NoteResult::Miss:    return {240,  60,  60, 255}; // red
         default:                  return {180, 180, 180, 200};
     }
+}
+
+float MikuRhythmGame::averageResolvedAccuracy() const {
+    if (resolvedCount_ <= 0) {
+        return 0.0f;
+    }
+
+    float sum = 0.0f;
+    for (const Lane& lane : lanes_) {
+        if (!lane.resolved) {
+            continue;
+        }
+        sum += accuracyForResult(lane.result);
+    }
+    return sum / static_cast<float>(resolvedCount_);
+}
+
+void MikuRhythmGame::resolveLane(Lane& lane, NoteResult result) {
+    if (lane.resolved) {
+        return;
+    }
+
+    lane.result = result;
+    lane.flashTimer = kFlashDuration;
+    lane.resolved = true;
+    ++resolvedCount_;
+
+    pendingResolvedFeedback_.push_back(ResolvedNoteFeedback{
+        result,
+        std::clamp(averageResolvedAccuracy(), 0.0f, 1.0f)
+    });
 }
 
 void MikuRhythmGame::render(SDL_Renderer* renderer, int screenW, int screenH) {

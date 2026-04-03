@@ -131,6 +131,7 @@ private:
     void queueActivation(MainMenuAction action);
     void applySelectionStyles() const;
     void updateStatusCopy() const;
+    void updateNoticeCopy() const;
     std::optional<MainMenuAction> hitTestButton(float x, float y) const;
     void restartIntroAnimation();
     void updateDrift(float deltaSeconds);
@@ -147,6 +148,8 @@ private:
     Rml::Element* logoLayerElement_ = nullptr;
     Rml::Element* uiLayerElement_ = nullptr;
     Rml::Element* fixedLayerElement_ = nullptr;
+    Rml::Element* noticeElement_ = nullptr;
+    std::string noticeText_;
     float driftCurrentX_ = 0.0f;
     float driftCurrentY_ = 0.0f;
     float driftTargetX_ = 0.0f;

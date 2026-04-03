@@ -1,0 +1,133 @@
+<rml>
+<head>
+    <title>Post Battle</title>
+    <link type="text/rcss" href="post_battle.rcss"/>
+    <link type="text/rcss" href="shared/ui_music_bars.rcss"/>
+</head>
+<body>
+    <div id="post-battle-root">
+        <div id="ui-music-bars-root" class="ui-music-bars-root">
+            <div id="ui-music-bars-track" class="ui-music-bars-track"></div>
+        </div>
+
+        <div class="ambient-bloom ambient-bloom-left"></div>
+        <div class="ambient-bloom ambient-bloom-right"></div>
+
+        <div class="stage" id="post-battle-stage">
+            <div class="grid-lines">
+                <div class="grid-axis grid-axis-vertical"></div>
+                <div class="grid-axis grid-axis-horizontal"></div>
+            </div>
+
+            <div class="signal-strip" id="signal-strip"></div>
+            <div class="signal-dot" id="signal-dot"></div>
+
+            <div class="screen screen-active" id="summary-screen">
+                <div class="headline-block">
+                    <div class="eyebrow" id="summary-eyebrow">Post Combat Analysis / Trial Record</div>
+                    <div class="title" id="summary-title">Combat Dossier</div>
+                </div>
+
+                <div class="metrics-row">
+                    <div class="metric-card metric-card-one">
+                        <div class="metric-shell"></div>
+                        <div class="metric-accent metric-accent-one"></div>
+                        <div class="metric-inner">
+                            <div class="metric-label">Total Damage</div>
+                            <div class="metric-value" id="metric-total-damage">0</div>
+                            <div class="metric-foot" id="metric-total-foot">Across the active party</div>
+                        </div>
+                    </div>
+
+                    <div class="metric-card metric-card-two">
+                        <div class="metric-shell"></div>
+                        <div class="metric-accent metric-accent-two"></div>
+                        <div class="metric-inner">
+                            <div class="metric-label">AV Spent</div>
+                            <div class="metric-value" id="metric-av-spent">0</div>
+                            <div class="metric-foot" id="metric-av-foot">Tempo investment this battle</div>
+                        </div>
+                    </div>
+
+                    <div class="metric-card metric-card-three">
+                        <div class="metric-shell"></div>
+                        <div class="metric-accent metric-accent-three"></div>
+                        <div class="metric-inner">
+                            <div class="metric-label">DMG / AV</div>
+                            <div class="metric-value" id="metric-dmg-per-av">0</div>
+                            <div class="metric-foot" id="metric-dpa-foot">Pressure efficiency</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ranking-panel" id="ranking-panel">
+                    <div class="ranking-header">
+                        <div class="ranking-title">Damage Ranking</div>
+                        <div class="ranking-caption" id="ranking-caption">Sorted by total dealt</div>
+                    </div>
+                    <div class="ranking-list" id="ranking-list"></div>
+                </div>
+
+                <button class="primary-button primary-button-pink summary-continue" id="summary-continue">
+                    <div class="primary-button-shell"></div>
+                    <div class="primary-button-text" id="summary-continue-label">Continue</div>
+                </button>
+            </div>
+
+            <div class="screen" id="reward-screen">
+                <div class="reward-header">
+                    <div class="reward-header-left">
+                        <div class="eyebrow">Post Combat Reward Routing</div>
+                        <div class="title reward-title" id="reward-title">Allocate Growth</div>
+                        <div class="subtitle" id="reward-subtitle">
+                            Choose who receives each all-stat combat bloom. The same character can be picked multiple times.
+                        </div>
+                    </div>
+
+                    <div class="reward-header-right">
+                        <div class="summary-note-kicker">Current Step</div>
+                        <div class="reward-step-copy" id="reward-step-copy">Buff 1 / 4</div>
+                    </div>
+                </div>
+
+                <div class="reward-track" id="reward-track"></div>
+                <div class="reward-grid" id="reward-grid"></div>
+
+                <div class="reward-hint" id="reward-hint">
+                    Use Left / Right to pick a character, then press Enter to assign the current reward.
+                </div>
+
+                <div class="footer-actions">
+                    <button class="primary-button primary-button-dark reward-return" id="reward-return">
+                        <div class="primary-button-shell"></div>
+                        <div class="primary-button-text">Return To Stats</div>
+                    </button>
+
+                    <button class="primary-button primary-button-pink reward-continue" id="reward-continue">
+                        <div class="primary-button-shell"></div>
+                        <div class="primary-button-text" id="reward-continue-label">Continue</div>
+                    </button>
+                </div>
+            </div>
+
+            <div class="screen" id="transition-screen">
+                <div class="transition-shell">
+                    <div class="transition-card"></div>
+                    <div class="transition-inner">
+                        <div class="transition-kicker" id="transition-kicker">Story Link Ready</div>
+                        <div class="transition-title" id="transition-title">Transition Ready</div>
+                        <div class="transition-copy" id="transition-copy">
+                            Combat loop complete. Handing back to the linked scene or menu.
+                        </div>
+                        <div class="transition-ribbon">
+                            <div id="transition-ribbon-label">Combat Loop Complete</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flash-overlay" id="flash-overlay"></div>
+        </div>
+    </div>
+</body>
+</rml>

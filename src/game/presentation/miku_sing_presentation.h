@@ -28,13 +28,16 @@ public:
     bool getCasterWorldOverride(float& outX, float& outY, float& outZ) const override;
     int consumeHitEvents() override;
     int getDamageLabelHitCount() const override;
-    void onKeyPressed(SDL_Keycode key) override;
+    bool onKeyPressed(SDL_Keycode key) override;
     int consumeAbilityAudioCues() override;
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
+    std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     std::string getInputResultText() const override;
     bool shouldRenderAboveHud() const override;
 
 private:
+    PresentationFeedbackEvent buildImmediateFeedbackEvent(const MikuRhythmGame::ResolvedNoteFeedback& feedback) const;
     void spawnNote();
 
     enum class Phase { RhythmGame, Animation };
@@ -53,6 +56,7 @@ private:
     int   notesToSpawn_;
     int   notesSpawned_;
     int   pendingHitEvents_ = 0;
+    std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
 };
 
 } // namespace battle

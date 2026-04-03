@@ -3,15 +3,28 @@
 
 #include <string>
 #include <iostream>
+#include <array>
 #include <optional>
 #include <unordered_map>
 #include <vector>
+
+#include "combat_feedback.h"
+#include "player_progression.h"
+#include "presentation_tuning_profile.h"
 
 namespace battle {
 
 using namespace std;
 
 struct BossDefinition {
+    struct PhaseDefinition {
+        bool configured = false;
+        int atkBonusPercent = 0;
+        std::string bgm;
+        std::optional<float> bgmVolume;
+        PresentationTuningProfile tuningProfile{};
+    };
+
     std::string key;
     std::string title;
     std::string assets;
@@ -27,6 +40,8 @@ struct BossDefinition {
     int startingOrbs = 1;
     std::string bgm;
     float bgmVolume = 1.0f;
+    std::array<PhaseDefinition, 3> phases{};
+    bool hasPhaseData = false;
 };
 
 struct CharacterDefinition {
@@ -56,6 +71,7 @@ struct BattleSpecialRules {
 struct BattleDefinition {
     std::string key;
     int id = -1;
+    int storyOrder = -1;
     std::string name;
     std::string description;
     std::string type;
@@ -64,11 +80,13 @@ struct BattleDefinition {
     std::string storyScript;
     std::string victoryStoryScript;
     std::string defeatStoryScript;
+    std::string nextStoryScript;
     bool selectorVisible = false;
     bool isLineupFixed = true;
     int partySize = 4;
     std::vector<std::string> lineup;
     std::vector<std::string> lockedLineup;
+    FlatStatBonuses buffs;
     BattleSpecialRules specialRules;
 };
 
@@ -134,6 +152,7 @@ struct PresentationContext {
     int presentationValue = 0;
     bool isBoss = false;
     bool isUltimate = false;
+    PresentationTuningProfile tuningProfile{};
 };
 
 struct AbilityExecutionContext {
@@ -144,9 +163,121 @@ struct AbilityExecutionContext {
     int baseDamage = 0;
     int baseHeal = 0;
     float presentationMultiplier = 1.0f;
+    float comboMultiplier = 1.0f;
     int bossMaxHp = 1;
 };
 
+struct BattleComboState {
+    int comboCount = 0;
+    float damageBonusFraction = 0.0f;
+};
+
+struct ComboResolution {
+    bool applied = false;
+    CombatJudgement judgement = CombatJudgement::Flop;
+    int previousComboCount = 0;
+    int comboCount = 0;
+    int comboBreakHealPerAlly = 0;
+    float damageBonusFraction = 0.0f;
+    bool brokeCombo = false;
+};
+
+/**
+ * Initialize a BattleCharacter from a character definition and party slot.
+ * @param definition CharacterDefinition describing base stats and identifiers.
+ * @param partyIndex Index of this character in the player's party (0-based).
+ */
+/**
+ * Access the stored CharacterDefinition.
+ * @returns Reference to the character's definition.
+ */
+/**
+ * Index of this character within the player's party.
+ * @returns 0-based party index.
+ */
+/**
+ * Current HP of the character.
+ * @returns Current hit points.
+ */
+/**
+ * Maximum HP of the character as defined by its definition and any modifiers.
+ * @returns Maximum hit points.
+ */
+/**
+ * Whether the character is alive (hp > 0).
+ * @returns `true` if hp is greater than zero, `false` otherwise.
+ */
+/**
+ * Apply damage to the character, reducing shield first then HP; clamps HP to a minimum of 0.
+ * @param amount Amount of incoming damage to apply (assumed non-negative).
+ */
+/**
+ * Restore HP to the character up to its maximum; negative or zero amounts have no effect.
+ * @param amount Amount of healing to apply.
+ */
+/**
+ * Revive a defeated character and set its HP to the supplied amount (clamped to [1, maxHp]).
+ * @param amount HP value to set on revival.
+ */
+/**
+ * Current ultimate charge value for the character.
+ * @returns Current ultimate charge.
+ */
+/**
+ * Increase the character's ultimate charge by the given amount.
+ * @param amount Points to add to the ultimate charge (default 1).
+ */
+/**
+ * Whether the character can use their skill action according to current charge/state.
+ * @returns `true` if the skill is available, `false` otherwise.
+ */
+/**
+ * Whether the character can use their ultimate action according to current charge/state.
+ * @returns `true` if the ultimate is available, `false` otherwise.
+ */
+/**
+ * Decrease the character's ultimate charge by the given amount.
+ * @param amount Points to consume from the ultimate charge (default 1).
+ */
+/**
+ * Consume the character's ultimate (perform the ultimate's charge consumption side-effect).
+ */
+/**
+ * Effective speed value including base speed and any speed buff bonuses.
+ * @returns Effective speed used for turn ordering.
+ */
+/**
+ * Current additive speed buff applied to the character.
+ * @returns Speed buff amount.
+ */
+/**
+ * Set the character's speed buff bonus to the specified amount.
+ * @param amount New speed buff value.
+ */
+/**
+ * Effective attack value including base attack and any percent ATK buff/nerf.
+ * @returns Effective attack used for damage calculations.
+ */
+/**
+ * Current ATK buff expressed as a percent (e.g. 50 = +50%, -20 = -20%).
+ * @returns ATK buff percent.
+ */
+/**
+ * Set the character's ATK buff/nerf percent.
+ * @param percentBonus ATK percent to apply (positive to buff, negative to nerf).
+ */
+/**
+ * Current shield value that will absorb incoming damage before HP.
+ * @returns Current shield amount.
+ */
+/**
+ * Increase the character's shield by the given amount (no-op for non-positive amounts).
+ * @param amount Amount of shield to add (must be positive to take effect).
+ */
+/**
+ * Reduce the character's shield by the given amount and clamp to zero.
+ * @param amount Amount of shield to remove.
+ */
 class BattleCharacter {
 public:
     explicit BattleCharacter(const CharacterDefinition& definition, int partyIndex);
@@ -225,6 +356,15 @@ struct TurnActor {
     int spd = 1;
     float baseActionValue = 10000.0f;
     float currentActionValue = 10000.0f;
+    int phaseTransitionFromIndex = -1;
+    int phaseTransitionToIndex = -1;
+
+    bool isBossPhaseIntroTurn() const {
+        return type == ParticipantType::Boss &&
+            isExtraTurn &&
+            phaseTransitionFromIndex >= 0 &&
+            phaseTransitionToIndex >= 0;
+    }
 };
 
 struct TurnEvent {
@@ -250,9 +390,34 @@ struct BattleActionEvent {
     int bossHpAfter = 0;
     bool abilityVoicesHandledDuringPresentation = false;
     bool hitVoicesHandledDuringPresentation = false;
+    float consumedActionValue = 0.0f;
+    int totalOutgoingDamage = 0;
     std::vector<int> targetPartyIndices;
     std::vector<int> targetHpBefore;
     std::vector<int> targetHpAfter;
+};
+
+struct BattleTelemetry {
+    float totalActionValueConsumed = 0.0f;
+    std::unordered_map<std::string, int> characterDamageByKey;
+};
+
+struct BossPhaseTransition {
+    bool valid = false;
+    int fromPhaseIndex = 0;
+    int toPhaseIndex = 0;
+};
+
+/**
+ * Retrieve the current shield value for the party member at the given index.
+ * @param partyIndex 0-based index of the party member.
+ * @returns The shield value for the specified party member, or 0 if the index is out of range.
+ */
+enum class ManualUltimateRequestResult {
+    Queued,
+    MeterNotReady,
+    AlreadyQueued,
+    Unavailable
 };
 
 class BattleManager {
@@ -260,8 +425,12 @@ public:
     // Returns the shield value for a party member at the given index, or 0 if out of range.
     int getCharacterShield(int partyIndex) const;
 public:
-    bool initialize(const BattleDefinition& battleDefinition, const std::vector<std::string>& characterKeys);
-    bool initialize(const std::string& bossKey, const std::vector<std::string>& characterKeys);
+    bool initialize(const BattleDefinition& battleDefinition,
+                    const std::vector<std::string>& characterKeys,
+                    const PlayerProgression& progression = {});
+    bool initialize(const std::string& bossKey,
+                    const std::vector<std::string>& characterKeys,
+                    const PlayerProgression& progression = {});
     void printBattleSummary() const;
     const BattleState& getBattleState() const;
     const BattleDefinition& getBattleDefinition() const;
@@ -270,16 +439,25 @@ public:
     int getPreviewNextActorIndex() const;
     int getBossCurrentHp() const;
     int getBossMaxHp() const;
+    int getBossEffectiveAtk() const;
+    int getBossPhaseIndex() const;
+    std::optional<BossPhaseTransition> consumeBossPhaseTransition();
+    std::string getCurrentBossBgm() const;
+    float getCurrentBossBgmVolume() const;
     int getBossUltimateCharge() const;
     int getBossUltimateRequired() const;
     int getCharacterCurrentHp(int partyIndex) const;
     int getCharacterMaxHp(int partyIndex) const;
     bool isCharacterAlive(int partyIndex) const;
     bool reviveCharacter(int partyIndex, int amount);
+    ManualUltimateRequestResult previewManualUltimateTurnRequest(int partyIndex) const;
+    ManualUltimateRequestResult requestManualUltimateTurn(int partyIndex);
     int getCharacterUltimateCharge(int partyIndex) const;
     int getCharacterUltimateRequired(int partyIndex) const;
     void addLuotianyiCorrectTones(int amount);
     int getLuotianyiCorrectTones() const;
+    const BattleComboState& getComboState() const;
+    ComboResolution applyPresentationFeedback(bool isBossCaster, const PresentationFeedbackEvent& feedback);
     void applyPresentationHitDamage(bool isBossCaster,
                                     int perHitDamage,
                                     int hitEvents,
@@ -307,6 +485,7 @@ public:
     bool isBattleOver() const;
     BattleResolvedOutcome outcome() const;
     bool playerDamageHealsBoss() const;
+    const BattleTelemetry& getBattleTelemetry() const;
 
 private:
     struct ActivePartyBuff {
@@ -332,6 +511,7 @@ private:
                                     bool autoExecute,
                                     bool grantsUltimatePointOnAction,
                                     int priority);
+    void queueBossPhaseIntroTurn(int fromPhaseIndex, int toPhaseIndex);
     int firstLivingCharacterPartyIndex() const;
     int findCharacterPartyIndexByKey(const std::string& characterKey) const;
     bool hasQueuedExtraTurn(int partyIndex, BattleAction action, bool autoExecute) const;
@@ -343,13 +523,18 @@ private:
     void applyBossDamage(int amount);
     void applyBossHealing(int amount);
     void applyPlayerOffenseToBoss(int amount);
+    void applyBossPhaseTransitionIfNeeded();
+    const BossDefinition::PhaseDefinition& currentBossPhaseDefinition() const;
     void applyBossAbilitySelfCost(const AbilityDefinition& ability);
     void reviveDefeatedPartyMembersIfNeeded();
     bool canUseBossAction(BattleAction action) const;
     bool resolvePlayerAction(BattleAction action);
     bool resolveBossAction();
-    bool executeCharacterAction(size_t actorIndex, BattleCharacter& character, BattleAction action);
-    bool executeBossAction(size_t actorIndex, BattleAction action);
+    bool executeCharacterAction(size_t actorIndex,
+                                BattleCharacter& character,
+                                BattleAction action,
+                                float consumedActionValue);
+    bool executeBossAction(size_t actorIndex, BattleAction action, float consumedActionValue);
     void applyJiafeiUltimateDebuff();
     void consumeJiafeiUltimateDebuff();
     void tryQueueJiafeiFollowUp(const BattleActionEvent& actionEvent);
@@ -365,17 +550,24 @@ private:
     void refreshTurnActorSpeed(int partyIndex);
     void refreshAllTurnActorSpeeds();
     void applyAllAlliesActionAdvance(float fraction);
+    void advanceBossActionByFraction(float fraction);
+    void refreshComboState();
+    void flushPendingSplitAttackTelemetry();
 
     BattleState state_;
     BattleDefinition battleDefinition_{};
     TurnState turnState_;
     int bossCurrentHp_ = 0;
+    int bossAtkBuffBonus_ = 0;
+    int bossPhaseIndex_ = 0;
+    std::optional<BossPhaseTransition> pendingBossPhaseTransition_;
     int bossUltimateCharge_ = 0;
     std::vector<BattleCharacter> characters_;
     int simulatedActions_ = 0;
     bool initialized_ = false;
     std::unordered_map<std::string, AbilityDefinition> abilities_;
     std::vector<BattleActionEvent> recentActionEvents_;
+    BattleTelemetry telemetry_{};
     bool presentationHitDamageApplied_ = false;
     bool presentationHealingApplied_ = false;
     bool presentationAbilityAudioPlayed_ = false;
@@ -383,8 +575,12 @@ private:
     std::optional<BattleResolvedOutcome> forcedOutcome_;
     BossStatusState bossStatus_;
     int luotianyiCorrectTones_ = 0;
+    BattleComboState comboState_{};
     std::vector<ActivePartyBuff> activePartyBuffs_;
     std::unordered_map<std::string, int> bossAbilityUseCounts_;
+    int nextManualUltimatePriority_ = 1000;
+    int currentActionOutgoingDamage_ = 0;
+    std::string pendingSplitAttackActorKey_;
 };
 
 } // namespace battle

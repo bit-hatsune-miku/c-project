@@ -1012,6 +1012,7 @@ bool Session::isFinished() const {
 #include <vector>
 
 #include "audio/bgm_player.h"
+#include "audio/battle_bgm_controller.h"
 #include "audio/wav_one_shot.h"
 #include "battle_session_core.h"
 #include "core/battle_loader.h"
@@ -1294,11 +1295,19 @@ public:
         return true;
     }
 
+    /**
+     * @brief Stops the demo session and resets all session state.
+     *
+     * Shuts down the party setup, battle core, and narrative systems; stops and detaches the battle BGM controller; clears active party lineup,
+     * HP snapshots, presentation audio state, renderer reference, and initialization flags so the session can be safely reinitialized or destroyed.
+     */
     void shutdown() {
         partySetup_.shutdown();
         battleDefinition_ = BattleDefinition{};
         core_.shutdown();
         narrative_.shutdown();
+        battleBgmController_.stop();
+        battleBgmController_.detach();
         initialized_ = false;
         narrativeEnabled_ = true;
         narrativeInitialized_ = false;
@@ -1433,6 +1442,18 @@ private:
 #endif
     }
 
+    /**
+     * @brief Initialize and start a battle session using the given party lineup.
+     *
+     * Sets up battle core hooks (narrative/dialogue gating, audio and presentation handling,
+     * update/render/shutdown callbacks), configures BGM/audio controllers, initializes
+     * narrative state, and starts the battle with the provided party lineup. If the
+     * battle definition specifies an initial boss BGM, that track is started.
+     *
+     * @param renderer SDL renderer used for battle rendering and presentation.
+     * @param lineup Ordered list of party member keys to use for the battle; must be non-empty.
+     * @return true if the battle was successfully initialized and started, false otherwise.
+     */
     bool startBattleWithParty(SDL_Renderer* renderer, const std::vector<std::string>& lineup) {
         renderer_ = renderer;
 
@@ -1472,6 +1493,7 @@ private:
             return narrative_.onPlayerTurnExecuted(turnExecution);
         };
         hooks.onPreUpdate = [this](BattleManager& manager, float deltaSeconds) {
+            battleBgmController_.update(deltaSeconds);
             gOneShotAudio.cleanupFinishedPlayback();
             gPresentationSfxAudio.cleanupFinishedPlayback();
             if (!narrativeEnabled_) {
@@ -1491,6 +1513,18 @@ private:
             consumeBattleActionEvents(manager, 1.0f);
             syncHpSnapshots(manager);
         };
+        hooks.onBossPhaseTransition = [this](const BossPhaseTransition& transition, BattleManager& manager) {
+            (void)transition;
+            const std::string bgmName = manager.getCurrentBossBgm();
+            if (bgmName.empty()) {
+                return;
+            }
+            const auto bgmPath = platform::path::resolveCombatBgmPath(bgmName);
+            if (!bgmPath.has_value()) {
+                return;
+            }
+            battleBgmController_.requestTrack(*bgmPath, manager.getCurrentBossBgmVolume());
+        };
         hooks.isBattleFinishBlocked = [](const BattleManager& manager) {
             if (manager.getBossCurrentHp() > 0) {
                 return false;
@@ -1501,8 +1535,8 @@ private:
             return bossDeadVoicePath.has_value() && gOneShotAudio.isPlaying(*bossDeadVoicePath);
         };
         hooks.onPresentationSplashVoice = nullptr;
-        hooks.onPresentationAudioCommands = [](const PresentationContext& context,
-                                               const std::vector<PresentationAudioCommand>& commands) {
+        hooks.onPresentationAudioCommands = [this](const PresentationContext& context,
+                                                   const std::vector<PresentationAudioCommand>& commands) {
             (void)context;
 
             for (const PresentationAudioCommand& command : commands) {
@@ -1533,10 +1567,10 @@ private:
                         stopPresentationAudioPlayback(false);
                         break;
                     case PresentationAudioCommandType::PauseBgm:
-                        gBgmPlayer.pause();
+                        battleBgmController_.pause();
                         break;
                     case PresentationAudioCommandType::ResumeBgm:
-                        gBgmPlayer.resume();
+                        battleBgmController_.resume();
                         break;
                 }
             }
@@ -1615,6 +1649,7 @@ private:
             presentationAudioCueIndex_ = 0;
             if (context.presentationId == "boss_attack_lyoo_plot_twist") {
                 stopPresentationAudioPlayback(true);
+                battleBgmController_.resume();
             }
             if (context.presentationId == "aesthetic_warning") {
                 core_.clearHint();
@@ -1713,11 +1748,11 @@ private:
                 vn::render();
             }
         };
-        hooks.onShutdown = []() {
+        hooks.onShutdown = [this]() {
             vn::stopVoicePlayback();
             gPresentationLoopAudio.stop();
             gPresentationSfxAudio.shutdown();
-            gBgmPlayer.stop();
+            battleBgmController_.stop();
             gOneShotAudio.shutdown();
         };
         if (lineup.empty()) {
@@ -1725,6 +1760,8 @@ private:
         }
 
         activePartyLineup_ = lineup;
+        battleBgmController_.attach(gBgmPlayer);
+        battleBgmController_.setMasterVolume(1.0f);
 
         core_.shutdown();
         narrative_.shutdown();
@@ -1736,7 +1773,7 @@ private:
             narrativeInitialized_ = true;
         }
 
-        if (!core_.initialize(renderer, battleDefinition_.bossKey, lineup, std::move(hooks))) {
+        if (!core_.initialize(renderer, battleDefinition_, lineup, std::move(hooks))) {
             narrative_.shutdown();
             return false;
         }
@@ -1744,11 +1781,12 @@ private:
         syncHpSnapshots(core_.getBattleManager());
 
         // Start boss BGM if defined in boss.json.
-        const BattleState& initBattleState = core_.getBattleManager().getBattleState();
-        if (!initBattleState.boss.bgm.empty()) {
-            if (const auto bgmPath = platform::path::resolveCombatBgmPath(initBattleState.boss.bgm);
+        BattleManager& manager = core_.getBattleManager();
+        const std::string initialBgmName = manager.getCurrentBossBgm();
+        if (!initialBgmName.empty()) {
+            if (const auto bgmPath = platform::path::resolveCombatBgmPath(initialBgmName);
                 bgmPath.has_value()) {
-                gBgmPlayer.play(*bgmPath, initBattleState.boss.bgmVolume);
+                battleBgmController_.playImmediate(*bgmPath, manager.getCurrentBossBgmVolume());
             }
         }
 
@@ -1770,8 +1808,15 @@ private:
     std::vector<std::string> activePartyLineup_;
     std::vector<int> lastPartyHp_;
     int lastBossHp_ = 0;
+    game::audio::BattleBgmController battleBgmController_;
 };
 
+/**
+ * @brief Construct a new Session and allocate its internal implementation.
+ *
+ * Creates the Session object and initializes its private implementation pointer
+ * using a newly constructed SessionImpl instance.
+ */
 Session::Session() : impl_(std::make_unique<SessionImpl>()) {}
 
 Session::~Session() = default;
