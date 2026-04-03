@@ -1,0 +1,1289 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Battle Result Overlay Prototype</title>
+  <style>
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+      font-weight: 400;
+    }
+
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+      font-weight: 700;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #100b17;
+      color: #fff8fb;
+      font-family: "Space Mono", monospace;
+    }
+
+    body {
+      position: relative;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+    }
+
+    .battle-screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: #16101f;
+    }
+
+    .battle-screen::before {
+      content: "";
+      position: absolute;
+      left: -8%;
+      top: -12%;
+      width: 54%;
+      height: 66%;
+      border-radius: 999px;
+      background-color: rgba(255, 103, 182, 0.08);
+    }
+
+    .battle-screen::after {
+      content: "";
+      position: absolute;
+      right: -12%;
+      top: -16%;
+      width: 46%;
+      height: 58%;
+      border-radius: 999px;
+      background-color: rgba(244, 192, 109, 0.06);
+    }
+
+    .scene-layer,
+    .hud-layer,
+    .result-overlay,
+    .debug-panel {
+      position: absolute;
+    }
+
+    .scene-layer,
+    .hud-layer,
+    .result-overlay {
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .scene-layer {
+      z-index: 1;
+    }
+
+    .hud-layer {
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .floor-band {
+      position: absolute;
+      left: -4%;
+      right: -4%;
+      bottom: -12%;
+      height: 38%;
+      background-color: #261a33;
+      transform: skewY(-4deg);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .floor-band::after {
+      content: "";
+      position: absolute;
+      left: 7%;
+      right: 7%;
+      top: 18%;
+      height: 1px;
+      background-color: rgba(255, 255, 255, 0.06);
+    }
+
+    .boss-stage-ring {
+      position: absolute;
+      left: 50%;
+      bottom: 18%;
+      width: 410px;
+      height: 410px;
+      margin-left: -205px;
+      margin-bottom: -205px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 103, 182, 0.22);
+      background-color: rgba(255, 255, 255, 0.02);
+    }
+
+    .boss-stage-ring::before {
+      content: "";
+      position: absolute;
+      left: 22px;
+      top: 22px;
+      right: 22px;
+      bottom: 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .boss-silhouette {
+      position: absolute;
+      left: 50%;
+      top: 15%;
+      width: 350px;
+      height: 430px;
+      margin-left: -175px;
+      border-radius: 180px 180px 90px 90px;
+      background-color: rgba(17, 12, 25, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow:
+        0 0 0 18px rgba(255, 255, 255, 0.02),
+        0 24px 48px rgba(0, 0, 0, 0.28);
+    }
+
+    .boss-silhouette::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 24px;
+      width: 170px;
+      height: 170px;
+      margin-left: -85px;
+      border-radius: 999px;
+      background-color: rgba(255, 255, 255, 0.04);
+    }
+
+    .boss-silhouette::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: 48px;
+      width: 238px;
+      height: 172px;
+      margin-left: -119px;
+      border-radius: 120px 120px 36px 36px;
+      background-color: rgba(255, 255, 255, 0.03);
+    }
+
+    .boss-hp {
+      position: absolute;
+      right: 34px;
+      top: 22px;
+      width: 392px;
+    }
+
+    .boss-name {
+      font-size: 18px;
+      line-height: 22px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      text-align: right;
+      color: #fff7fb;
+      text-transform: uppercase;
+    }
+
+    .boss-meter {
+      position: relative;
+      margin-top: 10px;
+      height: 26px;
+      border-radius: 999px;
+      background-color: rgba(18, 14, 24, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      overflow: hidden;
+    }
+
+    .boss-meter-trail {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(255, 255, 255, 0.04);
+    }
+
+    .boss-meter-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 74%;
+      height: 100%;
+      background-color: #ff67b6;
+    }
+
+    .boss-meter-readout {
+      position: absolute;
+      right: 14px;
+      top: 5px;
+      font-size: 11px;
+      line-height: 14px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: rgba(255, 248, 251, 0.88);
+      text-transform: uppercase;
+    }
+
+    .turn-rail {
+      position: absolute;
+      left: 18px;
+      top: 18px;
+      width: 86px;
+      height: 336px;
+    }
+
+    .turn-card {
+      position: absolute;
+      left: 0;
+      width: 72px;
+      height: 54px;
+    }
+
+    .turn-card.one { top: 0; }
+    .turn-card.two { top: 62px; }
+    .turn-card.three { top: 124px; }
+    .turn-card.four { top: 186px; }
+    .turn-card.five { top: 248px; }
+
+    .turn-shell {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 72px;
+      height: 54px;
+      border-radius: 16px;
+      border: 1px solid rgba(23, 20, 31, 0.22);
+      background-color: rgba(255, 250, 253, 0.88);
+      transform: skewX(-18deg);
+    }
+
+    .turn-inner {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 72px;
+      height: 54px;
+      transform: skewX(18deg);
+    }
+
+    .turn-accent {
+      position: absolute;
+      left: 10px;
+      top: 12px;
+      width: 4px;
+      height: 30px;
+      border-radius: 999px;
+      background-color: rgba(255, 103, 182, 0.7);
+    }
+
+    .turn-portrait {
+      position: absolute;
+      left: 22px;
+      top: 9px;
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      background-color: rgba(23, 20, 31, 0.12);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .turn-value {
+      position: absolute;
+      right: 10px;
+      bottom: 8px;
+      font-size: 10px;
+      line-height: 12px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: rgba(23, 20, 31, 0.68);
+    }
+
+    .party-rack {
+      position: absolute;
+      left: 50%;
+      bottom: 18px;
+      width: 1020px;
+      height: 148px;
+      margin-left: -510px;
+    }
+
+    .unit-card {
+      position: absolute;
+      bottom: 0;
+      width: 236px;
+      height: 128px;
+      border-radius: 24px;
+      background-color: rgba(19, 15, 25, 0.92);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 18px 32px rgba(0, 0, 0, 0.22);
+    }
+
+    .unit-card.one { left: 0; }
+    .unit-card.two { left: 260px; }
+    .unit-card.three { left: 520px; }
+    .unit-card.four { left: 780px; }
+
+    .unit-icon {
+      position: absolute;
+      left: 18px;
+      top: 20px;
+      width: 70px;
+      height: 70px;
+      border-radius: 999px;
+      background-color: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.07);
+    }
+
+    .unit-hp-shell {
+      position: absolute;
+      left: 102px;
+      right: 16px;
+      top: 28px;
+      height: 22px;
+      border-radius: 999px;
+      background-color: rgba(255, 255, 255, 0.07);
+      overflow: hidden;
+    }
+
+    .unit-hp-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      background-color: #59d5ae;
+    }
+
+    .unit-hp-fill.low {
+      background-color: #f4c06d;
+    }
+
+    .unit-hp-fill.critical {
+      background-color: #ec5f66;
+    }
+
+    .unit-hp-text {
+      position: absolute;
+      left: 104px;
+      right: 18px;
+      top: 58px;
+      font-size: 11px;
+      line-height: 14px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: rgba(255, 248, 251, 0.88);
+      text-transform: uppercase;
+    }
+
+    .unit-ult {
+      position: absolute;
+      left: 102px;
+      right: 16px;
+      bottom: 18px;
+      height: 20px;
+      border-radius: 999px;
+      background-color: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .unit-ult-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      background-color: rgba(255, 103, 182, 0.68);
+    }
+
+    .unit-ult-text {
+      position: absolute;
+      right: 10px;
+      top: 4px;
+      font-size: 10px;
+      line-height: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      color: rgba(255, 248, 251, 0.74);
+      text-transform: uppercase;
+    }
+
+    .result-overlay {
+      z-index: 4;
+    }
+
+    .result-dim {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      background-color: rgba(8, 6, 12, 0.76);
+      transition: opacity 0.44s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .result-overlay.is-active .result-dim {
+      opacity: 1;
+    }
+
+    .result-focus {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 1040px;
+      height: 540px;
+      margin-left: -520px;
+      margin-top: -270px;
+      text-align: center;
+    }
+
+    .result-kicker {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 82px;
+      font-size: 16px;
+      line-height: 18px;
+      font-weight: 700;
+      letter-spacing: 8px;
+      color: rgba(255, 243, 249, 0.54);
+      text-transform: uppercase;
+      opacity: 0;
+      transform: translateY(10px);
+      transition:
+        opacity 0.28s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .result-overlay.is-active .result-kicker {
+      opacity: 1;
+      transform: translateY(0);
+      transition-delay: 0.16s;
+    }
+
+    .result-word-shell {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 148px;
+      height: 158px;
+      transform: translateY(0) scale(1);
+      transform-origin: center center;
+      transition: transform 0.46s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .result-word-shell.is-settled {
+      transform: translateY(-42px) scale(0.78);
+    }
+
+    .result-word {
+      display: inline-block;
+      white-space: nowrap;
+      height: 158px;
+      line-height: 1;
+    }
+
+    .result-letter,
+    .result-space {
+      display: inline-block;
+    }
+
+    .result-space {
+      width: 30px;
+    }
+
+    .result-letter {
+      margin-left: 10px;
+      font-size: 138px;
+      line-height: 148px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      opacity: 0;
+      transform: translateY(-104px) scale(1.58);
+    }
+
+    .result-letter.play {
+      animation: result-letter-drop 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    }
+
+    .state-victory .result-letter {
+      color: #ff67b6;
+    }
+
+    .state-failed .result-letter {
+      color: #ec5f66;
+    }
+
+    .result-action {
+      position: absolute;
+      left: 50%;
+      top: 346px;
+      width: 410px;
+      height: 72px;
+      margin-left: -205px;
+      border: 0;
+      padding: 0;
+      background-color: transparent;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(24px);
+      transition:
+        opacity 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+        transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .result-action::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 22px;
+      transform: skewX(-18deg);
+      transition:
+        background-color 0.18s ease,
+        transform 0.18s ease,
+        border-color 0.18s ease;
+    }
+
+    .state-victory .result-action::before {
+      background-color: #ff67b6;
+      border: 2px solid #ff67b6;
+      box-shadow: 0 16px 28px rgba(255, 103, 182, 0.18);
+    }
+
+    .state-failed .result-action::before {
+      background-color: rgba(255, 251, 253, 0.92);
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 16px 28px rgba(0, 0, 0, 0.16);
+    }
+
+    .result-action.is-visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
+
+    .result-action.is-hovered::before,
+    .result-action:hover::before {
+      transform: skewX(-18deg) scale(1.02);
+    }
+
+    .state-victory .result-action.is-hovered::before,
+    .state-victory .result-action:hover::before {
+      background-color: #ff7fc0;
+      border-color: #ff7fc0;
+    }
+
+    .state-failed .result-action.is-hovered::before,
+    .state-failed .result-action:hover::before {
+      background-color: rgba(255, 255, 255, 0.98);
+      border-color: #ff8b9a;
+    }
+
+    .result-action-content {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      transform: skewX(18deg);
+    }
+
+    .result-action-accent {
+      position: absolute;
+      left: 22px;
+      top: 18px;
+      width: 10px;
+      height: 34px;
+      border-radius: 999px;
+    }
+
+    .state-victory .result-action-accent {
+      background-color: rgba(255, 255, 255, 0.7);
+    }
+
+    .state-failed .result-action-accent {
+      background-color: rgba(23, 20, 31, 0.16);
+    }
+
+    .result-action-code {
+      position: absolute;
+      left: 48px;
+      top: 24px;
+      width: 34px;
+      font-size: 11px;
+      line-height: 14px;
+      font-weight: 700;
+      letter-spacing: 2px;
+    }
+
+    .state-victory .result-action-code {
+      color: rgba(255, 255, 255, 0.86);
+    }
+
+    .state-failed .result-action-code {
+      color: rgba(23, 20, 31, 0.58);
+    }
+
+    .result-action-main {
+      position: absolute;
+      left: 96px;
+      top: 15px;
+      right: 122px;
+    }
+
+    .result-action-label {
+      font-size: 22px;
+      line-height: 24px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-align: left;
+    }
+
+    .state-victory .result-action-label {
+      color: #ffffff;
+    }
+
+    .state-failed .result-action-label {
+      color: #17141f;
+    }
+
+    .result-action-sub {
+      margin-top: 5px;
+      font-size: 10px;
+      line-height: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      text-align: left;
+    }
+
+    .state-victory .result-action-sub {
+      color: rgba(255, 255, 255, 0.78);
+    }
+
+    .state-failed .result-action-sub {
+      color: rgba(23, 20, 31, 0.56);
+    }
+
+    .result-action-tail {
+      position: absolute;
+      right: 22px;
+      top: 22px;
+      width: 84px;
+      height: 24px;
+      border-radius: 12px;
+    }
+
+    .state-victory .result-action-tail {
+      background-color: rgba(255, 255, 255, 0.16);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+    }
+
+    .state-failed .result-action-tail {
+      background-color: rgba(255, 103, 182, 0.08);
+      border: 1px solid rgba(23, 20, 31, 0.08);
+    }
+
+    .result-route {
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 438px;
+      font-size: 11px;
+      line-height: 16px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: rgba(255, 243, 249, 0.42);
+      opacity: 0;
+      transition: opacity 0.22s ease;
+    }
+
+    .result-route.is-visible {
+      opacity: 1;
+    }
+
+    .debug-panel {
+      left: 18px;
+      top: 18px;
+      width: 256px;
+      z-index: 6;
+      padding: 14px 14px 12px;
+      border-radius: 16px;
+      background-color: rgba(11, 9, 16, 0.86);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 16px 28px rgba(0, 0, 0, 0.22);
+    }
+
+    .debug-title {
+      font-size: 11px;
+      line-height: 13px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: rgba(255, 244, 249, 0.52);
+      text-transform: uppercase;
+    }
+
+    .debug-row {
+      margin-top: 10px;
+    }
+
+    .debug-button {
+      display: inline-block;
+      min-width: 70px;
+      margin-right: 8px;
+      margin-bottom: 8px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background-color: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 248, 251, 0.84);
+      font-size: 10px;
+      line-height: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+    }
+
+    .debug-button.is-selected {
+      background-color: #ff67b6;
+      border-color: #ff67b6;
+      color: #ffffff;
+    }
+
+    .debug-copy {
+      margin-top: 2px;
+      font-size: 10px;
+      line-height: 14px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      color: rgba(255, 244, 249, 0.5);
+    }
+
+    @keyframes result-letter-drop {
+      0% {
+        opacity: 0;
+        transform: translateY(-104px) scale(1.58);
+      }
+      54% {
+        opacity: 1;
+        transform: translateY(12px) scale(0.92);
+      }
+      76% {
+        opacity: 1;
+        transform: translateY(-3px) scale(1.05);
+      }
+      100% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="battle-screen" id="battle-screen">
+    <div class="scene-layer">
+      <div class="boss-silhouette"></div>
+      <div class="boss-stage-ring"></div>
+      <div class="floor-band"></div>
+    </div>
+
+    <div class="hud-layer">
+      <div class="turn-rail">
+        <div class="turn-card one">
+          <div class="turn-shell"></div>
+          <div class="turn-inner">
+            <div class="turn-accent"></div>
+            <div class="turn-portrait"></div>
+            <div class="turn-value">12</div>
+          </div>
+        </div>
+        <div class="turn-card two">
+          <div class="turn-shell"></div>
+          <div class="turn-inner">
+            <div class="turn-accent"></div>
+            <div class="turn-portrait"></div>
+            <div class="turn-value">24</div>
+          </div>
+        </div>
+        <div class="turn-card three">
+          <div class="turn-shell"></div>
+          <div class="turn-inner">
+            <div class="turn-accent"></div>
+            <div class="turn-portrait"></div>
+            <div class="turn-value">37</div>
+          </div>
+        </div>
+        <div class="turn-card four">
+          <div class="turn-shell"></div>
+          <div class="turn-inner">
+            <div class="turn-accent"></div>
+            <div class="turn-portrait"></div>
+            <div class="turn-value">51</div>
+          </div>
+        </div>
+        <div class="turn-card five">
+          <div class="turn-shell"></div>
+          <div class="turn-inner">
+            <div class="turn-accent"></div>
+            <div class="turn-portrait"></div>
+            <div class="turn-value">68</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="boss-hp">
+        <div class="boss-name">LYOO PLOT TWIST</div>
+        <div class="boss-meter">
+          <div class="boss-meter-trail"></div>
+          <div class="boss-meter-fill"></div>
+          <div class="boss-meter-readout">312 / 420 HP</div>
+        </div>
+      </div>
+
+      <div class="party-rack">
+        <div class="unit-card one">
+          <div class="unit-icon"></div>
+          <div class="unit-hp-shell">
+            <div class="unit-hp-fill" style="width: 82%;"></div>
+          </div>
+          <div class="unit-hp-text">32 / 40 HP</div>
+          <div class="unit-ult">
+            <div class="unit-ult-fill" style="width: 66%;"></div>
+            <div class="unit-ult-text">2 / 3</div>
+          </div>
+        </div>
+        <div class="unit-card two">
+          <div class="unit-icon"></div>
+          <div class="unit-hp-shell">
+            <div class="unit-hp-fill low" style="width: 44%;"></div>
+          </div>
+          <div class="unit-hp-text">27 / 60 HP</div>
+          <div class="unit-ult">
+            <div class="unit-ult-fill" style="width: 75%;"></div>
+            <div class="unit-ult-text">3 / 4</div>
+          </div>
+        </div>
+        <div class="unit-card three">
+          <div class="unit-icon"></div>
+          <div class="unit-hp-shell">
+            <div class="unit-hp-fill critical" style="width: 14%;"></div>
+          </div>
+          <div class="unit-hp-text">11 / 80 HP</div>
+          <div class="unit-ult">
+            <div class="unit-ult-fill" style="width: 34%;"></div>
+            <div class="unit-ult-text">1 / 3</div>
+          </div>
+        </div>
+        <div class="unit-card four">
+          <div class="unit-icon"></div>
+          <div class="unit-hp-shell">
+            <div class="unit-hp-fill" style="width: 76%;"></div>
+          </div>
+          <div class="unit-hp-text">39 / 52 HP</div>
+          <div class="unit-ult">
+            <div class="unit-ult-fill" style="width: 82%;"></div>
+            <div class="unit-ult-text">4 / 5</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-overlay state-victory" id="result-overlay">
+      <div class="result-dim"></div>
+      <div class="result-focus">
+        <div class="result-kicker" id="result-kicker">Battle Resolved</div>
+        <div class="result-word-shell" id="result-word-shell">
+          <div class="result-word" id="result-word"></div>
+        </div>
+        <button class="result-action" id="result-action" type="button">
+          <div class="result-action-content">
+            <div class="result-action-accent"></div>
+            <div class="result-action-code">01</div>
+            <div class="result-action-main">
+              <div class="result-action-label" id="result-action-label">Continue</div>
+              <div class="result-action-sub" id="result-action-sub">Advance To Scriptwin Dialogue</div>
+            </div>
+            <div class="result-action-tail"></div>
+          </div>
+        </button>
+        <div class="result-route" id="result-route"></div>
+      </div>
+    </div>
+
+    <div class="debug-panel">
+      <div class="debug-title">Prototype Controls</div>
+      <div class="debug-row">
+        <button class="debug-button is-selected" id="debug-victory" type="button">Victory</button>
+        <button class="debug-button" id="debug-failed" type="button">Failed</button>
+        <button class="debug-button" id="debug-replay" type="button">Replay</button>
+      </div>
+      <div class="debug-copy">Keys: V = victory, F = failed, R = replay, Enter = click CTA.</div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var config = {
+        resultMode: "victory",
+        autoPlay: true,
+        onContinue: function () {
+          return "Transition target: victoryStoryScript / scriptwin dialogue.";
+        },
+        onRestartStory: function () {
+          return "Transition target: relaunch the current chapter from entry 0.";
+        }
+      };
+
+      var stateMap = {
+        victory: {
+          word: "VICTORY",
+          actionLabel: "CONTINUE",
+          actionSub: "Advance To Scriptwin Dialogue",
+          overlayClass: "state-victory",
+          applausePath: "../assets/ui/sfx/Results_applause-s.wav",
+          finishPath: "../assets/ui/sfx/Selection_roulette-result.wav",
+          routeResolver: config.onContinue
+        },
+        failed: {
+          word: "FAILED",
+          actionLabel: "RESTART STORY",
+          actionSub: "Relaunch The Chapter From The Beginning",
+          overlayClass: "state-failed",
+          applausePath: "",
+          finishPath: "../assets/ui/sfx/Results_rank-impact-fail.wav",
+          routeResolver: config.onRestartStory
+        }
+      };
+
+      var overlay = document.getElementById("result-overlay");
+      var wordShell = document.getElementById("result-word-shell");
+      var wordElement = document.getElementById("result-word");
+      var actionButton = document.getElementById("result-action");
+      var actionLabel = document.getElementById("result-action-label");
+      var actionSub = document.getElementById("result-action-sub");
+      var routeElement = document.getElementById("result-route");
+      var victoryButton = document.getElementById("debug-victory");
+      var failedButton = document.getElementById("debug-failed");
+      var replayButton = document.getElementById("debug-replay");
+      var sequenceToken = 0;
+      var buttonUnlocked = false;
+      var bgmAudio = null;
+      var applauseAudio = null;
+      var letterSoundPaths = [
+        "../assets/ui/sfx/Selection_roulette-0.wav",
+        "../assets/ui/sfx/Selection_roulette-1.wav",
+        "../assets/ui/sfx/Selection_roulette-2.wav",
+        "../assets/ui/sfx/Selection_roulette-3.wav",
+        "../assets/ui/sfx/Selection_roulette-4.wav"
+      ];
+      var buttonHoverPath = "../assets/ui/sfx/UI_button-hover.wav";
+      var buttonSelectPath = "../assets/ui/sfx/UI_button-select.wav";
+      var bgmPath = "../assets/combat/bgm/lyooBoss.wav";
+
+      function schedule(fn, delay) {
+        return window.setTimeout(fn, delay);
+      }
+
+      function clearWord() {
+        wordElement.innerHTML = "";
+      }
+
+      function playOneShot(path, volume) {
+        if (!path) {
+          return;
+        }
+        try {
+          var audio = new Audio(path);
+          audio.volume = typeof volume === "number" ? volume : 1;
+          audio.preload = "auto";
+          audio.play().catch(function () {});
+        } catch (error) {}
+      }
+
+      function tryStartBgm() {
+        if (!bgmAudio) {
+          try {
+            bgmAudio = new Audio(bgmPath);
+            bgmAudio.loop = true;
+            bgmAudio.volume = 0.34;
+            bgmAudio.preload = "auto";
+          } catch (error) {
+            bgmAudio = null;
+          }
+        }
+
+        if (!bgmAudio) {
+          return;
+        }
+
+        if (!bgmAudio.paused) {
+          return;
+        }
+
+        bgmAudio.play().catch(function () {});
+      }
+
+      function fadeOutBgm(durationMs) {
+        if (!bgmAudio || bgmAudio.paused) {
+          return;
+        }
+
+        var startVolume = bgmAudio.volume;
+        var startTime = Date.now();
+
+        function tick() {
+          if (!bgmAudio) {
+            return;
+          }
+
+          var elapsed = Date.now() - startTime;
+          var ratio = elapsed / durationMs;
+
+          if (ratio >= 1) {
+            bgmAudio.volume = 0;
+            return;
+          }
+
+          bgmAudio.volume = startVolume * (1 - ratio);
+          requestAnimationFrame(tick);
+        }
+
+        tick();
+      }
+
+      function stopApplause() {
+        if (!applauseAudio) {
+          return;
+        }
+        try {
+          applauseAudio.pause();
+          applauseAudio.currentTime = 0;
+        } catch (error) {}
+      }
+
+      function playApplause(path) {
+        if (!path) {
+          return;
+        }
+        stopApplause();
+        try {
+          applauseAudio = new Audio(path);
+          applauseAudio.volume = 0.8;
+          applauseAudio.preload = "auto";
+          applauseAudio.play().catch(function () {});
+        } catch (error) {
+          applauseAudio = null;
+        }
+      }
+
+      function makeLetters(word) {
+        clearWord();
+        var letters = [];
+        var i;
+        for (i = 0; i < word.length; i += 1) {
+          var character = word.charAt(i);
+          var node = document.createElement("span");
+          if (character === " ") {
+            node.className = "result-space";
+            node.innerHTML = "&nbsp;";
+          } else {
+            node.className = "result-letter";
+            node.textContent = character;
+            letters.push(node);
+          }
+          wordElement.appendChild(node);
+        }
+        return letters;
+      }
+
+      function updateDebugButtons() {
+        victoryButton.classList.toggle("is-selected", config.resultMode === "victory");
+        failedButton.classList.toggle("is-selected", config.resultMode === "failed");
+      }
+
+      function applyMode(mode) {
+        var definition = stateMap[mode];
+        config.resultMode = mode;
+        overlay.className = "result-overlay " + definition.overlayClass;
+        actionLabel.textContent = definition.actionLabel;
+        actionSub.textContent = definition.actionSub;
+        routeElement.className = "result-route";
+        routeElement.textContent = "";
+        actionButton.className = "result-action";
+        updateDebugButtons();
+      }
+
+      function beginSequence() {
+        var token = sequenceToken + 1;
+        var definition = stateMap[config.resultMode];
+        var letters;
+        var baseDelay = 420;
+        var letterStep = 86;
+        var letterDuration = 420;
+        var settleDelay;
+        var buttonDelay;
+
+        sequenceToken = token;
+        buttonUnlocked = false;
+
+        tryStartBgm();
+        stopApplause();
+        applyMode(config.resultMode);
+
+        overlay.classList.remove("is-active");
+        wordShell.classList.remove("is-settled");
+        clearWord();
+
+        schedule(function () {
+          if (token !== sequenceToken) {
+            return;
+          }
+
+          overlay.classList.add("is-active");
+          fadeOutBgm(1000);
+        }, 20);
+
+        letters = makeLetters(definition.word);
+        settleDelay = baseDelay + (letters.length * letterStep) + letterDuration - 40;
+        buttonDelay = settleDelay + 360;
+
+        letters.forEach(function (letterNode, index) {
+          schedule(function () {
+            if (token !== sequenceToken) {
+              return;
+            }
+
+            letterNode.classList.add("play");
+            playOneShot(letterSoundPaths[index % letterSoundPaths.length], 0.46);
+          }, baseDelay + (index * letterStep));
+        });
+
+        schedule(function () {
+          if (token !== sequenceToken) {
+            return;
+          }
+
+          playOneShot(definition.finishPath, 0.9);
+          if (definition.applausePath) {
+            playApplause(definition.applausePath);
+          }
+        }, settleDelay - 20);
+
+        schedule(function () {
+          if (token !== sequenceToken) {
+            return;
+          }
+
+          wordShell.classList.add("is-settled");
+        }, settleDelay);
+
+        schedule(function () {
+          if (token !== sequenceToken) {
+            return;
+          }
+
+          actionButton.classList.add("is-visible");
+          buttonUnlocked = true;
+        }, buttonDelay);
+      }
+
+      function runAction() {
+        var definition = stateMap[config.resultMode];
+        var routeText = definition.routeResolver();
+
+        if (!buttonUnlocked) {
+          return;
+        }
+
+        playOneShot(buttonSelectPath, 0.88);
+        routeElement.textContent = routeText;
+        routeElement.classList.add("is-visible");
+      }
+
+      actionButton.addEventListener("mouseenter", function () {
+        if (!buttonUnlocked) {
+          return;
+        }
+        actionButton.classList.add("is-hovered");
+        playOneShot(buttonHoverPath, 0.55);
+      });
+
+      actionButton.addEventListener("mouseleave", function () {
+        actionButton.classList.remove("is-hovered");
+      });
+
+      actionButton.addEventListener("click", function () {
+        runAction();
+      });
+
+      victoryButton.addEventListener("click", function () {
+        config.resultMode = "victory";
+        beginSequence();
+      });
+
+      failedButton.addEventListener("click", function () {
+        config.resultMode = "failed";
+        beginSequence();
+      });
+
+      replayButton.addEventListener("click", function () {
+        beginSequence();
+      });
+
+      document.addEventListener("keydown", function (event) {
+        var key = event.key ? event.key.toLowerCase() : "";
+
+        if (key === "v") {
+          config.resultMode = "victory";
+          beginSequence();
+          return;
+        }
+
+        if (key === "f") {
+          config.resultMode = "failed";
+          beginSequence();
+          return;
+        }
+
+        if (key === "r") {
+          beginSequence();
+          return;
+        }
+
+        if (key === "enter") {
+          runAction();
+        }
+      });
+
+      document.addEventListener("pointerdown", function () {
+        tryStartBgm();
+      }, { once: true });
+
+      if (config.autoPlay) {
+        beginSequence();
+      } else {
+        applyMode(config.resultMode);
+      }
+    })();
+  </script>
+</body>
+</html>
