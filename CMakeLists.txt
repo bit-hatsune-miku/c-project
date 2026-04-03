@@ -48,6 +48,8 @@ set(MAIN_APP_SOURCES
     src/game/audio/ui_music_controller.cpp
     src/game/audio/ui_music_controller.h
     src/game/audio/ui_music_types.h
+    src/game/credits/credits_data.cpp
+    src/game/credits/credits_data.h
     src/game/vn/vn_system.cpp
     src/game/vn/vn_script.cpp
     src/game/save/save.cpp
@@ -163,6 +165,8 @@ set(RMLUI_APP_BATTLE_SOURCES
     src/game/app_battle_session.h
     src/game/render/gl_battle_scene_renderer.cpp
     src/game/render/gl_battle_scene_renderer.h
+    src/game/render/gl_function_loader.cpp
+    src/game/render/gl_function_loader.h
 )
 
 set(RMLUI_SELECTOR_SOURCES
@@ -180,6 +184,8 @@ set(FRONT_UI_SOURCES
     src/graphics/rmlui_loading_overlay.h
     src/graphics/rmlui_sdl_gl_renderer.cpp
     src/graphics/rmlui_sdl_gl_renderer.h
+    src/graphics/front_ui_credits.cpp
+    src/graphics/front_ui_credits.h
     src/graphics/front_ui_document.h
     src/graphics/front_ui_story.cpp
     src/graphics/front_ui_story.h

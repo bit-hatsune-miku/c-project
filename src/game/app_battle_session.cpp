@@ -1566,9 +1566,16 @@ public:
             return;
         }
 
-        if (isBattleVsIntroBlocking()) {
+        if (paused_) {
+            SDL_Event mutablePausedEvent = makeScaledRmlInputEvent(event);
+            RmlSDL::InputEventHandler(context_, window_, mutablePausedEvent);
+            handlePauseEvent(event);
+            return;
+        }
+
+        if (isBattleVsIntroBlocking() || combatBeginAnimation_.isActive()) {
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
-                finished_ = true;
+                showToast(hudFeedback_, "CANNOT PAUSE DURING A CUTSCENE.", SDL_GetTicks64(), 1800);
             }
             return;
         }
@@ -1576,7 +1583,7 @@ public:
         if (activeUltimateTurnSplash_ != nullptr) {
             if (event.type == SDL_KEYDOWN) {
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
-                    finished_ = true;
+                    showToast(hudFeedback_, "CANNOT PAUSE DURING A CUTSCENE.", SDL_GetTicks64(), 1800);
                 } else if (event.key.keysym.sym == SDLK_SPACE) {
                     activeUltimateTurnSplash_->skip();
                 } else {
@@ -1593,10 +1600,10 @@ public:
             return;
         }
 
-        if (paused_) {
-            SDL_Event mutablePausedEvent = makeScaledRmlInputEvent(event);
-            RmlSDL::InputEventHandler(context_, window_, mutablePausedEvent);
-            handlePauseEvent(event);
+        if (event.type == SDL_KEYDOWN &&
+            event.key.keysym.sym == SDLK_ESCAPE &&
+            (isDialogueInProgress() || tutorialOverlay_.step != TutorialStep::None)) {
+            showToast(hudFeedback_, "CANNOT PAUSE DURING A CUTSCENE.", SDL_GetTicks64(), 1800);
             return;
         }
 
@@ -1729,7 +1736,6 @@ public:
             syncHudDocument(nowMs);
             return;
         }
-
         if (paused_) {
             if (narrativeEnabled_ && narrativeInitialized_) {
                 vn::setPaused(true);
@@ -1771,6 +1777,11 @@ public:
             feedback_.update(deltaSeconds);
             updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
             syncHudDocument(nowMs);
+            return;
+        }
+
+        if (combatBeginAnimation_.isActive()) {
+            combatBeginAnimation_.update(deltaSeconds);
             return;
         }
 
@@ -2861,6 +2872,11 @@ private:
             if (windowHost_ != nullptr) {
                 windowHost_->present();
             }
+        };
+        callbacks.onPauseBlocked = [this]() {
+            const Uint64 nowMs = SDL_GetTicks64();
+            showToast(hudFeedback_, "CANNOT PAUSE DURING A CUTSCENE.", nowMs, 1800);
+            syncHudDocument(nowMs);
         };
 
         const battle::presentation_runtime::PlaybackResult result =

@@ -22,10 +22,11 @@ enum class ScreenState {
     PartyLoader,
     PostBattle,
     Settings,
-    LoadMenu,
+    LoadGameMenu,
     LoadConfirmDelete,
     BattleDemo,
     Playing,
+    Credits,
     PauseMenu,
     PauseConfirmExit,
     PauseConfirmOverwriteSave

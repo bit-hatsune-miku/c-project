@@ -250,6 +250,15 @@ public:
         targetVisualSelectionIndex_ = 0.0f;
         focusZone_ = FocusZone::Carousel;
         footerSelection_ = FooterAction::ReplayStory;
+        confirmVisible_ = false;
+        confirmChoice_ = ConfirmChoice::Back;
+        confirmTarget_.reset();
+        lastShownConfirmTarget_.reset();
+        pressedCardIndex_.reset();
+        pressedConfirmCardIndex_.reset();
+        pressedConfirmChoice_.reset();
+        pressedFooterAction_.reset();
+        pressedConfirmFooterAction_.reset();
         launchRequest_.reset();
 
         sfxPlayer_.shutdown();
@@ -277,6 +286,11 @@ public:
         replayStoryButtonElement_ = nullptr;
         straightToBattleButtonElement_ = nullptr;
         toastElement_ = nullptr;
+        confirmOverlayElement_ = nullptr;
+        confirmTitleElement_ = nullptr;
+        confirmBodyElement_ = nullptr;
+        confirmBackElement_ = nullptr;
+        confirmProceedElement_ = nullptr;
         cardElements_.clear();
         cardPortraitImageElements_.clear();
         entries_.clear();
@@ -326,6 +340,35 @@ public:
         RmlSDL::InputEventHandler(context_, window_, mutableEvent);
 
         if (event.type == SDL_KEYDOWN && event.key.repeat == 0) {
+            if (confirmVisible_) {
+                switch (event.key.keysym.sym) {
+                    case SDLK_ESCAPE:
+                    case SDLK_BACKSPACE:
+                        closeConfirm();
+                        break;
+
+                    case SDLK_LEFT:
+                    case SDLK_UP:
+                        setConfirmChoice(ConfirmChoice::Back, true);
+                        break;
+
+                    case SDLK_RIGHT:
+                    case SDLK_DOWN:
+                        setConfirmChoice(ConfirmChoice::Proceed, true);
+                        break;
+
+                    case SDLK_RETURN:
+                    case SDLK_KP_ENTER:
+                    case SDLK_SPACE:
+                        activateConfirmSelection();
+                        break;
+
+                    default:
+                        break;
+                }
+                return;
+            }
+
             switch (event.key.keysym.sym) {
                 case SDLK_ESCAPE:
                     finished_ = true;
@@ -364,16 +407,146 @@ public:
                 case SDLK_RETURN:
                 case SDLK_KP_ENTER:
                 case SDLK_SPACE:
-                    if (focusZone_ == FocusZone::Footer) {
-                        activateFooterAction();
-                    } else {
-                        activateSelected();
-                    }
+                    openConfirmForSelected();
                     break;
 
                 default:
                     break;
             }
+        }
+
+        if (event.type == SDL_MOUSEMOTION) {
+            const float mouseX = static_cast<float>(event.motion.x);
+            const float mouseY = static_cast<float>(event.motion.y);
+
+            if (confirmVisible_) {
+                if (hitTestElement(mouseX, mouseY, confirmBackElement_)) {
+                    setConfirmChoice(ConfirmChoice::Back, true);
+                } else if (hitTestElement(mouseX, mouseY, confirmProceedElement_)) {
+                    setConfirmChoice(ConfirmChoice::Proceed, true);
+                }
+            } else if (const std::optional<std::size_t> hoveredCard = hitTestCard(mouseX, mouseY);
+                       hoveredCard.has_value()) {
+                focusZone_ = FocusZone::Carousel;
+                setSelectedIndex(*hoveredCard, true);
+            } else if (const std::optional<FooterAction> hoveredAction = hitTestFooterAction(mouseX, mouseY);
+                       hoveredAction.has_value()) {
+                selectFooterAction(*hoveredAction, true);
+            }
+        }
+
+        if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_RIGHT) {
+            const float mouseX = static_cast<float>(event.button.x);
+            const float mouseY = static_cast<float>(event.button.y);
+
+            if (!confirmVisible_) {
+                if (const std::optional<std::size_t> hoveredCard = hitTestCard(mouseX, mouseY);
+                    hoveredCard.has_value()) {
+                    pressedConfirmCardIndex_ = hoveredCard;
+                    focusZone_ = FocusZone::Carousel;
+                    setSelectedIndex(*hoveredCard, true);
+                } else if (const std::optional<FooterAction> hoveredAction = hitTestFooterAction(mouseX, mouseY);
+                           hoveredAction.has_value()) {
+                    pressedConfirmFooterAction_ = hoveredAction;
+                    selectFooterAction(*hoveredAction, true);
+                }
+            }
+        }
+
+        if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
+            const float mouseX = static_cast<float>(event.button.x);
+            const float mouseY = static_cast<float>(event.button.y);
+            pressedCardIndex_.reset();
+            pressedConfirmCardIndex_.reset();
+            pressedConfirmChoice_.reset();
+            pressedFooterAction_.reset();
+            pressedConfirmFooterAction_.reset();
+
+            if (confirmVisible_) {
+                if (hitTestElement(mouseX, mouseY, confirmBackElement_)) {
+                    pressedConfirmChoice_ = ConfirmChoice::Back;
+                    setConfirmChoice(ConfirmChoice::Back, true);
+                } else if (hitTestElement(mouseX, mouseY, confirmProceedElement_)) {
+                    pressedConfirmChoice_ = ConfirmChoice::Proceed;
+                    setConfirmChoice(ConfirmChoice::Proceed, true);
+                }
+            } else if (const std::optional<std::size_t> hoveredCard = hitTestCard(mouseX, mouseY);
+                       hoveredCard.has_value()) {
+                pressedCardIndex_ = hoveredCard;
+                focusZone_ = FocusZone::Carousel;
+                setSelectedIndex(*hoveredCard, false);
+                return;
+            } else if (const std::optional<FooterAction> hoveredAction = hitTestFooterAction(mouseX, mouseY);
+                       hoveredAction.has_value()) {
+                pressedFooterAction_ = hoveredAction;
+                selectFooterAction(*hoveredAction, false);
+                return;
+            }
+        }
+
+        if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT) {
+            const float mouseX = static_cast<float>(event.button.x);
+            const float mouseY = static_cast<float>(event.button.y);
+
+            if (confirmVisible_) {
+                std::optional<ConfirmChoice> releasedChoice;
+                if (hitTestElement(mouseX, mouseY, confirmBackElement_)) {
+                    releasedChoice = ConfirmChoice::Back;
+                } else if (hitTestElement(mouseX, mouseY, confirmProceedElement_)) {
+                    releasedChoice = ConfirmChoice::Proceed;
+                }
+
+                if (pressedConfirmChoice_.has_value() && releasedChoice == pressedConfirmChoice_) {
+                    setConfirmChoice(*releasedChoice, false);
+                    activateConfirmSelection();
+                }
+
+                pressedConfirmChoice_.reset();
+                pressedCardIndex_.reset();
+                pressedConfirmCardIndex_.reset();
+                pressedFooterAction_.reset();
+                pressedConfirmFooterAction_.reset();
+                return;
+            }
+
+            const std::optional<std::size_t> releasedCard = hitTestCard(mouseX, mouseY);
+            const std::optional<FooterAction> releasedAction = hitTestFooterAction(mouseX, mouseY);
+            if (pressedCardIndex_.has_value() && releasedCard == pressedCardIndex_) {
+                focusZone_ = FocusZone::Carousel;
+                setSelectedIndex(*releasedCard, true);
+            } else if (pressedFooterAction_.has_value() && releasedAction == pressedFooterAction_) {
+                selectFooterAction(*releasedAction, false);
+                openConfirmForSelected();
+            }
+
+            pressedCardIndex_.reset();
+            pressedConfirmCardIndex_.reset();
+            pressedConfirmChoice_.reset();
+            pressedFooterAction_.reset();
+            pressedConfirmFooterAction_.reset();
+        }
+
+        if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_RIGHT) {
+            const float mouseX = static_cast<float>(event.button.x);
+            const float mouseY = static_cast<float>(event.button.y);
+
+            if (confirmVisible_) {
+                return;
+            }
+
+            const std::optional<std::size_t> releasedCard = hitTestCard(mouseX, mouseY);
+            const std::optional<FooterAction> releasedAction = hitTestFooterAction(mouseX, mouseY);
+            if (pressedConfirmCardIndex_.has_value() && releasedCard == pressedConfirmCardIndex_) {
+                focusZone_ = FocusZone::Carousel;
+                setSelectedIndex(*releasedCard, false);
+                openConfirmForEntry(*releasedCard);
+            } else if (pressedConfirmFooterAction_.has_value() && releasedAction == pressedConfirmFooterAction_) {
+                selectFooterAction(*releasedAction, false);
+                openConfirmForSelected();
+            }
+
+            pressedConfirmCardIndex_.reset();
+            pressedConfirmFooterAction_.reset();
         }
 
         if (event.type == SDL_KEYUP) {
@@ -469,6 +642,20 @@ private:
     enum class FooterAction {
         ReplayStory,
         StraightToBattle,
+    };
+
+    enum class ConfirmChoice {
+        Back,
+        Proceed,
+    };
+
+    enum class ConfirmTargetType {
+        Entry,
+    };
+
+    struct ConfirmTarget {
+        ConfirmTargetType type = ConfirmTargetType::Entry;
+        std::size_t entryIndex = 0;
     };
 
     struct EventListenerBinding {
@@ -657,6 +844,11 @@ private:
         replayStoryButtonElement_ = document_->GetElementById("replay-story-button");
         straightToBattleButtonElement_ = document_->GetElementById("straight-to-battle-button");
         toastElement_ = document_->GetElementById("selector-toast");
+        confirmOverlayElement_ = document_->GetElementById("selector-confirm");
+        confirmTitleElement_ = document_->GetElementById("selector-confirm-title");
+        confirmBodyElement_ = document_->GetElementById("selector-confirm-body");
+        confirmBackElement_ = document_->GetElementById("selector-confirm-back");
+        confirmProceedElement_ = document_->GetElementById("selector-confirm-proceed");
     }
 
     void buildTrack() {
@@ -706,51 +898,6 @@ private:
         if (document_ == nullptr) {
             return;
         }
-
-        for (std::size_t i = 0; i < cardElements_.size(); ++i) {
-            if (Rml::Element* element = cardElements_[i]) {
-                auto clickListener = std::make_unique<CallbackEventListener>([this, i](Rml::Event&) {
-                    focusZone_ = FocusZone::Carousel;
-                    setSelectedIndex(i, false);
-                    activateSelected();
-                });
-                element->AddEventListener(Rml::EventId::Click, clickListener.get());
-                listeners_.push_back(EventListenerBinding{
-                    element,
-                    Rml::EventId::Click,
-                    false,
-                    std::move(clickListener),
-                });
-            }
-        }
-
-        if (Rml::Element* replayElement = replayStoryButtonElement_) {
-            auto clickListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-                selectFooterAction(FooterAction::ReplayStory, false);
-                activateFooterAction();
-            });
-            replayElement->AddEventListener(Rml::EventId::Click, clickListener.get());
-            listeners_.push_back(EventListenerBinding{
-                replayElement,
-                Rml::EventId::Click,
-                false,
-                std::move(clickListener),
-            });
-        }
-
-        if (Rml::Element* battleElement = straightToBattleButtonElement_) {
-            auto clickListener = std::make_unique<CallbackEventListener>([this](Rml::Event&) {
-                selectFooterAction(FooterAction::StraightToBattle, false);
-                activateFooterAction();
-            });
-            battleElement->AddEventListener(Rml::EventId::Click, clickListener.get());
-            listeners_.push_back(EventListenerBinding{
-                battleElement,
-                Rml::EventId::Click,
-                false,
-                std::move(clickListener),
-            });
-        }
     }
 
     void applySelection() {
@@ -769,6 +916,22 @@ private:
             straightToBattleButtonElement_->SetClass(
                 "is-focused",
                 focusZone_ == FocusZone::Footer && footerSelection_ == FooterAction::StraightToBattle);
+        }
+
+        if (confirmOverlayElement_ != nullptr) {
+            confirmOverlayElement_->SetClass("is-visible", confirmVisible_);
+        }
+        if (confirmBackElement_ != nullptr) {
+            confirmBackElement_->SetClass("is-selected", confirmChoice_ == ConfirmChoice::Back);
+        }
+        if (confirmProceedElement_ != nullptr) {
+            confirmProceedElement_->SetClass("is-selected", confirmChoice_ == ConfirmChoice::Proceed);
+        }
+        if (confirmTitleElement_ != nullptr) {
+            confirmTitleElement_->SetInnerRML(confirmTitleRml());
+        }
+        if (confirmBodyElement_ != nullptr) {
+            confirmBodyElement_->SetInnerRML(confirmBodyRml());
         }
 
         for (std::size_t i = 0; i < cardElements_.size(); ++i) {
@@ -959,14 +1122,7 @@ private:
             return;
         }
 
-        const Entry& entry = entries_[selectedIndex_];
-        playConfirmSfx();
-        launchRequest_ = LaunchRequest{
-            entry.battle.storyScript.empty()
-                ? LaunchRequest::Mode::PracticeStraightToBattle
-                : LaunchRequest::Mode::PracticeReplayStory,
-            entry.battle.storyScript.empty() ? entry.battle.key : entry.battle.storyScript,
-        };
+        activateFooterAction();
     }
 
     void activateFooterAction() {
@@ -984,6 +1140,160 @@ private:
                 ? entry.battle.storyScript
                 : entry.battle.key,
         };
+    }
+
+    void openConfirmForSelected() {
+        if (entries_.empty()) {
+            return;
+        }
+
+        openConfirmForEntry(selectedIndex_);
+    }
+
+    void openConfirmForEntry(std::size_t index) {
+        if (entries_.empty()) {
+            return;
+        }
+
+        focusZone_ = FocusZone::Carousel;
+        setSelectedIndex(index, false);
+        confirmTarget_ = ConfirmTarget{ConfirmTargetType::Entry, selectedIndex_};
+        showConfirm();
+    }
+
+    void showConfirm() {
+        const bool targetChanged =
+            !confirmVisible_ ||
+            !confirmTarget_.has_value() ||
+            (lastShownConfirmTarget_.has_value() &&
+             (lastShownConfirmTarget_->type != confirmTarget_->type ||
+              lastShownConfirmTarget_->entryIndex != confirmTarget_->entryIndex));
+
+        if (!confirmVisible_ || targetChanged) {
+            playConfirmSfx();
+        }
+
+        confirmVisible_ = true;
+        confirmChoice_ = ConfirmChoice::Back;
+        negativeHeld_ = false;
+        positiveHeld_ = false;
+        holdNegativeElapsed_ = 0.0f;
+        holdPositiveElapsed_ = 0.0f;
+        lastShownConfirmTarget_ = confirmTarget_;
+        applySelection();
+    }
+
+    void closeConfirm() {
+        if (!confirmVisible_) {
+            return;
+        }
+
+        confirmVisible_ = false;
+        pressedConfirmChoice_.reset();
+        applySelection();
+    }
+
+    void setConfirmChoice(ConfirmChoice choice, bool shouldPlayScrollSfx) {
+        if (confirmChoice_ == choice) {
+            return;
+        }
+
+        confirmChoice_ = choice;
+        if (shouldPlayScrollSfx) {
+            playScrollSfx();
+        }
+        applySelection();
+    }
+
+    void activateConfirmSelection() {
+        if (!confirmVisible_) {
+            return;
+        }
+
+        if (confirmChoice_ == ConfirmChoice::Back) {
+            closeConfirm();
+            return;
+        }
+
+        confirmVisible_ = false;
+        if (!confirmTarget_.has_value()) {
+            applySelection();
+            return;
+        }
+
+        const ConfirmTarget target = *confirmTarget_;
+        confirmTarget_.reset();
+        setSelectedIndex(target.entryIndex, false);
+        activateSelected();
+        applySelection();
+    }
+
+    bool hitTestElement(float x, float y, Rml::Element* element) const {
+        if (element == nullptr || !element->IsVisible(true)) {
+            return false;
+        }
+
+        Rml::Vector2f point{x, y};
+        if (!element->Project(point)) {
+            return false;
+        }
+        return element->IsPointWithinElement(point);
+    }
+
+    std::optional<std::size_t> hitTestCard(float x, float y) const {
+        std::optional<std::size_t> bestIndex;
+        float bestZIndex = -1000000.0f;
+
+        for (std::size_t i = 0; i < cardElements_.size(); ++i) {
+            Rml::Element* element = cardElements_[i];
+            if (!hitTestElement(x, y, element)) {
+                continue;
+            }
+
+            const float zIndex = element->GetZIndex();
+            if (!bestIndex.has_value() || zIndex >= bestZIndex) {
+                bestIndex = i;
+                bestZIndex = zIndex;
+            }
+        }
+
+        return bestIndex;
+    }
+
+    std::optional<FooterAction> hitTestFooterAction(float x, float y) const {
+        if (hitTestElement(x, y, replayStoryButtonElement_)) {
+            return FooterAction::ReplayStory;
+        }
+        if (hitTestElement(x, y, straightToBattleButtonElement_)) {
+            return FooterAction::StraightToBattle;
+        }
+        return std::nullopt;
+    }
+
+    std::string confirmTitleRml() const {
+        if (!confirmTarget_.has_value() || entries_.empty()) {
+            return "Pick This Rival?";
+        }
+
+        const Entry& entry = entries_[confirmTarget_->entryIndex % entries_.size()];
+        const bool replayStory =
+            footerSelection_ == FooterAction::ReplayStory && !entry.battle.storyScript.empty();
+        return replayStory ? "Replay This Story?" : "Start Practice Battle?";
+    }
+
+    std::string confirmBodyRml() const {
+        if (!confirmTarget_.has_value() || entries_.empty()) {
+            return "Are you sure you want to pick this rival?";
+        }
+
+        const Entry& entry = entries_[confirmTarget_->entryIndex % entries_.size()];
+        const bool replayStory =
+            footerSelection_ == FooterAction::ReplayStory && !entry.battle.storyScript.empty();
+        const std::string destination = escapeRml(entry.boss.title) + " / " + escapeRml(entry.battle.name);
+        if (replayStory) {
+            return "Replay the story route for:<br/><br/>" + destination;
+        }
+        return "Jump straight into practice battle against:<br/><br/>" + destination;
     }
 
     void updateHeldInput(float deltaSeconds) {
@@ -1131,8 +1441,22 @@ private:
     Rml::Element* replayStoryButtonElement_ = nullptr;
     Rml::Element* straightToBattleButtonElement_ = nullptr;
     Rml::Element* toastElement_ = nullptr;
+    Rml::Element* confirmOverlayElement_ = nullptr;
+    Rml::Element* confirmTitleElement_ = nullptr;
+    Rml::Element* confirmBodyElement_ = nullptr;
+    Rml::Element* confirmBackElement_ = nullptr;
+    Rml::Element* confirmProceedElement_ = nullptr;
     std::vector<Rml::Element*> cardElements_;
     std::vector<Rml::Element*> cardPortraitImageElements_;
+    std::optional<ConfirmTarget> confirmTarget_;
+    std::optional<ConfirmTarget> lastShownConfirmTarget_;
+    bool confirmVisible_ = false;
+    ConfirmChoice confirmChoice_ = ConfirmChoice::Back;
+    std::optional<std::size_t> pressedCardIndex_;
+    std::optional<std::size_t> pressedConfirmCardIndex_;
+    std::optional<ConfirmChoice> pressedConfirmChoice_;
+    std::optional<FooterAction> pressedFooterAction_;
+    std::optional<FooterAction> pressedConfirmFooterAction_;
 };
 
 Session::Session()
