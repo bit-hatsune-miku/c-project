@@ -1917,6 +1917,7 @@ public:
      * dictated by current runtime conditions.
      *
      * @param deltaSeconds Frame time step in seconds.
+     */
     void update(float deltaSeconds) {
         if (!initialized_ || finished_) {
             return;

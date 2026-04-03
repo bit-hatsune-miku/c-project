@@ -689,6 +689,45 @@ std::string resolvePendingStoryNextScript(const vn::Script& script) {
             return battleDefinition.victoryStoryScript == scriptId;
         });
     if (it == battleDefinitions.end()) {
+        const std::filesystem::path storyDirectory =
+            std::filesystem::path(platform::path::resolvePath("assets/vn/json"));
+        std::error_code directoryError;
+        if (!std::filesystem::exists(storyDirectory, directoryError)) {
+            return std::string();
+        }
+
+        for (const std::filesystem::directory_entry& entry :
+             std::filesystem::directory_iterator(storyDirectory, directoryError)) {
+            if (directoryError || !entry.is_regular_file() || entry.path().extension() != ".json") {
+                continue;
+            }
+
+            vn::Script candidateScript;
+            if (!vn::loadScript(entry.path().string(), candidateScript)) {
+                continue;
+            }
+
+            for (const vn::ScriptEntry& scriptEntry : candidateScript.entries) {
+                if (scriptEntry.battleWinScript != scriptId) {
+                    continue;
+                }
+
+                battle::BattleDefinition linkedBattleDefinition;
+                bool loadedBattleDefinition = false;
+                if (!scriptEntry.battleKey.empty()) {
+                    loadedBattleDefinition =
+                        battle::loader::loadBattleDefinition(scriptEntry.battleKey, linkedBattleDefinition);
+                } else if (scriptEntry.battleId >= 0) {
+                    loadedBattleDefinition =
+                        battle::loader::loadBattleDefinitionById(scriptEntry.battleId, linkedBattleDefinition);
+                }
+
+                if (loadedBattleDefinition && !linkedBattleDefinition.nextStoryScript.empty()) {
+                    return linkedBattleDefinition.nextStoryScript;
+                }
+            }
+        }
+
         return std::string();
     }
 
@@ -763,6 +802,24 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
         entry.bgmPause,
         accentColor
     );
+}
+
+void debugSkipStoryToLastEntry(AppState& state) {
+    if (!state.story.loaded || state.story.script.entries.empty()) {
+        return;
+    }
+
+    const std::size_t lastIndex = state.story.script.entries.size() - 1;
+    if (state.story.entryIndex >= lastIndex) {
+        vn::onSpacePressed();
+        return;
+    }
+
+    state.story.entryIndex = lastIndex;
+    applyCurrentEntry(state.story, state.settings);
+    if (!vn::isLineFinished()) {
+        vn::onSpacePressed();
+    }
 }
 
 bool loadStoryScript(StorySession& story, const std::string& scriptRef) {
@@ -1000,8 +1057,8 @@ void clearPendingBattleState(AppState& state,
     state.pendingStoryNextScript.clear();
 }
 
-bool isFinalCreditsStory(const StorySession& story) {
-    return story.loaded && story.script.scriptId == "finale02";
+bool shouldLaunchCreditsAfterStory(const StorySession& story) {
+    return story.loaded && (story.script.credits || story.script.scriptId == "finale02");
 }
 
 void beginCredits(AppState& state) {
@@ -1032,6 +1089,11 @@ bool startLoadedStoryPlayback(AppState& state,
         return false;
     }
 
+    const std::string resumedNextStoryScript =
+        flowMode == StoryFlowMode::Campaign
+        ? resolvePendingStoryNextScript(state.story.script)
+        : std::string();
+
     state.storyFlowMode = flowMode;
     state.storyEndReturnScreen = endReturnScreen;
     state.requestStoryReturnToBossSelector = false;
@@ -1041,6 +1103,7 @@ bool startLoadedStoryPlayback(AppState& state,
     state.pauseIntroTime = 0.0f;
     state.screen = ScreenState::Playing;
     clearPendingBattleState(state);
+    state.pendingStoryNextScript = resumedNextStoryScript;
     vn::reset();
     vn::setMusicVolume(state.settings.musicVolume);
     vn::setVoiceVolume(state.settings.voiceVolume);
@@ -1078,7 +1141,9 @@ void beginStory(AppState& state,
     }
 
     state.story.entryIndex = 0;
-    if (!startLoadedStoryPlayback(state, endReturnScreen, autosaveOnStart, flowMode)) {
+    const ScreenState resolvedEndReturnScreen =
+        resolveStoryEndReturnScreen(state.story.script, endReturnScreen);
+    if (!startLoadedStoryPlayback(state, resolvedEndReturnScreen, autosaveOnStart, flowMode)) {
         state.noticeText = scriptRef.empty()
             ? "Chapter 0 has no dialogue entries."
             : "Story has no dialogue entries.";
@@ -1993,7 +2058,9 @@ int main(int argc, char** argv) {
             }
 
             state.story.entryIndex = 0;
-            if (!startLoadedStoryPlayback(state, endReturnScreen, true, flowMode)) {
+            const ScreenState resolvedEndReturnScreen =
+                resolveStoryEndReturnScreen(state.story.script, endReturnScreen);
+            if (!startLoadedStoryPlayback(state, resolvedEndReturnScreen, true, flowMode)) {
                 state.screen = ScreenState::MainMenu;
                 state.pauseContext = PauseContext::Story;
                 state.mainSelection = MainMenuAction::Start;
@@ -2158,6 +2225,10 @@ int main(int argc, char** argv) {
                 case ScreenState::Credits:
 #ifdef APP_ENABLE_RMLUI
                     if (event.type == SDL_KEYDOWN &&
+                        state.screen == ScreenState::Playing &&
+                        event.key.keysym.sym == SDLK_s) {
+                        debugSkipStoryToLastEntry(state);
+                    } else if (event.type == SDL_KEYDOWN &&
                         event.key.keysym.sym == SDLK_j &&
                         (event.key.keysym.mod & KMOD_CTRL) != 0) {
                         debugJumpToCredits(state);
@@ -2178,7 +2249,9 @@ int main(int argc, char** argv) {
                     }
 #else
                     if (event.type == SDL_KEYDOWN) {
-                        if (event.key.keysym.sym == SDLK_j && (event.key.keysym.mod & KMOD_CTRL) != 0) {
+                        if (state.screen == ScreenState::Playing && event.key.keysym.sym == SDLK_s) {
+                            debugSkipStoryToLastEntry(state);
+                        } else if (event.key.keysym.sym == SDLK_j && (event.key.keysym.mod & KMOD_CTRL) != 0) {
                             debugJumpToCredits(state);
                         } else if (state.screen == ScreenState::Playing && event.key.keysym.sym == SDLK_ESCAPE) {
                             openPauseMenu(state);
@@ -2941,7 +3014,7 @@ int main(int argc, char** argv) {
                             return true;
                         });
                 } else if (state.story.entryIndex >= state.story.script.entries.size()) {
-                    if (isFinalCreditsStory(state.story)) {
+                    if (shouldLaunchCreditsAfterStory(state.story)) {
                         beginCredits(state);
                     } else if (state.storyEndReturnScreen == ScreenState::BossSelector) {
                         state.requestStoryReturnToBossSelector = true;

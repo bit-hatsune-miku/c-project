@@ -48,6 +48,7 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
             outScript.scriptId = std::filesystem::path(jsonPath).stem().string();
         }
         outScript.endReturnScreen = j.value("endReturnScreen", "");
+        outScript.credits = j.value("credits", false);
         outScript.entries.clear();
 
         if (!j.contains("entries") || !j["entries"].is_array()) {

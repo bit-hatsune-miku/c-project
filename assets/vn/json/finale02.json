@@ -1,4 +1,5 @@
 {
+  "credits": true,
   "entries": [
     {
       "speaker": "Cupcakke",
@@ -147,6 +148,14 @@
       "background": "",
       "voice": "assets/vn/voices/finale2/16.wav",
       "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "Roll in the credits!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/finale2/17.wav",
+      "autoAdvanceOnVoiceEnd": true
     }
   ]
 }
