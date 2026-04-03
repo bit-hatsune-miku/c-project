@@ -51,7 +51,7 @@ std::string resolveInstructionHint(const BossDefinition& boss) {
             return ability.instructionHint;
         }
     }
-    return "Preview interaction hint not available yet.";
+    return "No special interaction hint is available for this round.";
 }
 
 }  // namespace
