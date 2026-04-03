@@ -31,12 +31,12 @@
                 "atkBonusPercent": 0,
                 "presentation": {
                     "intParams": {
-                        "pulseCount": 4
+                        "pulseCount": 2
                     },
                     "floatParams": {
                         "zoomDurationSeconds": 1.55,
-                        "pulseTravelSeconds": 0.52,
-                        "parryToleranceSeconds": 0.20
+                        "pulseTravelSeconds": 1,
+                        "parryToleranceSeconds": 0.50
                     }
                 }
             },
@@ -44,12 +44,12 @@
                 "atkBonusPercent": 15,
                 "presentation": {
                     "intParams": {
-                        "pulseCount": 7
+                        "pulseCount": 5
                     },
                     "floatParams": {
                         "zoomDurationSeconds": 1.35,
-                        "pulseTravelSeconds": 0.46,
-                        "parryToleranceSeconds": 0.17
+                        "pulseTravelSeconds": 0.8,
+                        "parryToleranceSeconds": 0.4
                     }
                 }
             },
@@ -57,12 +57,12 @@
                 "atkBonusPercent": 30,
                 "presentation": {
                     "intParams": {
-                        "pulseCount": 12
+                        "pulseCount": 10
                     },
                     "floatParams": {
                         "zoomDurationSeconds": 1.15,
-                        "pulseTravelSeconds": 0.40,
-                        "parryToleranceSeconds": 0.14
+                        "pulseTravelSeconds": 0.75,
+                        "parryToleranceSeconds": 0.3
                     }
                 }
             }
@@ -83,7 +83,7 @@
             "skill": {
                 "id": "IfICantHaveWingsThenIllJustLetTheSkyFall",
                 "name": "If I can't have wings, then I'll just let the sky fall",
-                "instructionHint": "Lyoo is able to one shot characters. It is recommended to pair a shielder AND a healer.",
+                "instructionHint": "Lyoo is able to one-shot characters. It is recommended to pair a shielder AND a healer.",
                 "type": "attack",
                 "targetRule": "all_enemies",
                 "multiplier": 1.25,
