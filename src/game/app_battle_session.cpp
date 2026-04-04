@@ -3668,9 +3668,15 @@ private:
                 const float healMultiplier = activePresentation_ != nullptr
                     ? std::max(0.0f, activePresentation_->getInputMultiplier())
                     : 1.0f;
-                const int totalHeal = std::max(0, static_cast<int>(std::lround(
-                    static_cast<float>(abilityDef->flatHeal) * healMultiplier
-                )));
+                const int casterMaxHp = context.isBoss
+                    ? manager_.getBossMaxHp()
+                    : manager_.getCharacterMaxHp(context.casterIndex);
+                const int totalHeal = battle::ability::resolveSupportAmount(
+                    *abilityDef,
+                    casterMaxHp,
+                    healMultiplier,
+                    abilityDef->flatHeal
+                );
                 const int perHitHeal = totalHeal / std::max(1, hitEvents);
                 manager_.applyPresentationHealing(
                     context.isBoss,
@@ -3700,6 +3706,31 @@ private:
             partyHpBefore.reserve(state.party.size());
             for (size_t i = 0; i < state.party.size(); ++i) {
                 partyHpBefore.push_back(manager_.getCharacterCurrentHp(static_cast<int>(i)));
+            }
+
+            if (battle::ability::isTeamShieldBurstUltimate(*abilityDef)) {
+                const int totalDamage = manager_.applyCurrentTeamShieldDamageToBoss(true);
+                if (totalDamage > 0) {
+                    handlePresentationHitAudio(
+                        context,
+                        hitEvents,
+                        -1,
+                        bossHpBefore,
+                        partyHpBefore
+                    );
+                    const int spawnedDamagePopups = feedback_.queuePresentationHitFeedback(
+                        context.isBoss,
+                        hitEvents,
+                        totalDamage,
+                        manager_,
+                        -1
+                    );
+                    registerPresentationDamage(
+                        hudFeedback_,
+                        totalDamage * std::max(0, spawnedDamagePopups),
+                        SDL_GetTicks64());
+                }
+                return;
             }
 
             const float hitDamageMultiplier = activePresentation_ != nullptr

@@ -48,6 +48,14 @@ namespace {
 
 constexpr float kActionValueEpsilon = 0.0001f;
 
+void grantUltimatePointForAction(BattleCharacter& character, bool grantsUltimatePointOnAction) {
+    if (!grantsUltimatePointOnAction) {
+        return;
+    }
+
+    character.gainUltimatePoint(1);
+}
+
 bool consumeInvalidPreviewCharacterTurn(const std::vector<BattleCharacter>& characters,
                                         TurnState& turnState,
                                         const TurnEvent& next) {
@@ -282,9 +290,9 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     characters_.clear();
     recentActionEvents_.clear();
     telemetry_ = BattleTelemetry{};
-    bossStatus_ = BossStatusState{};
     simulatedActions_ = 0;
     activePartyBuffs_.clear();
+    activeBossDebuffs_.clear();
     bossAbilityUseCounts_.clear();
     nextManualUltimatePriority_ = 1000;
     luotianyiCorrectTones_ = 0;
@@ -800,6 +808,35 @@ void BattleManager::applyPlayerOffenseToBoss(int amount) {
     applyBossDamage(amount);
 }
 
+int BattleManager::currentLivingPartyShieldTotal() const {
+    int totalShield = 0;
+    for (const BattleCharacter& character : characters_) {
+        if (!character.isAlive()) {
+            continue;
+        }
+        totalShield += std::max(0, character.getShield());
+    }
+    return totalShield;
+}
+
+int BattleManager::applyCurrentTeamShieldDamageToBoss(bool markPresentationResolved) {
+    if (markPresentationResolved) {
+        presentationHitDamageApplied_ = true;
+    }
+
+    if (isBattleOver()) {
+        return 0;
+    }
+
+    const int totalShield = currentLivingPartyShieldTotal();
+    if (totalShield <= 0) {
+        return 0;
+    }
+
+    applyPlayerOffenseToBoss(totalShield);
+    return totalShield;
+}
+
 /**
  * @brief Normalizes combo count and updates the corresponding damage bonus fraction.
  *
@@ -1004,6 +1041,140 @@ const AbilityDefinition* BattleManager::findAbilityDefinition(const std::string&
     return getAbility(abilityId);
 }
 
+std::vector<BattleStatusBadge> BattleManager::getActiveStatusBadges() const {
+    std::vector<BattleStatusBadge> badges;
+    badges.reserve(characters_.size() + activePartyBuffs_.size() * 2 + activeBossDebuffs_.size());
+
+    for (size_t i = 0; i < characters_.size(); ++i) {
+        const BattleCharacter& character = characters_[i];
+        if (!character.isAlive() || character.getShield() <= 0) {
+            continue;
+        }
+
+        BattleStatusBadge badge;
+        badge.target = BattleStatusBadgeTarget::PartyMember;
+        badge.targetPartyIndex = static_cast<int>(i);
+        badge.sourcePartyIndex = static_cast<int>(i);
+        badge.category = BattleStatusBadgeCategory::Shield;
+        badge.abilityId = "shield";
+        badge.statusName = "Shield";
+        badge.value = character.getShield();
+        badges.push_back(std::move(badge));
+    }
+
+    for (const ActivePartyBuff& buff : activePartyBuffs_) {
+        if (buff.sourcePartyIndex < 0 ||
+            buff.targetPartyIndex < 0 ||
+            static_cast<size_t>(buff.sourcePartyIndex) >= characters_.size() ||
+            static_cast<size_t>(buff.targetPartyIndex) >= characters_.size()) {
+            continue;
+        }
+
+        const BattleCharacter& source = characters_[static_cast<size_t>(buff.sourcePartyIndex)];
+        const BattleCharacter& target = characters_[static_cast<size_t>(buff.targetPartyIndex)];
+        if (!source.isAlive() || !target.isAlive()) {
+            continue;
+        }
+
+        const AbilityDefinition* ability = getAbility(buff.abilityId);
+        const std::string statusName =
+            (ability != nullptr && !ability->statusName.empty())
+                ? ability->statusName
+                : ((ability != nullptr && !ability->name.empty()) ? ability->name : buff.abilityId);
+
+        const auto appendBadge = [&](int value, BattleStatusBadgeValueKind valueKind, const char* statLabel) {
+            if (value == 0) {
+                return;
+            }
+
+            BattleStatusBadge badge;
+            badge.target = BattleStatusBadgeTarget::PartyMember;
+            badge.targetPartyIndex = buff.targetPartyIndex;
+            badge.sourcePartyIndex = buff.sourcePartyIndex;
+            badge.category = value < 0 ? BattleStatusBadgeCategory::Debuff : BattleStatusBadgeCategory::Buff;
+            badge.valueKind = valueKind;
+            badge.abilityId = buff.abilityId;
+            badge.sourceKey = source.definition().key;
+            badge.sourceAssetId = source.definition().assets;
+            badge.statusName = statusName;
+            badge.statLabel = statLabel == nullptr ? std::string() : std::string(statLabel);
+            badge.value = value;
+            badges.push_back(std::move(badge));
+        };
+
+        appendBadge(buff.speedBuff, BattleStatusBadgeValueKind::Flat, "SPD");
+        appendBadge(buff.atkBuff, BattleStatusBadgeValueKind::Percent, "ATK");
+    }
+
+    if (bossCurrentHp_ > 0) {
+        for (const ActiveBossDebuff& debuff : activeBossDebuffs_) {
+            if (debuff.charges <= 0 ||
+                debuff.sourcePartyIndex < 0 ||
+                static_cast<size_t>(debuff.sourcePartyIndex) >= characters_.size()) {
+                continue;
+            }
+
+            const BattleCharacter& source = characters_[static_cast<size_t>(debuff.sourcePartyIndex)];
+            if (!source.isAlive()) {
+                continue;
+            }
+
+            const AbilityDefinition* ability = getAbility(debuff.abilityId);
+            const std::string statusName =
+                (ability != nullptr && !ability->statusName.empty())
+                    ? ability->statusName
+                    : ((ability != nullptr && !ability->name.empty()) ? ability->name : debuff.abilityId);
+
+            BattleStatusBadge badge;
+            badge.target = BattleStatusBadgeTarget::Boss;
+            badge.sourcePartyIndex = debuff.sourcePartyIndex;
+            badge.category = BattleStatusBadgeCategory::Debuff;
+            badge.valueKind = BattleStatusBadgeValueKind::Charges;
+            badge.abilityId = debuff.abilityId;
+            badge.sourceKey = source.definition().key;
+            badge.sourceAssetId = source.definition().assets;
+            badge.statusName = statusName;
+            badge.value = debuff.charges;
+            badges.push_back(std::move(badge));
+        }
+    }
+
+    const auto categoryOrder = [](BattleStatusBadgeCategory category) {
+        switch (category) {
+            case BattleStatusBadgeCategory::Shield:
+                return 0;
+            case BattleStatusBadgeCategory::Buff:
+                return 1;
+            case BattleStatusBadgeCategory::Debuff:
+                return 2;
+        }
+        return 3;
+    };
+
+    std::stable_sort(badges.begin(), badges.end(), [&](const BattleStatusBadge& lhs, const BattleStatusBadge& rhs) {
+        if (lhs.target != rhs.target) {
+            return lhs.target < rhs.target;
+        }
+        if (lhs.targetPartyIndex != rhs.targetPartyIndex) {
+            return lhs.targetPartyIndex < rhs.targetPartyIndex;
+        }
+        const int lhsCategoryOrder = categoryOrder(lhs.category);
+        const int rhsCategoryOrder = categoryOrder(rhs.category);
+        if (lhsCategoryOrder != rhsCategoryOrder) {
+            return lhsCategoryOrder < rhsCategoryOrder;
+        }
+        if (lhs.sourcePartyIndex != rhs.sourcePartyIndex) {
+            return lhs.sourcePartyIndex < rhs.sourcePartyIndex;
+        }
+        if (lhs.abilityId != rhs.abilityId) {
+            return lhs.abilityId < rhs.abilityId;
+        }
+        return lhs.statLabel < rhs.statLabel;
+    });
+
+    return badges;
+}
+
 const std::vector<BattleActionEvent>& BattleManager::getRecentActionEvents() const {
     return recentActionEvents_;
 }
@@ -1107,7 +1278,7 @@ bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vecto
         return false;
     }
 
-    const BattleCharacter& character = characters_[static_cast<size_t>(actor.partyIndex)];
+    BattleCharacter& character = characters_[static_cast<size_t>(actor.partyIndex)];
     if (!character.isAlive()) {
         return false;
     }
@@ -1119,6 +1290,9 @@ bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vecto
     if (abilityDef == nullptr || abilityDef->type != AbilityType::Attack) {
         return false;
     }
+
+    grantUltimatePointForAction(character, true);
+    syncCharacterUltimateTurn(character.partyIndex());
 
     PresentationContext presContext;
     presContext.abilityId = abilityDef->id;
@@ -1176,9 +1350,9 @@ void BattleManager::applyBossSplitHitDamage(int damage) {
 /**
  * @brief Commits a prepared split-attack as the character's primary turn and applies resulting state updates.
  *
- * Advances the turn preview into an executed primary character turn for the pending split-attack, awards the character an ultimate point,
- * records consumed action value into telemetry, resets the consumed actor's action value and priority, synchronizes ultimate-turn queuing,
- * and clears the pending split-attack actor key.
+ * Advances the turn preview into an executed primary character turn for the pending split-attack,
+ * records consumed action value into telemetry, resets the consumed actor's action value and priority,
+ * synchronizes ultimate-turn queuing, and clears the pending split-attack actor key.
  *
  * @return `true` if the split-attack turn was successfully committed and state was updated; `false` if the battle is over,
  * the preview/actor was invalid or out of range, the actor is an extra turn, advancing the turn failed, or the character is not alive.
@@ -1220,7 +1394,6 @@ bool BattleManager::commitCurrentPlayerSplitAttackTurn() {
     }
 
     telemetry_.totalActionValueConsumed += event.consumedActionValue;
-    character.gainUltimatePoint();
 
     if (event.actingActorIndex >= turnState_.actors.size()) {
         return false;
@@ -1678,6 +1851,11 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
     actionEvent.hitVoicesHandledDuringPresentation = false;
     actionEvent.consumedActionValue = std::max(0.0f, consumedActionValue);
 
+    grantUltimatePointForAction(character, grantsUltimatePointOnAction);
+    if (grantsUltimatePointOnAction) {
+        syncCharacterUltimateTurn(character.partyIndex());
+    }
+
     if (abilityDef == nullptr) {
         const int fallbackDamage = normalizeDamage(
             character.effectiveAtk() * ((action == BattleAction::Ultimate) ? 2 : 1)
@@ -1731,13 +1909,11 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
     if (abilityDef != nullptr &&
         abilityDef->id == "MeiCiDuXiangZhuang" &&
         bossCurrentHp_ > 0) {
-        applyJiafeiUltimateDebuff();
+        applyJiafeiUltimateDebuff(character.partyIndex(), *abilityDef);
     }
 
     if (action == BattleAction::Ultimate) {
         character.consumeUltimate();
-    } else if (grantsUltimatePointOnAction) {
-        character.gainUltimatePoint(1);
     }
 
     if (wasExtraTurn) {
@@ -1933,6 +2109,14 @@ const AbilityDefinition* BattleManager::getAbility(const std::string& abilityId)
 }
 
 void BattleManager::executeAbilityEffect(const AbilityExecutionContext& context) {
+    if (context.ability != nullptr &&
+        !context.isBossCaster &&
+        ability::isTeamShieldBurstUltimate(*context.ability)) {
+        (void)applyCurrentTeamShieldDamageToBoss(false);
+        syncAllCharacterTurnParticipation();
+        return;
+    }
+
     ability::executeAbilityEffect(context, bossCurrentHp_, characters_);
     syncAllCharacterTurnParticipation();
 }
@@ -2044,12 +2228,37 @@ void BattleManager::removeBuffsFromDefeatedCharacters() {
         }
     );
     if (newEnd == activePartyBuffs_.end()) {
+        removeBossDebuffsFromDefeatedCharacters();
         return;
     }
 
     activePartyBuffs_.erase(newEnd, activePartyBuffs_.end());
     refreshCharacterBuffBonuses();
     refreshAllTurnActorSpeeds();
+    removeBossDebuffsFromDefeatedCharacters();
+}
+
+void BattleManager::removeBossDebuffsFromDefeatedCharacters() {
+    const auto newEnd = std::remove_if(
+        activeBossDebuffs_.begin(),
+        activeBossDebuffs_.end(),
+        [this](const ActiveBossDebuff& debuff) {
+            if (debuff.charges <= 0 || bossCurrentHp_ <= 0) {
+                return true;
+            }
+            if (debuff.sourcePartyIndex < 0 ||
+                static_cast<size_t>(debuff.sourcePartyIndex) >= characters_.size()) {
+                return true;
+            }
+            return !characters_[static_cast<size_t>(debuff.sourcePartyIndex)].isAlive();
+        }
+    );
+
+    if (newEnd == activeBossDebuffs_.end()) {
+        return;
+    }
+
+    activeBossDebuffs_.erase(newEnd, activeBossDebuffs_.end());
 }
 
 void BattleManager::refreshCharacterBuffBonuses() {
@@ -2386,16 +2595,63 @@ bool BattleManager::hasQueuedExtraTurn(int partyIndex, BattleAction action, bool
     return false;
 }
 
-void BattleManager::applyJiafeiUltimateDebuff() {
-    bossStatus_.magicEggSpinningMachineCharges = 2;
+void BattleManager::applyBossDebuffCharges(int sourcePartyIndex,
+                                           const AbilityDefinition& ability,
+                                           int charges) {
+    if (charges <= 0 || sourcePartyIndex < 0 || static_cast<size_t>(sourcePartyIndex) >= characters_.size()) {
+        return;
+    }
+
+    for (ActiveBossDebuff& debuff : activeBossDebuffs_) {
+        if (debuff.abilityId == ability.id && debuff.sourcePartyIndex == sourcePartyIndex) {
+            debuff.charges = charges;
+            removeBossDebuffsFromDefeatedCharacters();
+            return;
+        }
+    }
+
+    activeBossDebuffs_.push_back(ActiveBossDebuff{ability.id, sourcePartyIndex, charges});
+    removeBossDebuffsFromDefeatedCharacters();
+}
+
+int BattleManager::getBossDebuffCharges(const std::string& abilityId) const {
+    for (const ActiveBossDebuff& debuff : activeBossDebuffs_) {
+        if (debuff.abilityId == abilityId) {
+            return debuff.charges;
+        }
+    }
+    return 0;
+}
+
+void BattleManager::consumeBossDebuffCharge(const std::string& abilityId) {
+    for (ActiveBossDebuff& debuff : activeBossDebuffs_) {
+        if (debuff.abilityId != abilityId) {
+            continue;
+        }
+
+        --debuff.charges;
+        break;
+    }
+
+    removeBossDebuffsFromDefeatedCharacters();
+}
+
+void BattleManager::applyJiafeiUltimateDebuff(int sourcePartyIndex, const AbilityDefinition& ability) {
+    applyBossDebuffCharges(sourcePartyIndex, ability, 2);
 }
 
 void BattleManager::consumeJiafeiUltimateDebuff() {
-    bossStatus_.magicEggSpinningMachineCharges = 0;
+    activeBossDebuffs_.erase(
+        std::remove_if(activeBossDebuffs_.begin(),
+                       activeBossDebuffs_.end(),
+                       [](const ActiveBossDebuff& debuff) {
+                           return debuff.abilityId == "MeiCiDuXiangZhuang";
+                       }),
+        activeBossDebuffs_.end());
 }
 
 void BattleManager::tryQueueJiafeiFollowUp(const BattleActionEvent& actionEvent) {
-    if (bossStatus_.magicEggSpinningMachineCharges <= 0 ||
+    if (getBossDebuffCharges("MeiCiDuXiangZhuang") <= 0 ||
         bossCurrentHp_ <= 0 ||
         actionEvent.actorType != ParticipantType::Character ||
         actionEvent.actorKey == "jiafei" ||
@@ -2418,8 +2674,8 @@ void BattleManager::tryQueueJiafeiFollowUp(const BattleActionEvent& actionEvent)
         200
     );
 
-    --bossStatus_.magicEggSpinningMachineCharges;
-    if (bossStatus_.magicEggSpinningMachineCharges <= 0) {
+    consumeBossDebuffCharge("MeiCiDuXiangZhuang");
+    if (getBossDebuffCharges("MeiCiDuXiangZhuang") <= 0) {
         consumeJiafeiUltimateDebuff();
     }
 }

@@ -133,11 +133,14 @@ enum class InputPromptType {
 struct AbilityDefinition {
     std::string id;
     std::string name;
+    std::string statusName;
     std::string instructionHint;
     AbilityType type = AbilityType::Attack;
     TargetRule targetRule = TargetRule::SingleEnemy;
     float multiplier = 1.0f;
     int flatHeal = 0;
+    int baseShield = 0;
+    std::optional<float> amountPercentOfCasterMaxHp;
     int speedBuff = 0;
     int atkBuff = 0;   // ATK % buff applied to targets (negative = nerf)
     float actionAdvance = 0.0f;
@@ -423,6 +426,38 @@ struct BossPhaseTransition {
     int toPhaseIndex = 0;
 };
 
+enum class BattleStatusBadgeTarget {
+    PartyMember,
+    Boss
+};
+
+enum class BattleStatusBadgeCategory {
+    Shield,
+    Buff,
+    Debuff
+};
+
+enum class BattleStatusBadgeValueKind {
+    None,
+    Flat,
+    Percent,
+    Charges
+};
+
+struct BattleStatusBadge {
+    BattleStatusBadgeTarget target = BattleStatusBadgeTarget::PartyMember;
+    int targetPartyIndex = -1;
+    int sourcePartyIndex = -1;
+    BattleStatusBadgeCategory category = BattleStatusBadgeCategory::Buff;
+    BattleStatusBadgeValueKind valueKind = BattleStatusBadgeValueKind::None;
+    std::string abilityId;
+    std::string sourceKey;
+    std::string sourceAssetId;
+    std::string statusName;
+    std::string statLabel;
+    int value = 0;
+};
+
 /**
  * Retrieve the current shield value for the party member at the given index.
  * @param partyIndex 0-based index of the party member.
@@ -478,6 +513,7 @@ public:
                                     int hitEvents,
                                     int targetPartyIndex = -1);
     void applyPresentationHealing(bool isBossCaster, int perHitHeal, int hitEvents, bool reviveDeadAllies = false);
+    int applyCurrentTeamShieldDamageToBoss(bool markPresentationResolved = false);
     bool consumePresentationHitDamageApplied();
     bool consumePresentationHealingApplied();
     void markPresentationAbilityAudioPlayed();
@@ -485,6 +521,7 @@ public:
     void markPresentationHitAudioPlayed();
     bool consumePresentationHitAudioPlayed();
     const AbilityDefinition* findAbilityDefinition(const std::string& abilityId) const;
+    std::vector<BattleStatusBadge> getActiveStatusBadges() const;
     const std::vector<BattleActionEvent>& getRecentActionEvents() const;
     void clearRecentActionEvents();
     bool isPlayerActionReady(BattleAction action) const;
@@ -511,8 +548,10 @@ private:
         int atkBuff = 0; // ATK % buff/nerf (signed)
     };
 
-    struct BossStatusState {
-        int magicEggSpinningMachineCharges = 0;
+    struct ActiveBossDebuff {
+        std::string abilityId;
+        int sourcePartyIndex = -1;
+        int charges = 0;
     };
 
     bool buildInitialTurnState();
@@ -538,6 +577,7 @@ private:
     void applyBossDamage(int amount);
     void applyBossHealing(int amount);
     void applyPlayerOffenseToBoss(int amount);
+    int currentLivingPartyShieldTotal() const;
     void applyBossPhaseTransitionIfNeeded();
     const BossDefinition::PhaseDefinition& currentBossPhaseDefinition() const;
     void applyBossAbilitySelfCost(const AbilityDefinition& ability);
@@ -550,7 +590,7 @@ private:
                                 BattleAction action,
                                 float consumedActionValue);
     bool executeBossAction(size_t actorIndex, BattleAction action, float consumedActionValue);
-    void applyJiafeiUltimateDebuff();
+    void applyJiafeiUltimateDebuff(int sourcePartyIndex, const AbilityDefinition& ability);
     void consumeJiafeiUltimateDebuff();
     void tryQueueJiafeiFollowUp(const BattleActionEvent& actionEvent);
     void syncCharacterTurnParticipation(int partyIndex);
@@ -561,12 +601,18 @@ private:
                                    float presentationMultiplier);
     void expireBuffsFromCaster(int sourcePartyIndex);
     void removeBuffsFromDefeatedCharacters();
+    void removeBossDebuffsFromDefeatedCharacters();
     void refreshCharacterBuffBonuses();
     void refreshTurnActorSpeed(int partyIndex);
     void refreshAllTurnActorSpeeds();
     void applyAllAlliesActionAdvance(float fraction);
     void advanceBossActionByFraction(float fraction);
     void refreshComboState();
+    void applyBossDebuffCharges(int sourcePartyIndex,
+                                const AbilityDefinition& ability,
+                                int charges);
+    int getBossDebuffCharges(const std::string& abilityId) const;
+    void consumeBossDebuffCharge(const std::string& abilityId);
 
     BattleState state_;
     BattleDefinition battleDefinition_{};
@@ -587,10 +633,10 @@ private:
     bool presentationAbilityAudioPlayed_ = false;
     bool presentationHitAudioPlayed_ = false;
     std::optional<BattleResolvedOutcome> forcedOutcome_;
-    BossStatusState bossStatus_;
     int luotianyiCorrectTones_ = 0;
     BattleComboState comboState_{};
     std::vector<ActivePartyBuff> activePartyBuffs_;
+    std::vector<ActiveBossDebuff> activeBossDebuffs_;
     std::unordered_map<std::string, int> bossAbilityUseCounts_;
     int nextManualUltimatePriority_ = 1000;
     int currentActionOutgoingDamage_ = 0;

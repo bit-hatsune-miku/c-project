@@ -8,6 +8,11 @@
 
 namespace battle::ability {
 
+bool isTeamShieldBurstUltimate(const AbilityDefinition& ability);
+int resolveSupportAmount(const AbilityDefinition& ability,
+                         int casterMaxHp,
+                         float presentationMultiplier,
+                         int legacyFallbackAmount);
 void executeAbilityEffect(const AbilityExecutionContext& context,
                           int& bossCurrentHp,
                           std::vector<BattleCharacter>& characters);

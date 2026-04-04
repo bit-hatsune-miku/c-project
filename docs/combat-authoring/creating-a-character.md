@@ -113,7 +113,7 @@ Supported root-level character fields:
 - `ultimate`: the character's ultimate ability id
 - `ultimatePoints`: number of orbs required to unlock the ultimate
 - `startingOrbs`: starting ultimate charge
-- `baseShield`: base shield amount used by shield logic
+- `baseShield`: legacy character-level shield fallback; prefer ability-level support fields instead
 - `abilities`: nested ability definitions for `skill`, `ultimate`, or `standard`
 
 Recommended practice:
@@ -135,6 +135,8 @@ Supported fields:
 - `targetRule`
 - `multiplier`
 - `flatHeal`
+- `baseShield`
+- `amountPercentOfCasterMaxHp`
 - `speedBuff`
 - `atkBuff`
 - `actionAdvance`
@@ -177,9 +179,14 @@ Current runtime behavior:
 - `multiplier`
   - For `attack`: scales outgoing damage
   - For `debuff`: currently also deals damage if `multiplier > 0`
-  - For `heal`: usually ignored, because healing uses `flatHeal` and presentation multiplier
+  - For `heal` / `shield`: only scales the presentation result, not the base authored amount
+- `amountPercentOfCasterMaxHp`
+  - Default support authoring field for `heal` and `shield`
+  - Base amount is resolved from the caster's current max HP before presentation scaling
 - `flatHeal`
-  - Base heal amount for `heal`
+  - Legacy fallback base heal amount for `heal` when `amountPercentOfCasterMaxHp` is not set
+- `baseShield`
+  - Legacy fallback base shield amount for `shield` when `amountPercentOfCasterMaxHp` is not set
 - `speedBuff`
   - Applied by `buff` abilities through `applyPartyBuffFromAbility()`
 - `atkBuff`
@@ -193,11 +200,10 @@ Current runtime behavior:
 - `presentationId`
   - Used to construct a custom `AbilityPresentation`
 
-Important limitation:
+Support authoring rule:
 
-- There is no generic per-ability `baseShield` field in the parser.
-- Only `CharacterDefinition.baseShield` is currently used for shield amounts.
-- If you put `baseShield` inside an ability JSON object, the loader ignores it.
+- New healers and shielders should use `amountPercentOfCasterMaxHp`.
+- `flatHeal`, ability-level `baseShield`, and root-level `CharacterDefinition.baseShield` exist only as legacy fallbacks.
 
 ## Current Turn Logic
 

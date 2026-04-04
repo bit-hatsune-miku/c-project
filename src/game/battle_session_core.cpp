@@ -1171,9 +1171,15 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             const float healMultiplier = activePresentation_ != nullptr
                 ? std::max(0.0f, activePresentation_->getInputMultiplier())
                 : 1.0f;
-            const int totalHeal = std::max(0, static_cast<int>(std::lround(
-                static_cast<float>(abilityDef->flatHeal) * healMultiplier
-            )));
+            const int casterMaxHp = context.isBoss
+                ? manager_.getBossMaxHp()
+                : manager_.getCharacterMaxHp(context.casterIndex);
+            const int totalHeal = ability::resolveSupportAmount(
+                *abilityDef,
+                casterMaxHp,
+                healMultiplier,
+                abilityDef->flatHeal
+            );
             const int perHitHeal = totalHeal / std::max(1, hitEvents);
             manager_.applyPresentationHealing(
                 context.isBoss,
@@ -1184,6 +1190,24 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             feedback_.queuePresentationHealFeedback(context.isBoss, hitEvents, perHitHeal, manager_);
             if (hooks_.onPresentationHealAudio) {
                 hooks_.onPresentationHealAudio(context, hitEvents, manager_);
+            }
+            return;
+        }
+
+        if (ability::isTeamShieldBurstUltimate(*abilityDef)) {
+            const int totalDamage = manager_.applyCurrentTeamShieldDamageToBoss(true);
+            if (totalDamage > 0) {
+                if (hooks_.onPresentationHitAudio) {
+                    hooks_.onPresentationHitAudio(context, hitEvents, manager_);
+                    manager_.markPresentationHitAudioPlayed();
+                }
+                (void)feedback_.queuePresentationHitFeedback(
+                    context.isBoss,
+                    hitEvents,
+                    totalDamage,
+                    manager_,
+                    -1
+                );
             }
             return;
         }

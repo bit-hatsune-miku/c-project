@@ -744,9 +744,16 @@ bool parseAbilityDefinition(const json& abilityJson,
     outAbility = AbilityDefinition{};
     outAbility.id = abilityId;
     outAbility.name = abilityJson.value("name", abilityId);
+    outAbility.statusName = abilityJson.value("statusName", "");
     outAbility.instructionHint = abilityJson.value("instructionHint", "");
     outAbility.multiplier = abilityJson.value("multiplier", 1.0f);
     outAbility.flatHeal = abilityJson.value("flatHeal", 0);
+    outAbility.baseShield = abilityJson.value("baseShield", 0);
+    outAbility.amountPercentOfCasterMaxHp.reset();
+    if (const auto percentIt = abilityJson.find("amountPercentOfCasterMaxHp");
+        percentIt != abilityJson.end() && percentIt->is_number()) {
+        outAbility.amountPercentOfCasterMaxHp = percentIt->get<float>();
+    }
     outAbility.speedBuff = abilityJson.value("speedBuff", 0);
     outAbility.atkBuff = abilityJson.value("atkBuff", 0);
     outAbility.actionAdvance = abilityJson.value("actionAdvance", 0.0f);

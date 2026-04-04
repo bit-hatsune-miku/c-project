@@ -63,6 +63,10 @@ inline std::string escapeRmlText(const std::string& text) {
     return escaped;
 }
 
+inline std::string escapeRmlAttribute(const std::string& text) {
+    return escapeRmlText(text);
+}
+
 inline void setElementText(Rml::ElementDocument* document, const std::string& id, const std::string& text) {
     if (document == nullptr) {
         return;
@@ -292,15 +296,117 @@ inline std::string buildPartyRackMarkup(std::size_t partyCount) {
             << "</div>"
             << "<div class=\"unit-hp-text\" id=\"unit-hp-text-" << displayIndex << "\"></div>"
             << "</div>"
+            << "<div class=\"unit-status-host\">"
+            << "<div class=\"status-badge-lane status-badge-lane--unit\" id=\"unit-status-badges-" << displayIndex << "\"></div>"
             << "</div>"
-            << "<div class=\"unit-shield-badge\" id=\"unit-shield-badge-" << displayIndex << "\">"
-            << "<div class=\"unit-shield-icon\"></div>"
-            << "<div class=\"unit-shield-value\" id=\"unit-shield-value-" << displayIndex << "\"></div>"
             << "</div>"
             << "<div class=\"unit-hit-flash\" id=\"unit-hit-flash-" << displayIndex << "\"></div>"
             << "</div>";
     }
     return markup.str();
+}
+
+inline const char* statusBadgeCategoryClass(battle::BattleStatusBadgeCategory category) {
+    switch (category) {
+        case battle::BattleStatusBadgeCategory::Shield:
+            return "status-badge--shield";
+        case battle::BattleStatusBadgeCategory::Buff:
+            return "status-badge--buff";
+        case battle::BattleStatusBadgeCategory::Debuff:
+            return "status-badge--debuff";
+    }
+    return "status-badge--buff";
+}
+
+inline std::string formatStatusBadgeText(const battle::BattleStatusBadge& badge) {
+    const auto withSign = [](int value) {
+        return value > 0 ? "+" + std::to_string(value) : std::to_string(value);
+    };
+
+    switch (badge.valueKind) {
+        case battle::BattleStatusBadgeValueKind::Flat:
+            if (!badge.statLabel.empty()) {
+                return withSign(badge.value) + " " + badge.statLabel;
+            }
+            return withSign(badge.value);
+        case battle::BattleStatusBadgeValueKind::Percent:
+            if (!badge.statLabel.empty()) {
+                return withSign(badge.value) + "% " + badge.statLabel;
+            }
+            return withSign(badge.value) + "%";
+        case battle::BattleStatusBadgeValueKind::Charges:
+            if (!badge.statusName.empty()) {
+                return badge.statusName + " x" + std::to_string(std::max(0, badge.value));
+            }
+            return "x" + std::to_string(std::max(0, badge.value));
+        case battle::BattleStatusBadgeValueKind::None:
+            break;
+    }
+
+    if (badge.category == battle::BattleStatusBadgeCategory::Shield) {
+        return std::to_string(std::max(0, badge.value));
+    }
+    if (!badge.statusName.empty()) {
+        return badge.statusName;
+    }
+    return badge.abilityId;
+}
+
+inline std::string buildStatusBadgeMarkup(const battle::BattleStatusBadge& badge,
+                                          const BattleHudDocumentDependencies& dependencies) {
+    std::ostringstream markup;
+    markup << "<div class=\"status-badge " << statusBadgeCategoryClass(badge.category) << "\">";
+
+    if (badge.category == battle::BattleStatusBadgeCategory::Shield) {
+        markup << "<div class=\"status-badge-icon status-badge-icon--shield\"></div>";
+    } else {
+        markup << "<div class=\"status-badge-icon status-badge-icon--portrait\"";
+        if (dependencies.findCombatImagePath && !badge.sourceAssetId.empty()) {
+            const std::string iconPath = dependencies.findCombatImagePath("icons", badge.sourceAssetId);
+            if (!iconPath.empty()) {
+                markup << " style=\"decorator:image(" << escapeRmlAttribute(iconPath)
+                       << " cover center center);\"";
+            }
+        }
+        markup << "></div>";
+    }
+
+    markup << "<div class=\"status-badge-text\">"
+           << escapeRmlText(formatStatusBadgeText(badge))
+           << "</div></div>";
+    return markup.str();
+}
+
+inline void updateStatusBadgeLaneDocument(Rml::ElementDocument* document,
+                                          const std::string& id,
+                                          const std::vector<battle::BattleStatusBadge>& badges,
+                                          battle::BattleStatusBadgeTarget target,
+                                          int targetPartyIndex,
+                                          const BattleHudDocumentDependencies& dependencies) {
+    if (document == nullptr) {
+        return;
+    }
+
+    if (Rml::Element* element = document->GetElementById(id)) {
+        std::vector<const battle::BattleStatusBadge*> matchingBadges;
+        matchingBadges.reserve(badges.size());
+        for (const battle::BattleStatusBadge& badge : badges) {
+            if (badge.target != target || badge.targetPartyIndex != targetPartyIndex) {
+                continue;
+            }
+            matchingBadges.push_back(&badge);
+        }
+
+        std::ostringstream markup;
+        bool hasBadges = false;
+        for (auto it = matchingBadges.rbegin(); it != matchingBadges.rend(); ++it) {
+            hasBadges = true;
+            markup << buildStatusBadgeMarkup(**it, dependencies);
+        }
+
+        element->SetInnerRML(markup.str());
+        element->SetProperty("display", hasBadges ? "flex" : "none");
+    }
 }
 
 inline void ensurePartyRackDocument(Rml::ElementDocument* document, std::size_t partyCount) {
@@ -2161,6 +2267,7 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
     const battle::BattleState& battleState = manager.getBattleState();
     const battle::TurnState& turnState = manager.getTurnState();
     const int activeActorIndex = manager.getPreviewNextActorIndex();
+    const std::vector<battle::BattleStatusBadge> statusBadges = manager.getActiveStatusBadges();
 
     detail::ensurePartyRackDocument(document, battleState.party.size());
     detail::updateComboDocument(document, feedback);
@@ -2199,6 +2306,12 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
         bossTrail->SetProperty("opacity", showTrail ? "1.0" : "0.0");
     }
     detail::setElementClass(document, "boss-band", "hit", animationState.bossHit.active);
+    detail::updateStatusBadgeLaneDocument(document,
+                                          "boss-status-badges",
+                                          statusBadges,
+                                          battle::BattleStatusBadgeTarget::Boss,
+                                          -1,
+                                          dependencies);
 
     const std::vector<int> sortedActorIndices = detail::getSortedTurnActorIndices(turnState);
     for (int slot = 0; slot < 5; ++slot) {
@@ -2289,8 +2402,12 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
             hpFill->SetProperty("width", detail::formatPercent(displayedHpRatio));
             hpFill->SetProperty("background-color", detail::hpColorForRatio(displayedHpRatio));
         }
-        detail::setElementDisplay(document, "unit-shield-badge-" + index, shield > 0);
-        detail::setElementText(document, "unit-shield-value-" + index, std::to_string(shield));
+        detail::updateStatusBadgeLaneDocument(document,
+                                              "unit-status-badges-" + index,
+                                              statusBadges,
+                                              battle::BattleStatusBadgeTarget::PartyMember,
+                                              i,
+                                              dependencies);
         detail::setElementDisplay(document, "unit-shield-top-" + index, shield > 0);
         detail::setElementDisplay(document, "unit-shield-bottom-" + index, shield > 0);
         detail::setElementDisplay(document, "unit-shield-left-" + index, shield > 0);

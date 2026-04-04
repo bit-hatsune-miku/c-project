@@ -28,23 +28,77 @@ void applyBossOffenseResult(const AbilityExecutionContext& context,
     bossCurrentHp = std::max(0, bossCurrentHp - amount);
 }
 
-} /**
+int resolveLegacyShieldAmount(const AbilityDefinition& ability,
+                              const AbilityExecutionContext& context,
+                              const std::vector<BattleCharacter>& characters) {
+    if (ability.baseShield > 0) {
+        return ability.baseShield;
+    }
+
+    if (context.casterPartyIndex >= 0 &&
+        context.casterPartyIndex < static_cast<int>(characters.size())) {
+        return characters[static_cast<size_t>(context.casterPartyIndex)].definition().baseShield;
+    }
+
+    return 0;
+}
+
+int resolveCasterMaxHp(const AbilityExecutionContext& context,
+                      const std::vector<BattleCharacter>& characters) {
+    if (context.isBossCaster) {
+        return std::max(1, context.bossMaxHp);
+    }
+
+    if (context.casterPartyIndex < 0 ||
+        context.casterPartyIndex >= static_cast<int>(characters.size())) {
+        return 1;
+    }
+
+    return std::max(1, characters[static_cast<size_t>(context.casterPartyIndex)].maxHp());
+}
+
+} // namespace
+
+bool isTeamShieldBurstUltimate(const AbilityDefinition& ability) {
+    return ability.id == "8888" || ability.presentationId == "wechatalipay_ultimate";
+}
+
+int resolveSupportAmount(const AbilityDefinition& ability,
+                         int casterMaxHp,
+                         float presentationMultiplier,
+                         int legacyFallbackAmount) {
+    const float clampedMultiplier = std::max(0.0f, presentationMultiplier);
+    float baseAmount = static_cast<float>(std::max(0, legacyFallbackAmount));
+
+    if (ability.amountPercentOfCasterMaxHp.has_value()) {
+        baseAmount = (static_cast<float>(std::max(1, casterMaxHp)) *
+                      std::max(0.0f, *ability.amountPercentOfCasterMaxHp)) /
+                     100.0f;
+    }
+
+    if (baseAmount <= 0.0f) {
+        return 0;
+    }
+
+    return std::max(1, static_cast<int>(std::lround(baseAmount * clampedMultiplier)));
+}
+
+/**
  * @brief Execute an ability's effect, mutating boss HP and party characters as appropriate.
  *
  * Applies the provided ability from `context` to update `bossCurrentHp` and to modify
  * `characters` (healing, reviving, or adding shields). Behavior varies by ability type:
- * - Special-case ultimate (ability id "8888" or presentationId "wechatalipay_ultimate"): subtracts
- *   the sum of all alive characters' shield values from `bossCurrentHp` without consuming shields.
  * - Attack / Debuff: computes final damage from `context.baseDamage`, `ability.multiplier`,
  *   `context.presentationMultiplier`, and `context.comboMultiplier`, enforces a minimum of 1 when
  *   nonzero, and applies it to `bossCurrentHp` (damage may instead heal the boss depending on
  *   `context.playerDamageHealsBoss`).
- * - Heal: determines a base heal from `context.baseHeal` or `ability.flatHeal`, scales by
- *   `context.presentationMultiplier`, rounds and enforces a minimum of 1 when nonzero; if the
- *   ability targets all allies, applies healing to alive characters and revives dead characters
- *   when `ability.reviveDeadAllies` is true.
- * - Shield: computes a shield amount from the caster's base shield scaled by
- *   `context.presentationMultiplier` and adds that shield to targets according to the ability's
+ * - Heal: resolves a base amount from the caster's max HP when configured, otherwise falls back
+ *   to legacy flat healing, then scales by `context.presentationMultiplier`, rounds and enforces
+ *   a minimum of 1 when nonzero; if the ability targets all allies, applies healing to alive
+ *   characters and revives dead characters when `ability.reviveDeadAllies` is true.
+ * - Shield: resolves a base amount from the caster's max HP when configured, otherwise falls back
+ *   to legacy shield values, then scales by `context.presentationMultiplier` and adds that shield
+ *   to targets according to the ability's
  *   target rule.
  * - Buff: no effect.
  *
@@ -61,22 +115,7 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
     }
 
     const AbilityDefinition& ability = *context.ability;
-
-    // Special case: Wechatalipay's ultimate (id: 8888, presentationId: wechatalipay_ultimate)
-    if (ability.id == "8888" || ability.presentationId == "wechatalipay_ultimate") {
-        // Sum all team shield values
-        int totalShield = 0;
-        for (BattleCharacter& c : characters) {
-            if (c.isAlive()) {
-                totalShield += c.getShield();
-            }
-        }
-        if (totalShield > 0) {
-            bossCurrentHp = std::max(0, bossCurrentHp - totalShield);
-            // Shields are NOT consumed by the ultimate
-        }
-        return;
-    }
+    const int casterMaxHp = resolveCasterMaxHp(context, characters);
     switch (ability.type) {
         case AbilityType::Attack: {
             const int finalDamage = normalizeDamage(static_cast<int>(
@@ -90,12 +129,13 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
         }
 
         case AbilityType::Heal: {
-            const int baseHeal = std::max(0, context.baseHeal > 0 ? context.baseHeal : ability.flatHeal);
-            const int healAmount = baseHeal <= 0
-                ? 0
-                : std::max(1, static_cast<int>(std::lround(
-                    static_cast<float>(baseHeal) * std::max(0.0f, context.presentationMultiplier)
-                )));
+            const int legacyBaseHeal = std::max(0, context.baseHeal > 0 ? context.baseHeal : ability.flatHeal);
+            const int healAmount = resolveSupportAmount(
+                ability,
+                casterMaxHp,
+                context.presentationMultiplier,
+                legacyBaseHeal
+            );
             if (ability.targetRule == TargetRule::AllAllies) {
                 for (BattleCharacter& c : characters) {
                     if (c.isAlive()) {
@@ -110,13 +150,13 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
 
 
         case AbilityType::Shield: {
-            // Shielding ability (e.g., Wechatalipay's SaoMaZhiFu)
-            int baseShield = 0;
-            if (context.casterPartyIndex >= 0 && context.casterPartyIndex < (int)characters.size()) {
-                baseShield = characters[context.casterPartyIndex].definition().baseShield;
-            }
-            int shieldAmount = static_cast<int>(std::round(baseShield * context.presentationMultiplier));
-            std::cout << "[ShieldLogic] Entered: baseShield=" << baseShield << ", presentationMultiplier=" << context.presentationMultiplier << ", shieldAmount=" << shieldAmount << ", targetRule=" << static_cast<int>(ability.targetRule) << std::endl;
+            const int legacyBaseShield = resolveLegacyShieldAmount(ability, context, characters);
+            const int shieldAmount = resolveSupportAmount(
+                ability,
+                casterMaxHp,
+                context.presentationMultiplier,
+                legacyBaseShield
+            );
             if (ability.targetRule == TargetRule::AllAllies) {
                 for (BattleCharacter& c : characters) {
                     if (c.isAlive()) {
