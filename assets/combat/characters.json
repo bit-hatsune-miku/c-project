@@ -20,7 +20,8 @@
                 "flatHeal": 2,
                 "multiplier": 0.0,
                 "interactionType": "rhythm",
-                "presentationId": "heal_hearts"
+                "presentationId": "heal_hearts",
+                "inputPromptType": "wild"
             },
             "ultimate": {
                 "id": "ILoveYou",
@@ -31,7 +32,8 @@
                 "multiplier": 0.0,
                 "interactionType": "none",
                 "reviveDeadAllies": true,
-                "presentationId": "lyoo_revive_heal"
+                "presentationId": "lyoo_revive_heal",
+                "inputPromptType": "space"
             }
         },
         "ultimatePoints": 3,
@@ -58,7 +60,9 @@
                 "targetRule": "single_enemy",
                 "multiplier": 1.0,
                 "interactionType": "rhythm",
-                "presentationId": "musical_notes"
+                "presentationId": "musical_notes",
+                "inputPromptType": "custom",
+                "inputPromptKeys": ["D", "F", "J", "K"]
             },
             "ultimate": {
                 "id": "DianDongPower",
@@ -67,7 +71,8 @@
                 "targetRule": "single_enemy",
                 "multiplier": 2.0,
                 "interactionType": "none",
-                "presentationId": "diandong_power_cutscene"
+                "presentationId": "diandong_power_cutscene",
+                "inputPromptType": "space"
             }
         },
         "ultimatePoints": 3,
@@ -162,7 +167,8 @@
                 "targetRule": "single_enemy",
                 "multiplier": 1.2,
                 "interactionType": "rhythm",
-                "presentationId": "drum_attack"
+                "presentationId": "drum_attack",
+                "inputPromptType": "spamSpace"
             },
             "ultimate": {
                 "id": "NiagaraFalls",
@@ -171,7 +177,8 @@
                 "targetRule": "single_enemy",
                 "multiplier": 1.8,
                 "interactionType": "none",
-                "presentationId": "niagara_falls_ultimate"
+                "presentationId": "niagara_falls_ultimate",
+                "inputPromptType": "space"
             }
         },
         "ultimatePoints": 4,
@@ -196,7 +203,8 @@
                 "targetRule": "single_enemy",
                 "multiplier": 1.1,
                 "interactionType": "none",
-                "presentationId": "aesthetic_scream"
+                "presentationId": "aesthetic_scream",
+                "inputPromptType": "space"
             },
             "ultimate": {
                 "id": "MeiCiDuXiangZhuang",
@@ -205,7 +213,8 @@
                 "targetRule": "single_enemy",
                 "multiplier": 1.2,
                 "interactionType": "none",
-                "presentationId": "mei_ci_du_xiang_zhuang"
+                "presentationId": "mei_ci_du_xiang_zhuang",
+                "inputPromptType": "space"
             }
         },
         "ultimatePoints": 2,
@@ -232,7 +241,9 @@
                 "multiplier": 0.0,
                 "atkBuff": 60,
                 "interactionType": "rhythm",
-                "presentationId": "rang_wo_men_shuo_zhong_wen"
+                "presentationId": "rang_wo_men_shuo_zhong_wen",
+                "inputPromptType": "custom",
+                "inputPromptKeys": ["1", "2", "3", "4"]
             },
             "ultimate": {
                 "id": "QuanYuTianXia",
@@ -241,7 +252,8 @@
                 "targetRule": "single_enemy",
                 "multiplier": 2.2,
                 "interactionType": "none",
-                "presentationId": "quan_yu_tian_xia"
+                "presentationId": "quan_yu_tian_xia",
+                "inputPromptType": "space"
             }
         },
         "ultimatePoints": 3,
@@ -268,6 +280,7 @@
                 "multiplier": 1.0,
                 "interactionType": "rhythm",
                 "presentationId": "sao_ma_zhi_fu",
+                "inputPromptType": "arrows",
                 "baseShield": 18
             },
             "ultimate": {
@@ -277,7 +290,8 @@
                 "targetRule": "single_enemy",
                 "multiplier": 1.6,
                 "interactionType": "none",
-                "presentationId": "wechatalipay_ultimate"
+                "presentationId": "wechatalipay_ultimate",
+                "inputPromptType": "space"
             }
         },
         "ultimatePoints": 4,
@@ -303,7 +317,8 @@
                 "multiplier": 0.0,
                 "speedBuff": 20,
                 "interactionType": "none",
-                "presentationId": "i_want_it_i_got_it"
+                "presentationId": "i_want_it_i_got_it",
+                "inputPromptType": "space"
             },
             "ultimate": {
                 "id": "HighNote",
@@ -313,7 +328,8 @@
                 "multiplier": 0.0,
                 "actionAdvance": 1.0,
                 "interactionType": "none",
-                "presentationId": "high_note"
+                "presentationId": "high_note",
+                "inputPromptType": "space"
             }
         },
         "ultimatePoints": 5,

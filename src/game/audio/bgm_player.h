@@ -30,6 +30,16 @@
  */
 
 /**
+ * Load the WAV at wavPath, begin looping playback, and initialize playback state.
+ *
+ * @param wavPath Path to the WAV file to load.
+ * @param volume Initial playback volume, clamped to the range [0, 1].
+ * @param startSeconds Start position within the track in seconds. Negative values start at 0. If the requested
+ *        offset is at or beyond the track duration, playback starts at 0.
+ * @returns `true` if the WAV was loaded and the audio device opened successfully, `false` on failure.
+ */
+
+/**
  * Stop playback, close the audio device (if open), and clear all loaded/decoded audio state.
  */
 
@@ -156,6 +166,66 @@ public:
             startFrame = std::min(startFrame, frameCount_ - 1);
         } else {
             startFrame = 0;
+        }
+
+        playPos_ = static_cast<Uint32>(startFrame * bytesPerFrame_);
+        currentFrame_.store(startFrame, std::memory_order_relaxed);
+        volume_.store(std::clamp(volume, 0.0f, 1.0f), std::memory_order_relaxed);
+
+        SDL_AudioSpec desired = spec;
+        desired.callback = &BgmPlayer::audioCallback;
+        desired.userdata = this;
+
+        device_ = SDL_OpenAudioDevice(nullptr, 0, &desired, nullptr, 0);
+        if (device_ == 0) {
+            audioData_.clear();
+            monoSamples_.clear();
+            frameCount_ = 0;
+            sampleRate_ = 0;
+            channels_ = 0;
+            bytesPerFrame_ = 0;
+            currentFrame_.store(0, std::memory_order_relaxed);
+            return false;
+        }
+
+        paused_ = false;
+        SDL_PauseAudioDevice(device_, 0);
+        return true;
+    }
+
+    bool playAtTime(const std::string& wavPath, float volume, float startSeconds) {
+        stop();
+
+        SDL_AudioSpec spec{};
+        Uint8* buffer = nullptr;
+        Uint32 length = 0;
+        if (SDL_LoadWAV(wavPath.c_str(), &spec, &buffer, &length) == nullptr) {
+            return false;
+        }
+
+        audioData_.assign(buffer, buffer + length);
+        SDL_FreeWAV(buffer);
+        spec_ = spec;
+        channels_ = std::max<int>(1, spec_.channels);
+        const std::size_t bytesPerSample = static_cast<std::size_t>(SDL_AUDIO_BITSIZE(spec_.format) / 8);
+        bytesPerFrame_ = bytesPerSample * static_cast<std::size_t>(channels_);
+        if (bytesPerSample == 0 || bytesPerFrame_ == 0 || audioData_.size() < bytesPerFrame_) {
+            audioData_.clear();
+            return false;
+        }
+
+        frameCount_ = audioData_.size() / bytesPerFrame_;
+        sampleRate_ = spec_.freq;
+        monoSamples_ = decodeMonoSamples(audioData_, spec_, frameCount_, bytesPerFrame_);
+
+        const float clampedStartSeconds = std::max(0.0f, startSeconds);
+        std::size_t startFrame = 0;
+        if (frameCount_ > 0 && sampleRate_ > 0) {
+            const float durationSeconds = static_cast<float>(frameCount_) / static_cast<float>(sampleRate_);
+            if (clampedStartSeconds > 0.0f && clampedStartSeconds < durationSeconds) {
+                startFrame = static_cast<std::size_t>(std::floor(clampedStartSeconds * static_cast<float>(sampleRate_)));
+                startFrame = std::min(startFrame, frameCount_ - 1);
+            }
         }
 
         playPos_ = static_cast<Uint32>(startFrame * bytesPerFrame_);

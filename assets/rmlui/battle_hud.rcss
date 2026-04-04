@@ -16,11 +16,12 @@ body {
 
 #hud-root.vs-intro-blocking #hud-edge-layer,
 #hud-root.vs-intro-blocking .battle-combo,
+#hud-root.vs-intro-blocking .battle-total-damage,
 #hud-root.vs-intro-blocking .battle-judgement,
-#hud-root.vs-intro-blocking .battle-tutorial,
+#hud-root.vs-intro-blocking .battle-hint-lane,
+#hud-root.vs-intro-blocking .battle-input-prompt,
 #hud-root.vs-intro-blocking .battle-rhythm,
 #hud-root.vs-intro-blocking .battle-result,
-#hud-root.vs-intro-blocking .battle-hint,
 #hud-root.vs-intro-blocking .battle-toast,
 #hud-root.vs-intro-blocking .battle-pause {
     display: none;
@@ -94,6 +95,50 @@ body {
     decorator: linear-gradient(to right, #ff67b6 0%, #f4c06d 52%, #6acff6 100%);
     border-radius: 999dp;
     box-shadow: 0 0 12dp rgba(255, 103, 182, 70);
+}
+
+.battle-total-damage {
+    position: absolute;
+    right: 18dp;
+    top: 96dp;
+    width: 244dp;
+    opacity: 0;
+    display: none;
+    text-align: right;
+    pointer-events: none;
+}
+
+.battle-total-damage-label {
+    color: rgba(255, 212, 140, 236);
+    font-size: 18dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    line-height: 1;
+    text-transform: uppercase;
+    font-effect: outline(1dp #480f33), shadow(0 6dp rgba(72, 15, 51, 116));
+}
+
+.battle-total-damage-value {
+    margin-top: 4dp;
+    width: 100%;
+    min-height: 66dp;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.battle-total-damage-digit {
+    display: inline-block;
+    margin-left: 4dp;
+    font-size: 58dp;
+    line-height: 64dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    font-effect: outline(2dp #480f33), shadow(0 10dp rgba(72, 15, 51, 132));
+}
+
+.battle-total-damage-space {
+    display: inline-block;
+    width: 14dp;
 }
 
 .battle-judgement {
@@ -212,6 +257,15 @@ body {
     to {
         transform: translateY(0dp);
         opacity: 1;
+    }
+}
+
+@keyframes battle-hint-accent-sweep {
+    from {
+        left: -30dp;
+    }
+    to {
+        left: 14dp;
     }
 }
 
@@ -722,91 +776,398 @@ body {
     box-shadow: 0 12dp 24dp rgba(0, 0, 0, 18), 0 0 28dp rgba(255, 103, 182, 20);
 }
 
-.battle-tutorial {
+.battle-hint-lane {
     position: absolute;
     left: 50%;
-    bottom: 42dp;
-    width: 92%;
-    max-width: 1200dp;
-    margin-left: -600dp;
-    opacity: 0;
+    top: 92dp;
+    width: 860dp;
+    margin-left: -430dp;
     display: none;
-    z-index: 10;
+    z-index: 14;
 }
 
-.battle-tutorial.visible {
+.battle-hint-stack {
+    position: relative;
+    width: 100%;
+    height: 0dp;
+}
+
+.battle-hint-slot {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 0dp;
+    overflow: visible;
+}
+
+.battle-hint-shell {
+    position: absolute;
+    left: 50%;
+    top: 0;
     display: block;
-    opacity: 1;
+    width: 0dp;
+    max-width: 790dp;
+    background-color: rgba(11, 15, 24, 204);
+    border: 1dp rgba(255, 255, 255, 16);
+    box-shadow: 0 8dp 18dp rgba(0, 0, 0, 14);
+    transform: skewX(-18deg);
+    overflow: hidden;
+    opacity: 0;
 }
 
-.battle-tutorial-layout {
+.battle-hint-inner {
     position: relative;
+    min-height: 0dp;
+    padding: 3dp 8dp 4dp 8dp;
     display: flex;
-    gap: 32dp;
-    align-items: center;
+    gap: 6dp;
+    align-items: stretch;
+    transform: skewX(18deg);
 }
 
-.battle-tutorial-speaker {
+.battle-hint-accent {
     position: relative;
-    display: inline-block;
-    align-self: flex-start;
-    padding: 4dp 12dp 5dp 12dp;
-    background-color: rgba(36, 44, 58, 236);
-    border: 1dp #8f9bad;
-    color: #f5f4f1;
-    font-size: 18dp;
-    line-height: 20dp;
+    width: 5dp;
+    min-height: 18dp;
+    background-color: #9dbfe9;
+    overflow: hidden;
+}
+
+.battle-hint-accent-shine {
+    position: absolute;
+    left: -10dp;
+    top: -3dp;
+    width: 6dp;
+    height: 30dp;
+    background-color: rgba(255, 255, 255, 58);
+    transform: skewX(-18deg);
+    animation: battle-hint-accent-sweep 1.9s linear infinite;
+}
+
+.battle-hint-copy {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    opacity: 0;
+    transform: translateY(10dp);
+}
+
+.battle-hint-topline {
+    display: none;
+}
+
+.battle-hint-message {
+    margin-top: 0dp;
+    color: rgba(255, 248, 251, 240);
+    font-size: 12dp;
+    line-height: 13dp;
+    font-weight: bold;
     text-align: center;
 }
 
-.battle-tutorial-card {
-    position: relative;
-    padding: 16dp 24dp 12dp 18dp;
-    min-height: 160dp;
-    background-color: rgba(5, 10, 18, 218);
-    border: 1dp #d5dde8;
-    overflow: hidden;
+.battle-hint-side {
+    display: none;
 }
 
-.battle-tutorial-portrait {
-    position: relative;
-    width: 126dp;
-    height: 126dp;
-    background-color: rgba(10, 14, 24, 230);
-    overflow: hidden;
-}
-
-.battle-tutorial-copy {
-    position: relative;
-    flex: 1;
-    min-height: 126dp;
-    padding-top: 12dp;
-    padding-bottom: 22dp;
-    display: flex;
-    flex-direction: column;
-    gap: 12dp;
-}
-
-.battle-tutorial-text {
-    position: relative;
-    flex: 1;
-    color: #f5f4ef;
-    font-size: 27dp;
-    line-height: 34dp;
-}
-
-.battle-tutorial-copy .battle-tutorial-speaker {
-    margin-top: 8dp;
-}
-
-.battle-tutorial-dismiss-hint {
+.battle-hint-timer {
     position: absolute;
+    left: 0;
     right: 0;
     bottom: 0;
-    color: rgba(245, 244, 239, 110);
-    font-size: 14dp;
+    height: 2dp;
+    background-color: rgba(255, 255, 255, 14);
+    overflow: hidden;
+}
+
+.battle-hint-timer-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 2dp;
+    background-color: #9dbfe9;
+}
+
+.battle-hint-slot.family-info .battle-hint-shell {
+    background-color: rgba(12, 16, 26, 198);
+    border-color: rgba(205, 220, 241, 18);
+}
+
+.battle-hint-slot.family-tutorial .battle-hint-shell {
+    background-color: rgba(10, 15, 24, 198);
+    border-color: rgba(157, 191, 233, 24);
+}
+
+.battle-hint-slot.family-warning .battle-hint-shell {
+    background-color: rgba(24, 11, 14, 206);
+    border-color: rgba(255, 106, 117, 32);
+}
+
+.battle-hint-slot.family-major .battle-hint-shell {
+    background-color: rgba(19, 12, 24, 206);
+    border-color: rgba(255, 103, 182, 32);
+}
+
+.battle-hint-slot.family-info .battle-hint-accent,
+.battle-hint-slot.family-info .battle-hint-timer-fill {
+    background-color: #d9e3ef;
+}
+
+.battle-hint-slot.family-tutorial .battle-hint-accent,
+.battle-hint-slot.family-tutorial .battle-hint-timer-fill {
+    background-color: #9dbfe9;
+}
+
+.battle-hint-slot.family-warning .battle-hint-accent,
+.battle-hint-slot.family-warning .battle-hint-timer-fill {
+    background-color: #ff7b73;
+}
+
+.battle-hint-slot.family-major .battle-hint-accent,
+.battle-hint-slot.family-major .battle-hint-timer-fill {
+    background-color: #ff67b6;
+}
+
+.battle-hint-measure-host {
+    position: absolute;
+    left: -4000dp;
+    top: -4000dp;
+    width: 860dp;
+    height: auto;
+    opacity: 0;
+    overflow: visible;
+}
+
+.battle-hint-measure-host .battle-hint-slot {
+    position: relative;
+    left: 0;
+    top: 0;
+    height: auto;
+}
+
+.battle-hint-measure-host .battle-hint-shell {
+    position: relative;
+    left: 0;
+    top: 0;
+    margin-left: 0dp;
+    width: auto;
+    opacity: 1;
+}
+
+.battle-hint-measure-host .battle-hint-copy {
+    opacity: 1;
+    transform: translateY(0dp);
+}
+
+.battle-input-prompt {
+    position: absolute;
+    right: 34dp;
+    bottom: 30dp;
+    width: 164dp;
+    display: none;
+    z-index: 18;
+}
+
+.battle-input-prompt.visible {
+    display: block;
+}
+
+.battle-input-prompt.has-follow-up.has-primary {
+    width: 212dp;
+}
+
+.battle-input-prompt.type-wild {
+    width: 232dp;
+}
+
+.battle-input-prompt.type-arrows,
+.battle-input-prompt.type-custom {
+    width: 220dp;
+}
+
+.battle-input-prompt.type-left-right,
+.battle-input-prompt.type-spam-space {
+    width: 176dp;
+}
+
+.battle-input-prompt-shell {
+    position: relative;
+    padding: 12dp 14dp 13dp 14dp;
+    display: flex;
+    flex-direction: column;
+    background-color: rgba(10, 14, 24, 232);
+    border: 1dp rgba(255, 255, 255, 20);
+    border-radius: 18dp;
+    box-shadow: 0 18dp 40dp rgba(0, 0, 0, 28), 0 0 28dp rgba(255, 103, 182, 14);
+    overflow: hidden;
+}
+
+.battle-input-prompt-row {
+    position: relative;
+    width: 100%;
+    overflow: visible;
+}
+
+.battle-input-prompt-row-primary {
+    min-height: 40dp;
+}
+
+.battle-input-prompt-row-plus {
+    margin-top: 6dp;
+    text-align: center;
+}
+
+.battle-input-prompt-row-follow-up {
+    margin-top: 0dp;
+}
+
+.battle-input-prompt.has-primary.has-follow-up .battle-input-prompt-row-follow-up {
+    margin-top: 6dp;
+}
+
+.battle-input-prompt-key {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 38dp;
+    min-width: 38dp;
+    height: 36dp;
+    padding: 0dp;
+    background-color: rgba(16, 20, 30, 246);
+    border: 1dp rgba(255, 255, 255, 16);
+    border-radius: 12dp;
+    box-shadow: 0 5dp 0 rgba(4, 5, 8, 224), 0 12dp 20dp rgba(0, 0, 0, 18);
+    transform-origin: 50% 50%;
+    transform: translateY(0dp);
+    overflow: hidden;
+}
+
+.battle-input-prompt-key.is-pressed {
+    box-shadow: 0 1dp 0 rgba(4, 5, 8, 224), 0 6dp 12dp rgba(0, 0, 0, 18);
+    background-color: rgba(22, 28, 41, 248);
+    border-color: rgba(255, 103, 182, 32);
+}
+
+.battle-input-prompt-key-line {
+    position: absolute;
+    left: 8dp;
+    right: 8dp;
+    top: 6dp;
+    height: 2dp;
+    border-radius: 999dp;
+    background-color: rgba(255, 255, 255, 22);
+}
+
+.battle-input-prompt-key.is-pressed .battle-input-prompt-key-line {
+    background-color: rgba(255, 255, 255, 34);
+}
+
+.battle-input-prompt-key-label {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    color: #fff8fb;
+    font-size: 12dp;
+    font-weight: bold;
     letter-spacing: 1dp;
-    text-align: right;
+    line-height: 1;
+    text-transform: uppercase;
+}
+
+.battle-input-prompt-key-primary {
+    width: 126dp;
+    min-width: 126dp;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.battle-input-prompt-key-primary .battle-input-prompt-key-line,
+.battle-input-prompt-key.is-space .battle-input-prompt-key-line {
+    left: 20dp;
+    right: 20dp;
+    top: 7dp;
+}
+
+.battle-input-prompt-key-primary .battle-input-prompt-key-label,
+.battle-input-prompt-key.is-space .battle-input-prompt-key-label {
+    letter-spacing: 3dp;
+}
+
+.battle-input-prompt-key.is-space {
+    width: 126dp;
+    min-width: 126dp;
+}
+
+.battle-input-prompt-plus {
+    display: inline-block;
+    color: rgba(255, 248, 251, 176);
+    font-size: 18dp;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.battle-input-prompt-follow-up {
+    position: relative;
+    width: 100%;
+    overflow: visible;
+}
+
+.battle-input-prompt-follow-up-strip {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 6dp;
+}
+
+.battle-input-prompt-follow-up-arrows {
+    display: none;
+    overflow: visible;
+}
+
+.battle-input-prompt-arrow-row {
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 6dp;
+}
+
+.battle-input-prompt-arrow-row-bottom {
+    margin-top: 4dp;
+}
+
+.battle-input-prompt-key-secondary {
+    width: 38dp;
+    min-width: 38dp;
+    height: 36dp;
+}
+
+.battle-input-prompt.type-left-right .battle-input-prompt-follow-up-strip {
+    gap: 10dp;
+}
+
+.battle-input-prompt.type-wild .battle-input-prompt-key-secondary {
+    width: 32dp;
+    min-width: 32dp;
+    height: 32dp;
+    border-radius: 10dp;
+}
+
+.battle-input-prompt.type-wild .battle-input-prompt-follow-up-strip {
+    gap: 4dp;
+}
+
+.battle-input-prompt.type-wild .battle-input-prompt-key-secondary .battle-input-prompt-key-line {
+    left: 6dp;
+    right: 6dp;
+    top: 5dp;
+}
+
+.battle-input-prompt.type-wild .battle-input-prompt-key-secondary .battle-input-prompt-key-label {
+    font-size: 11dp;
 }
 
 .battle-rhythm-lane {
@@ -1560,32 +1921,6 @@ body {
 .battle-vs-letter.s {
     color: #ff8fb8;
     font-effect: shadow(0 18dp rgba(0, 0, 0, 108));
-}
-
-.battle-hint {
-    position: absolute;
-    left: 50%;
-    top: 104dp;
-    width: 620dp;
-    margin-left: -310dp;
-    padding: 12dp 16dp;
-    background-color: rgba(255, 255, 255, 210);
-    border: 1dp rgba(23, 20, 31, 18);
-    border-radius: 16dp;
-    box-shadow: 0 10dp 24dp rgba(0, 0, 0, 18);
-    color: rgba(23, 20, 31, 132);
-    font-size: 11dp;
-    font-weight: bold;
-    letter-spacing: 1dp;
-    line-height: 1.25;
-    text-align: center;
-    opacity: 0;
-    display: none;
-}
-
-.battle-hint.visible {
-    display: block;
-    opacity: 1;
 }
 
 .battle-toast {

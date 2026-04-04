@@ -26,4 +26,38 @@ PreviewActorContext inspectPreviewActor(const BattleManager& manager) {
     return ctx;
 }
 
+PreviewAbilityContext inspectPreviewAbility(const BattleManager& manager) {
+    PreviewAbilityContext ctx;
+
+    const PreviewActorContext actor = inspectPreviewActor(manager);
+    if (!actor.valid) {
+        return ctx;
+    }
+
+    ctx.valid = true;
+    ctx.actorType = actor.type;
+    ctx.partyIndex = actor.partyIndex;
+    ctx.action = actor.isExtraTurn ? actor.extraTurnAction : BattleAction::Skill;
+
+    const BattleState& state = manager.getBattleState();
+    if (actor.type == ParticipantType::Character) {
+        if (actor.partyIndex < 0 || actor.partyIndex >= static_cast<int>(state.party.size())) {
+            return PreviewAbilityContext{};
+        }
+
+        const CharacterDefinition& definition = state.party[static_cast<size_t>(actor.partyIndex)];
+        ctx.abilityId = (ctx.action == BattleAction::Ultimate)
+            ? definition.ultimate
+            : getCharacterRegularAbilityId(definition);
+        return ctx.abilityId.empty() ? PreviewAbilityContext{} : ctx;
+    }
+
+    if (actor.type == ParticipantType::Boss) {
+        ctx.abilityId = getBossNormalAbilityId(state.boss);
+        return ctx.abilityId.empty() ? PreviewAbilityContext{} : ctx;
+    }
+
+    return PreviewAbilityContext{};
+}
+
 } // namespace battle::flow

@@ -19,15 +19,16 @@
                 "targetRule": "all_enemies",
                 "multiplier": 1.0,
                 "interactionType": "parry",
-                "presentationId": "boss_attack_lyoo"
+                "presentationId": "boss_attack_lyoo",
+                "inputPromptType": "space"
             }
         },
         "ultimatePoints": 6,
         "startingOrbs": 1,
-        "bgm": "lyooBoss",
-        "bgmVolume": 0.1,
         "phases": {
             "phase1": {
+                "bgm": "lyooBoss",
+                "bgmVolume": 0.1,
                 "atkBonusPercent": 0,
                 "presentation": {
                     "intParams": {
@@ -41,6 +42,8 @@
                 }
             },
             "phase2": {
+                "bgm": "lyooBoss2",
+                "bgmVolume": 0.3,
                 "atkBonusPercent": 15,
                 "presentation": {
                     "intParams": {
@@ -54,6 +57,8 @@
                 }
             },
             "phase3": {
+                "bgm": "lyooBoss3",
+                "bgmVolume": 0.3,
                 "atkBonusPercent": 30,
                 "presentation": {
                     "intParams": {
@@ -88,7 +93,8 @@
                 "targetRule": "all_enemies",
                 "multiplier": 1.25,
                 "interactionType": "none",
-                "presentationId": "boss_attack_lyoo_plot_twist"
+                "presentationId": "boss_attack_lyoo_plot_twist",
+                "inputPromptType": "none"
             }
         },
         "ultimatePoints": 6,
@@ -119,7 +125,8 @@
                 "selfHpCostPercentIncreasePerUse": 7.0,
                 "selfHpCostPercentMax": 100.0,
                 "interactionType": "none",
-                "presentationId": "self_corruption"
+                "presentationId": "self_corruption",
+                "inputPromptType": "none"
             }
         },
         "ultimatePoints": 6,
@@ -147,7 +154,8 @@
                 "targetRule": "all_enemies",
                 "multiplier": 1.2,
                 "interactionType": "parry",
-                "presentationId": "aesthetic_warning"
+                "presentationId": "aesthetic_warning",
+                "inputPromptType": "leftRight"
             }
         },
         "ultimatePoints": 6,
@@ -219,7 +227,9 @@
                 "targetRule": "all_enemies",
                 "multiplier": 1,
                 "interactionType": "none",
-                "presentationId": "yin_long"
+                "presentationId": "yin_long",
+                "inputPromptType": "custom",
+                "inputPromptKeys": ["1", "2", "3", "4"]
             }
         },
         "ultimatePoints": 6,
@@ -288,7 +298,8 @@
                 "targetRule": "all_enemies",
                 "multiplier": 1.3,
                 "interactionType": "parry",
-                "presentationId": "qr_code_attack"
+                "presentationId": "qr_code_attack",
+                "inputPromptType": "arrows"
             }
         },
         "ultimatePoints": 6,
@@ -366,7 +377,8 @@
                 "targetRule": "all_enemies",
                 "multiplier": 1.25,
                 "interactionType": "parry",
-                "presentationId": "whistle_note"
+                "presentationId": "whistle_note",
+                "inputPromptType": "space"
             }
         },
         "ultimatePoints": 6,

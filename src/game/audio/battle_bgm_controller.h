@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <string>
 
 #include "bgm_player.h"
@@ -80,7 +81,7 @@ namespace game::audio {
 
 class BattleBgmController {
 public:
-    void attach(BgmPlayer& player);
+    void attach(BgmPlayer& primaryPlayer, BgmPlayer& secondaryPlayer);
     void detach();
 
     void stop();
@@ -98,24 +99,38 @@ public:
     bool isPaused() const;
 
 private:
-    enum class TransitionState {
-        Idle,
-        FadingOut,
-        FadingIn
+    struct PlaybackSlot {
+        BgmPlayer* player = nullptr;
+        std::string trackPath;
+        float baseVolume = 1.0f;
+        float fadeGain = 1.0f;
     };
 
-    void applyVolume();
+    enum class TransitionState {
+        Idle,
+        FadingIn,
+        FadingOutToStop,
+        Crossfading
+    };
 
-    BgmPlayer* player_ = nullptr;
-    std::string currentTrackPath_;
-    float currentBaseVolume_ = 1.0f;
-    std::string queuedTrackPath_;
-    float queuedBaseVolume_ = 1.0f;
+    void applyVolumes() const;
+    void stopSlot(PlaybackSlot& slot);
+    bool startSlot(PlaybackSlot& slot,
+                   const std::string& trackPath,
+                   float baseVolume,
+                   float initialGain,
+                   float startSeconds = 0.0f);
+    bool anySlotPlaying() const;
+    int inactiveSlotIndex() const;
+
+    std::array<PlaybackSlot, 2> slots_{};
+    int activeSlotIndex_ = 0;
+    int incomingSlotIndex_ = -1;
     float masterVolume_ = 1.0f;
-    float fadeGain_ = 1.0f;
     float fadeDurationSeconds_ = 0.35f;
     float transitionElapsedSeconds_ = 0.0f;
-    float transitionStartGain_ = 1.0f;
+    float activeStartGain_ = 1.0f;
+    float incomingStartGain_ = 0.0f;
     bool paused_ = false;
     TransitionState transitionState_ = TransitionState::Idle;
 };

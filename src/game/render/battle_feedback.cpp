@@ -222,13 +222,13 @@ void BattleFeedbackSystem::queuePresentationHitShakes(bool isBossCaster, int hit
     }
 }
 
-void BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
-                                                        int hitEvents,
-                                                        int perHitDamage,
-                                                        const BattleManager& manager,
-                                                        int targetPartyIndex) {
+int BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
+                                                       int hitEvents,
+                                                       int perHitDamage,
+                                                       const BattleManager& manager,
+                                                       int targetPartyIndex) {
     if (hitEvents <= 0 || perHitDamage <= 0) {
-        return;
+        return 0;
     }
 
     if (isBossCaster) {
@@ -244,10 +244,12 @@ void BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
                 }
                 queueDamageShake(false, targetPartyIndex, hitEvents);
                 suppressCharacterNextDamagePopup_[static_cast<size_t>(targetPartyIndex)] = true;
+                return hitEvents;
             }
-            return;
+            return 0;
         }
 
+        int spawnedDamagePopups = 0;
         for (size_t i = 0; i < state.party.size(); ++i) {
             if (manager.getCharacterCurrentHp(static_cast<int>(i)) <= 0) {
                 continue;
@@ -258,12 +260,13 @@ void BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
             }
             queueDamageShake(false, static_cast<int>(i), hitEvents);
             suppressCharacterNextDamagePopup_[i] = true;
+            spawnedDamagePopups += hitEvents;
         }
-        return;
+        return spawnedDamagePopups;
     }
 
     if (manager.getBossCurrentHp() <= 0) {
-        return;
+        return 0;
     }
 
     if (manager.playerDamageHealsBoss()) {
@@ -271,7 +274,7 @@ void BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
             spawnHealingPopup(true, -1, perHitDamage);
         }
         suppressBossNextHealingPopup_ = true;
-        return;
+        return 0;
     }
 
     for (int h = 0; h < hitEvents; ++h) {
@@ -279,6 +282,7 @@ void BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
     }
     queueDamageShake(true, -1, hitEvents);
     suppressBossNextDamagePopup_ = true;
+    return hitEvents;
 }
 
 void BattleFeedbackSystem::queuePresentationHealFeedback(bool isBossCaster,

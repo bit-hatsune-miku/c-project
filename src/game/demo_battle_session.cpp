@@ -1030,6 +1030,7 @@ namespace {
 game::audio::WavOneShotPlayer gOneShotAudio;
 game::audio::WavOneShotPlayer gPresentationSfxAudio;
 game::audio::BgmPlayer gBgmPlayer;
+game::audio::BgmPlayer gBattleBgmCrossfadePlayer;
 game::audio::BgmPlayer gPresentationLoopAudio;
 
 std::string getPresentationCasterVoiceKey(const PresentationContext& context, const BattleManager& manager) {
@@ -1760,7 +1761,7 @@ private:
         }
 
         activePartyLineup_ = lineup;
-        battleBgmController_.attach(gBgmPlayer);
+        battleBgmController_.attach(gBgmPlayer, gBattleBgmCrossfadePlayer);
         battleBgmController_.setMasterVolume(1.0f);
 
         core_.shutdown();

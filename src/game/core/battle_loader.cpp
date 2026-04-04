@@ -16,6 +16,28 @@ bool loadCharacterDefinition(const std::string& characterKey, CharacterDefinitio
 
 namespace {
 
+InputPromptType parseInputPromptType(const std::string& promptType) {
+    if (promptType == "space") {
+        return InputPromptType::Space;
+    }
+    if (promptType == "wild") {
+        return InputPromptType::Wild;
+    }
+    if (promptType == "custom") {
+        return InputPromptType::Custom;
+    }
+    if (promptType == "arrows") {
+        return InputPromptType::Arrows;
+    }
+    if (promptType == "leftRight") {
+        return InputPromptType::LeftRight;
+    }
+    if (promptType == "spamSpace") {
+        return InputPromptType::SpamSpace;
+    }
+    return InputPromptType::None;
+}
+
 std::string getUnitAbilityReferenceId(const json& unitJson, const char* slotName) {
     if (!unitJson.is_object() || slotName == nullptr) {
         return {};
@@ -733,6 +755,16 @@ bool parseAbilityDefinition(const json& abilityJson,
     outAbility.selfHpCostPercentMax = abilityJson.value("selfHpCostPercentMax", 0.0f);
     outAbility.reviveDeadAllies = abilityJson.value("reviveDeadAllies", false);
     outAbility.presentationId = abilityJson.value("presentationId", "");
+    outAbility.inputPromptType = parseInputPromptType(abilityJson.value("inputPromptType", "none"));
+
+    if (const auto keysIt = abilityJson.find("inputPromptKeys");
+        keysIt != abilityJson.end() && keysIt->is_array()) {
+        for (const json& keyValue : *keysIt) {
+            if (keyValue.is_string()) {
+                outAbility.inputPromptKeys.push_back(keyValue.get<std::string>());
+            }
+        }
+    }
 
     const std::string typeStr = abilityJson.value("type", "attack");
     if (typeStr == "heal") {

@@ -6,6 +6,7 @@ namespace game::audio {
 namespace {
 
 constexpr float kFadeDurationSeconds = 0.35f;
+constexpr float kCrossfadeDurationSeconds = 0.85f;
 
 /**
  * @brief Maps an input to a smooth 0→1 interpolation using a cubic Hermite curve.
@@ -31,8 +32,11 @@ float smoothstep01(float value) {
  *
  * @param player Reference to the BgmPlayer to attach.
  */
-void BattleBgmController::attach(BgmPlayer& player) {
-    player_ = &player;
+void BattleBgmController::attach(BgmPlayer& primaryPlayer, BgmPlayer& secondaryPlayer) {
+    slots_[0].player = &primaryPlayer;
+    slots_[1].player = &secondaryPlayer;
+    activeSlotIndex_ = 0;
+    incomingSlotIndex_ = -1;
 }
 
 /**
@@ -43,16 +47,15 @@ void BattleBgmController::attach(BgmPlayer& player) {
  * state to Idle, and clears the paused flag.
  */
 void BattleBgmController::detach() {
-    player_ = nullptr;
-    currentTrackPath_.clear();
-    queuedTrackPath_.clear();
-    currentBaseVolume_ = 1.0f;
-    queuedBaseVolume_ = 1.0f;
+    slots_[0] = PlaybackSlot{};
+    slots_[1] = PlaybackSlot{};
+    activeSlotIndex_ = 0;
+    incomingSlotIndex_ = -1;
     masterVolume_ = 1.0f;
-    fadeGain_ = 1.0f;
     fadeDurationSeconds_ = kFadeDurationSeconds;
     transitionElapsedSeconds_ = 0.0f;
-    transitionStartGain_ = 1.0f;
+    activeStartGain_ = 1.0f;
+    incomingStartGain_ = 0.0f;
     paused_ = false;
     transitionState_ = TransitionState::Idle;
 }
@@ -64,17 +67,14 @@ void BattleBgmController::detach() {
  * and resets base volumes, fade/gain/timing values, pause flag, and transition state to defaults.
  */
 void BattleBgmController::stop() {
-    queuedTrackPath_.clear();
-    if (player_ != nullptr) {
-        player_->stop();
-    }
-    currentTrackPath_.clear();
-    currentBaseVolume_ = 1.0f;
-    queuedBaseVolume_ = 1.0f;
-    fadeGain_ = 1.0f;
+    stopSlot(slots_[0]);
+    stopSlot(slots_[1]);
+    activeSlotIndex_ = 0;
+    incomingSlotIndex_ = -1;
     fadeDurationSeconds_ = kFadeDurationSeconds;
     transitionElapsedSeconds_ = 0.0f;
-    transitionStartGain_ = 1.0f;
+    activeStartGain_ = 1.0f;
+    incomingStartGain_ = 0.0f;
     paused_ = false;
     transitionState_ = TransitionState::Idle;
 }
@@ -91,16 +91,10 @@ void BattleBgmController::stop() {
  * @param fadeDurationSeconds Desired duration of the fade-out in seconds; values less than 0.01 are raised to 0.01.
  */
 void BattleBgmController::fadeOutAndStop(float fadeDurationSeconds) {
-    queuedTrackPath_.clear();
-    queuedBaseVolume_ = 1.0f;
+    incomingSlotIndex_ = -1;
     fadeDurationSeconds_ = std::max(0.01f, fadeDurationSeconds);
 
-    if (player_ == nullptr) {
-        return;
-    }
-
-    if (!player_->isPlaying() || currentTrackPath_.empty()) {
-        stop();
+    if (!anySlotPlaying()) {
         return;
     }
 
@@ -110,8 +104,13 @@ void BattleBgmController::fadeOutAndStop(float fadeDurationSeconds) {
     }
 
     transitionElapsedSeconds_ = 0.0f;
-    transitionStartGain_ = std::clamp(fadeGain_, 0.0f, 1.0f);
-    transitionState_ = TransitionState::FadingOut;
+    activeStartGain_ = std::clamp(slots_[activeSlotIndex_].fadeGain, 0.0f, 1.0f);
+    incomingStartGain_ = 0.0f;
+    if (const int otherSlotIndex = inactiveSlotIndex();
+        slots_[otherSlotIndex].player != nullptr && slots_[otherSlotIndex].player->isPlaying()) {
+        incomingStartGain_ = std::clamp(slots_[otherSlotIndex].fadeGain, 0.0f, 1.0f);
+    }
+    transitionState_ = TransitionState::FadingOutToStop;
 }
 
 /**
@@ -123,34 +122,31 @@ void BattleBgmController::fadeOutAndStop(float fadeDurationSeconds) {
  * @param baseVolume Desired base volume for the track, clamped to the range [0, 1].
  */
 void BattleBgmController::playImmediate(const std::string& trackPath, float baseVolume) {
-    if (player_ == nullptr) {
+    if (slots_[activeSlotIndex_].player == nullptr) {
         return;
     }
 
     const float clampedBaseVolume = std::clamp(baseVolume, 0.0f, 1.0f);
-    queuedTrackPath_.clear();
-    queuedBaseVolume_ = clampedBaseVolume;
-
     if (trackPath.empty()) {
         stop();
         return;
     }
 
-    if (!player_->play(trackPath, clampedBaseVolume * masterVolume_)) {
+    stopSlot(slots_[0]);
+    stopSlot(slots_[1]);
+    activeSlotIndex_ = 0;
+    incomingSlotIndex_ = -1;
+
+    if (!startSlot(slots_[activeSlotIndex_], trackPath, clampedBaseVolume, 1.0f)) {
         stop();
         return;
     }
 
-    currentTrackPath_ = trackPath;
-    currentBaseVolume_ = clampedBaseVolume;
-    fadeGain_ = 1.0f;
     fadeDurationSeconds_ = kFadeDurationSeconds;
     transitionElapsedSeconds_ = 0.0f;
-    transitionStartGain_ = 1.0f;
+    activeStartGain_ = 1.0f;
+    incomingStartGain_ = 0.0f;
     transitionState_ = TransitionState::Idle;
-    if (paused_) {
-        player_->pause();
-    }
 }
 
 /**
@@ -171,35 +167,32 @@ void BattleBgmController::playImmediate(const std::string& trackPath, float base
 void BattleBgmController::playWithFadeIn(const std::string& trackPath,
                                          float baseVolume,
                                          float fadeDurationSeconds) {
-    if (player_ == nullptr) {
+    if (slots_[activeSlotIndex_].player == nullptr) {
         return;
     }
 
     const float clampedBaseVolume = std::clamp(baseVolume, 0.0f, 1.0f);
-    queuedTrackPath_.clear();
-    queuedBaseVolume_ = clampedBaseVolume;
-
     if (trackPath.empty()) {
         stop();
         return;
     }
 
-    if (!player_->play(trackPath, 0.0f)) {
+    stopSlot(slots_[0]);
+    stopSlot(slots_[1]);
+    activeSlotIndex_ = 0;
+    incomingSlotIndex_ = -1;
+
+    if (!startSlot(slots_[activeSlotIndex_], trackPath, clampedBaseVolume, 0.0f)) {
         stop();
         return;
     }
 
-    currentTrackPath_ = trackPath;
-    currentBaseVolume_ = clampedBaseVolume;
-    fadeGain_ = 0.0f;
     fadeDurationSeconds_ = std::max(0.01f, fadeDurationSeconds);
     transitionElapsedSeconds_ = 0.0f;
-    transitionStartGain_ = 0.0f;
+    activeStartGain_ = 0.0f;
+    incomingStartGain_ = 0.0f;
     transitionState_ = TransitionState::FadingIn;
-    if (paused_) {
-        player_->pause();
-    }
-    applyVolume();
+    applyVolumes();
 }
 
 /**
@@ -215,7 +208,7 @@ void BattleBgmController::playWithFadeIn(const std::string& trackPath,
  * @param baseVolume Desired base volume in the range [0, 1]; values outside this range are clamped.
  */
 void BattleBgmController::requestTrack(const std::string& trackPath, float baseVolume) {
-    if (player_ == nullptr) {
+    if (slots_[activeSlotIndex_].player == nullptr) {
         return;
     }
 
@@ -224,30 +217,66 @@ void BattleBgmController::requestTrack(const std::string& trackPath, float baseV
         return;
     }
 
-    if (!player_->isPlaying() || currentTrackPath_.empty()) {
+    PlaybackSlot& activeSlot = slots_[activeSlotIndex_];
+    if (incomingSlotIndex_ >= 0 && incomingSlotIndex_ < static_cast<int>(slots_.size())) {
+        PlaybackSlot& incomingSlot = slots_[incomingSlotIndex_];
+        if (incomingSlot.trackPath == trackPath) {
+            incomingSlot.baseVolume = clampedBaseVolume;
+            applyVolumes();
+            return;
+        }
+        if (activeSlot.trackPath == trackPath) {
+            stopSlot(incomingSlot);
+            incomingSlotIndex_ = -1;
+            activeSlot.fadeGain = 1.0f;
+            transitionState_ = TransitionState::Idle;
+            transitionElapsedSeconds_ = 0.0f;
+            activeStartGain_ = 1.0f;
+            incomingStartGain_ = 0.0f;
+            applyVolumes();
+            return;
+        }
+    }
+
+    if (!activeSlot.player->isPlaying() || activeSlot.trackPath.empty()) {
         playImmediate(trackPath, clampedBaseVolume);
         return;
     }
 
-    if (trackPath == currentTrackPath_) {
-        currentBaseVolume_ = clampedBaseVolume;
-        queuedTrackPath_.clear();
-        queuedBaseVolume_ = clampedBaseVolume;
+    if (trackPath == activeSlot.trackPath) {
+        activeSlot.baseVolume = clampedBaseVolume;
         transitionState_ = TransitionState::Idle;
-        fadeGain_ = 1.0f;
-        fadeDurationSeconds_ = kFadeDurationSeconds;
+        activeSlot.fadeGain = 1.0f;
+        incomingSlotIndex_ = -1;
+        fadeDurationSeconds_ = kCrossfadeDurationSeconds;
         transitionElapsedSeconds_ = 0.0f;
-        transitionStartGain_ = 1.0f;
-        applyVolume();
+        activeStartGain_ = 1.0f;
+        incomingStartGain_ = 0.0f;
+        applyVolumes();
         return;
     }
 
-    queuedTrackPath_ = trackPath;
-    queuedBaseVolume_ = clampedBaseVolume;
-    fadeDurationSeconds_ = kFadeDurationSeconds;
+    float incomingStartSeconds = 0.0f;
+    if (activeSlot.player != nullptr && activeSlot.player->sampleRate() > 0) {
+        incomingStartSeconds =
+            static_cast<float>(activeSlot.player->currentFrame()) /
+            static_cast<float>(activeSlot.player->sampleRate());
+    }
+
+    const int nextSlotIndex = inactiveSlotIndex();
+    PlaybackSlot& nextSlot = slots_[nextSlotIndex];
+    stopSlot(nextSlot);
+    if (!startSlot(nextSlot, trackPath, clampedBaseVolume, 0.0f, incomingStartSeconds)) {
+        return;
+    }
+
+    incomingSlotIndex_ = nextSlotIndex;
+    fadeDurationSeconds_ = kCrossfadeDurationSeconds;
     transitionElapsedSeconds_ = 0.0f;
-    transitionStartGain_ = std::clamp(fadeGain_, 0.0f, 1.0f);
-    transitionState_ = TransitionState::FadingOut;
+    activeStartGain_ = std::clamp(activeSlot.fadeGain, 0.0f, 1.0f);
+    incomingStartGain_ = 0.0f;
+    transitionState_ = TransitionState::Crossfading;
+    applyVolumes();
 }
 
 /**
@@ -265,77 +294,21 @@ void BattleBgmController::requestTrack(const std::string& trackPath, float baseV
  * @param deltaSeconds Elapsed time in seconds since the last update; values less than zero are treated as zero.
  */
 void BattleBgmController::update(float deltaSeconds) {
-    if (player_ == nullptr) {
+    if (slots_[activeSlotIndex_].player == nullptr) {
         return;
     }
 
     switch (transitionState_) {
         case TransitionState::Idle:
-            applyVolume();
+            applyVolumes();
             return;
-        case TransitionState::FadingOut: {
-            if (!player_->isPlaying()) {
-                transitionState_ = TransitionState::Idle;
-                fadeGain_ = 1.0f;
-                transitionElapsedSeconds_ = 0.0f;
-                transitionStartGain_ = 1.0f;
-                return;
-            }
-
-            transitionElapsedSeconds_ += std::max(deltaSeconds, 0.0f);
-            const float fadeOutProgress = fadeDurationSeconds_ <= 0.0f
-                ? 1.0f
-                : std::clamp(transitionElapsedSeconds_ / fadeDurationSeconds_, 0.0f, 1.0f);
-            fadeGain_ = transitionStartGain_ * (1.0f - smoothstep01(fadeOutProgress));
-            applyVolume();
-            if (fadeOutProgress < 1.0f) {
-                return;
-            }
-
-            player_->stop();
-            currentTrackPath_.clear();
-            currentBaseVolume_ = 1.0f;
-            if (queuedTrackPath_.empty()) {
-                fadeGain_ = 1.0f;
-                fadeDurationSeconds_ = kFadeDurationSeconds;
-                transitionElapsedSeconds_ = 0.0f;
-                transitionStartGain_ = 1.0f;
-                transitionState_ = TransitionState::Idle;
-                return;
-            }
-
-            if (!player_->play(queuedTrackPath_, 0.0f)) {
-                queuedTrackPath_.clear();
-                queuedBaseVolume_ = 1.0f;
-                fadeGain_ = 1.0f;
-                fadeDurationSeconds_ = kFadeDurationSeconds;
-                transitionElapsedSeconds_ = 0.0f;
-                transitionStartGain_ = 1.0f;
-                transitionState_ = TransitionState::Idle;
-                return;
-            }
-
-            currentTrackPath_ = queuedTrackPath_;
-            currentBaseVolume_ = queuedBaseVolume_;
-            queuedTrackPath_.clear();
-            queuedBaseVolume_ = 1.0f;
-            fadeGain_ = 0.0f;
-            fadeDurationSeconds_ = kFadeDurationSeconds;
-            transitionElapsedSeconds_ = 0.0f;
-            transitionStartGain_ = 0.0f;
-            transitionState_ = TransitionState::FadingIn;
-            if (paused_) {
-                player_->pause();
-            }
-            applyVolume();
-            return;
-        }
         case TransitionState::FadingIn: {
-            if (!player_->isPlaying()) {
+            PlaybackSlot& activeSlot = slots_[activeSlotIndex_];
+            if (activeSlot.player == nullptr || !activeSlot.player->isPlaying()) {
                 transitionState_ = TransitionState::Idle;
-                fadeGain_ = 1.0f;
+                activeSlot.fadeGain = 1.0f;
                 transitionElapsedSeconds_ = 0.0f;
-                transitionStartGain_ = 1.0f;
+                activeStartGain_ = 1.0f;
                 return;
             }
 
@@ -343,12 +316,76 @@ void BattleBgmController::update(float deltaSeconds) {
             const float fadeInProgress = fadeDurationSeconds_ <= 0.0f
                 ? 1.0f
                 : std::clamp(transitionElapsedSeconds_ / fadeDurationSeconds_, 0.0f, 1.0f);
-            fadeGain_ = smoothstep01(fadeInProgress);
-            applyVolume();
+            activeSlot.fadeGain = activeStartGain_ + ((1.0f - activeStartGain_) * smoothstep01(fadeInProgress));
+            applyVolumes();
             if (fadeInProgress >= 1.0f) {
-                fadeGain_ = 1.0f;
+                activeSlot.fadeGain = 1.0f;
                 transitionElapsedSeconds_ = 0.0f;
-                transitionStartGain_ = 1.0f;
+                activeStartGain_ = 1.0f;
+                transitionState_ = TransitionState::Idle;
+            }
+            return;
+        }
+        case TransitionState::FadingOutToStop: {
+            transitionElapsedSeconds_ += std::max(deltaSeconds, 0.0f);
+            const float fadeOutProgress = fadeDurationSeconds_ <= 0.0f
+                ? 1.0f
+                : std::clamp(transitionElapsedSeconds_ / fadeDurationSeconds_, 0.0f, 1.0f);
+            const float shapedProgress = smoothstep01(fadeOutProgress);
+            slots_[activeSlotIndex_].fadeGain = activeStartGain_ * (1.0f - shapedProgress);
+            if (const int otherSlotIndex = inactiveSlotIndex();
+                slots_[otherSlotIndex].player != nullptr && slots_[otherSlotIndex].player->isPlaying()) {
+                slots_[otherSlotIndex].fadeGain = incomingStartGain_ * (1.0f - shapedProgress);
+            }
+            applyVolumes();
+            if (fadeOutProgress < 1.0f) {
+                return;
+            }
+
+            stop();
+            return;
+        }
+        case TransitionState::Crossfading: {
+            if (incomingSlotIndex_ < 0 || incomingSlotIndex_ >= static_cast<int>(slots_.size())) {
+                transitionState_ = TransitionState::Idle;
+                slots_[activeSlotIndex_].fadeGain = 1.0f;
+                transitionElapsedSeconds_ = 0.0f;
+                activeStartGain_ = 1.0f;
+                incomingStartGain_ = 0.0f;
+                return;
+            }
+
+            PlaybackSlot& activeSlot = slots_[activeSlotIndex_];
+            PlaybackSlot& incomingSlot = slots_[incomingSlotIndex_];
+            if (activeSlot.player == nullptr || incomingSlot.player == nullptr ||
+                !activeSlot.player->isPlaying() || !incomingSlot.player->isPlaying()) {
+                stopSlot(incomingSlot);
+                incomingSlotIndex_ = -1;
+                transitionState_ = TransitionState::Idle;
+                activeSlot.fadeGain = 1.0f;
+                transitionElapsedSeconds_ = 0.0f;
+                activeStartGain_ = 1.0f;
+                incomingStartGain_ = 0.0f;
+                applyVolumes();
+                return;
+            }
+
+            transitionElapsedSeconds_ += std::max(deltaSeconds, 0.0f);
+            const float crossfadeProgress = fadeDurationSeconds_ <= 0.0f
+                ? 1.0f
+                : std::clamp(transitionElapsedSeconds_ / fadeDurationSeconds_, 0.0f, 1.0f);
+            const float shapedProgress = smoothstep01(crossfadeProgress);
+            activeSlot.fadeGain = activeStartGain_ * (1.0f - shapedProgress);
+            incomingSlot.fadeGain = incomingStartGain_ + ((1.0f - incomingStartGain_) * shapedProgress);
+            applyVolumes();
+            if (crossfadeProgress >= 1.0f) {
+                stopSlot(activeSlot);
+                activeSlotIndex_ = incomingSlotIndex_;
+                incomingSlotIndex_ = -1;
+                slots_[activeSlotIndex_].fadeGain = 1.0f;
+                transitionElapsedSeconds_ = 0.0f;
+                activeStartGain_ = 1.0f;
+                incomingStartGain_ = 0.0f;
                 transitionState_ = TransitionState::Idle;
             }
             return;
@@ -366,7 +403,7 @@ void BattleBgmController::update(float deltaSeconds) {
  */
 void BattleBgmController::setMasterVolume(float masterVolume) {
     masterVolume_ = std::clamp(masterVolume, 0.0f, 1.0f);
-    applyVolume();
+    applyVolumes();
 }
 
 /**
@@ -376,8 +413,10 @@ void BattleBgmController::setMasterVolume(float masterVolume) {
  */
 void BattleBgmController::pause() {
     paused_ = true;
-    if (player_ != nullptr && player_->isPlaying() && !player_->isPaused()) {
-        player_->pause();
+    for (PlaybackSlot& slot : slots_) {
+        if (slot.player != nullptr && slot.player->isPlaying() && !slot.player->isPaused()) {
+            slot.player->pause();
+        }
     }
 }
 
@@ -388,8 +427,10 @@ void BattleBgmController::pause() {
  */
 void BattleBgmController::resume() {
     paused_ = false;
-    if (player_ != nullptr && player_->isPlaying() && player_->isPaused()) {
-        player_->resume();
+    for (PlaybackSlot& slot : slots_) {
+        if (slot.player != nullptr && slot.player->isPlaying() && slot.player->isPaused()) {
+            slot.player->resume();
+        }
     }
 }
 
@@ -399,7 +440,7 @@ void BattleBgmController::resume() {
  * @return `true` if a BGM player is attached and is currently playing, `false` otherwise.
  */
 bool BattleBgmController::isPlaying() const {
-    return player_ != nullptr && player_->isPlaying();
+    return anySlotPlaying();
 }
 
 /**
@@ -408,7 +449,7 @@ bool BattleBgmController::isPlaying() const {
  * @return `true` if a player is attached and it is paused, `false` otherwise.
  */
 bool BattleBgmController::isPaused() const {
-    return player_ != nullptr && player_->isPaused();
+    return paused_ && anySlotPlaying();
 }
 
 /**
@@ -418,12 +459,62 @@ bool BattleBgmController::isPaused() const {
  * currentBaseVolume_ * fadeGain_ * masterVolume_. Does nothing when there
  * is no attached player or the player is not playing.
  */
-void BattleBgmController::applyVolume() {
-    if (player_ == nullptr || !player_->isPlaying()) {
-        return;
+void BattleBgmController::applyVolumes() const {
+    for (const PlaybackSlot& slot : slots_) {
+        if (slot.player == nullptr || !slot.player->isPlaying()) {
+            continue;
+        }
+        slot.player->setVolume(slot.baseVolume * slot.fadeGain * masterVolume_);
+    }
+}
+
+void BattleBgmController::stopSlot(PlaybackSlot& slot) {
+    if (slot.player != nullptr) {
+        slot.player->stop();
+    }
+    slot.trackPath.clear();
+    slot.baseVolume = 1.0f;
+    slot.fadeGain = 1.0f;
+}
+
+bool BattleBgmController::startSlot(PlaybackSlot& slot,
+                                    const std::string& trackPath,
+                                    float baseVolume,
+                                    float initialGain,
+                                    float startSeconds) {
+    if (slot.player == nullptr) {
+        return false;
     }
 
-    player_->setVolume(currentBaseVolume_ * fadeGain_ * masterVolume_);
+    const float clampedBaseVolume = std::clamp(baseVolume, 0.0f, 1.0f);
+    const float clampedInitialGain = std::clamp(initialGain, 0.0f, 1.0f);
+    if (!slot.player->playAtTime(trackPath,
+                                 clampedBaseVolume * clampedInitialGain * masterVolume_,
+                                 startSeconds)) {
+        stopSlot(slot);
+        return false;
+    }
+
+    slot.trackPath = trackPath;
+    slot.baseVolume = clampedBaseVolume;
+    slot.fadeGain = clampedInitialGain;
+    if (paused_) {
+        slot.player->pause();
+    }
+    return true;
+}
+
+bool BattleBgmController::anySlotPlaying() const {
+    for (const PlaybackSlot& slot : slots_) {
+        if (slot.player != nullptr && slot.player->isPlaying()) {
+            return true;
+        }
+    }
+    return false;
+}
+
+int BattleBgmController::inactiveSlotIndex() const {
+    return activeSlotIndex_ == 0 ? 1 : 0;
 }
 
 } // namespace game::audio
