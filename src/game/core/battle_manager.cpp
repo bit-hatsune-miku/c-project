@@ -1850,6 +1850,22 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
     actionEvent.bossHpAfter = bossCurrentHp_;
     actionEvent.hitVoicesHandledDuringPresentation = false;
     actionEvent.consumedActionValue = std::max(0.0f, consumedActionValue);
+    actionEvent.targetPartyIndices.clear();
+    actionEvent.targetHpBefore.clear();
+    actionEvent.targetHpAfter.clear();
+    actionEvent.targetShieldBefore.clear();
+    actionEvent.targetShieldAfter.clear();
+
+    std::vector<int> supportHpBefore;
+    std::vector<int> supportShieldBefore;
+    if (abilityDef != nullptr && abilityDef->type != AbilityType::Attack) {
+        supportHpBefore.reserve(characters_.size());
+        supportShieldBefore.reserve(characters_.size());
+        for (const BattleCharacter& target : characters_) {
+            supportHpBefore.push_back(target.hp());
+            supportShieldBefore.push_back(target.getShield());
+        }
+    }
 
     grantUltimatePointForAction(character, grantsUltimatePointOnAction);
     if (grantsUltimatePointOnAction) {
@@ -1910,6 +1926,26 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
         abilityDef->id == "MeiCiDuXiangZhuang" &&
         bossCurrentHp_ > 0) {
         applyJiafeiUltimateDebuff(character.partyIndex(), *abilityDef);
+    }
+
+    if (!supportHpBefore.empty()) {
+        const std::size_t snapshotCount = std::min({characters_.size(), supportHpBefore.size(), supportShieldBefore.size()});
+        for (std::size_t i = 0; i < snapshotCount; ++i) {
+            const BattleCharacter& target = characters_[i];
+            const int hpBefore = supportHpBefore[i];
+            const int hpAfter = target.hp();
+            const int shieldBefore = supportShieldBefore[i];
+            const int shieldAfter = target.getShield();
+            if (hpBefore == hpAfter && shieldBefore == shieldAfter) {
+                continue;
+            }
+
+            actionEvent.targetPartyIndices.push_back(target.partyIndex());
+            actionEvent.targetHpBefore.push_back(hpBefore);
+            actionEvent.targetHpAfter.push_back(hpAfter);
+            actionEvent.targetShieldBefore.push_back(shieldBefore);
+            actionEvent.targetShieldAfter.push_back(shieldAfter);
+        }
     }
 
     if (action == BattleAction::Ultimate) {
@@ -1986,6 +2022,8 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
     actionEvent.targetPartyIndices.clear();
     actionEvent.targetHpBefore.clear();
     actionEvent.targetHpAfter.clear();
+    actionEvent.targetShieldBefore.clear();
+    actionEvent.targetShieldAfter.clear();
 
     bool presentationHitApplied = false;
     if (abilityDef != nullptr) {
@@ -2030,6 +2068,9 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
                 actionEvent.targetHpBefore.push_back(presentationTargetHpBefore);
                 actionEvent.targetHpAfter.push_back(
                     characters_[static_cast<size_t>(presContext.targetIndex)].hp());
+                const int currentShield = characters_[static_cast<size_t>(presContext.targetIndex)].getShield();
+                actionEvent.targetShieldBefore.push_back(currentShield);
+                actionEvent.targetShieldAfter.push_back(currentShield);
             }
         } else if (abilityDef->id == "AestheticWarning" && presContext.targetIndex >= 0) {
             // Jiafei handles all damage through presentation hit events.
@@ -2040,11 +2081,13 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
                 }
                 actionEvent.targetPartyIndices.push_back(c.partyIndex());
                 actionEvent.targetHpBefore.push_back(c.hp());
+                actionEvent.targetShieldBefore.push_back(c.getShield());
                 const int finalDamage = normalizeDamage(static_cast<int>(
                     getBossEffectiveAtk() * abilityDef->multiplier * multiplier
                 ));
                 c.receiveDamage(finalDamage);
                 actionEvent.targetHpAfter.push_back(c.hp());
+                actionEvent.targetShieldAfter.push_back(c.getShield());
             }
             syncAllCharacterTurnParticipation();
         } else {
@@ -2052,11 +2095,13 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
             if (targetIndex >= 0) {
                 actionEvent.targetPartyIndices.push_back(targetIndex);
                 actionEvent.targetHpBefore.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
+                actionEvent.targetShieldBefore.push_back(characters_[static_cast<size_t>(targetIndex)].getShield());
                 const int finalDamage = normalizeDamage(static_cast<int>(
                     getBossEffectiveAtk() * abilityDef->multiplier * multiplier
                 ));
                 characters_[static_cast<size_t>(targetIndex)].receiveDamage(finalDamage);
                 actionEvent.targetHpAfter.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
+                actionEvent.targetShieldAfter.push_back(characters_[static_cast<size_t>(targetIndex)].getShield());
                 syncCharacterTurnParticipation(targetIndex);
             }
         }
@@ -2065,8 +2110,10 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
         if (targetIndex >= 0) {
             actionEvent.targetPartyIndices.push_back(targetIndex);
             actionEvent.targetHpBefore.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
+            actionEvent.targetShieldBefore.push_back(characters_[static_cast<size_t>(targetIndex)].getShield());
             characters_[static_cast<size_t>(targetIndex)].receiveDamage(normalizeDamage(getBossEffectiveAtk()));
             actionEvent.targetHpAfter.push_back(characters_[static_cast<size_t>(targetIndex)].hp());
+            actionEvent.targetShieldAfter.push_back(characters_[static_cast<size_t>(targetIndex)].getShield());
             syncCharacterTurnParticipation(targetIndex);
         }
     }

@@ -20,6 +20,7 @@ struct ScriptEntry {
     EntryType type;
     std::string background;
     std::string voice;
+    std::string voiceSpeakerId;
     std::string bgm;
     float bgmVolume;
     bool bgmStop;

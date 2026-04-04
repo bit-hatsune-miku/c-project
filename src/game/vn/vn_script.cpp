@@ -75,6 +75,7 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
 
             entry.background = entryJson.value("background", "");
             entry.voice = entryJson.value("voice", "");
+            entry.voiceSpeakerId = entryJson.value("voiceSpeakerId", "");
             entry.bgm = entryJson.value("bgm", "");
             if (const auto bgmVolumeIt = entryJson.find("bgmVolume");
                 bgmVolumeIt != entryJson.end() && bgmVolumeIt->is_number()) {

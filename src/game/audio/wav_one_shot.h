@@ -2,6 +2,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -11,6 +13,14 @@ namespace game::audio {
 
 class WavOneShotPlayer {
 public:
+    struct PlaybackHandle {
+        std::uint64_t id = 0;
+
+        [[nodiscard]] bool valid() const {
+            return id != 0;
+        }
+    };
+
     void cleanupFinishedPlayback() {
         std::vector<ActivePlayback> stillPlaying;
         stillPlaying.reserve(activePlayback_.size());
@@ -37,6 +47,12 @@ public:
     }
 
     bool playWavOneShot(const std::string& wavPath, float volume = 1.0f, bool replaceExisting = true) {
+        return playTrackedWavOneShot(wavPath, volume, replaceExisting).has_value();
+    }
+
+    std::optional<PlaybackHandle> playTrackedWavOneShot(const std::string& wavPath,
+                                                        float volume = 1.0f,
+                                                        bool replaceExisting = true) {
         cleanupFinishedPlayback();
 
         if (replaceExisting) {
@@ -57,13 +73,13 @@ public:
         Uint8* wavBuffer = nullptr;
         Uint32 wavLength = 0;
         if (SDL_LoadWAV(wavPath.c_str(), &wavSpec, &wavBuffer, &wavLength) == nullptr) {
-            return false;
+            return std::nullopt;
         }
 
         SDL_AudioDeviceID device = SDL_OpenAudioDevice(nullptr, 0, &wavSpec, nullptr, 0);
         if (device == 0) {
             SDL_FreeWAV(wavBuffer);
-            return false;
+            return std::nullopt;
         }
 
         const int mixVolume = std::clamp(static_cast<int>(std::lround(std::clamp(volume, 0.0f, 1.0f) * SDL_MIX_MAXVOLUME)),
@@ -75,17 +91,36 @@ public:
         SDL_FreeWAV(wavBuffer);
         if (queueResult != 0) {
             SDL_CloseAudioDevice(device);
-            return false;
+            return std::nullopt;
         }
 
         SDL_PauseAudioDevice(device, 0);
-        activePlayback_.push_back(ActivePlayback{device, wavPath});
-        return true;
+        const PlaybackHandle handle{nextPlaybackId_++};
+        activePlayback_.push_back(ActivePlayback{handle.id, device, wavPath});
+        return handle;
     }
 
     void stopPlayback(const std::string& wavPath) {
         for (auto it = activePlayback_.begin(); it != activePlayback_.end(); ) {
             if (it->wavPath == wavPath) {
+                if (it->device != 0) {
+                    SDL_ClearQueuedAudio(it->device);
+                    SDL_CloseAudioDevice(it->device);
+                }
+                it = activePlayback_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
+    void stopPlayback(PlaybackHandle handle) {
+        if (!handle.valid()) {
+            return;
+        }
+
+        for (auto it = activePlayback_.begin(); it != activePlayback_.end(); ) {
+            if (it->id == handle.id) {
                 if (it->device != 0) {
                     SDL_ClearQueuedAudio(it->device);
                     SDL_CloseAudioDevice(it->device);
@@ -116,13 +151,28 @@ public:
         return false;
     }
 
+    bool isPlaying(PlaybackHandle handle) const {
+        if (!handle.valid()) {
+            return false;
+        }
+
+        for (const ActivePlayback& playback : activePlayback_) {
+            if (playback.device != 0 && playback.id == handle.id) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 private:
     struct ActivePlayback {
+        std::uint64_t id = 0;
         SDL_AudioDeviceID device = 0;
         std::string wavPath;
     };
 
     std::vector<ActivePlayback> activePlayback_;
+    std::uint64_t nextPlaybackId_ = 1;
 };
 
 } // namespace game::audio
