@@ -208,19 +208,89 @@
                 </div>
             </div>
 
+            <div class="battle-total-damage" id="battle-total-damage">
+                <div class="battle-total-damage-label" id="battle-total-damage-label"></div>
+                <div class="battle-total-damage-value" id="battle-total-damage-value"></div>
+            </div>
+
             <div class="battle-judgement" id="battle-judgement">
                 <div class="battle-judgement-word" id="battle-judgement-word"></div>
                 <div class="battle-judgement-reward" id="battle-judgement-reward"></div>
             </div>
 
-            <div class="battle-tutorial" id="battle-tutorial">
-                <div class="battle-tutorial-card">
-                    <div class="battle-tutorial-layout">
-                        <div class="battle-tutorial-portrait" id="battle-tutorial-portrait"></div>
-                        <div class="battle-tutorial-copy">
-                            <div class="battle-tutorial-speaker" id="battle-tutorial-speaker">Lyoo</div>
-                            <div class="battle-tutorial-text" id="battle-tutorial-text"></div>
-                            <div class="battle-tutorial-dismiss-hint">PRESS BACKSPACE TO DISMISS</div>
+            <div class="battle-hint-lane" id="battle-hint-lane">
+                <div class="battle-hint-stack" id="battle-hint-stack"></div>
+            </div>
+            <div class="battle-hint-measure-host" id="battle-hint-measure-host">
+            </div>
+
+            <div class="battle-input-prompt" id="battle-input-prompt">
+                <div class="battle-input-prompt-shell">
+                    <div class="battle-input-prompt-row battle-input-prompt-row-primary" id="battle-input-prompt-row-primary">
+                        <div class="battle-input-prompt-key battle-input-prompt-key-primary" id="battle-input-prompt-primary">
+                            <div class="battle-input-prompt-key-line"></div>
+                            <div class="battle-input-prompt-key-label" id="battle-input-prompt-primary-label">SPACE</div>
+                        </div>
+                    </div>
+                    <div class="battle-input-prompt-row battle-input-prompt-row-plus" id="battle-input-prompt-row-plus">
+                        <div class="battle-input-prompt-plus" id="battle-input-prompt-plus">+</div>
+                    </div>
+                    <div class="battle-input-prompt-row battle-input-prompt-row-follow-up" id="battle-input-prompt-row-follow-up">
+                        <div class="battle-input-prompt-follow-up battle-input-prompt-follow-up-strip" id="battle-input-prompt-follow-up-strip">
+                            <div class="battle-input-prompt-key battle-input-prompt-key-secondary" id="battle-input-prompt-follow-up-key-1">
+                                <div class="battle-input-prompt-key-line"></div>
+                                <div class="battle-input-prompt-key-label" id="battle-input-prompt-follow-up-label-1"></div>
+                            </div>
+                            <div class="battle-input-prompt-key battle-input-prompt-key-secondary" id="battle-input-prompt-follow-up-key-2">
+                                <div class="battle-input-prompt-key-line"></div>
+                                <div class="battle-input-prompt-key-label" id="battle-input-prompt-follow-up-label-2"></div>
+                            </div>
+                            <div class="battle-input-prompt-key battle-input-prompt-key-secondary" id="battle-input-prompt-follow-up-key-3">
+                                <div class="battle-input-prompt-key-line"></div>
+                                <div class="battle-input-prompt-key-label" id="battle-input-prompt-follow-up-label-3"></div>
+                            </div>
+                            <div class="battle-input-prompt-key battle-input-prompt-key-secondary" id="battle-input-prompt-follow-up-key-4">
+                                <div class="battle-input-prompt-key-line"></div>
+                                <div class="battle-input-prompt-key-label" id="battle-input-prompt-follow-up-label-4"></div>
+                            </div>
+                            <div class="battle-input-prompt-key battle-input-prompt-key-secondary" id="battle-input-prompt-follow-up-key-5">
+                                <div class="battle-input-prompt-key-line"></div>
+                                <div class="battle-input-prompt-key-label" id="battle-input-prompt-follow-up-label-5"></div>
+                            </div>
+                            <div class="battle-input-prompt-key battle-input-prompt-key-secondary" id="battle-input-prompt-follow-up-key-6">
+                                <div class="battle-input-prompt-key-line"></div>
+                                <div class="battle-input-prompt-key-label" id="battle-input-prompt-follow-up-label-6"></div>
+                            </div>
+                            <div class="battle-input-prompt-key battle-input-prompt-key-secondary" id="battle-input-prompt-follow-up-key-7">
+                                <div class="battle-input-prompt-key-line"></div>
+                                <div class="battle-input-prompt-key-label" id="battle-input-prompt-follow-up-label-7"></div>
+                            </div>
+                            <div class="battle-input-prompt-key battle-input-prompt-key-secondary" id="battle-input-prompt-follow-up-key-8">
+                                <div class="battle-input-prompt-key-line"></div>
+                                <div class="battle-input-prompt-key-label" id="battle-input-prompt-follow-up-label-8"></div>
+                            </div>
+                        </div>
+                        <div class="battle-input-prompt-follow-up battle-input-prompt-follow-up-arrows" id="battle-input-prompt-follow-up-arrows">
+                            <div class="battle-input-prompt-arrow-row battle-input-prompt-arrow-row-top">
+                                <div class="battle-input-prompt-key battle-input-prompt-key-secondary battle-input-prompt-key-arrow" id="battle-input-prompt-arrow-key-up">
+                                    <div class="battle-input-prompt-key-line"></div>
+                                    <div class="battle-input-prompt-key-label" id="battle-input-prompt-arrow-label-up"></div>
+                                </div>
+                            </div>
+                            <div class="battle-input-prompt-arrow-row battle-input-prompt-arrow-row-bottom">
+                                <div class="battle-input-prompt-key battle-input-prompt-key-secondary battle-input-prompt-key-arrow" id="battle-input-prompt-arrow-key-left">
+                                    <div class="battle-input-prompt-key-line"></div>
+                                    <div class="battle-input-prompt-key-label" id="battle-input-prompt-arrow-label-left"></div>
+                                </div>
+                                <div class="battle-input-prompt-key battle-input-prompt-key-secondary battle-input-prompt-key-arrow" id="battle-input-prompt-arrow-key-down">
+                                    <div class="battle-input-prompt-key-line"></div>
+                                    <div class="battle-input-prompt-key-label" id="battle-input-prompt-arrow-label-down"></div>
+                                </div>
+                                <div class="battle-input-prompt-key battle-input-prompt-key-secondary battle-input-prompt-key-arrow" id="battle-input-prompt-arrow-key-right">
+                                    <div class="battle-input-prompt-key-line"></div>
+                                    <div class="battle-input-prompt-key-label" id="battle-input-prompt-arrow-label-right"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -350,7 +420,6 @@
                 </div>
             </div>
 
-            <div class="battle-hint" id="battle-hint"></div>
             <div class="battle-toast" id="battle-toast"></div>
         </div>
     </div>

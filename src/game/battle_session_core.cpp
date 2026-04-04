@@ -1220,7 +1220,7 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             hooks_.onPresentationHitAudio(context, hitEvents, manager_);
             manager_.markPresentationHitAudioPlayed();
         }
-        feedback_.queuePresentationHitFeedback(
+        (void)feedback_.queuePresentationHitFeedback(
             context.isBoss,
             hitEvents,
             perHitDamage,

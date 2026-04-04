@@ -33,11 +33,11 @@ public:
     void update(float deltaSeconds);
 
     void queuePresentationHitShakes(bool isBossCaster, int hitEvents, const BattleManager& manager);
-    void queuePresentationHitFeedback(bool isBossCaster,
-                                      int hitEvents,
-                                      int perHitDamage,
-                                      const BattleManager& manager,
-                                      int targetPartyIndex = -1);
+    int queuePresentationHitFeedback(bool isBossCaster,
+                                     int hitEvents,
+                                     int perHitDamage,
+                                     const BattleManager& manager,
+                                     int targetPartyIndex = -1);
     void queuePresentationHealFeedback(bool isBossCaster,
                                        int hitEvents,
                                        int perHitHealing,

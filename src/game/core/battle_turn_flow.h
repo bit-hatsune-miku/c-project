@@ -17,7 +17,16 @@ struct PreviewActorContext {
     bool autoExecute = false;
 };
 
+struct PreviewAbilityContext {
+    bool valid = false;
+    ParticipantType actorType = ParticipantType::Character;
+    int partyIndex = -1;
+    BattleAction action = BattleAction::Skill;
+    std::string abilityId;
+};
+
 PreviewActorContext inspectPreviewActor(const BattleManager& manager);
+PreviewAbilityContext inspectPreviewAbility(const BattleManager& manager);
 
 } // namespace battle::flow
 

@@ -2,7 +2,9 @@
 #define BATTLE_SESSION_DOCUMENT_UPDATES_H
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
+#include <cstdint>
 #include <cmath>
 #include <filesystem>
 #include <functional>
@@ -36,12 +38,46 @@ struct PauseOverlayCopy {
     const char* hint = "";
 };
 
+inline std::string escapeRmlText(const std::string& text) {
+    std::string escaped;
+    escaped.reserve(text.size());
+    for (char ch : text) {
+        switch (ch) {
+            case '&':
+                escaped += "&amp;";
+                break;
+            case '<':
+                escaped += "&lt;";
+                break;
+            case '>':
+                escaped += "&gt;";
+                break;
+            case '"':
+                escaped += "&quot;";
+                break;
+            default:
+                escaped.push_back(ch);
+                break;
+        }
+    }
+    return escaped;
+}
+
 inline void setElementText(Rml::ElementDocument* document, const std::string& id, const std::string& text) {
     if (document == nullptr) {
         return;
     }
     if (Rml::Element* element = document->GetElementById(id)) {
         element->SetInnerRML(text);
+    }
+}
+
+inline void setElementEscapedText(Rml::ElementDocument* document, const std::string& id, const std::string& text) {
+    if (document == nullptr) {
+        return;
+    }
+    if (Rml::Element* element = document->GetElementById(id)) {
+        element->SetInnerRML(escapeRmlText(text));
     }
 }
 
@@ -347,15 +383,7 @@ inline void updateToastDocument(Rml::ElementDocument* document, const HudFeedbac
     }
 }
 
-inline void updateHintDocument(Rml::ElementDocument* document, const HudFeedbackState& feedback) {
-    if (document == nullptr) {
-        return;
-    }
-    if (Rml::Element* hint = document->GetElementById("battle-hint")) {
-        hint->SetInnerRML(feedback.hintText);
-        hint->SetClass("visible", !feedback.hintText.empty());
-    }
-}
+inline void updateHintDocument(Rml::ElementDocument* document, HudFeedbackState& feedback);
 
 inline std::string comboBonusText(float comboBonusFraction) {
     const float percent = std::max(0.0f, comboBonusFraction) * 100.0f;
@@ -426,6 +454,695 @@ inline std::string decimalText(float value, int precision = 3) {
     char buffer[64];
     std::snprintf(buffer, sizeof(buffer), "%.*f", precision, static_cast<double>(value));
     return buffer;
+}
+
+inline std::string battleHintBadgeText(const BattleHintRequest& request) {
+    if (!request.badgeText.empty()) {
+        return request.badgeText;
+    }
+
+    switch (request.family) {
+        case BattleHintFamily::Tutorial:
+            return "GUIDE";
+        case BattleHintFamily::Warning:
+            return "ALERT";
+        case BattleHintFamily::Major:
+            return "PHASE";
+        case BattleHintFamily::Info:
+        default:
+            return "INFO";
+    }
+}
+
+inline std::string buildBattleHintSlotMarkup(const std::string& baseId) {
+    std::ostringstream markup;
+    markup
+        << "<div class=\"battle-hint-slot\" id=\"" << baseId << "\">"
+        << "<div class=\"battle-hint-shell\" id=\"" << baseId << "-shell\">"
+        << "<div class=\"battle-hint-inner\" id=\"" << baseId << "-inner\">"
+        << "<div class=\"battle-hint-accent\" id=\"" << baseId << "-accent\">"
+        << "<div class=\"battle-hint-accent-shine\"></div>"
+        << "</div>"
+        << "<div class=\"battle-hint-copy\" id=\"" << baseId << "-copy\">"
+        << "<div class=\"battle-hint-topline\">"
+        << "<div class=\"battle-hint-kicker\" id=\"" << baseId << "-kicker\"></div>"
+        << "<div class=\"battle-hint-source\" id=\"" << baseId << "-source\"></div>"
+        << "</div>"
+        << "<div class=\"battle-hint-message\" id=\"" << baseId << "-message\"></div>"
+        << "</div>"
+        << "<div class=\"battle-hint-side\" id=\"" << baseId << "-side\">"
+        << "<div class=\"battle-hint-badge\" id=\"" << baseId << "-badge\">"
+        << "<div class=\"battle-hint-badge-text\" id=\"" << baseId << "-badge-text\"></div>"
+        << "</div>"
+        << "<div class=\"battle-hint-dismiss\" id=\"" << baseId << "-dismiss\"></div>"
+        << "</div>"
+        << "</div>"
+        << "<div class=\"battle-hint-timer\" id=\"" << baseId << "-timer\">"
+        << "<div class=\"battle-hint-timer-fill\" id=\"" << baseId << "-timer-fill\"></div>"
+        << "</div>"
+        << "</div>"
+        << "</div>";
+    return markup.str();
+}
+
+inline std::string buildBattleHintStackMarkup(std::size_t slotCount) {
+    std::ostringstream markup;
+    for (std::size_t i = 0; i < slotCount; ++i) {
+        markup << buildBattleHintSlotMarkup("battle-hint-slot-" + std::to_string(i + 1));
+    }
+    return markup.str();
+}
+
+inline void ensureBattleHintDocument(Rml::ElementDocument* document) {
+    if (document == nullptr) {
+        return;
+    }
+
+    if (Rml::Element* stack = document->GetElementById("battle-hint-stack")) {
+        const std::string slotCount = std::to_string(kBattleHintMaxVisible);
+        if (stack->GetAttribute<std::string>("data-slot-count", "") != slotCount) {
+            stack->SetInnerRML(buildBattleHintStackMarkup(kBattleHintMaxVisible));
+            stack->SetAttribute("data-slot-count", slotCount);
+        }
+    }
+
+    if (Rml::Element* measureHost = document->GetElementById("battle-hint-measure-host")) {
+        if (measureHost->GetAttribute<std::string>("data-ready", "") != "1") {
+            measureHost->SetInnerRML(buildBattleHintSlotMarkup("battle-hint-measure"));
+            measureHost->SetAttribute("data-ready", "1");
+        }
+    }
+}
+
+inline void applyBattleHintFamilyClasses(Rml::Element* slot, BattleHintFamily family) {
+    if (slot == nullptr) {
+        return;
+    }
+
+    slot->SetClass("family-info", family == BattleHintFamily::Info);
+    slot->SetClass("family-tutorial", family == BattleHintFamily::Tutorial);
+    slot->SetClass("family-warning", family == BattleHintFamily::Warning);
+    slot->SetClass("family-major", family == BattleHintFamily::Major);
+}
+
+inline void populateBattleHintSlot(Rml::ElementDocument* document,
+                                   const std::string& baseId,
+                                   const BattleHintInstance& hint,
+                                   const std::string& messageText) {
+    setElementText(document, baseId + "-kicker", hint.request.kicker);
+    setElementText(document, baseId + "-source", hint.request.sourceTag);
+    setElementText(document, baseId + "-message", messageText);
+    setElementText(document, baseId + "-badge-text", battleHintBadgeText(hint.request));
+    setElementText(document, baseId + "-dismiss", hint.request.dismissLabel);
+
+    const bool showTimer = battleHintHasAutoTimeout(hint);
+
+    setElementDisplay(document, baseId + "-source", false);
+    setElementDisplay(document, baseId + "-badge", false);
+    setElementDisplay(document, baseId + "-dismiss", false);
+    setElementDisplay(document, baseId + "-timer", showTimer);
+    setElementProperty(document, baseId + "-side", "display", "none");
+}
+
+inline float battleHintOpenProgress(const BattleHintInstance& hint) {
+    if (hint.phase != BattleHintPhase::Opening) {
+        return 1.0f;
+    }
+
+    return easeOutCubic(
+        std::clamp(
+            static_cast<float>(hint.phaseElapsedMs) / static_cast<float>(std::max<Uint64>(kBattleHintOpenDurationMs, 1)),
+            0.0f,
+            1.0f));
+}
+
+inline float battleHintCloseProgress(const BattleHintInstance& hint) {
+    if (hint.phase != BattleHintPhase::Closing) {
+        return 0.0f;
+    }
+
+    return easeInCubic(
+        std::clamp(
+            static_cast<float>(hint.phaseElapsedMs) / static_cast<float>(std::max<Uint64>(kBattleHintCloseDurationMs, 1)),
+            0.0f,
+            1.0f));
+}
+
+inline float battleHintShellVisibility(const BattleHintInstance& hint) {
+    if (hint.phase == BattleHintPhase::Opening) {
+        return battleHintOpenProgress(hint);
+    }
+    if (hint.phase == BattleHintPhase::Closing) {
+        return 1.0f - battleHintCloseProgress(hint);
+    }
+    return 1.0f;
+}
+
+inline float battleHintCopyVisibility(const BattleHintInstance& hint) {
+    if (hint.phase == BattleHintPhase::Closing) {
+        return battleHintShellVisibility(hint);
+    }
+
+    return easeOutCubic(
+        std::clamp((battleHintShellVisibility(hint) - 0.18f) / 0.82f, 0.0f, 1.0f));
+}
+
+inline float battleHintStackVisibility(const BattleHintInstance& hint) {
+    if (hint.phase != BattleHintPhase::Closing) {
+        return 1.0f;
+    }
+    return 1.0f - battleHintCloseProgress(hint);
+}
+
+inline void measureBattleHintInstance(Rml::ElementDocument* document, BattleHintInstance& hint) {
+    constexpr float kBattleHintShellBorderWidthDp = 1.0f;
+
+    ensureBattleHintDocument(document);
+    if (document == nullptr) {
+        return;
+    }
+
+    Rml::Element* slot = document->GetElementById("battle-hint-measure");
+    Rml::Element* shell = document->GetElementById("battle-hint-measure-shell");
+    if (slot == nullptr || shell == nullptr) {
+        return;
+    }
+
+    applyBattleHintFamilyClasses(slot, hint.request.family);
+    slot->SetClass("live", true);
+    slot->SetClass("closing", false);
+    populateBattleHintSlot(
+        document,
+        "battle-hint-measure",
+        hint,
+        !hint.request.message.empty() ? hint.request.message : hint.visibleMessage);
+
+    shell->SetProperty("width", "auto");
+    const float contentWidth = std::max(shell->GetClientWidth(), 0.0f);
+    const float fallbackContentWidth = std::max(shell->GetOffsetWidth() - (kBattleHintShellBorderWidthDp * 2.0f), 0.0f);
+    const float unclampedWidth = std::max(contentWidth > 0.0f ? contentWidth : fallbackContentWidth, kBattleHintMinWidthDp);
+    const float measuredWidth = std::clamp(unclampedWidth, kBattleHintMinWidthDp, kBattleHintMaxWidthDp);
+    shell->SetProperty("width", decimalText(measuredWidth) + "dp");
+
+    hint.measuredWidthDp = measuredWidth;
+    hint.measuredHeightDp = std::max(shell->GetOffsetHeight(), 0.0f);
+    hint.measurementDirty = false;
+}
+
+inline void resetBattleHintSlotDocument(Rml::ElementDocument* document, const std::string& baseId) {
+    if (document == nullptr) {
+        return;
+    }
+
+    if (Rml::Element* slot = document->GetElementById(baseId)) {
+        slot->SetClass("family-info", true);
+        slot->SetClass("family-tutorial", false);
+        slot->SetClass("family-warning", false);
+        slot->SetClass("family-major", false);
+        slot->SetClass("live", false);
+        slot->SetClass("closing", false);
+        slot->SetProperty("top", "0dp");
+        slot->SetProperty("height", "0dp");
+        slot->SetProperty("z-index", "0");
+    }
+    if (Rml::Element* shell = document->GetElementById(baseId + "-shell")) {
+        shell->SetProperty("width", "0dp");
+        shell->SetProperty("margin-left", "0dp");
+        shell->SetProperty("opacity", "0");
+    }
+    if (Rml::Element* copy = document->GetElementById(baseId + "-copy")) {
+        copy->SetProperty("opacity", "0");
+        copy->SetProperty("transform", "translateY(10dp)");
+    }
+    if (Rml::Element* timerFill = document->GetElementById(baseId + "-timer-fill")) {
+        timerFill->SetProperty("width", "0%");
+    }
+}
+
+inline void updateHintDocument(Rml::ElementDocument* document, HudFeedbackState& feedback) {
+    constexpr float kBattleHintShellBorderWidthDp = 1.0f;
+
+    if (document == nullptr) {
+        return;
+    }
+
+    ensureBattleHintDocument(document);
+    const std::size_t visibleCount = std::min(feedback.hints.active.size(), kBattleHintMaxVisible);
+    setElementDisplay(document, "battle-hint-lane", visibleCount > 0);
+    Rml::Element* stack = document->GetElementById("battle-hint-stack");
+    float accumulatedTopDp = 0.0f;
+
+    for (std::size_t i = 0; i < kBattleHintMaxVisible; ++i) {
+        const std::string baseId = "battle-hint-slot-" + std::to_string(i + 1);
+        if (i >= visibleCount) {
+            resetBattleHintSlotDocument(document, baseId);
+            continue;
+        }
+
+        BattleHintInstance& hint = feedback.hints.active[i];
+        if (hint.measurementDirty || hint.measuredWidthDp <= 0.0f || hint.measuredHeightDp <= 0.0f) {
+            measureBattleHintInstance(document, hint);
+        }
+
+        Rml::Element* slot = document->GetElementById(baseId);
+        Rml::Element* shell = document->GetElementById(baseId + "-shell");
+        Rml::Element* copy = document->GetElementById(baseId + "-copy");
+        Rml::Element* timerFill = document->GetElementById(baseId + "-timer-fill");
+        if (slot == nullptr || shell == nullptr || copy == nullptr || timerFill == nullptr) {
+            continue;
+        }
+
+        applyBattleHintFamilyClasses(slot, hint.request.family);
+        const bool closing = hint.phase == BattleHintPhase::Closing;
+        slot->SetClass("live", !closing);
+        slot->SetClass("closing", closing);
+        populateBattleHintSlot(document, baseId, hint, hint.visibleMessage);
+
+        const float shellVisibility = battleHintShellVisibility(hint);
+        const float copyVisibility = battleHintCopyVisibility(hint);
+        const float stackVisibility = battleHintStackVisibility(hint);
+        const float slotHeight =
+            (hint.measuredHeightDp + ((i + 1 < visibleCount) ? kBattleHintStackGapDp : 0.0f)) * stackVisibility;
+        const float shellWidth = hint.measuredWidthDp * shellVisibility;
+        const float shellOuterWidth = shellWidth + (kBattleHintShellBorderWidthDp * 2.0f * shellVisibility);
+
+        float copyTranslateY = 0.0f;
+        if (hint.phase == BattleHintPhase::Opening) {
+            copyTranslateY = lerpValue(14.0f, 0.0f, copyVisibility);
+        } else if (hint.phase == BattleHintPhase::Closing) {
+            copyTranslateY = lerpValue(0.0f, -10.0f, 1.0f - copyVisibility);
+        }
+
+        slot->SetProperty("height", decimalText(slotHeight) + "dp");
+        slot->SetProperty("top", decimalText(accumulatedTopDp) + "dp");
+        slot->SetProperty("z-index", std::to_string(static_cast<int>(visibleCount - i)));
+        shell->SetProperty("width", decimalText(shellWidth) + "dp");
+        shell->SetProperty("margin-left", decimalText(-shellOuterWidth * 0.5f) + "dp");
+        shell->SetProperty("opacity", decimalText(shellVisibility));
+        copy->SetProperty("opacity", decimalText(copyVisibility));
+        copy->SetProperty("transform", "translateY(" + decimalText(copyTranslateY) + "dp)");
+        timerFill->SetProperty("width", decimalText(battleHintTimeoutProgress(hint) * 100.0f, 1) + "%");
+
+        accumulatedTopDp += slotHeight;
+    }
+
+    if (stack != nullptr) {
+        stack->SetProperty("height", decimalText(accumulatedTopDp) + "dp");
+    }
+}
+
+inline constexpr std::size_t kBattleInputPromptMaxFollowUpSlots = 8;
+
+inline void applyBattleInputPromptTypeClasses(Rml::ElementDocument* document,
+                                              const BattleInputPromptState& prompt) {
+    setElementClass(document, "battle-input-prompt", "has-primary", battleInputPromptHasPrimary(prompt));
+    setElementClass(document, "battle-input-prompt", "has-follow-up", battleInputPromptHasFollowUp(prompt));
+    setElementClass(document, "battle-input-prompt", "type-wild", prompt.type == battle::InputPromptType::Wild);
+    setElementClass(document, "battle-input-prompt", "type-custom", prompt.type == battle::InputPromptType::Custom);
+    setElementClass(document, "battle-input-prompt", "type-arrows", prompt.type == battle::InputPromptType::Arrows);
+    setElementClass(document, "battle-input-prompt", "type-left-right", prompt.type == battle::InputPromptType::LeftRight);
+    setElementClass(document, "battle-input-prompt", "type-spam-space", prompt.type == battle::InputPromptType::SpamSpace);
+}
+
+inline Uint64 battleInputPromptNextRandom(Uint64& state) {
+    state += 0x9e3779b97f4a7c15ULL;
+    Uint64 z = state;
+    z = (z ^ (z >> 30U)) * 0xbf58476d1ce4e5b9ULL;
+    z = (z ^ (z >> 27U)) * 0x94d049bb133111ebULL;
+    return z ^ (z >> 31U);
+}
+
+inline Uint64 battleInputPromptSeed(const BattleInputPromptState& prompt, Uint64 salt = 0) {
+    const Uint64 abilityHash = static_cast<Uint64>(std::hash<std::string>{}(prompt.abilityId));
+    const Uint64 base = prompt.startedMs != 0 ? prompt.startedMs : 0x243f6a8885a308d3ULL;
+    return abilityHash ^ (base * 0x9e3779b97f4a7c15ULL) ^ salt;
+}
+
+inline float battleInputPromptKeyTiltDegrees(const BattleInputPromptState& prompt, std::size_t keyIndex) {
+    if (prompt.type != battle::InputPromptType::Wild) {
+        return 0.0f;
+    }
+
+    static constexpr float kWildTilts[] = {-13.0f, -7.0f, 0.0f, 7.0f, 13.0f};
+    if (keyIndex < (sizeof(kWildTilts) / sizeof(kWildTilts[0]))) {
+        return kWildTilts[keyIndex];
+    }
+    return 0.0f;
+}
+
+inline bool battleInputPromptUsesArrowGrid(const BattleInputPromptState& prompt, std::size_t keyCount) {
+    return prompt.type == battle::InputPromptType::Arrows && keyCount >= 4;
+}
+
+inline std::string battleInputPromptTransformText(float translateYDp, float rotateDeg = 0.0f) {
+    std::ostringstream transform;
+    transform << "translateY(" << decimalText(translateYDp) << "dp)";
+    if (std::fabs(rotateDeg) > 0.01f) {
+        transform << " rotate(" << decimalText(rotateDeg) << "deg)";
+    }
+    return transform.str();
+}
+
+inline void setBattleInputPromptKeyState(Rml::ElementDocument* document,
+                                         const std::string& keyId,
+                                         const std::string& labelId,
+                                         bool visible,
+                                         const std::string& label,
+                                         bool pressed,
+                                         float rotateDeg = 0.0f) {
+    setElementProperty(document, keyId, "display", visible ? "flex" : "none");
+    setElementEscapedText(document, labelId, visible ? label : "");
+    if (Rml::Element* key = document->GetElementById(keyId)) {
+        key->SetClass("is-pressed", visible && pressed);
+        key->SetClass("is-space", visible && label == "SPACE");
+        key->SetProperty(
+            "transform",
+            battleInputPromptTransformText(visible && pressed ? 4.0f : 0.0f, visible ? rotateDeg : 0.0f));
+    }
+}
+
+inline std::vector<std::string> battleInputPromptResolvedLabels(const BattleInputPromptState& prompt, Uint64 nowMs) {
+    if (prompt.type != battle::InputPromptType::Wild) {
+        return prompt.followUpKeys;
+    }
+
+    static constexpr const char* kWildPool[] = {
+        "Q", "W", "E", "R", "A", "S", "D", "F", "J", "K", "L", "Z", "X", "C", "V"
+    };
+    constexpr std::size_t kWildPoolSize = sizeof(kWildPool) / sizeof(kWildPool[0]);
+
+    const std::size_t keyCount = std::min(prompt.followUpKeys.size(), kWildPoolSize);
+    std::vector<std::string> labels;
+    labels.reserve(keyCount);
+    if (keyCount == 0) {
+        return labels;
+    }
+
+    const Uint64 elapsedMs = nowMs >= prompt.startedMs ? nowMs - prompt.startedMs : 0;
+    const Uint64 refreshIndex = elapsedMs / 1200;
+    std::array<const char*, kWildPoolSize> shuffledPool{};
+    std::copy(std::begin(kWildPool), std::end(kWildPool), shuffledPool.begin());
+    Uint64 randomState = battleInputPromptSeed(
+        prompt,
+        0xa0761d6478bd642fULL ^ (refreshIndex * 0xe7037ed1a0b428dbULL));
+    for (std::size_t i = kWildPoolSize - 1; i > 0; --i) {
+        const std::size_t swapIndex =
+            static_cast<std::size_t>(battleInputPromptNextRandom(randomState) % static_cast<Uint64>(i + 1));
+        std::swap(shuffledPool[i], shuffledPool[swapIndex]);
+    }
+    for (std::size_t i = 0; i < keyCount; ++i) {
+        labels.emplace_back(shuffledPool[i]);
+    }
+    return labels;
+}
+
+inline bool battleInputPromptPrimaryPressed(const BattleInputPromptState& prompt, Uint64 nowMs) {
+    if (!battleInputPromptHasPrimary(prompt)) {
+        return false;
+    }
+
+    const Uint64 elapsedMs = nowMs >= prompt.startedMs ? nowMs - prompt.startedMs : 0;
+    if (prompt.type == battle::InputPromptType::SpamSpace &&
+        !battleInputPromptHasFollowUp(prompt)) {
+        const Uint64 cycleMs = elapsedMs % 420;
+        return cycleMs >= 100 && cycleMs < 250;
+    }
+
+    const Uint64 cycleMs = elapsedMs % 1320;
+    return cycleMs >= 780 && cycleMs < 1000;
+}
+
+inline int battleInputPromptActiveFollowUpIndex(const BattleInputPromptState& prompt,
+                                                Uint64 nowMs,
+                                                std::size_t keyCount) {
+    if (!battleInputPromptHasFollowUp(prompt) || keyCount == 0) {
+        return -1;
+    }
+
+    const Uint64 elapsedMs = nowMs >= prompt.startedMs ? nowMs - prompt.startedMs : 0;
+    if (prompt.type == battle::InputPromptType::SpamSpace) {
+        const Uint64 cycleMs = elapsedMs % 420;
+        return (cycleMs >= 110 && cycleMs < 250) ? 0 : -1;
+    }
+
+    if (elapsedMs < 140) {
+        return -1;
+    }
+
+    const Uint64 pulseElapsedMs = elapsedMs - 140;
+    constexpr Uint64 kPulseWindowMs = 240;
+    constexpr Uint64 kPulseHoldMs = 150;
+    if ((pulseElapsedMs % kPulseWindowMs) >= kPulseHoldMs) {
+        return -1;
+    }
+
+    const std::size_t cycleIndex = static_cast<std::size_t>(pulseElapsedMs / kPulseWindowMs);
+    Uint64 randomState = battleInputPromptSeed(
+        prompt,
+        0x8e80d37c4f1a9d5bULL ^ (static_cast<Uint64>(cycleIndex) * 0x9e3779b97f4a7c15ULL));
+    std::size_t activeIndex = static_cast<std::size_t>(battleInputPromptNextRandom(randomState) % keyCount);
+    if (keyCount > 1 && cycleIndex > 0) {
+        Uint64 previousState = battleInputPromptSeed(
+            prompt,
+            0x8e80d37c4f1a9d5bULL ^ (static_cast<Uint64>(cycleIndex - 1) * 0x9e3779b97f4a7c15ULL));
+        const std::size_t previousIndex =
+            static_cast<std::size_t>(battleInputPromptNextRandom(previousState) % keyCount);
+        if (activeIndex == previousIndex) {
+            Uint64 rerollState = battleInputPromptSeed(
+                prompt,
+                0xd1b54a32d192ed03ULL ^ (static_cast<Uint64>(cycleIndex) * 0x94d049bb133111ebULL));
+            activeIndex = (previousIndex + 1 +
+                           (static_cast<std::size_t>(battleInputPromptNextRandom(rerollState)) % (keyCount - 1))) %
+                keyCount;
+        }
+    }
+    return static_cast<int>(activeIndex);
+}
+
+inline void updateBattleInputPromptDocument(Rml::ElementDocument* document,
+                                            const BattleInputPromptState& prompt,
+                                            Uint64 nowMs) {
+    if (document == nullptr) {
+        return;
+    }
+
+    setElementClass(document, "battle-input-prompt", "visible", prompt.visible);
+    setElementDisplay(document, "battle-input-prompt", prompt.visible);
+    applyBattleInputPromptTypeClasses(document, prompt);
+
+    if (!prompt.visible) {
+        setElementDisplay(document, "battle-input-prompt-row-primary", false);
+        setElementDisplay(document, "battle-input-prompt-row-plus", false);
+        setElementDisplay(document, "battle-input-prompt-row-follow-up", false);
+        setElementProperty(document, "battle-input-prompt-plus", "display", "none");
+        setElementProperty(document, "battle-input-prompt-follow-up-strip", "display", "none");
+        setElementProperty(document, "battle-input-prompt-follow-up-arrows", "display", "none");
+        setBattleInputPromptKeyState(
+            document,
+            "battle-input-prompt-primary",
+            "battle-input-prompt-primary-label",
+            false,
+            "",
+            false);
+        for (std::size_t i = 0; i < kBattleInputPromptMaxFollowUpSlots; ++i) {
+            const std::string index = std::to_string(i + 1);
+            setBattleInputPromptKeyState(document,
+                                         "battle-input-prompt-follow-up-key-" + index,
+                                         "battle-input-prompt-follow-up-label-" + index,
+                                         false,
+                                         "",
+                                         false);
+        }
+        setBattleInputPromptKeyState(
+            document,
+            "battle-input-prompt-arrow-key-up",
+            "battle-input-prompt-arrow-label-up",
+            false,
+            "",
+            false);
+        setBattleInputPromptKeyState(
+            document,
+            "battle-input-prompt-arrow-key-left",
+            "battle-input-prompt-arrow-label-left",
+            false,
+            "",
+            false);
+        setBattleInputPromptKeyState(
+            document,
+            "battle-input-prompt-arrow-key-down",
+            "battle-input-prompt-arrow-label-down",
+            false,
+            "",
+            false);
+        setBattleInputPromptKeyState(
+            document,
+            "battle-input-prompt-arrow-key-right",
+            "battle-input-prompt-arrow-label-right",
+            false,
+            "",
+            false);
+        return;
+    }
+
+    const bool showPrimary = battleInputPromptHasPrimary(prompt);
+    const std::vector<std::string> followUpLabels = battleInputPromptResolvedLabels(prompt, nowMs);
+    if (followUpLabels.size() > kBattleInputPromptMaxFollowUpSlots) {
+        static std::string warnedAbilityId;
+        if (warnedAbilityId != prompt.abilityId) {
+            std::fprintf(stderr,
+                         "[BattleHUD] Input prompt for ability '%s' has %zu follow-up keys; clamping to %zu.\n",
+                         prompt.abilityId.c_str(),
+                         followUpLabels.size(),
+                         kBattleInputPromptMaxFollowUpSlots);
+            warnedAbilityId = prompt.abilityId;
+        }
+    }
+
+    const std::size_t visibleFollowUpCount = std::min(followUpLabels.size(), kBattleInputPromptMaxFollowUpSlots);
+    const bool showFollowUp = visibleFollowUpCount > 0;
+    setElementDisplay(document, "battle-input-prompt-row-primary", showPrimary);
+    setElementDisplay(document, "battle-input-prompt-row-plus", showPrimary && showFollowUp);
+    setElementDisplay(document, "battle-input-prompt-row-follow-up", showFollowUp);
+    setElementEscapedText(document, "battle-input-prompt-primary-label", prompt.primaryLabel);
+    setElementProperty(document,
+                       "battle-input-prompt-plus",
+                       "display",
+                       showPrimary && showFollowUp ? "inline-block" : "none");
+
+    setBattleInputPromptKeyState(document,
+                                 "battle-input-prompt-primary",
+                                 "battle-input-prompt-primary-label",
+                                 showPrimary,
+                                 prompt.primaryLabel,
+                                 showPrimary && battleInputPromptPrimaryPressed(prompt, nowMs));
+
+    if (showFollowUp) {
+        const bool useArrowGrid = battleInputPromptUsesArrowGrid(prompt, visibleFollowUpCount);
+        const int activeFollowUpIndex =
+            battleInputPromptActiveFollowUpIndex(prompt, nowMs, visibleFollowUpCount);
+        setElementProperty(document, "battle-input-prompt-follow-up-strip", "display", useArrowGrid ? "none" : "flex");
+        setElementProperty(document, "battle-input-prompt-follow-up-arrows", "display", useArrowGrid ? "block" : "none");
+
+        if (useArrowGrid) {
+            for (std::size_t i = 0; i < kBattleInputPromptMaxFollowUpSlots; ++i) {
+                const std::string index = std::to_string(i + 1);
+                setBattleInputPromptKeyState(document,
+                                             "battle-input-prompt-follow-up-key-" + index,
+                                             "battle-input-prompt-follow-up-label-" + index,
+                                             false,
+                                             "",
+                                             false);
+            }
+
+            setBattleInputPromptKeyState(document,
+                                         "battle-input-prompt-arrow-key-up",
+                                         "battle-input-prompt-arrow-label-up",
+                                         true,
+                                         followUpLabels[1],
+                                         activeFollowUpIndex == 1);
+            setBattleInputPromptKeyState(document,
+                                         "battle-input-prompt-arrow-key-left",
+                                         "battle-input-prompt-arrow-label-left",
+                                         true,
+                                         followUpLabels[0],
+                                         activeFollowUpIndex == 0);
+            setBattleInputPromptKeyState(document,
+                                         "battle-input-prompt-arrow-key-down",
+                                         "battle-input-prompt-arrow-label-down",
+                                         true,
+                                         followUpLabels[2],
+                                         activeFollowUpIndex == 2);
+            setBattleInputPromptKeyState(document,
+                                         "battle-input-prompt-arrow-key-right",
+                                         "battle-input-prompt-arrow-label-right",
+                                         true,
+                                         followUpLabels[3],
+                                         activeFollowUpIndex == 3);
+            return;
+        }
+
+        setBattleInputPromptKeyState(
+            document,
+            "battle-input-prompt-arrow-key-up",
+            "battle-input-prompt-arrow-label-up",
+            false,
+            "",
+            false);
+        setBattleInputPromptKeyState(
+            document,
+            "battle-input-prompt-arrow-key-left",
+            "battle-input-prompt-arrow-label-left",
+            false,
+            "",
+            false);
+        setBattleInputPromptKeyState(
+            document,
+            "battle-input-prompt-arrow-key-down",
+            "battle-input-prompt-arrow-label-down",
+            false,
+            "",
+            false);
+        setBattleInputPromptKeyState(
+            document,
+            "battle-input-prompt-arrow-key-right",
+            "battle-input-prompt-arrow-label-right",
+            false,
+            "",
+            false);
+
+        for (std::size_t i = 0; i < kBattleInputPromptMaxFollowUpSlots; ++i) {
+            const std::string index = std::to_string(i + 1);
+            const bool visibleKey = i < visibleFollowUpCount;
+            setBattleInputPromptKeyState(document,
+                                         "battle-input-prompt-follow-up-key-" + index,
+                                         "battle-input-prompt-follow-up-label-" + index,
+                                         visibleKey,
+                                         visibleKey ? followUpLabels[i] : "",
+                                         visibleKey && static_cast<int>(i) == activeFollowUpIndex,
+                                         battleInputPromptKeyTiltDegrees(prompt, i));
+        }
+        return;
+    }
+
+    setElementProperty(document, "battle-input-prompt-follow-up-strip", "display", "none");
+    setElementProperty(document, "battle-input-prompt-follow-up-arrows", "display", "none");
+    for (std::size_t i = 0; i < kBattleInputPromptMaxFollowUpSlots; ++i) {
+        const std::string index = std::to_string(i + 1);
+        setBattleInputPromptKeyState(document,
+                                     "battle-input-prompt-follow-up-key-" + index,
+                                     "battle-input-prompt-follow-up-label-" + index,
+                                     false,
+                                     "",
+                                     false);
+    }
+    setBattleInputPromptKeyState(
+        document,
+        "battle-input-prompt-arrow-key-up",
+        "battle-input-prompt-arrow-label-up",
+        false,
+        "",
+        false);
+    setBattleInputPromptKeyState(
+        document,
+        "battle-input-prompt-arrow-key-left",
+        "battle-input-prompt-arrow-label-left",
+        false,
+        "",
+        false);
+    setBattleInputPromptKeyState(
+        document,
+        "battle-input-prompt-arrow-key-down",
+        "battle-input-prompt-arrow-label-down",
+        false,
+        "",
+        false);
+    setBattleInputPromptKeyState(
+        document,
+        "battle-input-prompt-arrow-key-right",
+        "battle-input-prompt-arrow-label-right",
+        false,
+        "",
+        false);
 }
 
 inline const JudgementPalette& judgementPalette(const std::string& judgementClassName) {
@@ -612,6 +1329,135 @@ inline float judgementRewardOpacity(const HudFeedbackState& feedback, Uint64 now
         return 0.0f;
     }
     return easeOutCubic(std::clamp(rewardElapsedSeconds / kRewardDurationSeconds, 0.0f, 1.0f));
+}
+
+inline const JudgementPalette& presentationDamagePalette() {
+    static const JudgementPalette totalDamage{
+        {83, 18, 60},
+        {255, 179, 221},
+        {255, 205, 126},
+        {255, 246, 232},
+        {72, 15, 51},
+        {255, 212, 140}
+    };
+    return totalDamage;
+}
+
+inline std::string presentationDamageMarkup(const HudFeedbackState& feedback, Uint64 nowMs) {
+    constexpr float kDigitIntervalSeconds = 0.024f;
+    const JudgementPalette& palette = presentationDamagePalette();
+    const Uint64 elapsedMs =
+        feedback.presentationDamageStartedMs == 0 || nowMs <= feedback.presentationDamageStartedMs
+            ? 0
+            : nowMs - feedback.presentationDamageStartedMs;
+    const float elapsedSeconds = feedback.presentationDamageStartedMs == 0
+        ? 0.0f
+        : static_cast<float>(elapsedMs) / 1000.0f;
+
+    std::string markup;
+    markup.reserve(feedback.presentationDamageText.size() * 192);
+
+    int visibleDigitIndex = 0;
+    for (char glyph : feedback.presentationDamageText) {
+        if (glyph == ' ') {
+            markup += "<span class=\"battle-total-damage-space\"></span>";
+            continue;
+        }
+
+        const float digitElapsedSeconds =
+            elapsedSeconds - (static_cast<float>(visibleDigitIndex) * kDigitIntervalSeconds);
+        if (digitElapsedSeconds < 0.0f) {
+            ++visibleDigitIndex;
+            continue;
+        }
+
+        markup += "<span class=\"battle-total-damage-digit\" style=\"";
+        markup += judgementLetterStyle(palette, digitElapsedSeconds);
+        markup += "\">";
+        markup.push_back(glyph);
+        markup += "</span>";
+        ++visibleDigitIndex;
+    }
+
+    return markup;
+}
+
+inline std::string presentationDamageContainerTransform(const HudFeedbackState& feedback, Uint64 nowMs) {
+    const Uint64 elapsedMs = feedback.presentationDamageStartedMs == 0
+        ? 0
+        : (nowMs > feedback.presentationDamageStartedMs ? nowMs - feedback.presentationDamageStartedMs : 0);
+    const float introProgress = std::clamp(static_cast<float>(elapsedMs) / 260.0f, 0.0f, 1.0f);
+
+    float translateXDp = 0.0f;
+    float scale = 1.0f;
+    if (introProgress < 0.62f) {
+        const float t = easeOutCubic(introProgress / 0.62f);
+        translateXDp = lerpValue(28.0f, 0.0f, t);
+        scale = lerpValue(0.92f, 1.04f, t);
+    } else {
+        const float t = easeOutCubic((introProgress - 0.62f) / 0.38f);
+        scale = lerpValue(1.04f, 1.0f, t);
+    }
+
+    if (!feedback.presentationDamageActive &&
+        feedback.presentationDamageHoldUntilMs != 0 &&
+        feedback.presentationDamageFadeUntilMs > feedback.presentationDamageHoldUntilMs &&
+        nowMs > feedback.presentationDamageHoldUntilMs) {
+        const float fadeProgress = easeInCubic(std::clamp(
+            static_cast<float>(nowMs - feedback.presentationDamageHoldUntilMs) /
+                static_cast<float>(feedback.presentationDamageFadeUntilMs - feedback.presentationDamageHoldUntilMs),
+            0.0f,
+            1.0f));
+        translateXDp += lerpValue(0.0f, 12.0f, fadeProgress);
+        scale *= lerpValue(1.0f, 0.99f, fadeProgress);
+    }
+
+    return "translateX(" + decimalText(translateXDp) + "dp) scale(" + decimalText(scale) + ")";
+}
+
+inline float presentationDamageContainerOpacity(const HudFeedbackState& feedback, Uint64 nowMs) {
+    if (feedback.presentationDamageStartedMs == 0) {
+        return feedback.presentationDamageActive ? 1.0f : 0.0f;
+    }
+
+    const Uint64 introElapsedMs =
+        nowMs > feedback.presentationDamageStartedMs ? nowMs - feedback.presentationDamageStartedMs : 0;
+    const float introProgress = std::clamp(
+        static_cast<float>(introElapsedMs) / 140.0f,
+        0.0f,
+        1.0f);
+    if (feedback.presentationDamageActive) {
+        return easeOutCubic(introProgress);
+    }
+    if (feedback.presentationDamageHoldUntilMs == 0 ||
+        feedback.presentationDamageFadeUntilMs <= feedback.presentationDamageHoldUntilMs ||
+        nowMs <= feedback.presentationDamageHoldUntilMs) {
+        return 1.0f;
+    }
+
+    const float fadeProgress = std::clamp(
+        static_cast<float>(nowMs - feedback.presentationDamageHoldUntilMs) /
+            static_cast<float>(feedback.presentationDamageFadeUntilMs - feedback.presentationDamageHoldUntilMs),
+        0.0f,
+        1.0f);
+    return 1.0f - easeInCubic(fadeProgress);
+}
+
+inline float presentationDamageLabelProgress(const HudFeedbackState& feedback, Uint64 nowMs) {
+    constexpr float kLabelDelaySeconds = 0.04f;
+    constexpr float kLabelDurationSeconds = 0.22f;
+    const Uint64 elapsedMs =
+        feedback.presentationDamageStartedMs == 0 || nowMs <= feedback.presentationDamageStartedMs
+            ? 0
+            : nowMs - feedback.presentationDamageStartedMs;
+    const float elapsedSeconds = feedback.presentationDamageStartedMs == 0
+        ? 0.0f
+        : static_cast<float>(elapsedMs) / 1000.0f;
+    const float labelElapsedSeconds = elapsedSeconds - kLabelDelaySeconds;
+    if (labelElapsedSeconds <= 0.0f) {
+        return 0.0f;
+    }
+    return easeOutCubic(std::clamp(labelElapsedSeconds / kLabelDurationSeconds, 0.0f, 1.0f));
 }
 
 inline const JudgementPalette& battleResultPalette(BattleResultOverlayOutcome outcome) {
@@ -856,11 +1702,12 @@ inline void applyBattleResultOverlayDocumentState(Rml::ElementDocument* document
         return;
     }
 
+    setElementDisplay(document, "battle-total-damage", false);
     setElementDisplay(document, "battle-judgement", false);
-    setElementDisplay(document, "battle-tutorial", false);
     setElementClass(document, "battle-rhythm", "visible", false);
-    setElementDisplay(document, "battle-hint", false);
-    setElementClass(document, "battle-hint", "visible", false);
+    setElementDisplay(document, "battle-hint-lane", false);
+    setElementDisplay(document, "battle-input-prompt", false);
+    setElementClass(document, "battle-input-prompt", "visible", false);
     setElementDisplay(document, "battle-toast", false);
     setElementClass(document, "battle-toast", "visible", false);
     setElementClass(document, "battle-pause", "visible", false);
@@ -877,6 +1724,52 @@ inline void updateComboDocument(Rml::ElementDocument* document, const HudFeedbac
     if (Rml::Element* fill = document->GetElementById("battle-combo-fill")) {
         const float fillRatio = comboMeterFillRatio(feedback.comboCount);
         fill->SetProperty("width", decimalText(fillRatio * 100.0f, 1) + "%");
+    }
+}
+
+inline void updatePresentationDamageDocument(Rml::ElementDocument* document,
+                                             const HudFeedbackState& feedback,
+                                             Uint64 nowMs) {
+    if (document == nullptr) {
+        return;
+    }
+
+    const bool visible = feedback.presentationDamageVisible && !feedback.presentationDamageText.empty();
+    setElementDisplay(document, "battle-total-damage", visible);
+
+    if (Rml::Element* container = document->GetElementById("battle-total-damage")) {
+        if (!visible) {
+            container->SetProperty("opacity", "0");
+            container->SetProperty("transform", "translateX(0dp) scale(1)");
+        } else {
+            container->SetProperty("opacity", decimalText(presentationDamageContainerOpacity(feedback, nowMs)));
+            container->SetProperty("transform", presentationDamageContainerTransform(feedback, nowMs));
+        }
+    }
+
+    setElementText(document, "battle-total-damage-label", visible ? "TOTAL DMG" : "");
+    if (Rml::Element* label = document->GetElementById("battle-total-damage-label")) {
+        if (!visible) {
+            label->SetProperty("opacity", "0");
+            label->SetProperty("transform", "translateY(10dp) scale(0.94)");
+        } else {
+            const float labelProgress = presentationDamageLabelProgress(feedback, nowMs);
+            const float labelOpacity = labelProgress * presentationDamageContainerOpacity(feedback, nowMs);
+            label->SetProperty("opacity", decimalText(labelOpacity));
+            label->SetProperty(
+                "transform",
+                "translateY(" + decimalText(lerpValue(10.0f, 0.0f, labelProgress)) +
+                    "dp) scale(" + decimalText(lerpValue(0.94f, 1.0f, labelProgress)) + ")");
+            label->SetProperty("color", rgbaText(presentationDamagePalette().reward, 1.0f));
+        }
+    }
+
+    if (Rml::Element* value = document->GetElementById("battle-total-damage-value")) {
+        if (!visible) {
+            value->SetInnerRML("");
+        } else {
+            value->SetInnerRML(presentationDamageMarkup(feedback, nowMs));
+        }
     }
 }
 
@@ -926,42 +1819,6 @@ inline void updateJudgementDocument(Rml::ElementDocument* document, const HudFee
             const JudgementPalette& palette = judgementPalette(feedback.judgementClassName);
             reward->SetProperty("color", rgbaText(palette.reward, 1.0f));
         }
-    }
-}
-
-inline void updateTutorialDocument(Rml::ElementDocument* document,
-                                   const TutorialOverlayState& tutorial,
-                                   Uint64 nowMs,
-                                   float narrationCharsPerSecond,
-                                   const BattleHudDocumentDependencies& dependencies) {
-    setElementClass(document, "battle-tutorial", "visible", tutorial.step != TutorialStep::None);
-    if (tutorial.step == TutorialStep::None) {
-        return;
-    }
-
-    setElementText(document, "battle-tutorial-speaker", vn::getDisplaySpeakerName(tutorial.entry));
-    if (dependencies.revealNarrationText) {
-        setElementText(document,
-                       "battle-tutorial-text",
-                       dependencies.revealNarrationText(
-                           tutorial.entry.text,
-                           tutorial.startedMs,
-                           nowMs,
-                           narrationCharsPerSecond));
-    }
-
-    if (tutorial.entry.icon.empty() || !dependencies.findCombatImagePath) {
-        return;
-    }
-
-    const std::string tutorialIconKey = std::filesystem::path(tutorial.entry.icon).stem().string();
-    const std::string iconPath = dependencies.findCombatImagePath("icons", tutorialIconKey);
-    if (iconPath.empty()) {
-        return;
-    }
-
-    if (Rml::Element* element = document->GetElementById("battle-tutorial-portrait")) {
-        element->SetProperty("decorator", "image(" + iconPath + " cover center center)");
     }
 }
 
@@ -1280,10 +2137,11 @@ inline void applyPauseOverlayDocumentState(Rml::ElementDocument* document,
 inline void updateBattleHudDocument(Rml::ElementDocument* document,
                                     const battle::BattleManager& manager,
                                     const HudAnimationState& animationState,
-                                    const HudFeedbackState& feedback,
+                                    HudFeedbackState& feedback,
                                     const BattleResultOverlayState& resultOverlay,
                                     const BattleVsIntroOverlayState& vsIntroOverlay,
                                     const TutorialOverlayState& tutorial,
+                                    const BattleInputPromptState& inputPrompt,
                                     const RhythmChallengeState& rhythm,
                                     bool paused,
                                     PauseOverlayMode pauseOverlayMode,
@@ -1297,12 +2155,16 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
         return;
     }
 
+    (void)tutorial;
+    (void)narrationCharsPerSecond;
+
     const battle::BattleState& battleState = manager.getBattleState();
     const battle::TurnState& turnState = manager.getTurnState();
     const int activeActorIndex = manager.getPreviewNextActorIndex();
 
     detail::ensurePartyRackDocument(document, battleState.party.size());
     detail::updateComboDocument(document, feedback);
+    detail::updatePresentationDamageDocument(document, feedback, nowMs);
     detail::updateJudgementDocument(document, feedback, nowMs);
 
     const std::string bossDisplayName = !battleState.boss.title.empty() ? battleState.boss.title : battleState.boss.key;
@@ -1468,9 +2330,14 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
     }
 
     detail::updateHintDocument(document, feedback);
+    detail::updateBattleInputPromptDocument(document, inputPrompt, nowMs);
     detail::updateToastDocument(document, feedback);
-    detail::updateTutorialDocument(document, tutorial, nowMs, narrationCharsPerSecond, dependencies);
     detail::updateRhythmDocument(document, rhythm, nowMs);
+    if (paused || resultOverlay.active || vsIntroOverlay.pendingStart || vsIntroOverlay.active) {
+        detail::setElementDisplay(document, "battle-hint-lane", false);
+        detail::setElementDisplay(document, "battle-input-prompt", false);
+        detail::setElementClass(document, "battle-input-prompt", "visible", false);
+    }
 
     detail::setElementClass(document, "battle-pause", "visible", paused);
     if (paused) {

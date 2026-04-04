@@ -1,0 +1,1699 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Battle Hint Stack Preview</title>
+  <style>
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../../fonts/SpaceMono-Regular.ttf") format("truetype");
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../../fonts/SpaceMono-Bold.ttf") format("truetype");
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: "DejaVu Sans";
+      src: url("../DejaVuSans-Bold.ttf") format("truetype");
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    :root {
+      --bg-0: #06070c;
+      --bg-1: #0c1220;
+      --bg-2: #131b2d;
+      --ink: #f7f3f6;
+      --muted: rgba(240, 235, 240, 0.62);
+      --glass: rgba(12, 14, 22, 0.72);
+      --panel: rgba(10, 11, 18, 0.86);
+      --line: rgba(255, 255, 255, 0.08);
+      --pink: #ff679f;
+      --gold: #f0c66a;
+      --ice: #9dbfe9;
+      --steel: #d9e3ef;
+      --danger: #ff6a75;
+      --danger-hot: #ff9e6d;
+      --shadow: 0 22px 48px rgba(0, 0, 0, 0.42);
+      --lane-width: min(980px, calc(100vw - 92px));
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      color: var(--ink);
+      background: var(--bg-0);
+      font-family: "Space Mono", "DejaVu Sans", monospace;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    body {
+      position: relative;
+    }
+
+    .preview-stage {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% -10%, rgba(255, 103, 159, 0.26) 0%, rgba(255, 103, 159, 0) 36%),
+        radial-gradient(circle at 76% 24%, rgba(101, 172, 255, 0.16) 0%, rgba(101, 172, 255, 0) 28%),
+        radial-gradient(circle at 24% 30%, rgba(240, 198, 106, 0.14) 0%, rgba(240, 198, 106, 0) 22%),
+        linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 38%, var(--bg-0) 100%);
+    }
+
+    .preview-stage::before,
+    .preview-stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .preview-stage::before {
+      background:
+        linear-gradient(126deg, rgba(255, 255, 255, 0.045) 0 1px, transparent 1px 100%),
+        linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.18) 78%, rgba(0, 0, 0, 0.35) 100%);
+      background-size: 320px 320px, 100% 100%;
+      opacity: 0.36;
+      mix-blend-mode: screen;
+    }
+
+    .preview-stage::after {
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 100%),
+        linear-gradient(0deg, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 100%);
+      background-size: 54px 54px, 54px 54px;
+      mask-image: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.72) 26%, rgba(0, 0, 0, 1) 100%);
+      opacity: 0.22;
+    }
+
+    .hud-shell {
+      position: absolute;
+      inset: 0;
+      padding: 24px 28px 160px;
+    }
+
+    .turn-rail {
+      position: absolute;
+      left: 30px;
+      top: 24px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .turn-pill {
+      width: 58px;
+      height: 58px;
+      position: relative;
+      transform: skewX(-16deg);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(8, 10, 18, 0.78);
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.34);
+      overflow: hidden;
+    }
+
+    .turn-pill::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 48%),
+        linear-gradient(90deg, rgba(255, 103, 159, 0.16), rgba(255, 103, 159, 0));
+    }
+
+    .turn-pill span {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      transform: skewX(16deg);
+      font-size: 13px;
+      font-weight: 700;
+      color: rgba(255, 244, 248, 0.82);
+    }
+
+    .turn-pill.active {
+      border-color: rgba(255, 103, 159, 0.44);
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.38), 0 0 22px rgba(255, 103, 159, 0.18);
+    }
+
+    .boss-band {
+      position: absolute;
+      left: 50%;
+      top: 22px;
+      width: min(1080px, calc(100vw - 138px));
+      transform: translateX(-50%);
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 22px;
+      align-items: center;
+    }
+
+    .boss-name-block {
+      min-width: 236px;
+    }
+
+    .boss-kicker {
+      font-size: 11px;
+      letter-spacing: 0.34em;
+      color: rgba(247, 243, 246, 0.46);
+      text-transform: uppercase;
+    }
+
+    .boss-name {
+      margin-top: 7px;
+      font-size: clamp(24px, 3vw, 38px);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      line-height: 1;
+      text-transform: uppercase;
+      text-shadow: 0 14px 30px rgba(0, 0, 0, 0.44);
+    }
+
+    .boss-meter-shell {
+      position: relative;
+      height: 68px;
+      transform: skewX(-18deg);
+      background: rgba(8, 10, 18, 0.78);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .boss-meter-shell::before,
+    .boss-meter-shell::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .boss-meter-shell::before {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 40%),
+        linear-gradient(90deg, rgba(255, 103, 159, 0.18), transparent 30%);
+    }
+
+    .boss-meter-shell::after {
+      inset: 12px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      opacity: 0.45;
+    }
+
+    .boss-meter-content {
+      position: absolute;
+      inset: 0;
+      padding: 12px 22px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 18px;
+      transform: skewX(18deg);
+      align-items: center;
+    }
+
+    .boss-meter-track {
+      position: relative;
+      height: 18px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+
+    .boss-meter-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 74%;
+      background:
+        linear-gradient(90deg, #ff678d 0%, #ff67b6 36%, #f0c66a 72%, #ffe19d 100%);
+      box-shadow: 0 0 24px rgba(255, 103, 182, 0.32);
+    }
+
+    .boss-meter-shine {
+      position: absolute;
+      inset: 0 auto 0 42%;
+      width: 72px;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.32), rgba(255, 255, 255, 0));
+      transform: skewX(18deg);
+      opacity: 0.55;
+    }
+
+    .boss-readout {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 2px;
+      white-space: nowrap;
+    }
+
+    .boss-readout .value {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      color: rgba(255, 247, 251, 0.88);
+    }
+
+    .boss-readout .percent {
+      font-size: 11px;
+      letter-spacing: 0.24em;
+      color: rgba(255, 255, 255, 0.52);
+      text-transform: uppercase;
+    }
+
+    .boss-phase-tag {
+      position: relative;
+      height: 52px;
+      min-width: 166px;
+      padding: 0 18px;
+      transform: skewX(-18deg);
+      background: rgba(8, 10, 18, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 14px 28px rgba(0, 0, 0, 0.34);
+      display: grid;
+      place-items: center;
+    }
+
+    .boss-phase-tag span {
+      transform: skewX(18deg);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.26em;
+      color: rgba(255, 255, 255, 0.76);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .hint-lane {
+      position: absolute;
+      left: 50%;
+      top: clamp(118px, 15vh, 152px);
+      width: var(--lane-width);
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      z-index: 4;
+    }
+
+    .lane-title {
+      font-size: 10px;
+      letter-spacing: 0.36em;
+      color: rgba(255, 255, 255, 0.32);
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .hint-stack {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .hint-card {
+      --hint-width: 420px;
+      --life-ms: 1800ms;
+      width: 0;
+      opacity: 0;
+      overflow: visible;
+      filter: blur(12px) saturate(0.86);
+      transition:
+        width 420ms cubic-bezier(0.2, 0.84, 0.18, 1),
+        opacity 180ms ease,
+        filter 260ms ease;
+      will-change: width, opacity, filter;
+    }
+
+    .hint-card.is-visible {
+      width: var(--hint-width);
+      opacity: 1;
+      filter: none;
+    }
+
+    .hint-card.is-closing {
+      width: 0 !important;
+      opacity: 0;
+      filter: blur(12px) saturate(0.86);
+    }
+
+    .hint-card.is-measuring {
+      position: fixed;
+      left: -9999px;
+      top: -9999px;
+      width: max-content !important;
+      max-width: none !important;
+      opacity: 0 !important;
+      visibility: hidden;
+      transition: none !important;
+      filter: none !important;
+      pointer-events: none !important;
+    }
+
+    .hint-shell {
+      position: relative;
+      width: 100%;
+      transform: skewX(-18deg);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: linear-gradient(135deg, rgba(11, 12, 18, 0.98) 0%, rgba(16, 18, 28, 0.96) 100%);
+      box-shadow:
+        0 16px 36px rgba(0, 0, 0, 0.44),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+    }
+
+    .hint-shell::before,
+    .hint-shell::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .hint-shell::before {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 42%),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0, transparent 30%);
+      opacity: 0.66;
+    }
+
+    .hint-shell::after {
+      inset: -24px 30%;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0) 66%);
+      opacity: 0;
+      transition: opacity 240ms ease 80ms;
+    }
+
+    .hint-card.is-visible .hint-shell::after {
+      opacity: 0.35;
+    }
+
+    .hint-card.family-major .hint-shell {
+      border-color: rgba(255, 103, 159, 0.28);
+      background:
+        linear-gradient(135deg, rgba(15, 11, 20, 0.98) 0%, rgba(19, 14, 25, 0.98) 100%);
+    }
+
+    .hint-card.family-tutorial .hint-shell {
+      border-color: rgba(166, 195, 227, 0.26);
+      background:
+        linear-gradient(135deg, rgba(11, 13, 20, 0.98) 0%, rgba(14, 18, 29, 0.98) 100%);
+    }
+
+    .hint-card.family-warning .hint-shell {
+      border-color: rgba(255, 117, 124, 0.34);
+      background:
+        linear-gradient(135deg, rgba(20, 10, 12, 0.98) 0%, rgba(25, 13, 15, 0.98) 100%);
+    }
+
+    .hint-body {
+      position: relative;
+      min-height: 86px;
+      padding: 16px 22px 18px;
+      display: grid;
+      grid-template-columns: 14px 1fr auto;
+      gap: 18px;
+      align-items: stretch;
+      transform: skewX(18deg);
+    }
+
+    .hint-accent {
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 18px rgba(255, 255, 255, 0.08);
+    }
+
+    .hint-accent::before,
+    .hint-accent::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+    }
+
+    .hint-accent::before {
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0) 46%);
+      mix-blend-mode: screen;
+      opacity: 0.54;
+    }
+
+    .hint-accent::after {
+      top: -18%;
+      left: -100%;
+      width: 180%;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.58), rgba(255, 255, 255, 0));
+      transform: skewX(18deg);
+      animation: accent-sweep 1.9s ease-out infinite;
+      opacity: 0.42;
+    }
+
+    .hint-card.family-major .hint-accent {
+      background: linear-gradient(180deg, var(--pink) 0%, #ff8a6b 44%, var(--gold) 100%);
+      box-shadow: 0 0 20px rgba(255, 103, 159, 0.28);
+    }
+
+    .hint-card.family-tutorial .hint-accent {
+      background: linear-gradient(180deg, #7db4ff 0%, var(--steel) 54%, #7fd2ff 100%);
+      box-shadow: 0 0 20px rgba(157, 191, 233, 0.22);
+    }
+
+    .hint-card.family-warning .hint-accent {
+      background: linear-gradient(180deg, var(--danger) 0%, #ff8c68 62%, var(--danger-hot) 100%);
+      box-shadow: 0 0 20px rgba(255, 106, 117, 0.26);
+    }
+
+    .hint-copy {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: opacity 220ms ease 110ms, transform 340ms cubic-bezier(0.2, 0.84, 0.18, 1) 110ms;
+    }
+
+    .hint-card.is-visible .hint-copy {
+      opacity: 1;
+      transform: none;
+    }
+
+    .hint-card.is-closing .hint-copy {
+      opacity: 0;
+      transform: translateY(-8px);
+      transition-delay: 0ms;
+    }
+
+    .hint-topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: baseline;
+      font-size: 10px;
+      letter-spacing: 0.26em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .hint-kicker {
+      color: rgba(255, 255, 255, 0.82);
+      font-weight: 700;
+    }
+
+    .hint-source {
+      color: rgba(255, 255, 255, 0.38);
+    }
+
+    .hint-message {
+      margin: 9px 0 0;
+      font-size: clamp(14px, 1.6vw, 20px);
+      line-height: 1.28;
+      font-weight: 700;
+      color: rgba(255, 248, 251, 0.94);
+      text-wrap: pretty;
+    }
+
+    .hint-side {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 9px;
+      min-width: 90px;
+      padding-left: 6px;
+    }
+
+    .hint-badge {
+      position: relative;
+      min-width: 86px;
+      padding: 8px 10px;
+      transform: skewX(-18deg);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.04);
+      color: rgba(255, 255, 255, 0.76);
+      text-align: center;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    }
+
+    .hint-badge span {
+      display: block;
+      transform: skewX(18deg);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .hint-card.family-major .hint-badge {
+      border-color: rgba(255, 103, 159, 0.28);
+      color: rgba(255, 221, 233, 0.86);
+    }
+
+    .hint-card.family-tutorial .hint-badge {
+      border-color: rgba(157, 191, 233, 0.28);
+      color: rgba(225, 237, 249, 0.86);
+    }
+
+    .hint-card.family-warning .hint-badge {
+      border-color: rgba(255, 106, 117, 0.28);
+      color: rgba(255, 226, 226, 0.86);
+    }
+
+    .hint-dismiss {
+      position: relative;
+      min-width: 104px;
+      padding: 9px 12px;
+      transform: skewX(-18deg);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.05);
+      color: rgba(255, 255, 255, 0.9);
+      cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease, color 120ms ease;
+    }
+
+    .hint-dismiss span {
+      display: block;
+      transform: skewX(18deg);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .hint-dismiss:hover {
+      background: rgba(255, 255, 255, 0.11);
+      border-color: rgba(255, 255, 255, 0.24);
+    }
+
+    .hint-dismiss:active {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .hint-timer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      background: rgba(255, 255, 255, 0.06);
+      overflow: hidden;
+    }
+
+    .hint-timer-fill {
+      width: 100%;
+      height: 100%;
+      transform-origin: left center;
+      animation: hint-timer linear forwards;
+      animation-duration: var(--life-ms);
+    }
+
+    .hint-card.family-major .hint-timer-fill {
+      background: linear-gradient(90deg, rgba(255, 103, 159, 0.96), rgba(240, 198, 106, 0.96));
+    }
+
+    .hint-card.family-tutorial .hint-timer-fill {
+      background: linear-gradient(90deg, rgba(157, 191, 233, 0.96), rgba(217, 227, 239, 0.96));
+    }
+
+    .hint-card.family-warning .hint-timer-fill {
+      background: linear-gradient(90deg, rgba(255, 106, 117, 0.96), rgba(255, 158, 109, 0.96));
+    }
+
+    .hint-card.is-pinned .hint-timer {
+      display: none;
+    }
+
+    .vs-ghost {
+      position: absolute;
+      left: 50%;
+      top: 160px;
+      transform: translateX(-50%);
+      font-family: "DejaVu Sans", "Space Mono", sans-serif;
+      font-size: clamp(110px, 18vw, 230px);
+      font-weight: 700;
+      line-height: 0.84;
+      letter-spacing: -0.08em;
+      color: rgba(255, 255, 255, 0.035);
+      text-transform: uppercase;
+      pointer-events: none;
+      text-shadow:
+        0 0 40px rgba(255, 255, 255, 0.03),
+        0 0 90px rgba(255, 103, 159, 0.05);
+    }
+
+    .party-rack {
+      position: absolute;
+      left: 50%;
+      bottom: 28px;
+      width: min(1120px, calc(100vw - 100px));
+      transform: translateX(-50%);
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
+      align-items: end;
+    }
+
+    .unit-card {
+      position: relative;
+      min-height: 136px;
+      padding: 14px 16px 18px;
+      transform: skewX(-14deg);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: linear-gradient(180deg, rgba(10, 12, 18, 0.92), rgba(9, 11, 16, 0.86));
+      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.32);
+      overflow: hidden;
+    }
+
+    .unit-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 34%),
+        linear-gradient(90deg, rgba(255, 103, 159, 0.1), transparent 42%);
+    }
+
+    .unit-card.active {
+      border-color: rgba(255, 103, 159, 0.28);
+      box-shadow: 0 18px 34px rgba(0, 0, 0, 0.38), 0 0 24px rgba(255, 103, 159, 0.16);
+    }
+
+    .unit-card > * {
+      position: relative;
+      transform: skewX(14deg);
+    }
+
+    .unit-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .unit-name {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .unit-role {
+      margin-top: 5px;
+      font-size: 9px;
+      letter-spacing: 0.22em;
+      color: rgba(255, 255, 255, 0.46);
+      text-transform: uppercase;
+    }
+
+    .unit-orbs {
+      display: flex;
+      gap: 5px;
+      margin-top: 2px;
+    }
+
+    .unit-orbs span {
+      width: 11px;
+      height: 11px;
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+
+    .unit-orbs span.filled {
+      background: linear-gradient(180deg, #ff70af, #ffc16f);
+      box-shadow: 0 0 10px rgba(255, 103, 159, 0.26);
+    }
+
+    .unit-hp {
+      margin-top: 26px;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      color: rgba(255, 255, 255, 0.7);
+      text-transform: uppercase;
+    }
+
+    .unit-bar {
+      position: relative;
+      margin-top: 8px;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+
+    .unit-bar .fill {
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: var(--fill, 50%);
+      background: linear-gradient(90deg, rgba(255, 103, 159, 0.92), rgba(240, 198, 106, 0.92));
+    }
+
+    .unit-bar .shield {
+      position: absolute;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: var(--shield, 0%);
+      background: linear-gradient(90deg, rgba(124, 188, 255, 0.22), rgba(124, 188, 255, 0.54));
+      border-left: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .debug-panel {
+      position: absolute;
+      left: 24px;
+      bottom: 24px;
+      width: min(434px, calc(100vw - 48px));
+      padding: 18px 18px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--panel);
+      box-shadow: 0 22px 42px rgba(0, 0, 0, 0.38);
+      backdrop-filter: blur(12px);
+      z-index: 8;
+    }
+
+    .debug-panel::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 34%),
+        linear-gradient(90deg, rgba(255, 103, 159, 0.12), rgba(255, 103, 159, 0) 38%);
+      pointer-events: none;
+    }
+
+    .debug-title {
+      position: relative;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.32em;
+      text-transform: uppercase;
+      color: rgba(255, 246, 249, 0.88);
+    }
+
+    .debug-summary,
+    .debug-status {
+      position: relative;
+      margin-top: 8px;
+      font-size: 11px;
+      line-height: 1.5;
+      color: rgba(255, 255, 255, 0.58);
+    }
+
+    .debug-status {
+      min-height: 17px;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .debug-grid {
+      position: relative;
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px 12px;
+    }
+
+    .debug-action {
+      position: relative;
+      padding: 0;
+      height: 46px;
+      border: 0;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .debug-action .shell {
+      position: absolute;
+      inset: 0;
+      transform: skewX(-18deg);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
+    }
+
+    .debug-action .shell::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 44%);
+      opacity: 0.74;
+    }
+
+    .debug-action .label {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      padding: 0 12px;
+      transform: skewX(18deg);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255, 252, 253, 0.9);
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    .debug-action:hover .shell {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: skewX(-18deg) translateY(-1px);
+    }
+
+    .debug-action.major .shell {
+      border-color: rgba(255, 103, 159, 0.28);
+    }
+
+    .debug-action.warning .shell {
+      border-color: rgba(255, 106, 117, 0.28);
+    }
+
+    .debug-action.tutorial .shell {
+      border-color: rgba(157, 191, 233, 0.28);
+    }
+
+    .debug-row {
+      position: relative;
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .toggle input {
+      accent-color: var(--pink);
+    }
+
+    .shortcut-note {
+      position: relative;
+      margin-top: 14px;
+      font-size: 10px;
+      line-height: 1.55;
+      letter-spacing: 0.06em;
+      color: rgba(255, 255, 255, 0.48);
+    }
+
+    .sfx-map {
+      position: relative;
+      margin: 14px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 7px;
+    }
+
+    .sfx-map li {
+      display: grid;
+      grid-template-columns: 86px 1fr;
+      gap: 12px;
+      align-items: start;
+      font-size: 10px;
+      line-height: 1.45;
+    }
+
+    .sfx-map .family {
+      color: rgba(255, 255, 255, 0.78);
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+    }
+
+    .sfx-map .path {
+      color: rgba(255, 255, 255, 0.46);
+      word-break: break-all;
+    }
+
+    #hint-measure-root {
+      position: fixed;
+      left: -9999px;
+      top: -9999px;
+      visibility: hidden;
+      pointer-events: none;
+    }
+
+    @keyframes hint-timer {
+      from {
+        transform: scaleX(1);
+      }
+      to {
+        transform: scaleX(0);
+      }
+    }
+
+    @keyframes accent-sweep {
+      0%,
+      12% {
+        transform: translateX(-110%) skewX(18deg);
+        opacity: 0;
+      }
+      28% {
+        opacity: 0.48;
+      }
+      52% {
+        transform: translateX(120%) skewX(18deg);
+        opacity: 0;
+      }
+      100% {
+        transform: translateX(120%) skewX(18deg);
+        opacity: 0;
+      }
+    }
+
+    @media (max-width: 980px) {
+      .hud-shell {
+        padding: 18px 18px 220px;
+      }
+
+      .boss-band {
+        width: calc(100vw - 56px);
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .boss-name-block,
+      .boss-phase-tag {
+        justify-self: center;
+      }
+
+      .hint-lane {
+        top: 164px;
+        width: calc(100vw - 44px);
+      }
+
+      .lane-title {
+        font-size: 9px;
+        letter-spacing: 0.24em;
+      }
+
+      .hint-body {
+        grid-template-columns: 12px 1fr;
+      }
+
+      .hint-side {
+        grid-column: 2;
+        flex-direction: row;
+        justify-content: flex-start;
+        align-items: center;
+        padding-left: 0;
+      }
+
+      .party-rack {
+        width: calc(100vw - 40px);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .debug-panel {
+        left: 18px;
+        right: 18px;
+        bottom: 18px;
+        width: auto;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .turn-rail,
+      .vs-ghost,
+      .party-rack {
+        display: none;
+      }
+
+      .hint-lane {
+        top: 188px;
+      }
+
+      .hint-topline {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+      }
+
+      .hint-message {
+        font-size: 14px;
+      }
+
+      .debug-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="preview-stage">
+    <section class="hud-shell">
+      <div class="turn-rail" aria-hidden="true">
+        <div class="turn-pill"><span>05</span></div>
+        <div class="turn-pill active"><span>12</span></div>
+        <div class="turn-pill"><span>24</span></div>
+        <div class="turn-pill"><span>37</span></div>
+        <div class="turn-pill"><span>51</span></div>
+      </div>
+
+      <div class="boss-band" aria-hidden="true">
+        <div class="boss-name-block">
+          <div class="boss-kicker">Boss Target</div>
+          <div class="boss-name">Host | Lyoo</div>
+        </div>
+
+        <div class="boss-meter-shell">
+          <div class="boss-meter-content">
+            <div class="boss-meter-track">
+              <div class="boss-meter-fill"></div>
+              <div class="boss-meter-shine"></div>
+            </div>
+            <div class="boss-readout">
+              <div class="value">312 / 420 HP</div>
+              <div class="percent">74% integrity</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="boss-phase-tag"><span>Phase 2 Active</span></div>
+      </div>
+
+      <div class="hint-lane" id="hint-lane">
+        <div class="lane-title">Unified Combat Hint Stack Preview</div>
+        <div class="hint-stack" id="hint-stack" aria-live="polite" aria-label="Combat hint stack"></div>
+      </div>
+
+      <div class="vs-ghost" aria-hidden="true">VS</div>
+
+      <div class="party-rack" aria-hidden="true">
+        <div class="unit-card active">
+          <div class="unit-top">
+            <div>
+              <div class="unit-name">Miku</div>
+              <div class="unit-role">DPS</div>
+            </div>
+            <div class="unit-orbs">
+              <span class="filled"></span>
+              <span class="filled"></span>
+              <span></span>
+            </div>
+          </div>
+          <div class="unit-hp">32 / 40 HP</div>
+          <div class="unit-bar" style="--fill: 80%; --shield: 0%;">
+            <div class="fill"></div>
+            <div class="shield"></div>
+          </div>
+        </div>
+
+        <div class="unit-card">
+          <div class="unit-top">
+            <div>
+              <div class="unit-name">Lyoo</div>
+              <div class="unit-role">Healer</div>
+            </div>
+            <div class="unit-orbs">
+              <span class="filled"></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+          <div class="unit-hp">80 / 80 HP</div>
+          <div class="unit-bar" style="--fill: 100%; --shield: 18%;">
+            <div class="fill"></div>
+            <div class="shield"></div>
+          </div>
+        </div>
+
+        <div class="unit-card">
+          <div class="unit-top">
+            <div>
+              <div class="unit-name">Cupcakke</div>
+              <div class="unit-role">Support</div>
+            </div>
+            <div class="unit-orbs">
+              <span class="filled"></span>
+              <span class="filled"></span>
+              <span class="filled"></span>
+            </div>
+          </div>
+          <div class="unit-hp">64 / 72 HP</div>
+          <div class="unit-bar" style="--fill: 89%; --shield: 8%;">
+            <div class="fill"></div>
+            <div class="shield"></div>
+          </div>
+        </div>
+
+        <div class="unit-card">
+          <div class="unit-top">
+            <div>
+              <div class="unit-name">Ari</div>
+              <div class="unit-role">Utility</div>
+            </div>
+            <div class="unit-orbs">
+              <span class="filled"></span>
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+          <div class="unit-hp">41 / 50 HP</div>
+          <div class="unit-bar" style="--fill: 82%; --shield: 0%;">
+            <div class="fill"></div>
+            <div class="shield"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="debug-panel" id="debug-panel">
+      <div class="debug-title">Hint Stack Debug</div>
+      <div class="debug-summary" id="debug-summary"></div>
+      <div class="debug-status" id="debug-status"></div>
+
+      <div class="debug-grid">
+        <button class="debug-action major" type="button" data-sample="phaseTwo">
+          <span class="shell"></span>
+          <span class="label">Phase Transition</span>
+        </button>
+        <button class="debug-action tutorial" type="button" data-sample="bossParry">
+          <span class="shell"></span>
+          <span class="label">Boss Ability Hint</span>
+        </button>
+        <button class="debug-action tutorial" type="button" data-sample="mikuRhythm">
+          <span class="shell"></span>
+          <span class="label">Rhythm Input Hint</span>
+        </button>
+        <button class="debug-action warning" type="button" data-sample="ultNotReady">
+          <span class="shell"></span>
+          <span class="label">Ultimate Not Ready</span>
+        </button>
+        <button class="debug-action warning" type="button" data-sample="ultQueued">
+          <span class="shell"></span>
+          <span class="label">Ultimate Already Queued</span>
+        </button>
+        <button class="debug-action warning" type="button" data-sample="ultBuffered">
+          <span class="shell"></span>
+          <span class="label">Ultimate Buffered</span>
+        </button>
+        <button class="debug-action tutorial" type="button" data-sample="tutorialUltimate">
+          <span class="shell"></span>
+          <span class="label">Pinned Tutorial</span>
+        </button>
+        <button class="debug-action major" type="button" data-action="demo">
+          <span class="shell"></span>
+          <span class="label">Run Demo</span>
+        </button>
+      </div>
+
+      <div class="debug-row">
+        <label class="toggle">
+          <input id="audio-toggle" type="checkbox" checked />
+          <span>Audio Hooks Enabled</span>
+        </label>
+
+        <button class="debug-action" type="button" data-action="clear" style="width: 138px; height: 38px;">
+          <span class="shell"></span>
+          <span class="label">Clear Hints</span>
+        </button>
+      </div>
+
+      <div class="shortcut-note">
+        Hotkeys: 1 phase, 2 boss hint, 3 rhythm hint, 4 not ready, 5 queued, 6 buffered, 7 pinned tutorial, R demo, C clear.
+      </div>
+
+      <ul class="sfx-map" id="sfx-map"></ul>
+    </aside>
+
+    <div id="hint-measure-root" aria-hidden="true"></div>
+  </main>
+
+  <script>
+    (() => {
+      const hintLane = document.getElementById("hint-lane");
+      const hintStack = document.getElementById("hint-stack");
+      const measureRoot = document.getElementById("hint-measure-root");
+      const debugPanel = document.getElementById("debug-panel");
+      const debugSummary = document.getElementById("debug-summary");
+      const debugStatus = document.getElementById("debug-status");
+      const audioToggle = document.getElementById("audio-toggle");
+      const sfxMapNode = document.getElementById("sfx-map");
+
+      const SFX_MAP = {
+        tutorial: "assets/ui/sfx/UI_overlay-pop-in.wav",
+        warning: "assets/ui/sfx/UI_generic-error.wav",
+        major: "assets/ui/sfx/UI_overlay-big-pop-in.wav"
+      };
+
+      const SAMPLE_HINTS = {
+        phaseTwo: {
+          templateKey: "phaseTwo",
+          family: "major",
+          kicker: "Phase Shift",
+          sourceTag: "Boss System",
+          message: "ENTERING PHASE TWO",
+          durationMs: 2200,
+          pinned: false,
+          sfxFamily: "major"
+        },
+        bossParry: {
+          templateKey: "bossParry",
+          family: "tutorial",
+          kicker: "Boss Ability",
+          sourceTag: "Instruction Hint",
+          message: "Press SPACE as each pulse reaches the party to parry and reduce damage.",
+          durationMs: 3200,
+          pinned: false,
+          sfxFamily: "tutorial"
+        },
+        mikuRhythm: {
+          templateKey: "mikuRhythm",
+          family: "tutorial",
+          kicker: "Skill Input",
+          sourceTag: "Miku / Lets Sing!",
+          message: "Press D / F / J / K as the notes reach the line.",
+          durationMs: 2600,
+          pinned: false,
+          sfxFamily: "tutorial"
+        },
+        ultNotReady: {
+          templateKey: "ultNotReady",
+          family: "warning",
+          kicker: "Manual Ult",
+          sourceTag: "Buffered Request",
+          message: "ALLY 1 ULTIMATE NEEDS 2 MORE ABILITIES.",
+          durationMs: 1800,
+          pinned: false,
+          sfxFamily: "warning"
+        },
+        ultQueued: {
+          templateKey: "ultQueued",
+          family: "warning",
+          kicker: "Manual Ult",
+          sourceTag: "Request Result",
+          message: "ULTIMATE ALREADY QUEUED.",
+          durationMs: 1400,
+          pinned: false,
+          sfxFamily: "warning"
+        },
+        ultBuffered: {
+          templateKey: "ultBuffered",
+          family: "warning",
+          kicker: "Manual Ult",
+          sourceTag: "Rhythm Buffer",
+          message: "ULTIMATE WILL QUEUE AFTER THIS SKILL.",
+          durationMs: 1200,
+          pinned: false,
+          sfxFamily: "warning"
+        },
+        tutorialUltimate: {
+          templateKey: "tutorialUltimate",
+          family: "tutorial",
+          kicker: "Combat Guide",
+          sourceTag: "Lyoo / Tutorial Script",
+          message: "When you fill your \"Ultimate Points\", press 1, 2, 3, or 4 to queue that ally's ultimate turn.",
+          durationMs: 0,
+          pinned: true,
+          sfxFamily: "tutorial"
+        }
+      };
+
+      const state = {
+        audioEnabled: audioToggle.checked,
+        nextId: 0,
+        hints: new Map(),
+        demoTimeouts: []
+      };
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function resolvePreviewAssetPath(repoAssetPath) {
+        if (repoAssetPath.startsWith("assets/")) {
+          return "../../" + repoAssetPath.slice("assets/".length);
+        }
+        return repoAssetPath;
+      }
+
+      function formatSeconds(durationMs) {
+        if (!durationMs || durationMs <= 0) {
+          return "PIN";
+        }
+        const seconds = durationMs / 1000;
+        return (seconds % 1 === 0 ? String(seconds.toFixed(0)) : String(seconds.toFixed(1))) + "S";
+      }
+
+      function getLaneMaxWidth() {
+        return Math.max(304, Math.min(960, hintLane.clientWidth || window.innerWidth - 92));
+      }
+
+      function getLaneMinWidth() {
+        return window.innerWidth < 720 ? 260 : 340;
+      }
+
+      function buildRuntimeHint(definition) {
+        const runtime = {
+          family: definition.family || "tutorial",
+          kicker: definition.kicker || "Combat Hint",
+          sourceTag: definition.sourceTag || "HUD",
+          message: definition.message || "",
+          durationMs: definition.pinned ? 0 : Math.max(definition.durationMs || 1800, 300),
+          pinned: Boolean(definition.pinned),
+          sfxFamily: definition.sfxFamily || definition.family || "tutorial",
+          templateKey: definition.templateKey || "runtime"
+        };
+
+        runtime.id = definition.id || runtime.templateKey + "-" + String(++state.nextId);
+        return runtime;
+      }
+
+      function createHintMarkup(definition) {
+        const badgeLabel = formatSeconds(definition.durationMs);
+        const dismissButton = definition.pinned
+          ? "<button class=\"hint-dismiss\" type=\"button\" data-dismiss-id=\"" + escapeHtml(definition.id) + "\"><span>Dismiss</span></button>"
+          : "";
+
+        return (
+          "<div class=\"hint-shell\">" +
+            "<div class=\"hint-body\">" +
+              "<div class=\"hint-accent\"></div>" +
+              "<div class=\"hint-copy\">" +
+                "<div class=\"hint-topline\">" +
+                  "<span class=\"hint-kicker\">" + escapeHtml(definition.kicker) + "</span>" +
+                  "<span class=\"hint-source\">" + escapeHtml(definition.sourceTag) + "</span>" +
+                "</div>" +
+                "<p class=\"hint-message\">" + escapeHtml(definition.message) + "</p>" +
+              "</div>" +
+              "<div class=\"hint-side\">" +
+                "<div class=\"hint-badge\"><span>" + escapeHtml(badgeLabel) + "</span></div>" +
+                dismissButton +
+              "</div>" +
+            "</div>" +
+            "<div class=\"hint-timer\"><div class=\"hint-timer-fill\"></div></div>" +
+          "</div>"
+        );
+      }
+
+      function createHintNode(definition, measuring = false) {
+        const node = document.createElement("article");
+        node.className = "hint-card family-" + definition.family + (definition.pinned ? " is-pinned" : "") + (measuring ? " is-measuring" : "");
+        node.dataset.hintId = definition.id;
+        node.style.setProperty("--life-ms", String(Math.max(definition.durationMs, 1)) + "ms");
+        node.innerHTML = createHintMarkup(definition);
+        return node;
+      }
+
+      function measureHintWidth(definition) {
+        const node = createHintNode(definition, true);
+        measureRoot.appendChild(node);
+        const naturalWidth = Math.ceil(node.scrollWidth);
+        node.remove();
+        return Math.max(getLaneMinWidth(), Math.min(naturalWidth, getLaneMaxWidth()));
+      }
+
+      function captureStackRects() {
+        const rects = new Map();
+        for (const child of hintStack.children) {
+          rects.set(child.dataset.hintId, child.getBoundingClientRect());
+        }
+        return rects;
+      }
+
+      function animateFromPreviousRects(previousRects) {
+        for (const child of hintStack.children) {
+          const previous = previousRects.get(child.dataset.hintId);
+          if (!previous) {
+            continue;
+          }
+          const next = child.getBoundingClientRect();
+          const deltaX = previous.left - next.left;
+          const deltaY = previous.top - next.top;
+          if (Math.abs(deltaX) < 1 && Math.abs(deltaY) < 1) {
+            continue;
+          }
+          child.animate(
+            [
+              { transform: "translate(" + deltaX + "px, " + deltaY + "px)" },
+              { transform: "translate(0px, 0px)" }
+            ],
+            {
+              duration: 280,
+              easing: "cubic-bezier(0.2, 0.84, 0.18, 1)"
+            }
+          );
+        }
+      }
+
+      function playHintSfx(family) {
+        const repoPath = SFX_MAP[family];
+        if (!state.audioEnabled || !repoPath) {
+          return;
+        }
+        const audio = new Audio(resolvePreviewAssetPath(repoPath));
+        audio.volume = family === "major" ? 0.62 : 0.54;
+        void audio.play().catch(() => {});
+      }
+
+      function setStatus(message) {
+        debugStatus.textContent = message;
+      }
+
+      function updateSummary() {
+        let pinnedCount = 0;
+        for (const record of state.hints.values()) {
+          if (record.definition.pinned) {
+            pinnedCount += 1;
+          }
+        }
+        debugSummary.textContent =
+          "Active hints: " + String(state.hints.size) +
+          " | Pinned: " + String(pinnedCount) +
+          " | Audio: " + (state.audioEnabled ? "ON" : "OFF");
+      }
+
+      function populateSfxMap() {
+        const rows = [
+          ["Tutorial", SFX_MAP.tutorial],
+          ["Warning", SFX_MAP.warning],
+          ["Major", SFX_MAP.major]
+        ];
+
+        sfxMapNode.innerHTML = rows.map(([family, path]) => {
+          return (
+            "<li>" +
+              "<span class=\"family\">" + escapeHtml(family) + "</span>" +
+              "<span class=\"path\">" + escapeHtml(path) + "</span>" +
+            "</li>"
+          );
+        }).join("");
+      }
+
+      function clearDemoSequence() {
+        while (state.demoTimeouts.length > 0) {
+          window.clearTimeout(state.demoTimeouts.pop());
+        }
+      }
+
+      function spawnHint(inputDefinition) {
+        const definition = buildRuntimeHint(inputDefinition);
+        const previousRects = captureStackRects();
+        const node = createHintNode(definition);
+        const width = measureHintWidth(definition);
+        node.style.setProperty("--hint-width", String(width) + "px");
+        const dismissButton = node.querySelector("[data-dismiss-id]");
+        if (dismissButton) {
+          dismissButton.addEventListener("click", () => dismissHint(definition.id));
+        }
+
+        let timeoutId = 0;
+        if (!definition.pinned) {
+          timeoutId = window.setTimeout(() => dismissHint(definition.id), definition.durationMs + 40);
+        }
+
+        hintStack.prepend(node);
+        state.hints.set(definition.id, {
+          definition,
+          node,
+          timeoutId,
+          closing: false
+        });
+
+        requestAnimationFrame(() => {
+          animateFromPreviousRects(previousRects);
+          node.classList.add("is-visible");
+        });
+
+        playHintSfx(definition.sfxFamily);
+        updateSummary();
+        setStatus("Spawned " + definition.kicker + ".");
+        return definition.id;
+      }
+
+      function dismissHint(id, immediate = false) {
+        const record = state.hints.get(id);
+        if (!record || record.closing) {
+          return;
+        }
+
+        if (record.timeoutId) {
+          window.clearTimeout(record.timeoutId);
+        }
+
+        if (immediate) {
+          record.node.remove();
+          state.hints.delete(id);
+          updateSummary();
+          return;
+        }
+
+        record.closing = true;
+        record.node.classList.add("is-closing");
+        record.node.classList.remove("is-visible");
+
+        window.setTimeout(() => {
+          const previousRects = captureStackRects();
+          record.node.remove();
+          state.hints.delete(id);
+          requestAnimationFrame(() => animateFromPreviousRects(previousRects));
+          updateSummary();
+        }, 250);
+      }
+
+      function clearHints(immediate = false) {
+        const ids = Array.from(state.hints.keys());
+        for (const id of ids) {
+          dismissHint(id, immediate);
+        }
+        setStatus(immediate ? "Cleared all hints immediately." : "Clearing hint stack.");
+      }
+
+      function spawnSample(sampleKey) {
+        const sample = SAMPLE_HINTS[sampleKey];
+        if (!sample) {
+          return;
+        }
+        spawnHint(sample);
+      }
+
+      function runDemoSequence() {
+        clearDemoSequence();
+        clearHints(true);
+        setStatus("Running demo sequence.");
+
+        const sequence = [
+          [0, "phaseTwo"],
+          [460, "bossParry"],
+          [1100, "ultNotReady"],
+          [1720, "ultBuffered"],
+          [2520, "tutorialUltimate"]
+        ];
+
+        for (const [delayMs, sampleKey] of sequence) {
+          const timeoutId = window.setTimeout(() => spawnSample(sampleKey), delayMs);
+          state.demoTimeouts.push(timeoutId);
+        }
+      }
+
+      function refreshHintWidths() {
+        const previousRects = captureStackRects();
+        for (const record of state.hints.values()) {
+          record.node.style.setProperty("--hint-width", String(measureHintWidth(record.definition)) + "px");
+        }
+        requestAnimationFrame(() => animateFromPreviousRects(previousRects));
+      }
+
+      debugPanel.addEventListener("click", (event) => {
+        const sampleTrigger = event.target.closest("[data-sample]");
+        if (sampleTrigger) {
+          spawnSample(sampleTrigger.dataset.sample);
+          return;
+        }
+
+        const actionTrigger = event.target.closest("[data-action]");
+        if (!actionTrigger) {
+          return;
+        }
+
+        if (actionTrigger.dataset.action === "demo") {
+          runDemoSequence();
+        } else if (actionTrigger.dataset.action === "clear") {
+          clearDemoSequence();
+          clearHints();
+        }
+      });
+
+      audioToggle.addEventListener("change", () => {
+        state.audioEnabled = audioToggle.checked;
+        updateSummary();
+        setStatus(state.audioEnabled ? "Audio hooks enabled." : "Audio hooks muted.");
+      });
+
+      window.addEventListener("keydown", (event) => {
+        if (event.defaultPrevented) {
+          return;
+        }
+
+        const key = event.key.toLowerCase();
+        if (key === "1") {
+          spawnSample("phaseTwo");
+        } else if (key === "2") {
+          spawnSample("bossParry");
+        } else if (key === "3") {
+          spawnSample("mikuRhythm");
+        } else if (key === "4") {
+          spawnSample("ultNotReady");
+        } else if (key === "5") {
+          spawnSample("ultQueued");
+        } else if (key === "6") {
+          spawnSample("ultBuffered");
+        } else if (key === "7") {
+          spawnSample("tutorialUltimate");
+        } else if (key === "r") {
+          runDemoSequence();
+        } else if (key === "c") {
+          clearDemoSequence();
+          clearHints();
+        } else {
+          return;
+        }
+        event.preventDefault();
+      });
+
+      window.addEventListener("resize", refreshHintWidths);
+
+      populateSfxMap();
+      updateSummary();
+      setStatus("Preview ready. Demo starts automatically.");
+      window.setTimeout(runDemoSequence, 260);
+    })();
+  </script>
+</body>
+</html>

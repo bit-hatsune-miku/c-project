@@ -15,26 +15,6 @@
 
 namespace battle::app::ui {
 
-struct HudFeedbackState {
-    std::string hintText;
-    Uint64 hintUntilMs = 0;
-    std::string toastText;
-    Uint64 toastUntilMs = 0;
-    int comboCount = 0;
-    float comboBonusFraction = 0.0f;
-    std::string judgementText;
-    std::string judgementRewardText;
-    std::string judgementClassName;
-    Uint64 judgementStartedMs = 0;
-    Uint64 judgementUntilMs = 0;
-    int blinkUnitIndex = -1;
-    int blinkMissingFrom = 0;
-    int blinkMissingTo = 0;
-    Uint64 blinkUntilMs = 0;
-    Uint64 bossHitUntilMs = 0;
-    std::vector<Uint64> unitHitUntilMs;
-};
-
 struct HudValueAnimationState {
     bool initialized = false;
     bool active = false;
@@ -72,6 +52,119 @@ enum class TutorialStep {
     Skill,
     Ultimate
 };
+
+enum class BattleHintFamily {
+    Info,
+    Tutorial,
+    Warning,
+    Major
+};
+
+enum class BattleHintResolveKind {
+    None,
+    Timeout,
+    PresentationEnd,
+    BossPhaseIntroEnd,
+    BattleAction,
+    TutorialStepComplete
+};
+
+enum class BattleHintPhase {
+    Opening,
+    Active,
+    Closing
+};
+
+struct BattleHintResolveRule {
+    BattleHintResolveKind kind = BattleHintResolveKind::None;
+    Uint64 durationMs = 0;
+    std::optional<battle::BattleAction> action;
+    std::string abilityId;
+    TutorialStep tutorialStep = TutorialStep::None;
+};
+
+struct BattleHintRequest {
+    std::string stableKey;
+    BattleHintFamily family = BattleHintFamily::Info;
+    std::string kicker;
+    std::string sourceTag;
+    std::string badgeText;
+    std::string message;
+    std::string dismissLabel;
+    std::string showSfxPath;
+    std::string voicePath;
+    bool manualDismissAllowed = false;
+    bool refreshIfShown = true;
+    BattleHintResolveRule resolveRule{};
+};
+
+struct BattleHintInstance {
+    BattleHintRequest request;
+    BattleHintPhase phase = BattleHintPhase::Opening;
+    Uint64 phaseElapsedMs = 0;
+    Uint64 activeElapsedMs = 0;
+    float measuredWidthDp = 0.0f;
+    float measuredHeightDp = 0.0f;
+    bool measurementDirty = true;
+    std::string visibleMessage;
+};
+
+struct BattleHintOverlayState {
+    std::vector<BattleHintInstance> active;
+};
+
+struct HudFeedbackState {
+    BattleHintOverlayState hints;
+    std::string toastText;
+    Uint64 toastUntilMs = 0;
+    int comboCount = 0;
+    float comboBonusFraction = 0.0f;
+    std::string judgementText;
+    std::string judgementRewardText;
+    std::string judgementClassName;
+    Uint64 judgementStartedMs = 0;
+    Uint64 judgementUntilMs = 0;
+    int presentationDamageTotal = 0;
+    std::string presentationDamageText;
+    bool presentationDamageVisible = false;
+    bool presentationDamageActive = false;
+    Uint64 presentationDamageStartedMs = 0;
+    Uint64 presentationDamageHoldUntilMs = 0;
+    Uint64 presentationDamageFadeUntilMs = 0;
+    int blinkUnitIndex = -1;
+    int blinkMissingFrom = 0;
+    int blinkMissingTo = 0;
+    Uint64 blinkUntilMs = 0;
+    Uint64 bossHitUntilMs = 0;
+    std::vector<Uint64> unitHitUntilMs;
+};
+
+inline constexpr std::size_t kBattleHintMaxVisible = 6;
+inline constexpr Uint64 kBattleHintOpenDurationMs = 220;
+inline constexpr Uint64 kBattleHintCloseDurationMs = 180;
+inline constexpr float kBattleHintMinWidthDp = 460.0f;
+inline constexpr float kBattleHintMaxWidthDp = 790.0f;
+inline constexpr float kBattleHintStackGapDp = 2.0f;
+
+inline bool battleHintHasAutoTimeout(const BattleHintInstance& hint) {
+    return hint.request.resolveRule.kind == BattleHintResolveKind::Timeout &&
+        hint.request.resolveRule.durationMs > 0;
+}
+
+inline bool battleHintIsLive(const BattleHintInstance& hint) {
+    return hint.phase != BattleHintPhase::Closing;
+}
+
+inline float battleHintTimeoutProgress(const BattleHintInstance& hint) {
+    if (!battleHintHasAutoTimeout(hint)) {
+        return 1.0f;
+    }
+
+    const Uint64 durationMs = std::max<Uint64>(hint.request.resolveRule.durationMs, 1);
+    const double remainingFraction =
+        1.0 - (static_cast<double>(hint.activeElapsedMs) / static_cast<double>(durationMs));
+    return std::clamp(static_cast<float>(remainingFraction), 0.0f, 1.0f);
+}
 
 struct TutorialOverlayState {
     TutorialStep step = TutorialStep::None;
@@ -262,6 +355,24 @@ inline int battleVsIntroVisibleLetterCount(const std::string& text,
     const int visibleLetters =
         static_cast<int>(std::floor(revealElapsedSeconds / kBattleVsIntroNameLetterIntervalSeconds)) + 1;
     return std::clamp(visibleLetters, 0, totalLetters);
+}
+
+struct BattleInputPromptState {
+    bool visible = false;
+    battle::InputPromptType type = battle::InputPromptType::None;
+    std::string abilityId;
+    bool showPrimaryKey = false;
+    std::string primaryLabel = "SPACE";
+    std::vector<std::string> followUpKeys;
+    Uint64 startedMs = 0;
+};
+
+inline bool battleInputPromptHasPrimary(const BattleInputPromptState& prompt) {
+    return prompt.visible && prompt.showPrimaryKey && !prompt.primaryLabel.empty();
+}
+
+inline bool battleInputPromptHasFollowUp(const BattleInputPromptState& prompt) {
+    return prompt.visible && !prompt.followUpKeys.empty();
 }
 
 struct RhythmChallengeState {

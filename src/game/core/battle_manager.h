@@ -61,6 +61,9 @@ struct CharacterDefinition {
     int baseShield = 0; // New: base shield value for shield abilities
 };
 
+std::string getCharacterRegularAbilityId(const CharacterDefinition& definition);
+std::string getBossNormalAbilityId(const BossDefinition& definition);
+
 struct BattleSpecialRules {
     bool playerDamageHealsBoss = false;
     bool autoRevivePartyOnBossDamage = false;
@@ -117,6 +120,16 @@ enum class InteractionType {
     Parry
 };
 
+enum class InputPromptType {
+    None,
+    Space,
+    Wild,
+    Custom,
+    Arrows,
+    LeftRight,
+    SpamSpace
+};
+
 struct AbilityDefinition {
     std::string id;
     std::string name;
@@ -134,6 +147,8 @@ struct AbilityDefinition {
     bool reviveDeadAllies = false;
     InteractionType interactionType = InteractionType::None;
     std::string presentationId;
+    InputPromptType inputPromptType = InputPromptType::None;
+    std::vector<std::string> inputPromptKeys;
 };
 
 enum class BattleResolvedOutcome {

@@ -21,18 +21,9 @@ int BattleManager::getCharacterShield(int partyIndex) const {
 #include <sstream>
 
 namespace battle {
-namespace {
-
 constexpr const char* kDefaultCharacterStandardAbilityId = "BasicAttack";
 constexpr const char* kDefaultBossStandardAbilityId = "BossStandardAttack";
-constexpr float kActionValueEpsilon = 0.0001f;
 
-/**
- * @brief Selects the regular ability identifier for a character from its definition using fallbacks.
- *
- * @param definition Character definition to read ability fields from.
- * @return The chosen ability id: `definition.ability` if non-empty; otherwise `definition.skillAbility` if non-empty; otherwise `definition.standardAbility` if non-empty; if all are empty, returns `kDefaultCharacterStandardAbilityId`.
- */
 std::string getCharacterRegularAbilityId(const CharacterDefinition& definition) {
     if (!definition.ability.empty()) {
         return definition.ability;
@@ -43,10 +34,6 @@ std::string getCharacterRegularAbilityId(const CharacterDefinition& definition) 
     return definition.standardAbility.empty() ? std::string{kDefaultCharacterStandardAbilityId} : definition.standardAbility;
 }
 
-std::string getBossStandardAbilityId(const BossDefinition& definition) {
-    return definition.standardAbility.empty() ? std::string{kDefaultBossStandardAbilityId} : definition.standardAbility;
-}
-
 std::string getBossNormalAbilityId(const BossDefinition& definition) {
     if (!definition.ability.empty()) {
         return definition.ability;
@@ -54,8 +41,12 @@ std::string getBossNormalAbilityId(const BossDefinition& definition) {
     if (!definition.skillAbility.empty()) {
         return definition.skillAbility;
     }
-    return getBossStandardAbilityId(definition);
+    return definition.standardAbility.empty() ? std::string{kDefaultBossStandardAbilityId} : definition.standardAbility;
 }
+
+namespace {
+
+constexpr float kActionValueEpsilon = 0.0001f;
 
 bool consumeInvalidPreviewCharacterTurn(const std::vector<BattleCharacter>& characters,
                                         TurnState& turnState,

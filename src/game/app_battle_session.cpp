@@ -96,6 +96,8 @@ constexpr float kCharacterSpacingWorld = 400.0f;
 constexpr float kBossTurnCharacterSpacingWorld = 260.0f;
 constexpr Uint64 kHitFlashDurationMs = 320;
 constexpr Uint64 kJudgementPopupDurationMs = 1320;
+constexpr Uint64 kPresentationDamageHoldDurationMs = 2500;
+constexpr Uint64 kPresentationDamageFadeDurationMs = 320;
 constexpr const char* kLoadingOverlayDocumentPath = "assets/rmlui/shared/loading_overlay.rml";
 constexpr float kCharacterVisibilityAnimSeconds = 0.22f;
 constexpr float kCharacterVisibilityOffsetPx = 70.0f;
@@ -214,6 +216,7 @@ private:
 game::audio::WavOneShotPlayer gOneShotAudio;
 game::audio::WavOneShotPlayer gPresentationSfxAudio;
 game::audio::BgmPlayer gBgmPlayer;
+game::audio::BgmPlayer gBattleBgmCrossfadePlayer;
 game::audio::BattleBgmController gBattleBgmController;
 game::audio::BgmPlayer gPresentationLoopAudio;
 game::audio::BgmPlayer gPauseMenuBgmPlayer;
@@ -434,6 +437,12 @@ using battle::app::ui::HudFeedbackState;
 using battle::app::ui::HudAnimationState;
 using battle::app::ui::HudHitReactionState;
 using battle::app::ui::HudValueAnimationState;
+using battle::app::ui::BattleInputPromptState;
+using battle::app::ui::BattleHintFamily;
+using battle::app::ui::BattleHintInstance;
+using battle::app::ui::BattleHintPhase;
+using battle::app::ui::BattleHintRequest;
+using battle::app::ui::BattleHintResolveKind;
 using battle::app::ui::PauseOverlayMode;
 using battle::app::ui::PauseSelection;
 using battle::app::ui::RhythmChallengeState;
@@ -453,6 +462,13 @@ using graphics::frontui::SettingsDocumentController;
 
 constexpr float kHudAnimationDurationSeconds = 0.5f;
 constexpr Uint64 kHudUltSheenDurationMs = 520;
+constexpr const char* kBattleHintTutorialSfxPath = "assets/ui/sfx/UI_overlay-pop-in.wav";
+constexpr const char* kBattleHintWarningSfxPath = "assets/ui/sfx/UI_generic-error.wav";
+constexpr const char* kBattleHintMajorSfxPath = "assets/ui/sfx/UI_overlay-big-pop-in.wav";
+constexpr const char* kBattleHintKeyBossPhaseIntro = "boss_phase_intro";
+constexpr const char* kBattleHintKeyPresentationInstruction = "presentation_instruction";
+constexpr const char* kBattleHintKeyManualUltimateStatus = "manual_ultimate_status";
+constexpr const char* kBattleHintKeyTutorialOverlay = "tutorial_overlay";
 
 std::string resolveBattleSpritePath(const std::string& assetName) {
     const std::array<std::string, 2> candidates = {
@@ -521,21 +537,221 @@ void showToast(HudFeedbackState& feedback, std::string message, Uint64 nowMs, Ui
     feedback.toastUntilMs = nowMs + durationMs;
 }
 
-void showHint(HudFeedbackState& feedback, std::string message, Uint64 nowMs, Uint64 durationMs = 0) {
-    feedback.hintText = std::move(message);
-    feedback.hintUntilMs = durationMs > 0 ? nowMs + durationMs : 0;
+const char* defaultBattleHintSfxPath(BattleHintFamily family) {
+    switch (family) {
+        case BattleHintFamily::Warning:
+            return kBattleHintWarningSfxPath;
+        case BattleHintFamily::Major:
+            return kBattleHintMajorSfxPath;
+        case BattleHintFamily::Tutorial:
+        case BattleHintFamily::Info:
+        default:
+            return kBattleHintTutorialSfxPath;
+    }
 }
 
-/**
- * @brief Clears the active HUD hint and its expiration timer.
- *
- * Resets the hint text to empty and sets the hint expiry timestamp to 0.
- *
- * @param feedback The HUD feedback state to modify.
- */
-void clearHint(HudFeedbackState& feedback) {
-    feedback.hintText.clear();
-    feedback.hintUntilMs = 0;
+float battleHintSfxVolume(BattleHintFamily family) {
+    return family == BattleHintFamily::Major ? 0.62f : 0.54f;
+}
+
+void playBattleHintSfx(const BattleHintRequest& request) {
+    if (request.showSfxPath.empty()) {
+        return;
+    }
+    (void)gOneShotAudio.playWavOneShot(
+        platform::path::resolvePath(request.showSfxPath),
+        battleHintSfxVolume(request.family),
+        false);
+}
+
+BattleHintInstance* findBattleHint(HudFeedbackState& feedback, const std::string& stableKey) {
+    if (stableKey.empty()) {
+        return nullptr;
+    }
+
+    for (BattleHintInstance& hint : feedback.hints.active) {
+        if (hint.request.stableKey == stableKey) {
+            return &hint;
+        }
+    }
+    return nullptr;
+}
+
+void beginClosingBattleHint(BattleHintInstance& hint) {
+    if (hint.phase == BattleHintPhase::Closing) {
+        return;
+    }
+
+    hint.phase = BattleHintPhase::Closing;
+    hint.phaseElapsedMs = 0;
+}
+
+void dismissBattleHintByKey(HudFeedbackState& feedback,
+                            const std::string& stableKey,
+                            bool immediate = false) {
+    if (stableKey.empty()) {
+        return;
+    }
+
+    for (auto it = feedback.hints.active.begin(); it != feedback.hints.active.end(); ++it) {
+        if (it->request.stableKey != stableKey) {
+            continue;
+        }
+
+        if (immediate) {
+            feedback.hints.active.erase(it);
+        } else {
+            beginClosingBattleHint(*it);
+        }
+        return;
+    }
+}
+
+void dismissBattleHintsByResolveKind(HudFeedbackState& feedback,
+                                     BattleHintResolveKind kind,
+                                     bool immediate = false) {
+    for (auto it = feedback.hints.active.begin(); it != feedback.hints.active.end();) {
+        if (it->request.resolveRule.kind != kind) {
+            ++it;
+            continue;
+        }
+
+        if (immediate) {
+            it = feedback.hints.active.erase(it);
+        } else {
+            beginClosingBattleHint(*it);
+            ++it;
+        }
+    }
+}
+
+void dismissBattleHintsForTutorialStep(HudFeedbackState& feedback,
+                                       TutorialStep step,
+                                       bool immediate = false) {
+    for (auto it = feedback.hints.active.begin(); it != feedback.hints.active.end();) {
+        if (it->request.resolveRule.kind != BattleHintResolveKind::TutorialStepComplete ||
+            it->request.resolveRule.tutorialStep != step) {
+            ++it;
+            continue;
+        }
+
+        if (immediate) {
+            it = feedback.hints.active.erase(it);
+        } else {
+            beginClosingBattleHint(*it);
+            ++it;
+        }
+    }
+}
+
+bool battleHintMatchesActionEvent(const BattleHintInstance& hint, const battle::BattleActionEvent& event) {
+    if (hint.request.resolveRule.kind != BattleHintResolveKind::BattleAction) {
+        return false;
+    }
+    if (hint.request.resolveRule.action.has_value() && *hint.request.resolveRule.action != event.action) {
+        return false;
+    }
+    if (!hint.request.resolveRule.abilityId.empty() &&
+        hint.request.resolveRule.abilityId != event.abilityId) {
+        return false;
+    }
+    return true;
+}
+
+void resolveBattleHintsFromActionEvent(HudFeedbackState& feedback,
+                                       const battle::BattleActionEvent& event,
+                                       bool immediate = false) {
+    for (auto it = feedback.hints.active.begin(); it != feedback.hints.active.end();) {
+        if (!battleHintMatchesActionEvent(*it, event)) {
+            ++it;
+            continue;
+        }
+
+        if (immediate) {
+            it = feedback.hints.active.erase(it);
+        } else {
+            beginClosingBattleHint(*it);
+            ++it;
+        }
+    }
+}
+
+void upsertBattleHint(HudFeedbackState& feedback, BattleHintRequest request) {
+    if (request.stableKey.empty()) {
+        return;
+    }
+
+    if (BattleHintInstance* existing = findBattleHint(feedback, request.stableKey)) {
+        if (!request.refreshIfShown) {
+            return;
+        }
+
+        existing->request = std::move(request);
+        existing->visibleMessage = existing->request.message;
+        existing->phase = BattleHintPhase::Opening;
+        existing->phaseElapsedMs = 0;
+        existing->activeElapsedMs = 0;
+        existing->measurementDirty = true;
+        return;
+    }
+
+    BattleHintInstance instance;
+    instance.request = std::move(request);
+    instance.visibleMessage = instance.request.message;
+    feedback.hints.active.insert(feedback.hints.active.begin(), std::move(instance));
+    if (feedback.hints.active.size() > battle::app::ui::kBattleHintMaxVisible) {
+        feedback.hints.active.resize(battle::app::ui::kBattleHintMaxVisible);
+    }
+}
+
+bool dismissNewestManualBattleHint(HudFeedbackState& feedback) {
+    for (BattleHintInstance& hint : feedback.hints.active) {
+        if (!hint.request.manualDismissAllowed || hint.phase == BattleHintPhase::Closing) {
+            continue;
+        }
+        beginClosingBattleHint(hint);
+        return true;
+    }
+    return false;
+}
+
+void tickBattleHints(HudFeedbackState& feedback,
+                     Uint64 elapsedMs,
+                     bool suppressTimeoutProgress) {
+    for (BattleHintInstance& hint : feedback.hints.active) {
+        if (hint.phase == BattleHintPhase::Opening) {
+            hint.phaseElapsedMs += elapsedMs;
+            if (hint.phaseElapsedMs >= battle::app::ui::kBattleHintOpenDurationMs) {
+                hint.phase = BattleHintPhase::Active;
+                hint.phaseElapsedMs = 0;
+            }
+            continue;
+        }
+
+        if (hint.phase == BattleHintPhase::Active &&
+            hint.request.resolveRule.kind == BattleHintResolveKind::Timeout &&
+            hint.request.resolveRule.durationMs > 0 &&
+            !suppressTimeoutProgress) {
+            hint.activeElapsedMs += elapsedMs;
+            if (hint.activeElapsedMs >= hint.request.resolveRule.durationMs) {
+                beginClosingBattleHint(hint);
+                continue;
+            }
+        }
+
+        if (hint.phase == BattleHintPhase::Closing) {
+            hint.phaseElapsedMs += elapsedMs;
+        }
+    }
+
+    feedback.hints.active.erase(
+        std::remove_if(feedback.hints.active.begin(),
+                       feedback.hints.active.end(),
+                       [](const BattleHintInstance& hint) {
+                           return hint.phase == BattleHintPhase::Closing &&
+                               hint.phaseElapsedMs >= battle::app::ui::kBattleHintCloseDurationMs;
+                       }),
+        feedback.hints.active.end());
 }
 
 /**
@@ -576,6 +792,48 @@ void clearJudgement(HudFeedbackState& feedback) {
     feedback.judgementClassName.clear();
     feedback.judgementStartedMs = 0;
     feedback.judgementUntilMs = 0;
+}
+
+void clearPresentationDamage(HudFeedbackState& feedback) {
+    feedback.presentationDamageTotal = 0;
+    feedback.presentationDamageText.clear();
+    feedback.presentationDamageVisible = false;
+    feedback.presentationDamageActive = false;
+    feedback.presentationDamageStartedMs = 0;
+    feedback.presentationDamageHoldUntilMs = 0;
+    feedback.presentationDamageFadeUntilMs = 0;
+}
+
+void beginPresentationDamageTracking(HudFeedbackState& feedback) {
+    clearPresentationDamage(feedback);
+    feedback.presentationDamageActive = true;
+}
+
+void registerPresentationDamage(HudFeedbackState& feedback, int amount, Uint64 nowMs) {
+    if (amount <= 0 || !feedback.presentationDamageActive) {
+        return;
+    }
+
+    feedback.presentationDamageTotal += amount;
+    feedback.presentationDamageText = std::to_string(std::max(0, feedback.presentationDamageTotal));
+    feedback.presentationDamageVisible = feedback.presentationDamageTotal > 0;
+    feedback.presentationDamageStartedMs = nowMs;
+    feedback.presentationDamageHoldUntilMs = 0;
+    feedback.presentationDamageFadeUntilMs = 0;
+}
+
+void finishPresentationDamageTracking(HudFeedbackState& feedback,
+                                      Uint64 nowMs,
+                                      Uint64 holdDurationMs = kPresentationDamageHoldDurationMs,
+                                      Uint64 fadeDurationMs = kPresentationDamageFadeDurationMs) {
+    feedback.presentationDamageActive = false;
+    if (!feedback.presentationDamageVisible || feedback.presentationDamageTotal <= 0) {
+        clearPresentationDamage(feedback);
+        return;
+    }
+
+    feedback.presentationDamageHoldUntilMs = nowMs + holdDurationMs;
+    feedback.presentationDamageFadeUntilMs = feedback.presentationDamageHoldUntilMs + fadeDurationMs;
 }
 
 /**
@@ -653,15 +911,17 @@ void blinkMissingOrbs(HudFeedbackState& feedback,
  * @param nowMs Current timestamp in milliseconds used to compare against each expiry field.
  */
 void tickHudFeedback(HudFeedbackState& feedback, Uint64 nowMs) {
-    if (feedback.hintUntilMs != 0 && nowMs >= feedback.hintUntilMs) {
-        clearHint(feedback);
-    }
     if (feedback.toastUntilMs != 0 && nowMs >= feedback.toastUntilMs) {
         feedback.toastText.clear();
         feedback.toastUntilMs = 0;
     }
     if (feedback.judgementUntilMs != 0 && nowMs >= feedback.judgementUntilMs) {
         clearJudgement(feedback);
+    }
+    if (!feedback.presentationDamageActive &&
+        feedback.presentationDamageFadeUntilMs != 0 &&
+        nowMs >= feedback.presentationDamageFadeUntilMs) {
+        clearPresentationDamage(feedback);
     }
     if (feedback.blinkUntilMs != 0 && nowMs >= feedback.blinkUntilMs) {
         feedback.blinkUnitIndex = -1;
@@ -876,8 +1136,9 @@ void dismissTutorialOverlay(TutorialOverlayState& tutorial) {
     tutorial.audioPlayed = false;
 }
 
-void completeTutorialStep(TutorialOverlayState& tutorial) {
-    switch (tutorial.step) {
+void completeTutorialStep(TutorialOverlayState& tutorial, HudFeedbackState* feedback = nullptr) {
+    const TutorialStep completedStep = tutorial.step;
+    switch (completedStep) {
         case TutorialStep::Standard:
             tutorial.standardShown = true;
             break;
@@ -892,14 +1153,20 @@ void completeTutorialStep(TutorialOverlayState& tutorial) {
             break;
     }
     dismissTutorialOverlay(tutorial);
+    if (feedback != nullptr && completedStep != TutorialStep::None) {
+        dismissBattleHintsForTutorialStep(*feedback, completedStep);
+    }
 }
 
-void skipAllTutorials(TutorialOverlayState& tutorial) {
+void skipAllTutorials(TutorialOverlayState& tutorial, HudFeedbackState* feedback = nullptr) {
     tutorial.standardShown = true;
     tutorial.skillShown = true;
     tutorial.ultimateShown = true;
     tutorial.dismissed = true;
     dismissTutorialOverlay(tutorial);
+    if (feedback != nullptr) {
+        dismissBattleHintByKey(*feedback, kBattleHintKeyTutorialOverlay);
+    }
 }
 
 bool loadTutorialScriptLibrary(TutorialScriptLibrary& outLibrary) {
@@ -934,6 +1201,7 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
             : ((event.actorPartyIndex >= 0 && event.actorPartyIndex < static_cast<int>(battleState.party.size()))
                 ? battleState.party[static_cast<size_t>(event.actorPartyIndex)].assets
                 : std::string());
+        resolveBattleHintsFromActionEvent(feedback, event);
 
         if (!event.abilityVoicesHandledDuringPresentation && event.action == battle::BattleAction::Skill) {
             if (const auto abilityVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "ability");
@@ -1419,7 +1687,7 @@ public:
         battle::ability::setPresentationInteractionRunner([this](const battle::PresentationContext& context) {
             return runPresentationInteraction(context);
         });
-        gBattleBgmController.attach(gBgmPlayer);
+        gBattleBgmController.attach(gBgmPlayer, gBattleBgmCrossfadePlayer);
         gBattleBgmController.setMasterVolume(currentMusicMasterVolume());
 
         const battle::BattleState& state = manager_.getBattleState();
@@ -1688,6 +1956,7 @@ public:
         tutorialLibrary_ = TutorialScriptLibrary{};
         hudFeedback_ = HudFeedbackState{};
         hudAnimationState_ = HudAnimationState{};
+        battleInputPrompt_ = BattleInputPromptState{};
         rhythmChallenge_ = RhythmChallengeState{};
         bufferedManualUltimatePartyIndices_.clear();
         presentationPlaybackActive_ = false;
@@ -1838,12 +2107,14 @@ public:
                     tutorialOverlay_.startedMs = 0;
                 } else {
                     gOneShotAudio.shutdown();
-                    completeTutorialStep(tutorialOverlay_);
+                    completeTutorialStep(tutorialOverlay_, &hudFeedback_);
                 }
                 return;
             } else if (event.key.keysym.sym == SDLK_BACKSPACE && tutorialOverlay_.step != TutorialStep::None) {
                 gOneShotAudio.shutdown();
-                skipAllTutorials(tutorialOverlay_);
+                skipAllTutorials(tutorialOverlay_, &hudFeedback_);
+            } else if (event.key.keysym.sym == SDLK_BACKSPACE && dismissNewestManualBattleHint(hudFeedback_)) {
+                return;
             } else if (rhythmChallenge_.active) {
                 if (handleManualUltimateHotkey(event.key.keysym.sym, nowMs)) {
                     return;
@@ -1934,8 +2205,14 @@ public:
             deltaSeconds = 0.0f;
         }
 
+        advanceBattleHintTimers(deltaSeconds);
+        if (tutorialOverlay_.step != TutorialStep::None) {
+            refreshTutorialHintCopy(nowMs);
+        }
+
         if (isBattleVsIntroBlocking()) {
             updateBattleVsIntro(deltaSeconds);
+            refreshBattleInputPromptPreview(nowMs);
             const flow::PreviewActorContext preview = flow::inspectPreviewActor(manager_);
             const bool bossActing = !(preview.valid && preview.type == battle::ParticipantType::Character);
             const int actingPartyIndex =
@@ -1950,6 +2227,7 @@ public:
             }
             updatePauseMenuUi(deltaSeconds);
             updateSettingsMenuUi(deltaSeconds);
+            refreshBattleInputPromptPreview(nowMs);
             updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
             syncHudDocument(nowMs);
             return;
@@ -1957,6 +2235,7 @@ public:
 
         if (resultOverlay_.active) {
             updateBattleResultOverlay(deltaSeconds);
+            refreshBattleInputPromptPreview(nowMs);
             updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
             syncHudDocument(nowMs);
             return;
@@ -1976,6 +2255,7 @@ public:
 
         if (bossPhaseIntro_.active) {
             updateBossPhaseIntro(deltaSeconds, nowMs);
+            refreshBattleInputPromptPreview(nowMs);
             const flow::PreviewActorContext preview = flow::inspectPreviewActor(manager_);
             const bool bossActing = !(preview.valid && preview.type == battle::ParticipantType::Character);
             const int actingPartyIndex =
@@ -2090,6 +2370,7 @@ public:
         updateSceneEntities(deltaSeconds, bossActing, actingPartyIndex);
         maybeHandleIdleVoiceline(nowMs);
 
+        refreshBattleInputPromptPreview(nowMs);
         updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
         syncHudDocument(nowMs);
 
@@ -2558,6 +2839,7 @@ private:
      * @param nowMs Current time in milliseconds used to timestamp the displayed hint.
      */
     void startBossPhaseIntro(const battle::BossPhaseTransition& transition, Uint64 nowMs) {
+        (void)nowMs;
         const int bossEntityIndex = findBossEntityIndex(entities_);
         if (bossEntityIndex < 0 || static_cast<size_t>(bossEntityIndex) >= entities_.size()) {
             return;
@@ -2569,7 +2851,15 @@ private:
         aimCameraAtBossIntroTarget(startCamera, bossEntity);
         aimCameraAtBossIntroTarget(endCamera, bossEntity);
         const std::string hintText = bossPhaseHintText(transition.toPhaseIndex);
-        showHint(hudFeedback_, hintText, nowMs);
+        BattleHintRequest request;
+        request.stableKey = kBattleHintKeyBossPhaseIntro;
+        request.family = BattleHintFamily::Major;
+        request.kicker = "PHASE SHIFT";
+        request.sourceTag = "BOSS FLOW";
+        request.badgeText = "PHASE";
+        request.message = hintText;
+        request.resolveRule.kind = BattleHintResolveKind::BossPhaseIntroEnd;
+        enqueueBattleHint(std::move(request));
         bossPhaseIntroHintText_ = hintText;
         startCameraIntroBetween(
             startCamera,
@@ -2592,11 +2882,11 @@ private:
      * @note This function mutates the internal camera state, the `bossPhaseIntro_` active/elapsed
      *       state, and the HUD feedback hint. */
     void updateBossPhaseIntro(float deltaSeconds, Uint64 nowMs) {
+        (void)nowMs;
         if (!bossPhaseIntro_.active) {
             return;
         }
 
-        showHint(hudFeedback_, bossPhaseIntroHintText_, nowMs);
         bossPhaseIntro_.elapsed += deltaSeconds;
         const float t = battle::easing::clamp01(
             bossPhaseIntro_.elapsed / std::max(0.001f, bossPhaseIntro_.duration));
@@ -2621,7 +2911,7 @@ private:
         }
         if (!bossPhaseIntro_.active) {
             bossPhaseIntroHintText_.clear();
-            clearHint(hudFeedback_);
+            dismissBattleHintsByResolveKind(hudFeedback_, BattleHintResolveKind::BossPhaseIntroEnd);
         }
     }
 
@@ -2632,6 +2922,279 @@ private:
      */
     float currentVoiceVolume() const {
         return settings_ != nullptr ? settings_->voiceVolume : 1.0f;
+    }
+
+    bool areBattleHintTimeoutsSuppressed() const {
+        return paused_ || resultOverlay_.active || isBattleVsIntroBlocking();
+    }
+
+    void advanceBattleHintTimers(float deltaSeconds) {
+        const Uint64 elapsedMs = static_cast<Uint64>(std::lround(std::max(0.0f, deltaSeconds) * 1000.0f));
+        if (elapsedMs == 0) {
+            return;
+        }
+
+        tickBattleHints(hudFeedback_, elapsedMs, areBattleHintTimeoutsSuppressed());
+    }
+
+    std::string nextTransientBattleHintKey(const char* prefix) {
+        return std::string(prefix) + "_" + std::to_string(nextTransientBattleHintId_++);
+    }
+
+    std::string tutorialHintSourceTag() const {
+        switch (tutorialOverlay_.step) {
+            case TutorialStep::Standard:
+                return "BASIC ACTION";
+            case TutorialStep::Skill:
+                return "SKILL ACTION";
+            case TutorialStep::Ultimate:
+                return "ULTIMATE ACTION";
+            case TutorialStep::None:
+            default:
+                return "COMBAT GUIDE";
+        }
+    }
+
+    void enqueueBattleHint(BattleHintRequest request, bool playDefaultSfx = true) {
+        if (request.showSfxPath.empty() && playDefaultSfx) {
+            request.showSfxPath = defaultBattleHintSfxPath(request.family);
+        }
+        const BattleHintFamily family = request.family;
+        const std::string sfxPath = request.showSfxPath;
+        const std::string voicePath = request.voicePath;
+        upsertBattleHint(hudFeedback_, std::move(request));
+
+        if (!sfxPath.empty()) {
+            BattleHintRequest audioRequest;
+            audioRequest.family = family;
+            audioRequest.showSfxPath = sfxPath;
+            playBattleHintSfx(audioRequest);
+        }
+        if (!voicePath.empty()) {
+            (void)gOneShotAudio.playWavOneShot(
+                platform::path::resolvePath(voicePath),
+                currentVoiceVolume(),
+                false);
+        }
+    }
+
+    void dismissBossPhaseHint(bool immediate = false) {
+        dismissBattleHintByKey(hudFeedback_, kBattleHintKeyBossPhaseIntro, immediate);
+    }
+
+    void dismissPresentationHint(bool immediate = false) {
+        dismissBattleHintByKey(hudFeedback_, kBattleHintKeyPresentationInstruction, immediate);
+    }
+
+    void showPresentationHint(const battle::AbilityDefinition* abilityDef, bool isBoss) {
+        if (abilityDef == nullptr || abilityDef->instructionHint.empty()) {
+            dismissPresentationHint(true);
+            return;
+        }
+
+        BattleHintRequest request;
+        request.stableKey = kBattleHintKeyPresentationInstruction;
+        request.family = isBoss ? BattleHintFamily::Warning : BattleHintFamily::Info;
+        request.message = abilityDef->instructionHint;
+        request.resolveRule.kind = BattleHintResolveKind::PresentationEnd;
+        enqueueBattleHint(std::move(request));
+    }
+
+    void dismissTutorialHint(bool immediate = false) {
+        dismissBattleHintByKey(hudFeedback_, kBattleHintKeyTutorialOverlay, immediate);
+    }
+
+    bool battleInputPromptTypeUsesFollowUpKeys(battle::InputPromptType type) const {
+        switch (type) {
+            case battle::InputPromptType::Wild:
+            case battle::InputPromptType::Custom:
+            case battle::InputPromptType::Arrows:
+            case battle::InputPromptType::LeftRight:
+            case battle::InputPromptType::SpamSpace:
+                return true;
+            case battle::InputPromptType::Space:
+            case battle::InputPromptType::None:
+            default:
+                return false;
+        }
+    }
+
+    std::vector<std::string> battleInputPromptFollowUpKeys(const battle::AbilityDefinition& abilityDef) const {
+        switch (abilityDef.inputPromptType) {
+            case battle::InputPromptType::Wild:
+                return {"Q", "W", "E", "R", "A"};
+            case battle::InputPromptType::Custom:
+                return abilityDef.inputPromptKeys;
+            case battle::InputPromptType::Arrows:
+                return {"<", "^", "V", ">"};
+            case battle::InputPromptType::LeftRight:
+                return {"<", ">"};
+            case battle::InputPromptType::SpamSpace:
+            case battle::InputPromptType::Space:
+                return {"SPACE"};
+            case battle::InputPromptType::None:
+            default:
+                return {};
+        }
+    }
+
+    BattleInputPromptState makeBattleInputPromptState(const battle::AbilityDefinition& abilityDef,
+                                                      bool showPrimaryKey,
+                                                      bool showFollowUpKeys) const {
+        BattleInputPromptState prompt;
+        prompt.type = abilityDef.inputPromptType;
+        if (prompt.type == battle::InputPromptType::None) {
+            return prompt;
+        }
+
+        prompt.abilityId = abilityDef.id;
+        prompt.showPrimaryKey = showPrimaryKey;
+        prompt.primaryLabel = "SPACE";
+        std::vector<std::string> followUpKeys = battleInputPromptFollowUpKeys(abilityDef);
+
+        if (prompt.type == battle::InputPromptType::Custom && followUpKeys.empty()) {
+            prompt.type = battle::InputPromptType::Space;
+            if (!showPrimaryKey) {
+                followUpKeys = {"SPACE"};
+            }
+        }
+
+        if (showFollowUpKeys) {
+            prompt.followUpKeys = std::move(followUpKeys);
+        }
+
+        prompt.visible = prompt.showPrimaryKey || !prompt.followUpKeys.empty();
+        return prompt;
+    }
+
+    bool shouldPreserveBattleInputPromptTiming(const BattleInputPromptState& nextPrompt) const {
+        return battleInputPrompt_.visible &&
+            nextPrompt.visible &&
+            battleInputPrompt_.type == nextPrompt.type &&
+            battleInputPrompt_.abilityId == nextPrompt.abilityId &&
+            battleInputPrompt_.showPrimaryKey == nextPrompt.showPrimaryKey &&
+            battleInputPrompt_.primaryLabel == nextPrompt.primaryLabel &&
+            battleInputPrompt_.followUpKeys == nextPrompt.followUpKeys;
+    }
+
+    void setBattleInputPromptState(BattleInputPromptState prompt,
+                                   Uint64 nowMs,
+                                   bool preserveTimingIfSame) {
+        if (!prompt.visible) {
+            battleInputPrompt_ = BattleInputPromptState{};
+            return;
+        }
+
+        if (preserveTimingIfSame && shouldPreserveBattleInputPromptTiming(prompt)) {
+            prompt.startedMs = battleInputPrompt_.startedMs;
+        } else {
+            prompt.startedMs = nowMs;
+        }
+        battleInputPrompt_ = std::move(prompt);
+    }
+
+    const battle::AbilityDefinition* resolveBattlePreviewPromptAbility() const {
+        const battle::flow::PreviewAbilityContext previewAbility = battle::flow::inspectPreviewAbility(manager_);
+        if (!previewAbility.valid || previewAbility.actorType != battle::ParticipantType::Character ||
+            previewAbility.abilityId.empty()) {
+            return nullptr;
+        }
+        return manager_.findAbilityDefinition(previewAbility.abilityId);
+    }
+
+    void showBattlePreviewPrompt(const battle::AbilityDefinition* abilityDef, Uint64 nowMs) {
+        if (abilityDef == nullptr) {
+            battleInputPrompt_ = BattleInputPromptState{};
+            return;
+        }
+
+        setBattleInputPromptState(
+            makeBattleInputPromptState(
+                *abilityDef,
+                true,
+                battleInputPromptTypeUsesFollowUpKeys(abilityDef->inputPromptType)),
+            nowMs,
+            true);
+    }
+
+    void showBattlePresentationPrompt(const battle::AbilityDefinition* abilityDef,
+                                      bool isBoss,
+                                      Uint64 nowMs) {
+        if (abilityDef == nullptr) {
+            battleInputPrompt_ = BattleInputPromptState{};
+            return;
+        }
+
+        const bool showFollowUpKeys = isBoss
+            ? abilityDef->inputPromptType != battle::InputPromptType::None
+            : battleInputPromptTypeUsesFollowUpKeys(abilityDef->inputPromptType);
+        setBattleInputPromptState(
+            makeBattleInputPromptState(*abilityDef, false, showFollowUpKeys),
+            nowMs,
+            false);
+    }
+
+    void clearBattleInputPrompt() {
+        battleInputPrompt_ = BattleInputPromptState{};
+    }
+
+    void refreshBattleInputPromptPreview(Uint64 nowMs) {
+        if (presentationPlaybackActive_ ||
+            paused_ ||
+            resultOverlay_.active ||
+            isBattleVsIntroBlocking() ||
+            bossPhaseIntro_.active ||
+            combatBeginAnimation_.isActive() ||
+            manager_.isBattleOver()) {
+            clearBattleInputPrompt();
+            return;
+        }
+
+        showBattlePreviewPrompt(resolveBattlePreviewPromptAbility(), nowMs);
+    }
+
+    void showTutorialHint(Uint64 nowMs) {
+        if (tutorialOverlay_.step == TutorialStep::None) {
+            dismissTutorialHint();
+            return;
+        }
+
+        BattleHintRequest request;
+        request.stableKey = kBattleHintKeyTutorialOverlay;
+        request.family = BattleHintFamily::Tutorial;
+        request.kicker = vn::getDisplaySpeakerName(tutorialOverlay_.entry);
+        request.sourceTag = tutorialHintSourceTag();
+        request.badgeText = "GUIDE";
+        request.message = tutorialOverlay_.entry.text;
+        request.dismissLabel = "BACKSPACE SKIP";
+        request.manualDismissAllowed = true;
+        request.resolveRule.kind = BattleHintResolveKind::TutorialStepComplete;
+        request.resolveRule.tutorialStep = tutorialOverlay_.step;
+        enqueueBattleHint(std::move(request));
+        refreshTutorialHintCopy(nowMs);
+    }
+
+    void refreshTutorialHintCopy(Uint64 nowMs) {
+        if (tutorialOverlay_.step == TutorialStep::None) {
+            return;
+        }
+
+        BattleHintInstance* hint = findBattleHint(hudFeedback_, kBattleHintKeyTutorialOverlay);
+        if (hint == nullptr) {
+            return;
+        }
+
+        hint->request.kicker = vn::getDisplaySpeakerName(tutorialOverlay_.entry);
+        hint->request.sourceTag = tutorialHintSourceTag();
+        if (hint->request.message != tutorialOverlay_.entry.text) {
+            hint->request.message = tutorialOverlay_.entry.text;
+            hint->measurementDirty = true;
+        }
+        hint->visibleMessage = revealNarrationText(
+            tutorialOverlay_.entry.text,
+            tutorialOverlay_.startedMs,
+            nowMs,
+            settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond);
     }
 
     /**
@@ -2982,20 +3545,20 @@ private:
      */
     float runPresentationInteraction(const battle::PresentationContext& context) {
         if (!initialized_ || finished_) {
+            clearBattleInputPrompt();
             return 1.0f;
         }
         if (context.presentationId.empty()) {
+            clearBattleInputPrompt();
             return 1.0f;
         }
 
         const battle::AbilityDefinition* abilityDef = manager_.findAbilityDefinition(context.abilityId);
-        const Uint64 hintStartedMs = SDL_GetTicks64();
-        if (abilityDef != nullptr && !abilityDef->instructionHint.empty()) {
-            showHint(hudFeedback_, abilityDef->instructionHint, hintStartedMs);
-        } else {
-            clearHint(hudFeedback_);
-        }
-        syncHudDocument(hintStartedMs);
+        const Uint64 promptStartedMs = SDL_GetTicks64();
+        beginPresentationDamageTracking(hudFeedback_);
+        showBattlePresentationPrompt(abilityDef, context.isBoss, promptStartedMs);
+        showPresentationHint(abilityDef, context.isBoss);
+        syncHudDocument(promptStartedMs);
 
         updateSceneEntities(0.0f, context.isBoss, context.isBoss ? -1 : context.casterIndex);
         cameraStaging_.snapToGoalCamera(camera_);
@@ -3160,13 +3723,17 @@ private:
                 bossHpBefore,
                 partyHpBefore
             );
-            feedback_.queuePresentationHitFeedback(
+            const int spawnedDamagePopups = feedback_.queuePresentationHitFeedback(
                 context.isBoss,
                 hitEvents,
                 perHitDamage,
                 manager_,
                 presentationTargetPartyIndex
             );
+            registerPresentationDamage(
+                hudFeedback_,
+                perHitDamage * std::max(0, spawnedDamagePopups),
+                SDL_GetTicks64());
         };
         bool consumedPresentationFeedback = false;
         callbacks.onPostUpdate = [this, &context, abilityDef, &consumedPresentationFeedback](float deltaSeconds) {
@@ -3190,6 +3757,10 @@ private:
             feedback_.syncFromManager(manager_, presentationPlaybackActive_);
             feedback_.update(deltaSeconds);
             tickHudFeedback(hudFeedback_, nowMs);
+            advanceBattleHintTimers(deltaSeconds);
+            if (tutorialOverlay_.step != TutorialStep::None) {
+                refreshTutorialHintCopy(nowMs);
+            }
             updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
             syncHudDocument(nowMs);
         };
@@ -3262,9 +3833,10 @@ private:
             finalFeedback.multiplier = result.multiplier;
             applyPresentationFeedbackEvent(context, abilityDef, finalFeedback);
         }
-        if (context.isBoss || context.interactionType != battle::InteractionType::None) {
-            clearHint(hudFeedback_);
-        }
+        finishPresentationDamageTracking(hudFeedback_, SDL_GetTicks64());
+        clearBattleInputPrompt();
+        refreshBattleInputPromptPreview(SDL_GetTicks64());
+        dismissBattleHintsByResolveKind(hudFeedback_, BattleHintResolveKind::PresentationEnd);
         syncHudDocument(SDL_GetTicks64());
 
         discardNextUpdateDelta_ = true;
@@ -3444,8 +4016,9 @@ private:
                                                  resultOverlay_,
                                                  vsIntroOverlay_,
                                                  tutorialOverlay_,
+                                                 battleInputPrompt_,
                                                  rhythmChallenge_,
-                                                 false,
+                                                 paused_,
                                                  pauseOverlayMode_,
                                                  pauseSelection_,
                                                  settingsSelection_,
@@ -4380,6 +4953,19 @@ private:
                                            battle::ManualUltimateRequestResult result,
                                            Uint64 nowMs,
                                            bool buffered) {
+        auto showManualUltimateHint = [&](std::string message, Uint64 durationMs) {
+            BattleHintRequest request;
+            request.stableKey = nextTransientBattleHintKey(kBattleHintKeyManualUltimateStatus);
+            request.family = BattleHintFamily::Warning;
+            request.kicker = "MANUAL ULT";
+            request.sourceTag = "ALLY " + std::to_string(partyIndex + 1);
+            request.badgeText = "ALERT";
+            request.message = std::move(message);
+            request.resolveRule.kind = BattleHintResolveKind::Timeout;
+            request.resolveRule.durationMs = durationMs;
+            enqueueBattleHint(std::move(request));
+        };
+
         switch (result) {
             case battle::ManualUltimateRequestResult::Queued:
                 return;
@@ -4391,27 +4977,18 @@ private:
                     "ALLY " + std::to_string(partyIndex + 1) +
                     " ULTIMATE NEEDS " + std::to_string(missing) +
                     " MORE " + (missing == 1 ? "ABILITY." : "ABILITIES.");
-                if (buffered) {
-                    showHint(hudFeedback_, message, nowMs, 1800);
-                } else {
-                    showToast(hudFeedback_, message, nowMs);
-                }
+                (void)buffered;
+                showManualUltimateHint(message, 1800);
                 blinkMissingOrbs(hudFeedback_, partyIndex, charge, required - 1, nowMs);
                 return;
             }
             case battle::ManualUltimateRequestResult::AlreadyQueued:
-                if (buffered) {
-                    showHint(hudFeedback_, "ULTIMATE ALREADY QUEUED.", nowMs, 1400);
-                } else {
-                    showToast(hudFeedback_, "ULTIMATE ALREADY QUEUED.", nowMs);
-                }
+                (void)buffered;
+                showManualUltimateHint("ULTIMATE ALREADY QUEUED.", 1400);
                 return;
             case battle::ManualUltimateRequestResult::Unavailable:
-                if (buffered) {
-                    showHint(hudFeedback_, "ULTIMATE NOT AVAILABLE.", nowMs, 1400);
-                } else {
-                    showToast(hudFeedback_, "ULTIMATE NOT AVAILABLE.", nowMs);
-                }
+                (void)buffered;
+                showManualUltimateHint("ULTIMATE NOT AVAILABLE.", 1400);
                 return;
         }
     }
@@ -4467,7 +5044,16 @@ private:
                           bufferedManualUltimatePartyIndices_.end(),
                           partyIndex) == bufferedManualUltimatePartyIndices_.end()) {
                 bufferedManualUltimatePartyIndices_.push_back(partyIndex);
-                showHint(hudFeedback_, "ULTIMATE WILL QUEUE AFTER THIS SKILL.", nowMs, 1200);
+                BattleHintRequest request;
+                request.stableKey = nextTransientBattleHintKey(kBattleHintKeyManualUltimateStatus);
+                request.family = BattleHintFamily::Warning;
+                request.kicker = "MANUAL ULT";
+                request.sourceTag = "ALLY " + std::to_string(partyIndex + 1);
+                request.badgeText = "QUEUE";
+                request.message = "ULTIMATE WILL QUEUE AFTER THIS SKILL.";
+                request.resolveRule.kind = BattleHintResolveKind::Timeout;
+                request.resolveRule.durationMs = 1200;
+                enqueueBattleHint(std::move(request));
             }
             return true;
         }
@@ -4497,10 +5083,12 @@ private:
         }
         if (!tutorialOverlay_.standardShown && manager_.isPlayerActionReady(battle::BattleAction::Standard)) {
             startTutorial(tutorialOverlay_, TutorialStep::Standard, tutorialLibrary_.standard, nowMs);
+            showTutorialHint(nowMs);
             return;
         }
         if (!tutorialOverlay_.skillShown && manager_.isPlayerActionReady(battle::BattleAction::Skill)) {
             startTutorial(tutorialOverlay_, TutorialStep::Skill, tutorialLibrary_.skill, nowMs);
+            showTutorialHint(nowMs);
             return;
         }
         bool hasReadyManualUltimate = false;
@@ -4513,16 +5101,17 @@ private:
         }
         if (!tutorialOverlay_.ultimateShown && hasReadyManualUltimate) {
             startTutorial(tutorialOverlay_, TutorialStep::Ultimate, tutorialLibrary_.ultimate, nowMs);
+            showTutorialHint(nowMs);
         }
     }
 
     void completeTutorialForAction(battle::BattleAction action) {
         if (action == battle::BattleAction::Standard && tutorialOverlay_.step == TutorialStep::Standard) {
-            completeTutorialStep(tutorialOverlay_);
+            completeTutorialStep(tutorialOverlay_, &hudFeedback_);
         } else if (action == battle::BattleAction::Skill && tutorialOverlay_.step == TutorialStep::Skill) {
-            completeTutorialStep(tutorialOverlay_);
+            completeTutorialStep(tutorialOverlay_, &hudFeedback_);
         } else if (action == battle::BattleAction::Ultimate && tutorialOverlay_.step == TutorialStep::Ultimate) {
-            completeTutorialStep(tutorialOverlay_);
+            completeTutorialStep(tutorialOverlay_, &hudFeedback_);
         }
     }
 
@@ -4728,7 +5317,9 @@ private:
     BattleVsIntroOverlayState vsIntroOverlay_;
     TutorialOverlayState tutorialOverlay_;
     RhythmChallengeState rhythmChallenge_;
+    BattleInputPromptState battleInputPrompt_;
     std::vector<int> bufferedManualUltimatePartyIndices_;
+    Uint64 nextTransientBattleHintId_ = 1;
     std::vector<std::unique_ptr<Rml::EventListener>> uiListeners_;
     std::vector<std::string> worldAssets_;
     std::vector<SceneEntity> entities_;

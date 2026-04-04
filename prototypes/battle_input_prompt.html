@@ -1,0 +1,1827 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Battle Input Prompt Prototype</title>
+  <style>
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Regular.ttf") format("truetype");
+      font-weight: 400;
+      font-style: normal;
+    }
+
+    @font-face {
+      font-family: "Space Mono";
+      src: url("../assets/fonts/SpaceMono-Bold.ttf") format("truetype");
+      font-weight: 700;
+      font-style: normal;
+    }
+
+    :root {
+      --bg-0: #090a11;
+      --bg-1: #111622;
+      --bg-2: #1a1322;
+      --ink: #fff6fb;
+      --ink-soft: rgba(255, 246, 251, 0.68);
+      --line: rgba(255, 255, 255, 0.1);
+      --rose: #ff67b6;
+      --gold: #f4c06d;
+      --ice: #86d8ff;
+      --danger: #ff6b74;
+      --danger-hot: #ff9d68;
+      --mint: #72dea8;
+      --shadow-lg: 0 28px 64px rgba(0, 0, 0, 0.42);
+      --shadow-md: 0 16px 34px rgba(0, 0, 0, 0.32);
+      --ui-font: "Space Mono", "Noto Sans CJK SC", "Noto Sans CJK JP", "PingFang SC", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: #06070c;
+      color: var(--ink);
+      font-family: var(--ui-font);
+    }
+
+    body {
+      overflow: hidden;
+    }
+
+    button {
+      font: inherit;
+      color: inherit;
+    }
+
+    .prototype-app {
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 82% 18%, rgba(255, 103, 182, 0.14), transparent 16%),
+        radial-gradient(circle at 22% 32%, rgba(134, 216, 255, 0.12), transparent 24%),
+        linear-gradient(180deg, #15111c 0%, #0f131d 46%, #08090f 100%);
+    }
+
+    .battle-stage {
+      position: relative;
+      min-height: 100vh;
+      overflow: hidden;
+      --stage-accent-1: rgba(255, 103, 182, 0.18);
+      --stage-accent-2: rgba(134, 216, 255, 0.12);
+      --prompt-accent-1: #ff67b6;
+      --prompt-accent-2: #f4c06d;
+      --prompt-accent-3: #86d8ff;
+      --prompt-glow: rgba(255, 103, 182, 0.22);
+      --prompt-press: rgba(255, 103, 182, 0.28);
+    }
+
+    .battle-stage::before,
+    .battle-stage::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .battle-stage::before {
+      background:
+        radial-gradient(circle at 76% 24%, var(--stage-accent-1), transparent 24%),
+        radial-gradient(circle at 22% 78%, var(--stage-accent-2), transparent 28%),
+        linear-gradient(126deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 100%);
+      background-size: auto, auto, 320px 320px;
+      opacity: 0.92;
+    }
+
+    .battle-stage::after {
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0.018) 0 1px, transparent 1px 100%),
+        linear-gradient(0deg, rgba(255, 255, 255, 0.016) 0 1px, transparent 1px 100%);
+      background-size: 54px 54px, 54px 54px;
+      mask-image: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.72) 24%, rgba(0, 0, 0, 1) 100%);
+      opacity: 0.18;
+    }
+
+    .prototype-note {
+      position: absolute;
+      top: 1.2rem;
+      right: 1.4rem;
+      z-index: 6;
+      padding: 0.72rem 0.92rem;
+      border-radius: 1rem;
+      background: rgba(11, 13, 20, 0.66);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 1rem 2rem rgba(0, 0, 0, 0.18);
+      color: rgba(255, 246, 251, 0.72);
+      font-size: 0.62rem;
+      letter-spacing: 0.14rem;
+      text-transform: uppercase;
+      backdrop-filter: blur(12px);
+    }
+
+    .preset-rail {
+      position: absolute;
+      left: 1.4rem;
+      right: 16rem;
+      top: 1.2rem;
+      z-index: 6;
+      display: flex;
+      gap: 0.56rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .preset-chip {
+      position: relative;
+      border: 0;
+      padding: 0.72rem 0.98rem;
+      border-radius: 999px;
+      background: rgba(11, 13, 20, 0.72);
+      color: rgba(255, 246, 251, 0.68);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 0.9rem 1.8rem rgba(0, 0, 0, 0.16);
+      cursor: pointer;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.11rem;
+      text-transform: uppercase;
+      backdrop-filter: blur(10px);
+      transition: background-color 120ms linear, color 120ms linear, border-color 120ms linear, transform 120ms linear;
+    }
+
+    .preset-chip:hover {
+      transform: translateY(-0.08rem);
+      color: rgba(255, 246, 251, 0.92);
+    }
+
+    .preset-chip.is-active {
+      background:
+        linear-gradient(135deg, rgba(255, 103, 182, 0.22), rgba(244, 192, 109, 0.16)),
+        rgba(11, 13, 20, 0.84);
+      color: #fff7fb;
+      border-color: rgba(255, 103, 182, 0.28);
+      box-shadow:
+        0 1rem 2.2rem rgba(0, 0, 0, 0.22),
+        0 0 1.8rem rgba(255, 103, 182, 0.12);
+    }
+
+    .battle-screen {
+      position: relative;
+      width: 100%;
+      min-height: 100vh;
+      isolation: isolate;
+      overflow: hidden;
+    }
+
+    .scene-backdrop,
+    .hud-layer {
+      position: absolute;
+      inset: 0;
+    }
+
+    .scene-backdrop {
+      z-index: 1;
+      pointer-events: none;
+    }
+
+    .hud-layer {
+      z-index: 3;
+      padding: 0 1.2rem 0.8rem;
+    }
+
+    .stage-glow {
+      position: absolute;
+      left: 8%;
+      right: 6%;
+      top: 10%;
+      bottom: 19%;
+      border-radius: 2.8rem;
+      background:
+        radial-gradient(circle at 74% 24%, rgba(255, 103, 182, 0.12), transparent 20%),
+        radial-gradient(circle at 18% 58%, rgba(255, 255, 255, 0.04), transparent 24%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0));
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.03),
+        0 36px 120px rgba(0, 0, 0, 0.24);
+    }
+
+    .stage-floor {
+      position: absolute;
+      left: -8%;
+      right: -8%;
+      bottom: -18%;
+      height: 48%;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      background:
+        linear-gradient(180deg, rgba(72, 42, 72, 0.05), rgba(63, 34, 58, 0.42)),
+        repeating-linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.03) 0,
+          rgba(255, 255, 255, 0.03) 1px,
+          transparent 1px,
+          transparent 84px
+        ),
+        repeating-linear-gradient(
+          0deg,
+          rgba(255, 255, 255, 0.022) 0,
+          rgba(255, 255, 255, 0.022) 1px,
+          transparent 1px,
+          transparent 56px
+        );
+      transform: perspective(1100px) rotateX(73deg);
+      transform-origin: center top;
+      opacity: 0.68;
+    }
+
+    .scene-bloom {
+      position: absolute;
+      right: 14%;
+      top: 13%;
+      width: 22rem;
+      height: 22rem;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, rgba(255, 103, 182, 0.18), transparent 66%);
+      opacity: 0.54;
+    }
+
+    .scene-character {
+      position: absolute;
+      bottom: 11.8rem;
+      user-select: none;
+      transition: opacity 180ms linear, transform 180ms linear;
+    }
+
+    .scene-character img {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      filter: drop-shadow(0 30px 42px rgba(0, 0, 0, 0.34));
+    }
+
+    .scene-character--ally {
+      left: 11rem;
+      width: min(19rem, 24vw);
+      opacity: 0.34;
+      transform: translateY(0);
+    }
+
+    .scene-character--boss {
+      right: 6rem;
+      width: min(24rem, 30vw);
+      opacity: 0.26;
+      transform: translateY(0);
+    }
+
+    .scene-character.is-focus {
+      opacity: 0.44;
+      transform: translateY(-0.18rem);
+    }
+
+    .turn-rail {
+      position: absolute;
+      left: 1rem;
+      top: 5.2rem;
+      bottom: 8rem;
+      width: 5.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.68rem;
+      align-items: flex-start;
+    }
+
+    .turn-rail::before {
+      content: "";
+      position: absolute;
+      left: 1rem;
+      top: 0.4rem;
+      bottom: 0.4rem;
+      width: 1px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.03));
+    }
+
+    .turn-card {
+      position: relative;
+      width: 4.8rem;
+      height: 3.52rem;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    .turn-card-shell {
+      position: absolute;
+      inset: 0;
+      transform: skewX(-18deg);
+      border-radius: 1.2rem;
+      background: rgba(8, 10, 18, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 12px 26px rgba(0, 0, 0, 0.34);
+    }
+
+    .turn-card.is-active .turn-card-shell {
+      border-color: rgba(255, 103, 182, 0.28);
+      box-shadow:
+        0 16px 30px rgba(0, 0, 0, 0.38),
+        0 0 22px rgba(255, 103, 182, 0.18);
+    }
+
+    .turn-card.is-boss .turn-card-shell {
+      border-color: rgba(255, 107, 116, 0.26);
+    }
+
+    .turn-card-inner {
+      position: absolute;
+      inset: 0;
+      transform: skewX(18deg);
+      display: grid;
+      place-items: center;
+    }
+
+    .turn-portrait {
+      width: 2.58rem;
+      height: 2.58rem;
+      object-fit: contain;
+      border-radius: 0.96rem;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 0.16rem;
+    }
+
+    .turn-value {
+      position: absolute;
+      right: 0.16rem;
+      bottom: 0.24rem;
+      min-width: 1.9rem;
+      padding: 0.18rem 0.4rem;
+      border-radius: 999px;
+      background: rgba(255, 103, 182, 0.9);
+      color: #140e1b;
+      font-size: 0.56rem;
+      font-weight: 700;
+      letter-spacing: 0.08rem;
+      text-align: center;
+    }
+
+    .boss-band {
+      position: absolute;
+      left: 7rem;
+      right: 2rem;
+      top: 5rem;
+      display: grid;
+      grid-template-columns: minmax(14rem, 18rem) 1fr auto;
+      gap: 1.2rem;
+      align-items: center;
+    }
+
+    .boss-copy {
+      min-width: 0;
+    }
+
+    .boss-kicker {
+      font-size: 0.68rem;
+      letter-spacing: 0.3rem;
+      color: rgba(255, 246, 251, 0.48);
+      text-transform: uppercase;
+    }
+
+    .boss-name {
+      margin: 0.44rem 0 0;
+      font-size: clamp(1.5rem, 2.4vw, 2.3rem);
+      font-weight: 700;
+      letter-spacing: 0.1rem;
+      text-transform: uppercase;
+      text-shadow: 0 14px 30px rgba(0, 0, 0, 0.44);
+    }
+
+    .boss-meter-shell {
+      position: relative;
+      height: 4.2rem;
+      transform: skewX(-16deg);
+      background: rgba(8, 10, 18, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    .boss-meter-shell::before,
+    .boss-meter-shell::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .boss-meter-shell::before {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent 42%),
+        linear-gradient(90deg, rgba(255, 103, 159, 0.18), transparent 34%);
+    }
+
+    .boss-meter-shell::after {
+      inset: 0.76rem 0.9rem;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      opacity: 0.5;
+    }
+
+    .boss-meter-content {
+      position: absolute;
+      inset: 0;
+      transform: skewX(16deg);
+      padding: 0.88rem 1.2rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .boss-meter-track {
+      position: relative;
+      height: 1rem;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+
+    .boss-meter-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 72%;
+      background: linear-gradient(90deg, #ff678d 0%, #ff67b6 36%, #f0c66a 72%, #ffe19d 100%);
+      box-shadow: 0 0 24px rgba(255, 103, 182, 0.32);
+    }
+
+    .boss-readout {
+      text-align: right;
+    }
+
+    .boss-readout-value,
+    .boss-readout-percent {
+      display: block;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.1rem;
+      text-transform: uppercase;
+    }
+
+    .boss-readout-percent {
+      margin-top: 0.3rem;
+      color: rgba(255, 246, 251, 0.58);
+    }
+
+    .boss-phase-tag {
+      padding: 0.92rem 1rem;
+      border-radius: 999px;
+      background: rgba(8, 10, 18, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: var(--shadow-md);
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.12rem;
+      text-transform: uppercase;
+      color: rgba(255, 246, 251, 0.78);
+    }
+
+    .party-rack {
+      position: absolute;
+      left: 8.5rem;
+      right: 22rem;
+      bottom: 1.8rem;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0.82rem;
+      align-items: end;
+    }
+
+    .unit-card {
+      position: relative;
+      min-height: 8.8rem;
+      padding: 0.92rem 0.9rem 0.94rem 5.9rem;
+      transform: skewX(-14deg);
+      border-radius: 1.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background:
+        linear-gradient(180deg, rgba(10, 12, 18, 0.92), rgba(9, 11, 16, 0.88)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
+      box-shadow: 0 16px 30px rgba(0, 0, 0, 0.34);
+      overflow: hidden;
+    }
+
+    .unit-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 36%),
+        linear-gradient(90deg, rgba(255, 103, 159, 0.1), transparent 44%);
+      pointer-events: none;
+    }
+
+    .unit-card.is-active {
+      border-color: rgba(255, 103, 182, 0.28);
+      box-shadow:
+        0 18px 34px rgba(0, 0, 0, 0.38),
+        0 0 24px rgba(255, 103, 182, 0.14);
+    }
+
+    .unit-card > * {
+      position: relative;
+      transform: skewX(14deg);
+    }
+
+    .unit-portrait {
+      position: absolute;
+      left: 0.1rem;
+      bottom: 0.12rem;
+      width: 6.4rem;
+      height: 8.2rem;
+      object-fit: contain;
+      filter: drop-shadow(0 16px 18px rgba(0, 0, 0, 0.28));
+    }
+
+    .unit-name {
+      margin: 0;
+      font-size: 0.84rem;
+      font-weight: 700;
+      letter-spacing: 0.08rem;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .unit-role {
+      margin-top: 0.32rem;
+      font-size: 0.54rem;
+      letter-spacing: 0.18rem;
+      color: rgba(255, 246, 251, 0.48);
+      text-transform: uppercase;
+    }
+
+    .unit-orbs {
+      display: flex;
+      gap: 0.26rem;
+      margin-top: 0.58rem;
+    }
+
+    .unit-orbs span {
+      width: 0.52rem;
+      height: 0.52rem;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+
+    .unit-orbs span.is-filled {
+      background: linear-gradient(180deg, #ff70af, #ffc16f);
+      box-shadow: 0 0 10px rgba(255, 103, 159, 0.28);
+    }
+
+    .unit-hp {
+      margin-top: 1rem;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.14rem;
+      text-transform: uppercase;
+      color: rgba(255, 246, 251, 0.74);
+    }
+
+    .unit-bar {
+      position: relative;
+      margin-top: 0.5rem;
+      height: 0.7rem;
+      background: rgba(255, 255, 255, 0.08);
+      overflow: hidden;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    }
+
+    .unit-bar-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: var(--fill, 72%);
+      background: linear-gradient(90deg, rgba(149, 242, 182, 0.94), rgba(97, 213, 154, 0.94) 52%, rgba(71, 180, 131, 0.96));
+    }
+
+    .unit-shield {
+      margin-top: 0.46rem;
+      font-size: 0.56rem;
+      letter-spacing: 0.14rem;
+      text-transform: uppercase;
+      color: rgba(255, 246, 251, 0.52);
+    }
+
+    .input-dock {
+      position: absolute;
+      right: 1.6rem;
+      bottom: 1.7rem;
+      width: min(24rem, 32vw);
+      z-index: 5;
+    }
+
+    .input-dock[data-layout="space_only"] {
+      width: min(14rem, 26vw);
+    }
+
+    .input-dock[data-layout="space_plus_keys"] {
+      width: min(14.6rem, 26vw);
+    }
+
+    .input-dock[data-layout="keys_only"] {
+      width: min(16rem, 28vw);
+    }
+
+    .dock-shell {
+      position: relative;
+      border-radius: 1.8rem;
+      background:
+        linear-gradient(135deg, rgba(9, 11, 16, 0.96), rgba(13, 15, 23, 0.94)),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0));
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow:
+        0 20px 44px rgba(0, 0, 0, 0.42),
+        0 0 34px var(--prompt-glow);
+      overflow: hidden;
+      isolation: isolate;
+    }
+
+    .dock-shell::before,
+    .dock-shell::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+    }
+
+    .dock-shell::before {
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 38%),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.04) 0, transparent 28%),
+        repeating-linear-gradient(
+          90deg,
+          rgba(255, 255, 255, 0.016) 0,
+          rgba(255, 255, 255, 0.016) 1px,
+          transparent 1px,
+          transparent 42px
+        );
+      opacity: 0.84;
+    }
+
+    .dock-shell::after {
+      inset: auto 0 0;
+      height: 0.34rem;
+      background: linear-gradient(90deg, var(--prompt-accent-1), var(--prompt-accent-2) 56%, var(--prompt-accent-3) 100%);
+      opacity: 0.88;
+    }
+
+    .dock-body {
+      position: relative;
+      padding: 1rem 1.08rem 1.04rem;
+      min-height: 4.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.84rem;
+    }
+
+    .dock-keyline {
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.68rem;
+      min-height: 2.7rem;
+    }
+
+    .input-dock[data-layout="space_plus_keys"] .dock-keyline {
+      flex-direction: column;
+      gap: 0.42rem;
+      padding: 0.08rem 0;
+    }
+
+    .key-group {
+      display: flex;
+      align-items: center;
+      gap: 0.42rem;
+      min-width: 0;
+      justify-content: center;
+    }
+
+    .key-group--fan {
+      gap: 0.22rem;
+    }
+
+    .key-plus {
+      flex: 0 0 auto;
+      width: 1.9rem;
+      height: 1.9rem;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: rgba(255, 246, 251, 0.72);
+      font-size: 1rem;
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+    }
+
+    .input-dock[data-layout="space_plus_keys"] .key-plus {
+      width: 1.5rem;
+      height: 1.5rem;
+      font-size: 0.86rem;
+    }
+
+    .key-strip {
+      display: flex;
+      align-items: center;
+      gap: 0.42rem;
+    }
+
+    .key-grid--arrows {
+      display: grid;
+      grid-template-columns: repeat(3, 2.3rem);
+      grid-template-rows: repeat(2, 2.3rem);
+      grid-template-areas:
+        ". up ."
+        "left down right";
+      gap: 0.34rem;
+      align-items: center;
+      justify-items: center;
+    }
+
+    .key-strip--lr {
+      gap: 0.5rem;
+    }
+
+    .keycap {
+      --tilt: 0deg;
+      position: relative;
+      flex: 0 0 auto;
+      min-width: 2.45rem;
+      height: 2.48rem;
+      padding: 0 0.62rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 0.76rem;
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.04)),
+        rgba(14, 16, 24, 0.98);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow:
+        0 0.32rem 0 rgba(4, 5, 8, 0.88),
+        0 0.8rem 1.4rem rgba(0, 0, 0, 0.28),
+        0 0 0.8rem rgba(255, 255, 255, 0.04);
+      transform: translateY(0) rotate(var(--tilt));
+      color: #fff8fb;
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.14rem;
+      text-transform: uppercase;
+      text-shadow: 0 0 18px rgba(255, 255, 255, 0.06);
+    }
+
+    .keycap::before {
+      content: "";
+      position: absolute;
+      left: 0.52rem;
+      right: 0.52rem;
+      top: 0.38rem;
+      height: 0.18rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      opacity: 0.82;
+    }
+
+    .keycap::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+      pointer-events: none;
+    }
+
+    .keycap-label {
+      position: relative;
+      z-index: 1;
+    }
+
+    .keycap.is-pressed {
+      transform: translateY(0.3rem) rotate(var(--tilt));
+      box-shadow:
+        0 0.06rem 0 rgba(4, 5, 8, 0.88),
+        0 0.44rem 0.7rem rgba(0, 0, 0, 0.3),
+        0 0 1.2rem var(--prompt-press);
+      background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06)),
+        rgba(18, 20, 29, 0.98);
+    }
+
+    .keycap--space {
+      min-width: 8rem;
+      padding: 0 1.3rem;
+      letter-spacing: 0.28rem;
+    }
+
+    .keycap--mini {
+      min-width: 2.3rem;
+      height: 2.3rem;
+      font-size: 0.74rem;
+      letter-spacing: 0.08rem;
+    }
+
+    .keycap--wild {
+      min-width: 2rem;
+      height: 2.1rem;
+      padding: 0 0.5rem;
+      font-size: 0.66rem;
+      letter-spacing: 0.06rem;
+    }
+
+    .keycap--wild:nth-child(1) { --tilt: -13deg; }
+    .keycap--wild:nth-child(2) { --tilt: -7deg; }
+    .keycap--wild:nth-child(3) { --tilt: 0deg; }
+    .keycap--wild:nth-child(4) { --tilt: 7deg; }
+    .keycap--wild:nth-child(5) { --tilt: 13deg; }
+
+    .keycap--arrow-up { grid-area: up; }
+    .keycap--arrow-left { grid-area: left; }
+    .keycap--arrow-right { grid-area: right; }
+    .keycap--arrow-down { grid-area: down; }
+
+    .keycap--pulse-idle {
+      animation: key-tap-idle 1320ms steps(1, end) infinite;
+    }
+
+    .keycap--pulse-rapid {
+      animation: key-tap-rapid 420ms steps(1, end) infinite;
+    }
+
+    @keyframes key-tap-idle {
+      0%, 58%, 100% {
+        transform: translateY(0) rotate(var(--tilt));
+        box-shadow:
+          0 0.32rem 0 rgba(4, 5, 8, 0.88),
+          0 0.8rem 1.4rem rgba(0, 0, 0, 0.28),
+          0 0 0.8rem rgba(255, 255, 255, 0.04);
+      }
+
+      59%, 76% {
+        transform: translateY(0.3rem) rotate(var(--tilt));
+        box-shadow:
+          0 0.06rem 0 rgba(4, 5, 8, 0.88),
+          0 0.44rem 0.7rem rgba(0, 0, 0, 0.3),
+          0 0 1.2rem var(--prompt-press);
+      }
+    }
+
+    @keyframes key-tap-rapid {
+      0%, 100% {
+        transform: translateY(0) rotate(var(--tilt));
+        box-shadow:
+          0 0.32rem 0 rgba(4, 5, 8, 0.88),
+          0 0.8rem 1.4rem rgba(0, 0, 0, 0.28),
+          0 0 0.8rem rgba(255, 255, 255, 0.04);
+      }
+
+      25%, 55% {
+        transform: translateY(0.3rem) rotate(var(--tilt));
+        box-shadow:
+          0 0.06rem 0 rgba(4, 5, 8, 0.88),
+          0 0.44rem 0.7rem rgba(0, 0, 0, 0.3),
+          0 0 1.2rem var(--prompt-press);
+      }
+    }
+
+    @media (max-width: 1200px) {
+      .preset-rail {
+        right: 1.4rem;
+      }
+
+      .boss-band {
+        grid-template-columns: 1fr;
+        left: 6.4rem;
+        top: 7.4rem;
+        right: 1.4rem;
+      }
+
+      .boss-phase-tag {
+        justify-self: start;
+      }
+
+      .turn-rail {
+        top: 7.8rem;
+      }
+
+      .party-rack {
+        left: 6.4rem;
+        right: 18rem;
+      }
+
+      .input-dock {
+        width: min(21rem, 34vw);
+      }
+    }
+
+    @media (max-width: 940px) {
+      body {
+        overflow: auto;
+      }
+
+      .prototype-app,
+      .battle-stage,
+      .battle-screen {
+        min-height: 100svh;
+      }
+
+      .scene-character--ally {
+        left: 2rem;
+        width: min(16rem, 36vw);
+      }
+
+      .scene-character--boss {
+        right: 1.6rem;
+        width: min(18rem, 42vw);
+      }
+
+      .turn-rail {
+        display: none;
+      }
+
+      .boss-band {
+        left: 1.2rem;
+        top: 8rem;
+      }
+
+      .party-rack {
+        left: 1.2rem;
+        right: 1.2rem;
+        bottom: 1.2rem;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .input-dock {
+        left: 50%;
+        right: auto;
+        bottom: 20.2rem;
+        width: min(24rem, calc(100vw - 2.4rem));
+        transform: translateX(-50%);
+      }
+
+      .input-dock[data-layout="space_only"],
+      .input-dock[data-layout="keys_only"] {
+        width: min(18rem, calc(100vw - 2.4rem));
+      }
+    }
+
+    @media (max-width: 640px) {
+      .prototype-note {
+        left: 1rem;
+        right: auto;
+        top: 1rem;
+      }
+
+      .preset-rail {
+        left: 1rem;
+        right: 1rem;
+        top: 4.4rem;
+      }
+
+      .preset-chip {
+        padding: 0.64rem 0.82rem;
+        font-size: 0.56rem;
+        letter-spacing: 0.08rem;
+      }
+
+      .scene-character {
+        opacity: 0.18;
+      }
+
+      .boss-band {
+        top: 8.8rem;
+      }
+
+      .boss-name {
+        font-size: 1.34rem;
+      }
+
+      .party-rack {
+        display: none;
+      }
+
+      .input-dock {
+        bottom: 1.2rem;
+      }
+
+      .dock-body {
+        padding-right: 0.9rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="prototype-app">
+    <section class="battle-stage" id="battle-stage">
+      <div class="prototype-note">Bottom-right combat input prompt prototype</div>
+
+      <nav class="preset-rail" id="preset-rail" aria-label="Input prompt presets"></nav>
+
+      <div class="battle-screen">
+        <div class="scene-backdrop">
+          <div class="stage-glow"></div>
+          <div class="scene-bloom"></div>
+          <div class="stage-floor"></div>
+          <div class="scene-character scene-character--ally is-focus" id="scene-ally">
+            <img src="../assets/combat/sprites/miku.png" alt="">
+          </div>
+          <div class="scene-character scene-character--boss" id="scene-boss">
+            <img src="../assets/combat/sprites/lyooBoss.png" alt="">
+          </div>
+        </div>
+
+        <div class="hud-layer">
+          <div class="turn-rail" id="turn-rail"></div>
+
+          <header class="boss-band">
+            <div class="boss-copy">
+              <div class="boss-kicker">Boss Target</div>
+              <h1 class="boss-name" id="boss-name">Host | Lyoo</h1>
+            </div>
+
+            <div class="boss-meter-shell">
+              <div class="boss-meter-content">
+                <div class="boss-meter-track">
+                  <div class="boss-meter-fill" id="boss-meter-fill"></div>
+                </div>
+                <div class="boss-readout">
+                  <span class="boss-readout-value" id="boss-readout-value">312 / 420 HP</span>
+                  <span class="boss-readout-percent" id="boss-readout-percent">74% integrity</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="boss-phase-tag" id="boss-phase-tag">Skill Preview</div>
+          </header>
+
+          <section class="party-rack" id="party-rack" aria-hidden="true"></section>
+
+          <section class="input-dock" id="input-dock" aria-live="polite" aria-label="Bottom-right combat input prompt"></section>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const CHARACTER_LIBRARY = {
+      miku: {
+        key: "miku",
+        name: "Miku",
+        role: "DPS",
+        sprite: "../assets/combat/sprites/miku.png",
+        hp: 32,
+        maxHp: 40,
+        orbs: 2,
+        maxOrbs: 3
+      },
+      cupcakke: {
+        key: "cupcakke",
+        name: "Cupcakke",
+        role: "Tank",
+        sprite: "../assets/combat/sprites/cupcakke.png",
+        hp: 46,
+        maxHp: 60,
+        orbs: 3,
+        maxOrbs: 4
+      },
+      lyoo: {
+        key: "lyoo",
+        name: "Lyoo",
+        role: "Heal",
+        sprite: "../assets/combat/sprites/lyoo.png",
+        hp: 76,
+        maxHp: 80,
+        orbs: 1,
+        maxOrbs: 3
+      },
+      ari: {
+        key: "ari",
+        name: "Ari",
+        role: "Buff",
+        sprite: "../assets/combat/sprites/ari.png",
+        hp: 42,
+        maxHp: 52,
+        orbs: 4,
+        maxOrbs: 5
+      },
+      jiafei: {
+        key: "jiafei",
+        name: "Jiafei",
+        role: "DPS",
+        sprite: "../assets/combat/sprites/jiafei.png",
+        hp: 38,
+        maxHp: 48,
+        orbs: 1,
+        maxOrbs: 2
+      },
+      luotianyi: {
+        key: "luotianyi",
+        name: "Luotianyi",
+        role: "Buff",
+        sprite: "../assets/combat/sprites/luotianyi.png",
+        hp: 54,
+        maxHp: 60,
+        orbs: 2,
+        maxOrbs: 3
+      },
+      wechatalipay: {
+        key: "wechatalipay",
+        name: "WeChat / Alipay",
+        role: "Shield",
+        sprite: "../assets/combat/sprites/wechatalipay.png",
+        hp: 57,
+        maxHp: 64,
+        orbs: 3,
+        maxOrbs: 4
+      }
+    };
+
+    const BOSS_LIBRARY = {
+      lyooBoss: {
+        key: "lyooBoss",
+        name: "Host | Lyoo",
+        sprite: "../assets/combat/sprites/lyooBoss.png",
+        hp: 312,
+        maxHp: 420,
+        phaseTag: "Skill Preview"
+      },
+      jiafeiBoss: {
+        key: "jiafeiBoss",
+        name: "Jiafei",
+        sprite: "../assets/combat/sprites/jiafei.png",
+        hp: 294,
+        maxHp: 420,
+        phaseTag: "Dodge Window"
+      },
+      ariBoss: {
+        key: "ariBoss",
+        name: "Ariana Grande",
+        sprite: "../assets/combat/sprites/ariBoss.png",
+        hp: 287,
+        maxHp: 430,
+        phaseTag: "Reaction Window"
+      },
+      luotianyiBoss: {
+        key: "luotianyiBoss",
+        name: "Luotianyi",
+        sprite: "../assets/combat/sprites/luotianyi.png",
+        hp: 388,
+        maxHp: 520,
+        phaseTag: "Tone Echo"
+      },
+      wechatalipayBoss: {
+        key: "wechatalipayBoss",
+        name: "WeChat / Alipay",
+        sprite: "../assets/combat/sprites/wechatalipayBoss.png",
+        hp: 344,
+        maxHp: 480,
+        phaseTag: "Scan Chase"
+      }
+    };
+
+    const PRESETS = [
+      {
+        id: "ally-tap",
+        hotkey: "1",
+        buttonLabel: "Ally Tap",
+        actorKind: "player",
+        activeKey: "jiafei",
+        bossKey: "lyooBoss",
+        partyKeys: ["jiafei", "miku", "cupcakke", "ari"],
+        layout: "space_only",
+        primaryAnimation: "idle",
+        extraFamily: null,
+        extraPattern: null,
+        theme: {
+          accent1: "#ff67b6",
+          accent2: "#f4c06d",
+          accent3: "#86d8ff",
+          glow: "rgba(255, 103, 182, 0.22)",
+          press: "rgba(255, 103, 182, 0.3)",
+          stage1: "rgba(255, 103, 182, 0.18)",
+          stage2: "rgba(134, 216, 255, 0.12)"
+        },
+        presentationRefs: ["aesthetic_scream", "mei_ci_du_xiang_zhuang", "i_want_it_i_got_it", "high_note", "diandong_power_cutscene", "lyoo_revive_heal", "quan_yu_tian_xia", "niagara_falls_ultimate", "wechatalipay_ultimate"]
+      },
+      {
+        id: "ally-burst",
+        hotkey: "2",
+        buttonLabel: "Ally Burst",
+        actorKind: "player",
+        activeKey: "cupcakke",
+        bossKey: "jiafeiBoss",
+        partyKeys: ["miku", "cupcakke", "lyoo", "jiafei"],
+        layout: "space_only",
+        primaryAnimation: "rapid",
+        extraFamily: null,
+        extraPattern: null,
+        theme: {
+          accent1: "#ff8f74",
+          accent2: "#ffd66e",
+          accent3: "#ff67b6",
+          glow: "rgba(255, 143, 116, 0.24)",
+          press: "rgba(255, 143, 116, 0.28)",
+          stage1: "rgba(255, 143, 116, 0.16)",
+          stage2: "rgba(255, 103, 182, 0.12)"
+        },
+        presentationRefs: ["drum_attack"]
+      },
+      {
+        id: "miku-dfjk",
+        hotkey: "3",
+        buttonLabel: "Miku DFJK",
+        actorKind: "player",
+        activeKey: "miku",
+        bossKey: "jiafeiBoss",
+        partyKeys: ["miku", "cupcakke", "lyoo", "jiafei"],
+        layout: "space_plus_keys",
+        primaryAnimation: "idle",
+        extraFamily: "dfjk",
+        extraPattern: "shuffle",
+        theme: {
+          accent1: "#65d9ff",
+          accent2: "#f4c06d",
+          accent3: "#ff67b6",
+          glow: "rgba(101, 217, 255, 0.24)",
+          press: "rgba(101, 217, 255, 0.3)",
+          stage1: "rgba(101, 217, 255, 0.18)",
+          stage2: "rgba(255, 103, 182, 0.12)"
+        },
+        presentationRefs: ["musical_notes"]
+      },
+      {
+        id: "lyoo-wild",
+        hotkey: "4",
+        buttonLabel: "Lyoo Wild",
+        actorKind: "player",
+        activeKey: "lyoo",
+        bossKey: "lyooBoss",
+        partyKeys: ["lyoo", "miku", "cupcakke", "ari"],
+        layout: "space_plus_keys",
+        primaryAnimation: "idle",
+        extraFamily: "wildcard",
+        extraPattern: "random",
+        theme: {
+          accent1: "#72dea8",
+          accent2: "#ff67b6",
+          accent3: "#f4c06d",
+          glow: "rgba(114, 222, 168, 0.22)",
+          press: "rgba(114, 222, 168, 0.28)",
+          stage1: "rgba(114, 222, 168, 0.14)",
+          stage2: "rgba(255, 103, 182, 0.12)"
+        },
+        presentationRefs: ["heal_hearts"]
+      },
+      {
+        id: "luo-tones",
+        hotkey: "5",
+        buttonLabel: "Luo 1-4",
+        actorKind: "player",
+        activeKey: "luotianyi",
+        bossKey: "lyooBoss",
+        partyKeys: ["luotianyi", "miku", "wechatalipay", "jiafei"],
+        layout: "space_plus_keys",
+        primaryAnimation: "idle",
+        extraFamily: "tones",
+        extraPattern: "sequence",
+        theme: {
+          accent1: "#72dea8",
+          accent2: "#86d8ff",
+          accent3: "#f4c06d",
+          glow: "rgba(114, 222, 168, 0.2)",
+          press: "rgba(134, 216, 255, 0.28)",
+          stage1: "rgba(114, 222, 168, 0.14)",
+          stage2: "rgba(134, 216, 255, 0.14)"
+        },
+        presentationRefs: ["rang_wo_men_shuo_zhong_wen"]
+      },
+      {
+        id: "wechat-move",
+        hotkey: "6",
+        buttonLabel: "WeChat",
+        actorKind: "player",
+        activeKey: "wechatalipay",
+        bossKey: "jiafeiBoss",
+        partyKeys: ["wechatalipay", "miku", "cupcakke", "lyoo"],
+        layout: "space_plus_keys",
+        primaryAnimation: "idle",
+        extraFamily: "arrows",
+        extraPattern: "random",
+        theme: {
+          accent1: "#72dea8",
+          accent2: "#65d9ff",
+          accent3: "#f4c06d",
+          glow: "rgba(101, 217, 255, 0.18)",
+          press: "rgba(114, 222, 168, 0.28)",
+          stage1: "rgba(114, 222, 168, 0.16)",
+          stage2: "rgba(101, 217, 255, 0.14)"
+        },
+        presentationRefs: ["sao_ma_zhi_fu"]
+      },
+      {
+        id: "boss-tap",
+        hotkey: "7",
+        buttonLabel: "Boss Tap",
+        actorKind: "boss",
+        activeKey: "miku",
+        bossKey: "lyooBoss",
+        partyKeys: ["miku", "cupcakke", "lyoo", "ari"],
+        layout: "space_only",
+        primaryAnimation: "idle",
+        extraFamily: null,
+        extraPattern: null,
+        theme: {
+          accent1: "#ff6b74",
+          accent2: "#f4c06d",
+          accent3: "#86d8ff",
+          glow: "rgba(255, 107, 116, 0.22)",
+          press: "rgba(255, 107, 116, 0.28)",
+          stage1: "rgba(255, 107, 116, 0.16)",
+          stage2: "rgba(244, 192, 109, 0.1)"
+        },
+        presentationRefs: ["boss_attack_lyoo", "whistle_note"]
+      },
+      {
+        id: "boss-dodge",
+        hotkey: "8",
+        buttonLabel: "Boss Dodge",
+        actorKind: "boss",
+        activeKey: "miku",
+        bossKey: "jiafeiBoss",
+        partyKeys: ["miku", "cupcakke", "lyoo", "jiafei"],
+        layout: "keys_only",
+        primaryAnimation: "none",
+        extraFamily: "lr-arrows",
+        extraPattern: "random",
+        theme: {
+          accent1: "#ff6b74",
+          accent2: "#ff9d68",
+          accent3: "#f4c06d",
+          glow: "rgba(255, 107, 116, 0.24)",
+          press: "rgba(255, 157, 104, 0.26)",
+          stage1: "rgba(255, 107, 116, 0.16)",
+          stage2: "rgba(255, 157, 104, 0.12)"
+        },
+        presentationRefs: ["aesthetic_warning", "qr_code_attack"]
+      },
+      {
+        id: "boss-tones",
+        hotkey: "9",
+        buttonLabel: "Boss 1-4",
+        actorKind: "boss",
+        activeKey: "miku",
+        bossKey: "luotianyiBoss",
+        partyKeys: ["miku", "ari", "cupcakke", "wechatalipay"],
+        layout: "keys_only",
+        primaryAnimation: "none",
+        extraFamily: "tones",
+        extraPattern: "sequence",
+        theme: {
+          accent1: "#86d8ff",
+          accent2: "#72dea8",
+          accent3: "#f4c06d",
+          glow: "rgba(134, 216, 255, 0.22)",
+          press: "rgba(134, 216, 255, 0.28)",
+          stage1: "rgba(134, 216, 255, 0.14)",
+          stage2: "rgba(114, 222, 168, 0.12)"
+        },
+        presentationRefs: ["yin_long"]
+      }
+    ];
+
+    const WILDCARD_POOL = ["Q", "W", "E", "R", "A", "S", "D", "F", "J", "K", "L", "Z", "X", "C", "V"];
+
+    const battleStage = document.getElementById("battle-stage");
+    const presetRail = document.getElementById("preset-rail");
+    const turnRail = document.getElementById("turn-rail");
+    const bossName = document.getElementById("boss-name");
+    const bossMeterFill = document.getElementById("boss-meter-fill");
+    const bossReadoutValue = document.getElementById("boss-readout-value");
+    const bossReadoutPercent = document.getElementById("boss-readout-percent");
+    const bossPhaseTag = document.getElementById("boss-phase-tag");
+    const partyRack = document.getElementById("party-rack");
+    const inputDock = document.getElementById("input-dock");
+    const sceneAlly = document.getElementById("scene-ally");
+    const sceneBoss = document.getElementById("scene-boss");
+    let currentPresetId = PRESETS[0].id;
+    let pulseTimerId = 0;
+    let wildcardTimerId = 0;
+    let extraPulseIndex = 0;
+    let shuffleBag = [];
+    let lastPressedKeyId = "";
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function shuffle(values) {
+      const copy = values.slice();
+      for (let index = copy.length - 1; index > 0; index -= 1) {
+        const swapIndex = Math.floor(Math.random() * (index + 1));
+        const nextValue = copy[index];
+        copy[index] = copy[swapIndex];
+        copy[swapIndex] = nextValue;
+      }
+      return copy;
+    }
+
+    function getPresetById(presetId) {
+      return PRESETS.find((preset) => preset.id === presetId) || PRESETS[0];
+    }
+
+    function getCharacter(key) {
+      return CHARACTER_LIBRARY[key];
+    }
+
+    function getBoss(key) {
+      return BOSS_LIBRARY[key];
+    }
+
+    function buildTurnOrder(preset) {
+      const activeCharacter = getCharacter(preset.activeKey);
+      const boss = getBoss(preset.bossKey);
+      const party = preset.partyKeys.map((key) => getCharacter(key)).filter(Boolean);
+      const queue = [];
+
+      if (preset.actorKind === "player" && activeCharacter) {
+        queue.push({
+          key: activeCharacter.key,
+          sprite: activeCharacter.sprite,
+          label: activeCharacter.name,
+          value: "12",
+          isBoss: false,
+          isActive: true
+        });
+        queue.push({
+          key: boss.key,
+          sprite: boss.sprite,
+          label: boss.name,
+          value: "20",
+          isBoss: true,
+          isActive: false
+        });
+      } else if (preset.actorKind === "boss") {
+        queue.push({
+          key: boss.key,
+          sprite: boss.sprite,
+          label: boss.name,
+          value: "08",
+          isBoss: true,
+          isActive: true
+        });
+      }
+
+      party.forEach((character, index) => {
+        if (!character) {
+          return;
+        }
+        if (character.key === preset.activeKey && preset.actorKind === "player") {
+          return;
+        }
+        queue.push({
+          key: character.key,
+          sprite: character.sprite,
+          label: character.name,
+          value: String(31 + index * 12).padStart(2, "0"),
+          isBoss: false,
+          isActive: false
+        });
+      });
+
+      return queue.slice(0, 5);
+    }
+
+    function renderPresetRail() {
+      presetRail.innerHTML = PRESETS.map((preset) => {
+        const activeClass = preset.id === currentPresetId ? " is-active" : "";
+        return (
+          "<button class=\"preset-chip" + activeClass + "\" type=\"button\" data-preset=\"" + preset.id + "\">" +
+            preset.hotkey + " " + preset.buttonLabel +
+          "</button>"
+        );
+      }).join("");
+    }
+
+    function renderTurnRail(preset) {
+      const queue = buildTurnOrder(preset);
+      turnRail.innerHTML = queue.map((entry) => {
+        const classes = ["turn-card"];
+        if (entry.isActive) {
+          classes.push("is-active");
+        }
+        if (entry.isBoss) {
+          classes.push("is-boss");
+        }
+        return (
+          "<div class=\"" + classes.join(" ") + "\">" +
+            "<div class=\"turn-card-shell\"></div>" +
+            "<div class=\"turn-card-inner\">" +
+              "<img class=\"turn-portrait\" src=\"" + entry.sprite + "\" alt=\"" + entry.label + "\">" +
+              "<div class=\"turn-value\">" + entry.value + "</div>" +
+            "</div>" +
+          "</div>"
+        );
+      }).join("");
+    }
+
+    function renderBossBand(preset) {
+      const boss = getBoss(preset.bossKey);
+      const ratio = clamp(boss.hp / boss.maxHp, 0, 1);
+      const percent = Math.round(ratio * 100);
+      bossName.textContent = boss.name;
+      bossMeterFill.style.width = String(ratio * 100) + "%";
+      bossReadoutValue.textContent = boss.hp + " / " + boss.maxHp + " HP";
+      bossReadoutPercent.textContent = percent + "% integrity";
+      bossPhaseTag.textContent = boss.phaseTag;
+    }
+
+    function renderPartyRack(preset) {
+      const party = preset.partyKeys.map((key) => getCharacter(key)).filter(Boolean);
+      partyRack.innerHTML = party.map((character) => {
+        const ratio = clamp(character.hp / character.maxHp, 0, 1);
+        const isActive = character.key === preset.activeKey;
+        const orbs = new Array(character.maxOrbs).fill(false).map((_, index) => index < character.orbs);
+        return (
+          "<article class=\"unit-card" + (isActive ? " is-active" : "") + "\">" +
+            "<img class=\"unit-portrait\" src=\"" + character.sprite + "\" alt=\"" + character.name + "\">" +
+            "<h2 class=\"unit-name\">" + character.name + "</h2>" +
+            "<div class=\"unit-role\">" + character.role + "</div>" +
+            "<div class=\"unit-orbs\">" +
+              orbs.map((filled) => "<span" + (filled ? " class=\"is-filled\"" : "") + "></span>").join("") +
+            "</div>" +
+            "<div class=\"unit-hp\">" + character.hp + " / " + character.maxHp + " HP</div>" +
+            "<div class=\"unit-bar\"><div class=\"unit-bar-fill\" style=\"--fill:" + (ratio * 100) + "%\"></div></div>" +
+            "<div class=\"unit-shield\">Ult " + character.orbs + " / " + character.maxOrbs + "</div>" +
+          "</article>"
+        );
+      }).join("");
+    }
+
+    function renderBackdrop(preset) {
+      const activeCharacter = getCharacter(preset.activeKey);
+      const boss = getBoss(preset.bossKey);
+      sceneAlly.querySelector("img").src = activeCharacter ? activeCharacter.sprite : CHARACTER_LIBRARY.miku.sprite;
+      sceneBoss.querySelector("img").src = boss.sprite;
+      sceneAlly.classList.toggle("is-focus", preset.actorKind === "player");
+      sceneBoss.classList.toggle("is-focus", preset.actorKind === "boss");
+    }
+
+    function setThemeVariables(preset) {
+      battleStage.style.setProperty("--prompt-accent-1", preset.theme.accent1);
+      battleStage.style.setProperty("--prompt-accent-2", preset.theme.accent2);
+      battleStage.style.setProperty("--prompt-accent-3", preset.theme.accent3);
+      battleStage.style.setProperty("--prompt-glow", preset.theme.glow);
+      battleStage.style.setProperty("--prompt-press", preset.theme.press);
+      battleStage.style.setProperty("--stage-accent-1", preset.theme.stage1);
+      battleStage.style.setProperty("--stage-accent-2", preset.theme.stage2);
+    }
+
+    function buildKeycap(label, className, keyId, pulseClass) {
+      const pulseMarkup = pulseClass ? " " + pulseClass : "";
+      return (
+        "<div class=\"keycap " + className + pulseMarkup + "\" data-key-id=\"" + keyId + "\"" +
+          " data-press-role=\"" + (className.indexOf("keycap--space") >= 0 ? "primary" : "extra") + "\">" +
+          "<span class=\"keycap-label\">" + label + "</span>" +
+        "</div>"
+      );
+    }
+
+    function buildExtraGroup(preset) {
+      if (preset.extraFamily === "dfjk") {
+        return (
+          "<div class=\"key-group key-strip\">" +
+            buildKeycap("D", "keycap--mini", "d", "") +
+            buildKeycap("F", "keycap--mini", "f", "") +
+            buildKeycap("J", "keycap--mini", "j", "") +
+            buildKeycap("K", "keycap--mini", "k", "") +
+          "</div>"
+        );
+      }
+
+      if (preset.extraFamily === "tones") {
+        return (
+          "<div class=\"key-group key-strip\">" +
+            buildKeycap("1", "keycap--mini", "tone-1", "") +
+            buildKeycap("2", "keycap--mini", "tone-2", "") +
+            buildKeycap("3", "keycap--mini", "tone-3", "") +
+            buildKeycap("4", "keycap--mini", "tone-4", "") +
+          "</div>"
+        );
+      }
+
+      if (preset.extraFamily === "arrows") {
+        return (
+          "<div class=\"key-group key-grid--arrows\">" +
+            buildKeycap("^", "keycap--mini keycap--arrow-up", "arrow-up", "") +
+            buildKeycap("<", "keycap--mini keycap--arrow-left", "arrow-left", "") +
+            buildKeycap(">", "keycap--mini keycap--arrow-right", "arrow-right", "") +
+            buildKeycap("V", "keycap--mini keycap--arrow-down", "arrow-down", "") +
+          "</div>"
+        );
+      }
+
+      if (preset.extraFamily === "lr-arrows") {
+        return (
+          "<div class=\"key-group key-strip key-strip--lr\">" +
+            buildKeycap("<", "keycap--mini", "arrow-left", "") +
+            buildKeycap(">", "keycap--mini", "arrow-right", "") +
+          "</div>"
+        );
+      }
+
+      if (preset.extraFamily === "wildcard") {
+        return (
+          "<div class=\"key-group key-group--fan\">" +
+            buildKeycap("Q", "keycap--wild", "fan-0", "") +
+            buildKeycap("W", "keycap--wild", "fan-1", "") +
+            buildKeycap("E", "keycap--wild", "fan-2", "") +
+            buildKeycap("R", "keycap--wild", "fan-3", "") +
+            buildKeycap("A", "keycap--wild", "fan-4", "") +
+          "</div>"
+        );
+      }
+
+      return "";
+    }
+
+    function renderInputDock(preset) {
+      const primaryPulseClass =
+        preset.primaryAnimation === "idle"
+          ? "keycap--pulse-idle"
+          : preset.primaryAnimation === "rapid"
+            ? "keycap--pulse-rapid"
+            : "";
+
+      const primaryKeyMarkup = preset.layout !== "keys_only"
+        ? "<div class=\"key-group\">" + buildKeycap("SPACE", "keycap--space", "space", primaryPulseClass) + "</div>"
+        : "";
+      const extraMarkup = buildExtraGroup(preset);
+      const plusMarkup = preset.layout === "space_plus_keys" ? "<div class=\"key-plus\">+</div>" : "";
+
+      inputDock.dataset.layout = preset.layout;
+      inputDock.innerHTML =
+        "<div class=\"dock-shell\">" +
+          "<div class=\"dock-body\">" +
+            "<div class=\"dock-keyline\">" +
+              primaryKeyMarkup +
+              plusMarkup +
+              extraMarkup +
+            "</div>" +
+          "</div>" +
+        "</div>";
+
+      if (preset.extraFamily === "wildcard") {
+        reseedWildcardLabels();
+      }
+    }
+
+    function clearPulseLoops() {
+      if (pulseTimerId) {
+        window.clearTimeout(pulseTimerId);
+        pulseTimerId = 0;
+      }
+      if (wildcardTimerId) {
+        window.clearInterval(wildcardTimerId);
+        wildcardTimerId = 0;
+      }
+      extraPulseIndex = 0;
+      shuffleBag = [];
+      lastPressedKeyId = "";
+    }
+
+    function activateKeyNode(keyNode, holdMs) {
+      if (!keyNode) {
+        return;
+      }
+      keyNode.classList.add("is-pressed");
+      window.setTimeout(() => {
+        keyNode.classList.remove("is-pressed");
+      }, holdMs);
+    }
+
+    function reseedWildcardLabels() {
+      const nodes = Array.from(inputDock.querySelectorAll("[data-key-id^=\"fan-\"] .keycap-label"));
+      const picks = shuffle(WILDCARD_POOL).slice(0, nodes.length);
+      nodes.forEach((node, index) => {
+        node.textContent = picks[index];
+      });
+    }
+
+    function nextPulseNode(nodes, preset) {
+      if (nodes.length === 0) {
+        return null;
+      }
+
+      if (preset.extraPattern === "sequence") {
+        const node = nodes[extraPulseIndex % nodes.length];
+        extraPulseIndex += 1;
+        return node;
+      }
+
+      if (preset.extraPattern === "shuffle") {
+        if (shuffleBag.length === 0) {
+          shuffleBag = shuffle(nodes);
+        }
+        return shuffleBag.pop();
+      }
+
+      let node = nodes[Math.floor(Math.random() * nodes.length)];
+      if (nodes.length > 1) {
+        while (node.dataset.keyId === lastPressedKeyId) {
+          node = nodes[Math.floor(Math.random() * nodes.length)];
+        }
+      }
+      lastPressedKeyId = node.dataset.keyId;
+      return node;
+    }
+
+    function scheduleExtraPulse(preset) {
+      const nodes = Array.from(inputDock.querySelectorAll("[data-press-role=\"extra\"]"));
+      if (!nodes.length) {
+        return;
+      }
+
+      const node = nextPulseNode(nodes, preset);
+      activateKeyNode(node, 150);
+
+      const delay = preset.extraPattern === "sequence"
+        ? 260
+        : preset.extraPattern === "shuffle"
+          ? 220 + Math.floor(Math.random() * 120)
+          : 240 + Math.floor(Math.random() * 180);
+      pulseTimerId = window.setTimeout(() => scheduleExtraPulse(preset), delay);
+    }
+
+    function startPulseLoops(preset) {
+      clearPulseLoops();
+      if (preset.extraFamily) {
+        scheduleExtraPulse(preset);
+      }
+      if (preset.extraFamily === "wildcard") {
+        wildcardTimerId = window.setInterval(reseedWildcardLabels, 1200);
+      }
+    }
+
+    function renderPreset(preset) {
+      setThemeVariables(preset);
+      renderPresetRail();
+      renderTurnRail(preset);
+      renderBossBand(preset);
+      renderPartyRack(preset);
+      renderBackdrop(preset);
+      renderInputDock(preset);
+      startPulseLoops(preset);
+    }
+
+    function selectPreset(presetId) {
+      currentPresetId = presetId;
+      renderPreset(getPresetById(presetId));
+    }
+
+    presetRail.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-preset]");
+      if (!button) {
+        return;
+      }
+      selectPreset(button.dataset.preset);
+    });
+
+    window.addEventListener("keydown", (event) => {
+      const preset = PRESETS.find((candidate) => candidate.hotkey === event.key);
+      if (preset) {
+        selectPreset(preset.id);
+        return;
+      }
+
+      const currentIndex = PRESETS.findIndex((candidate) => candidate.id === currentPresetId);
+      if (event.key === "ArrowRight") {
+        const nextIndex = (currentIndex + 1) % PRESETS.length;
+        selectPreset(PRESETS[nextIndex].id);
+      } else if (event.key === "ArrowLeft") {
+        const previousIndex = (currentIndex - 1 + PRESETS.length) % PRESETS.length;
+        selectPreset(PRESETS[previousIndex].id);
+      }
+    });
+
+    renderPreset(getPresetById(currentPresetId));
+  </script>
+</body>
+</html>
