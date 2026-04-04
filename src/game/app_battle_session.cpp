@@ -35,6 +35,7 @@
 
 #include "RmlUi_Platform_SDL.h"
 #include "RmlUi_Renderer_GL3.h"
+#include "audio/battle_voice_arbiter.h"
 #include "audio/battle_bgm_controller.h"
 #include "audio/bgm_player.h"
 #include "core/ability_system.h"
@@ -431,6 +432,100 @@ bool playBossHealedVoice(const battle::BattleState& battleState, float voiceVolu
         return playResolvedVoicePath(*healedVoice, voiceVolume, repeatCount);
     }
     return false;
+}
+
+std::optional<std::string> resolveCombatVoiceClipPath(
+    const std::string& assetName,
+    std::initializer_list<const char*> clipNames) {
+    if (assetName.empty()) {
+        return std::nullopt;
+    }
+
+    for (const char* clipName : clipNames) {
+        if (clipName == nullptr || *clipName == '\0') {
+            continue;
+        }
+        if (const auto clipPath = platform::path::resolveCombatVoicePath(assetName, clipName);
+            clipPath.has_value()) {
+            return *clipPath;
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::string normalizeVoiceLookupToken(const std::string& value) {
+    std::string normalized;
+    normalized.reserve(value.size());
+    for (unsigned char ch : value) {
+        if (std::isalnum(ch) != 0) {
+            normalized.push_back(static_cast<char>(std::tolower(ch)));
+        }
+    }
+    return normalized;
+}
+
+std::string combatVoiceSpeakerKey(const battle::CharacterDefinition& character) {
+    if (!character.voiceSpeakerId.empty()) {
+        return character.voiceSpeakerId;
+    }
+    if (!character.assets.empty()) {
+        return character.assets;
+    }
+    return character.key;
+}
+
+std::string combatVoiceSpeakerKey(const battle::BossDefinition& boss) {
+    if (!boss.voiceSpeakerId.empty()) {
+        return boss.voiceSpeakerId;
+    }
+    if (!boss.assets.empty()) {
+        return boss.assets;
+    }
+    return boss.key;
+}
+
+std::string inferScriptSpeakerKey(const vn::ScriptEntry& entry, const battle::BattleState& battleState) {
+    if (!entry.voiceSpeakerId.empty()) {
+        return entry.voiceSpeakerId;
+    }
+
+    const auto matchesCharacter = [&](const battle::CharacterDefinition& character,
+                                      const std::string& normalizedToken) {
+        return normalizedToken == normalizeVoiceLookupToken(character.assets) ||
+            normalizedToken == normalizeVoiceLookupToken(character.key) ||
+            normalizedToken == normalizeVoiceLookupToken(character.title);
+    };
+
+    if (!entry.icon.empty()) {
+        const std::string stem = std::filesystem::path(entry.icon).stem().string();
+        const std::string normalizedStem = normalizeVoiceLookupToken(stem);
+        for (const battle::CharacterDefinition& character : battleState.party) {
+            if (matchesCharacter(character, normalizedStem)) {
+                return combatVoiceSpeakerKey(character);
+            }
+        }
+        if (normalizedStem == normalizeVoiceLookupToken(battleState.boss.assets) ||
+            normalizedStem == normalizeVoiceLookupToken(battleState.boss.key) ||
+            normalizedStem == normalizeVoiceLookupToken(battleState.boss.title)) {
+            return combatVoiceSpeakerKey(battleState.boss);
+        }
+    }
+
+    const std::string normalizedSpeaker = normalizeVoiceLookupToken(entry.speaker);
+    for (const battle::CharacterDefinition& character : battleState.party) {
+        if (matchesCharacter(character, normalizedSpeaker)) {
+            return combatVoiceSpeakerKey(character);
+        }
+    }
+
+    if (normalizedSpeaker == normalizeVoiceLookupToken(battleState.boss.assets) ||
+        normalizedSpeaker == normalizeVoiceLookupToken(battleState.boss.key) ||
+        normalizedSpeaker == normalizeVoiceLookupToken(battleState.boss.title)) {
+        return combatVoiceSpeakerKey(battleState.boss);
+    }
+
+    return std::string();
 }
 
 using battle::app::ui::HudFeedbackState;
@@ -1731,12 +1826,17 @@ public:
                 vn::setVoiceVolume(settings_->voiceVolume);
                 vn::setTypewriterSpeed(settings_->textSpeed);
             }
+            narrative_.setDialogueLinePresenter([this](const vn::ScriptEntry& line) {
+                presentNarrativeLine(line);
+            });
             if (!narrative_.initialize(true)) {
                 std::cerr << "[Battle] Failed to initialize battle narrative flow.\n";
                 shutdown();
                 return false;
             }
             narrativeInitialized_ = true;
+        } else {
+            narrative_.setDialogueLinePresenter({});
         }
 
         initializeWorldEntities();
@@ -1890,6 +1990,11 @@ public:
     void shutdown() {
         initialized_ = false;
         resetIdleVoicelineState();
+        voiceArbiter_.stopAll([this](const game::audio::BattleVoicePlayback& playback) {
+            stopBattleVoicePlayback(playback);
+        });
+        tutorialVoiceHandle_.reset();
+        activeVnVoiceSpeakerKey_.clear();
         battle::ability::setPresentationInteractionRunner(nullptr);
         freeViewCameraDebugLog_.clear();
         closeSettingsMenuDocument();
@@ -1917,6 +2022,7 @@ public:
         sceneRenderer_.destroy();
         feedback_.shutdown();
         narrative_.shutdown();
+        narrative_.setDialogueLinePresenter({});
         vn::stopVoicePlayback();
         vn::shutdown();
 #ifdef BATTLE_ENABLE_TTF
@@ -1931,6 +2037,7 @@ public:
         gBattleBgmController.detach();
         gOneShotAudio.shutdown();
         gOneShotAudio.cleanupFinishedPlayback();
+        voiceArbiter_.clear();
 #ifdef BATTLE_ENABLE_IMAGE
         if (imageInitialized_) {
             IMG_Quit();
@@ -2094,6 +2201,7 @@ public:
                 }
             } else if (event.key.keysym.sym == SDLK_SPACE && isDialogueInProgress()) {
                 narrative_.onDialogueSpacePressed();
+                syncFinishedBattleVoiceState();
                 return;
             } else if (event.key.keysym.sym == SDLK_SPACE && tutorialOverlay_.step != TutorialStep::None) {
                 const float textSpeed = settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond;
@@ -2106,12 +2214,18 @@ public:
                 if (revealed.size() < tutorialOverlay_.entry.text.size()) {
                     tutorialOverlay_.startedMs = 0;
                 } else {
-                    gOneShotAudio.shutdown();
+                    if (tutorialVoiceHandle_.has_value()) {
+                        gOneShotAudio.stopPlayback(*tutorialVoiceHandle_);
+                        tutorialVoiceHandle_.reset();
+                    }
                     completeTutorialStep(tutorialOverlay_, &hudFeedback_);
                 }
                 return;
             } else if (event.key.keysym.sym == SDLK_BACKSPACE && tutorialOverlay_.step != TutorialStep::None) {
-                gOneShotAudio.shutdown();
+                if (tutorialVoiceHandle_.has_value()) {
+                    gOneShotAudio.stopPlayback(*tutorialVoiceHandle_);
+                    tutorialVoiceHandle_.reset();
+                }
                 skipAllTutorials(tutorialOverlay_, &hudFeedback_);
             } else if (event.key.keysym.sym == SDLK_BACKSPACE && dismissNewestManualBattleHint(hudFeedback_)) {
                 return;
@@ -2157,12 +2271,7 @@ public:
                     if (allowAutoTurns) {
                         manager_.processAutomaticTurns();
                     }
-                    consumeBattleActionEvents(
-                        hudFeedback_,
-                        manager_,
-                        settings_ != nullptr ? settings_->voiceVolume : 1.0f,
-                        nowMs,
-                        &cameraStaging_);
+                    consumeBattleActionEvents(nowMs, &cameraStaging_);
                     return;
                     // Legacy replacement of the multi-action controls:
                     // attemptAction(battle::BattleAction::Ultimate);
@@ -2198,6 +2307,7 @@ public:
         tickHudFeedback(hudFeedback_, nowMs);
         gOneShotAudio.cleanupFinishedPlayback();
         gPresentationSfxAudio.cleanupFinishedPlayback();
+        syncFinishedBattleVoiceState();
         gBattleBgmController.update(deltaSeconds);
 
         if (discardNextUpdateDelta_) {
@@ -2277,25 +2387,27 @@ public:
             vn::setPaused(false);
             syncNarrativeSettings();
             vn::update(deltaSeconds);
+            syncFinishedBattleVoiceState();
             narrative_.maybeStartBossDefeatedDialogue(manager_);
             narrative_.handleAutomaticProgression(manager_);
         } else {
             manager_.processAutomaticTurns();
         }
 
-        consumeBattleActionEvents(
-            hudFeedback_,
-            manager_,
-            settings_ != nullptr ? settings_->voiceVolume : 1.0f,
-            nowMs,
-            &cameraStaging_);
+        consumeBattleActionEvents(nowMs, &cameraStaging_);
         feedback_.syncFromManager(manager_, presentationPlaybackActive_);
         feedback_.update(deltaSeconds);
         maybeStartTutorial(nowMs);
         if (tutorialEnabled_ && tutorialOverlay_.step != TutorialStep::None &&
             !tutorialOverlay_.audioPlayed && !tutorialOverlay_.entry.voice.empty()) {
-            if (gOneShotAudio.playWavOneShot(platform::path::resolvePath(tutorialOverlay_.entry.voice),
-                                             settings_ != nullptr ? settings_->voiceVolume : 1.0f)) {
+            const std::string speakerKey = resolveScriptVoiceSpeakerKey(tutorialOverlay_.entry);
+            std::optional<game::audio::WavOneShotPlayer::PlaybackHandle> startedHandle;
+            if (requestBattleVoicePath(speakerKey,
+                                       game::audio::BattleVoiceKind::Dialogue,
+                                       tutorialOverlay_.entry.voice,
+                                       currentVoiceVolume(),
+                                       &startedHandle)) {
+                tutorialVoiceHandle_ = startedHandle;
                 tutorialOverlay_.audioPlayed = true;
             }
         }
@@ -2924,6 +3036,414 @@ private:
         return settings_ != nullptr ? settings_->voiceVolume : 1.0f;
     }
 
+    std::string characterVoiceSpeakerKey(int partyIndex) const {
+        const battle::BattleState& battleState = manager_.getBattleState();
+        if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= battleState.party.size()) {
+            return std::string();
+        }
+        return combatVoiceSpeakerKey(battleState.party[static_cast<size_t>(partyIndex)]);
+    }
+
+    std::string bossVoiceSpeakerKey() const {
+        return combatVoiceSpeakerKey(manager_.getBattleState().boss);
+    }
+
+    std::string presentationCasterVoiceSpeakerKey(const battle::PresentationContext& context) const {
+        return context.isBoss ? bossVoiceSpeakerKey() : characterVoiceSpeakerKey(context.casterIndex);
+    }
+
+    std::string resolveScriptVoiceSpeakerKey(const vn::ScriptEntry& entry) const {
+        return inferScriptSpeakerKey(entry, manager_.getBattleState());
+    }
+
+    bool shouldCancelIdleForVoiceKind(game::audio::BattleVoiceKind kind) const {
+        switch (kind) {
+            case game::audio::BattleVoiceKind::Dialogue:
+            case game::audio::BattleVoiceKind::UltimateActivation:
+            case game::audio::BattleVoiceKind::Ultimate:
+            case game::audio::BattleVoiceKind::Ability:
+            case game::audio::BattleVoiceKind::Revived:
+            case game::audio::BattleVoiceKind::Dead:
+                return true;
+            case game::audio::BattleVoiceKind::Hit:
+            case game::audio::BattleVoiceKind::Healed:
+            case game::audio::BattleVoiceKind::Shielded:
+            case game::audio::BattleVoiceKind::Idle:
+            default:
+                return false;
+        }
+    }
+
+    void syncFinishedBattleVoiceState() {
+        if (!activeVnVoiceSpeakerKey_.empty() && !vn::isVoicePlaying()) {
+            activeVnVoiceSpeakerKey_.clear();
+        }
+        if (tutorialVoiceHandle_.has_value() && !gOneShotAudio.isPlaying(*tutorialVoiceHandle_)) {
+            tutorialVoiceHandle_.reset();
+        }
+    }
+
+    bool isBattleVoicePlaybackActive(const game::audio::BattleVoicePlayback& playback) const {
+        switch (playback.channel) {
+            case game::audio::BattleVoiceChannel::OneShot:
+                return gOneShotAudio.isPlaying(
+                    game::audio::WavOneShotPlayer::PlaybackHandle{playback.handleId});
+            case game::audio::BattleVoiceChannel::Vn:
+                return !activeVnVoiceSpeakerKey_.empty() &&
+                    activeVnVoiceSpeakerKey_ == playback.speakerKey &&
+                    vn::isVoicePlaying();
+            default:
+                return false;
+        }
+    }
+
+    void stopBattleVoicePlayback(const game::audio::BattleVoicePlayback& playback) {
+        switch (playback.channel) {
+            case game::audio::BattleVoiceChannel::OneShot:
+                gOneShotAudio.stopPlayback(game::audio::WavOneShotPlayer::PlaybackHandle{playback.handleId});
+                break;
+            case game::audio::BattleVoiceChannel::Vn:
+                vn::stopVoicePlayback();
+                if (activeVnVoiceSpeakerKey_ == playback.speakerKey) {
+                    activeVnVoiceSpeakerKey_.clear();
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    bool requestBattleVoice(const std::string& speakerKey,
+                            game::audio::BattleVoiceKind kind,
+                            game::audio::BattleVoiceChannel channel,
+                            const std::optional<std::string>& resolvedPath,
+                            float volume,
+                            std::optional<game::audio::WavOneShotPlayer::PlaybackHandle>* startedHandle = nullptr) {
+        syncFinishedBattleVoiceState();
+        if (shouldCancelIdleForVoiceKind(kind)) {
+            stopIdleVoicelinePlayback();
+        }
+
+        std::optional<game::audio::WavOneShotPlayer::PlaybackHandle> localHandle;
+        const bool played = voiceArbiter_.request(
+            {speakerKey, kind, channel},
+            {
+                [this](const game::audio::BattleVoicePlayback& playback) {
+                    return isBattleVoicePlaybackActive(playback);
+                },
+                [this](const game::audio::BattleVoicePlayback& playback) {
+                    stopBattleVoicePlayback(playback);
+                },
+                [&]() -> std::optional<std::uint64_t> {
+                    if (channel != game::audio::BattleVoiceChannel::OneShot ||
+                        !resolvedPath.has_value() ||
+                        resolvedPath->empty() ||
+                        !std::filesystem::exists(*resolvedPath)) {
+                        return std::nullopt;
+                    }
+
+                    localHandle = gOneShotAudio.playTrackedWavOneShot(*resolvedPath, volume, false);
+                    if (!localHandle.has_value()) {
+                        return std::nullopt;
+                    }
+                    return localHandle->id;
+                }
+            });
+
+        if (startedHandle != nullptr) {
+            *startedHandle = localHandle;
+        }
+        return played;
+    }
+
+    bool requestBattleVoicePath(const std::string& speakerKey,
+                                game::audio::BattleVoiceKind kind,
+                                const std::string& path,
+                                float volume,
+                                std::optional<game::audio::WavOneShotPlayer::PlaybackHandle>* startedHandle = nullptr) {
+        if (path.empty()) {
+            return false;
+        }
+        const std::string resolved = platform::path::resolvePath(path);
+        if (!std::filesystem::exists(resolved)) {
+            return false;
+        }
+        return requestBattleVoice(
+            speakerKey,
+            kind,
+            game::audio::BattleVoiceChannel::OneShot,
+            resolved,
+            volume,
+            startedHandle);
+    }
+
+    bool requestCombatVoiceClip(const std::string& speakerKey,
+                                const std::string& assetName,
+                                game::audio::BattleVoiceKind kind,
+                                float volume,
+                                std::initializer_list<const char*> clipNames,
+                                std::optional<game::audio::WavOneShotPlayer::PlaybackHandle>* startedHandle = nullptr) {
+        const std::optional<std::string> resolvedPath = resolveCombatVoiceClipPath(assetName, clipNames);
+        if (!resolvedPath.has_value()) {
+            return false;
+        }
+        return requestBattleVoice(
+            speakerKey,
+            kind,
+            game::audio::BattleVoiceChannel::OneShot,
+            *resolvedPath,
+            volume,
+            startedHandle);
+    }
+
+    bool playBossHitVoice(float voiceVolume) {
+        const battle::BattleState& battleState = manager_.getBattleState();
+        const std::string speakerKey = bossVoiceSpeakerKey();
+        if (requestBattleVoicePath(speakerKey, game::audio::BattleVoiceKind::Hit, battleState.boss.voiceHit, voiceVolume)) {
+            return true;
+        }
+        if (requestCombatVoiceClip(speakerKey, battleState.boss.assets, game::audio::BattleVoiceKind::Hit, voiceVolume, {"hit"})) {
+            return true;
+        }
+        return requestCombatVoiceClip(speakerKey, battleState.boss.key, game::audio::BattleVoiceKind::Hit, voiceVolume, {"hit"});
+    }
+
+    bool playBossHealedVoice(float voiceVolume) {
+        const battle::BattleState& battleState = manager_.getBattleState();
+        const std::string speakerKey = bossVoiceSpeakerKey();
+        if (const auto healedVoice = resolveBossHealedVoicePath(battleState); healedVoice.has_value()) {
+            return requestBattleVoice(speakerKey,
+                                      game::audio::BattleVoiceKind::Healed,
+                                      game::audio::BattleVoiceChannel::OneShot,
+                                      *healedVoice,
+                                      voiceVolume);
+        }
+        return false;
+    }
+
+    bool playPartyVoiceClip(int partyIndex,
+                            game::audio::BattleVoiceKind kind,
+                            float volume,
+                            std::initializer_list<const char*> clipNames) {
+        const battle::BattleState& battleState = manager_.getBattleState();
+        if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= battleState.party.size()) {
+            return false;
+        }
+        const battle::CharacterDefinition& character = battleState.party[static_cast<size_t>(partyIndex)];
+        return requestCombatVoiceClip(combatVoiceSpeakerKey(character), character.assets, kind, volume, clipNames);
+    }
+
+    bool lockPartySpeakerState(int partyIndex, game::audio::BattleVoiceKind kind) {
+        const battle::BattleState& battleState = manager_.getBattleState();
+        if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= battleState.party.size()) {
+            return false;
+        }
+        return requestBattleVoice(
+            combatVoiceSpeakerKey(battleState.party[static_cast<size_t>(partyIndex)]),
+            kind,
+            game::audio::BattleVoiceChannel::OneShot,
+            std::nullopt,
+            currentVoiceVolume());
+    }
+
+    bool lockBossSpeakerState(game::audio::BattleVoiceKind kind) {
+        return requestBattleVoice(
+            bossVoiceSpeakerKey(),
+            kind,
+            game::audio::BattleVoiceChannel::OneShot,
+            std::nullopt,
+            currentVoiceVolume());
+    }
+
+    void presentNarrativeLine(const vn::ScriptEntry& line) {
+        const std::string speakerName = vn::getDisplaySpeakerName(line);
+        const std::string iconPath = line.icon.empty() ? std::string{} : platform::path::resolvePath(line.icon);
+        const std::string backgroundPath = line.background.empty()
+            ? std::string{}
+            : (vn::isHexColorString(line.background) ? line.background : platform::path::resolvePath(line.background));
+        const std::string voicePath = line.voice.empty() ? std::string{} : platform::path::resolvePath(line.voice);
+        const std::string bgmPath = line.bgm.empty() ? std::string{} : platform::path::resolvePath(line.bgm);
+        const std::string fontPath = line.fontPath.empty() ? std::string{} : platform::path::resolvePath(line.fontPath);
+        const std::string speakerKey = resolveScriptVoiceSpeakerKey(line);
+
+        bool allowVoice = false;
+        if (!voicePath.empty() && std::filesystem::exists(voicePath)) {
+            syncFinishedBattleVoiceState();
+            if (shouldCancelIdleForVoiceKind(game::audio::BattleVoiceKind::Dialogue)) {
+                stopIdleVoicelinePlayback();
+            }
+            allowVoice = voiceArbiter_.request(
+                {speakerKey, game::audio::BattleVoiceKind::Dialogue, game::audio::BattleVoiceChannel::Vn},
+                {
+                    [this](const game::audio::BattleVoicePlayback& playback) {
+                        return isBattleVoicePlaybackActive(playback);
+                    },
+                    [this](const game::audio::BattleVoicePlayback& playback) {
+                        stopBattleVoicePlayback(playback);
+                    },
+                    []() -> std::optional<std::uint64_t> {
+                        return 1;
+                    }
+                });
+        }
+
+        vn::showLine(
+            line.text,
+            speakerName,
+            iconPath,
+            allowVoice ? voicePath : std::string{},
+            fontPath,
+            line.autoAdvanceOnVoiceEnd,
+            line.iconFrameCount,
+            line.iconFps,
+            backgroundPath,
+            bgmPath,
+            line.bgmVolume,
+            line.bgmStop,
+            line.bgmPause
+        );
+
+        activeVnVoiceSpeakerKey_ = allowVoice ? speakerKey : std::string();
+    }
+
+    void consumeBattleActionEvents(Uint64 nowMs,
+                                   battle::render::BattleCameraStaging* cameraStaging = nullptr) {
+        const battle::BattleState& battleState = manager_.getBattleState();
+        const float voiceVolume = currentVoiceVolume();
+        for (const battle::BattleActionEvent& event : manager_.getRecentActionEvents()) {
+            if (cameraStaging != nullptr && event.actorType == battle::ParticipantType::Boss) {
+                cameraStaging->queueCharacterTurnIntro();
+            }
+
+            resolveBattleHintsFromActionEvent(hudFeedback_, event);
+
+            const bool actorIsBoss = event.actorType == battle::ParticipantType::Boss;
+            const std::string actorSpeakerKey = actorIsBoss
+                ? bossVoiceSpeakerKey()
+                : characterVoiceSpeakerKey(event.actorPartyIndex);
+            const std::string actorAssetName = actorIsBoss
+                ? battleState.boss.assets
+                : ((event.actorPartyIndex >= 0 &&
+                    static_cast<size_t>(event.actorPartyIndex) < battleState.party.size())
+                    ? battleState.party[static_cast<size_t>(event.actorPartyIndex)].assets
+                    : std::string());
+
+            if (!event.abilityVoicesHandledDuringPresentation && event.action == battle::BattleAction::Skill) {
+                if (!requestCombatVoiceClip(actorSpeakerKey,
+                                            actorAssetName,
+                                            game::audio::BattleVoiceKind::Ability,
+                                            voiceVolume,
+                                            {"ability", "skill"}) &&
+                    actorIsBoss) {
+                    (void)requestCombatVoiceClip(actorSpeakerKey,
+                                                 battleState.boss.key,
+                                                 game::audio::BattleVoiceKind::Ability,
+                                                 voiceVolume,
+                                                 {"ability", "skill"});
+                }
+            } else if (!event.abilityVoicesHandledDuringPresentation && event.action == battle::BattleAction::Ultimate) {
+                if (!requestCombatVoiceClip(actorSpeakerKey,
+                                            actorAssetName,
+                                            game::audio::BattleVoiceKind::Ultimate,
+                                            voiceVolume,
+                                            {"ultimate", "ability"}) &&
+                    actorIsBoss) {
+                    (void)requestCombatVoiceClip(actorSpeakerKey,
+                                                 battleState.boss.key,
+                                                 game::audio::BattleVoiceKind::Ultimate,
+                                                 voiceVolume,
+                                                 {"ultimate", "ability"});
+                }
+            }
+
+            if (event.bossHpAfter < event.bossHpBefore) {
+                markBossHit(hudFeedback_, nowMs);
+            } else if (event.bossHpAfter > event.bossHpBefore) {
+                (void)playBossHealedVoice(voiceVolume);
+            }
+
+            if (!event.hitVoicesHandledDuringPresentation && event.bossHpAfter < event.bossHpBefore) {
+                if (event.bossHpBefore > 0 && event.bossHpAfter <= 0) {
+                    const auto deadVoice = resolveBossDeadVoicePath(battleState);
+                    if (deadVoice.has_value()) {
+                        (void)requestBattleVoice(
+                            bossVoiceSpeakerKey(),
+                            game::audio::BattleVoiceKind::Dead,
+                            game::audio::BattleVoiceChannel::OneShot,
+                            *deadVoice,
+                            voiceVolume);
+                    } else {
+                        (void)lockBossSpeakerState(game::audio::BattleVoiceKind::Dead);
+                    }
+                } else {
+                    (void)playBossHitVoice(voiceVolume);
+                }
+            }
+
+            if (event.hitVoicesHandledDuringPresentation) {
+                for (size_t i = 0; i < event.targetPartyIndices.size() &&
+                                   i < event.targetHpBefore.size() &&
+                                   i < event.targetHpAfter.size(); ++i) {
+                    if (event.targetHpAfter[i] < event.targetHpBefore[i]) {
+                        markUnitHit(hudFeedback_, event.targetPartyIndices[i], nowMs);
+                    }
+                }
+            }
+
+            const std::size_t targetCount = std::min(
+                {event.targetPartyIndices.size(),
+                 event.targetHpBefore.size(),
+                 event.targetHpAfter.size(),
+                 event.targetShieldBefore.size(),
+                 event.targetShieldAfter.size()});
+            for (std::size_t i = 0; i < targetCount; ++i) {
+                const int partyIndex = event.targetPartyIndices[i];
+                if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= battleState.party.size()) {
+                    continue;
+                }
+
+                const int hpBefore = event.targetHpBefore[i];
+                const int hpAfter = event.targetHpAfter[i];
+                const int shieldBefore = event.targetShieldBefore[i];
+                const int shieldAfter = event.targetShieldAfter[i];
+
+                if (hpAfter < hpBefore) {
+                    if (event.hitVoicesHandledDuringPresentation) {
+                        continue;
+                    }
+
+                    markUnitHit(hudFeedback_, partyIndex, nowMs);
+                    if (hpBefore > 0 && hpAfter <= 0) {
+                        if (!playPartyVoiceClip(partyIndex, game::audio::BattleVoiceKind::Dead, voiceVolume, {"dead"})) {
+                            (void)lockPartySpeakerState(partyIndex, game::audio::BattleVoiceKind::Dead);
+                        }
+                    } else if (hpAfter > 0) {
+                        (void)playPartyVoiceClip(partyIndex, game::audio::BattleVoiceKind::Hit, voiceVolume, {"hit"});
+                    }
+                    continue;
+                }
+
+                if (hpBefore <= 0 && hpAfter > 0) {
+                    if (!playPartyVoiceClip(partyIndex, game::audio::BattleVoiceKind::Revived, voiceVolume, {"revived"})) {
+                        (void)lockPartySpeakerState(partyIndex, game::audio::BattleVoiceKind::Revived);
+                    }
+                    continue;
+                }
+
+                if (hpAfter > hpBefore) {
+                    (void)playPartyVoiceClip(partyIndex, game::audio::BattleVoiceKind::Healed, voiceVolume, {"healed"});
+                    continue;
+                }
+
+                if (shieldAfter > shieldBefore) {
+                    (void)playPartyVoiceClip(partyIndex, game::audio::BattleVoiceKind::Shielded, voiceVolume, {"shielded"});
+                }
+            }
+        }
+
+        manager_.clearRecentActionEvents();
+    }
+
     bool areBattleHintTimeoutsSuppressed() const {
         return paused_ || resultOverlay_.active || isBattleVsIntroBlocking();
     }
@@ -3263,16 +3783,21 @@ private:
 
         const float voiceVolume = currentVoiceVolume();
         const battle::BattleState& battleState = manager_.getBattleState();
+        const std::string speakerKey = presentationCasterVoiceSpeakerKey(context);
         if (context.isBoss && context.presentationId == "qr_code_attack") {
             for (int i = 0; i < cueCount; ++i) {
-                (void)playCombatVoiceClip(battleState.boss.key, "ability", voiceVolume);
+                (void)requestCombatVoiceClip(speakerKey,
+                                             battleState.boss.key,
+                                             game::audio::BattleVoiceKind::Ability,
+                                             voiceVolume,
+                                             {"ability"});
             }
             manager_.markPresentationAbilityAudioPlayed();
             return;
         }
 
         if (context.isBoss) {
-            const std::string audioSequenceId = battleState.boss.key + "|" + context.presentationId;
+            const std::string audioSequenceId = speakerKey + "|" + context.presentationId;
             if (presentationAudioSequenceId_ != audioSequenceId) {
                 presentationAudioSequenceId_ = audioSequenceId;
                 presentationAudioCueIndex_ = 0;
@@ -3280,18 +3805,26 @@ private:
 
             for (int i = 0; i < cueCount; ++i) {
                 ++presentationAudioCueIndex_;
-                if (playCombatVoiceClip(battleState.boss.key, "ability", voiceVolume)) {
+                if (requestCombatVoiceClip(speakerKey,
+                                           battleState.boss.key,
+                                           game::audio::BattleVoiceKind::Ability,
+                                           voiceVolume,
+                                           {"ability"})) {
                     continue;
                 }
-                (void)playCombatVoiceClip(battleState.boss.assets, "ability", voiceVolume);
+                (void)requestCombatVoiceClip(speakerKey,
+                                             battleState.boss.assets,
+                                             game::audio::BattleVoiceKind::Ability,
+                                             voiceVolume,
+                                             {"ability"});
             }
 
             manager_.markPresentationAbilityAudioPlayed();
             return;
         }
 
-        const std::string casterVoiceKey = getPresentationCasterVoiceKey(context, manager_);
-        const std::string audioSequenceId = casterVoiceKey + "|" + context.presentationId;
+        const std::string casterAssetName = getPresentationCasterVoiceKey(context, manager_);
+        const std::string audioSequenceId = speakerKey + "|" + context.presentationId;
         if (presentationAudioSequenceId_ != audioSequenceId) {
             presentationAudioSequenceId_ = audioSequenceId;
             presentationAudioCueIndex_ = 0;
@@ -3301,20 +3834,28 @@ private:
             ++presentationAudioCueIndex_;
 
             std::string clipName = "ability";
-            if (casterVoiceKey == "cupcakke" && context.presentationId == "drum_attack") {
+            if (casterAssetName == "cupcakke" && context.presentationId == "drum_attack") {
                 clipName = (presentationAudioCueIndex_ == 1) ? "ability" : "ability2";
-            } else if (casterVoiceKey == "cupcakke" && context.presentationId == "niagara_falls_ultimate") {
+            } else if (casterAssetName == "cupcakke" && context.presentationId == "niagara_falls_ultimate") {
                 clipName = (presentationAudioCueIndex_ == 1) ? "ultimate" : "ability2";
             } else if (context.isUltimate) {
                 clipName = "ultimate";
             }
 
-            if (playCombatVoiceClip(casterVoiceKey, clipName, voiceVolume)) {
+            const game::audio::BattleVoiceKind kind =
+                clipName == "ultimate"
+                ? game::audio::BattleVoiceKind::Ultimate
+                : game::audio::BattleVoiceKind::Ability;
+            if (requestCombatVoiceClip(speakerKey, casterAssetName, kind, voiceVolume, {clipName.c_str()})) {
                 continue;
             }
 
             if ((clipName == "ultimate" || clipName == "ability2") &&
-                playCombatVoiceClip(casterVoiceKey, "ability", voiceVolume)) {
+                requestCombatVoiceClip(speakerKey,
+                                       casterAssetName,
+                                       game::audio::BattleVoiceKind::Ability,
+                                       voiceVolume,
+                                       {"ability"})) {
                 continue;
             }
         }
@@ -3323,18 +3864,8 @@ private:
     }
 
     void handlePresentationHealAudio(const battle::PresentationContext& context, int hitEvents) {
-        if (context.isBoss || hitEvents <= 0) {
-            return;
-        }
-
-        const float voiceVolume = currentVoiceVolume();
-        const battle::BattleState& battleState = manager_.getBattleState();
-        for (size_t i = 0; i < battleState.party.size(); ++i) {
-            if (manager_.getCharacterCurrentHp(static_cast<int>(i)) <= 0) {
-                continue;
-            }
-            (void)playCombatVoiceClip(battleState.party[i].assets, "healed", voiceVolume);
-        }
+        (void)context;
+        (void)hitEvents;
     }
 
     /**
@@ -3362,6 +3893,7 @@ private:
         const battle::BattleState& battleState = manager_.getBattleState();
         if (context.isBoss) {
             auto handlePartyHitAudio = [&](int partyIndex, int repeatCount) {
+                (void)repeatCount;
                 if (partyIndex < 0 || partyIndex >= static_cast<int>(battleState.party.size()) ||
                     static_cast<size_t>(partyIndex) >= partyHpBefore.size()) {
                     return;
@@ -3369,14 +3901,11 @@ private:
 
                 const int nowHp = manager_.getCharacterCurrentHp(partyIndex);
                 const int prevHp = partyHpBefore[static_cast<size_t>(partyIndex)];
-                const std::string& assetKey = battleState.party[static_cast<size_t>(partyIndex)].assets;
                 const bool diedNow = prevHp > 0 && nowHp <= 0;
-                const auto deadVoice = platform::path::resolveCombatVoicePath(assetKey, "dead");
-                if (diedNow && deadVoice.has_value()) {
-                    if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
-                        gOneShotAudio.stopPlayback(*hitVoice);
+                if (diedNow) {
+                    if (!playPartyVoiceClip(partyIndex, game::audio::BattleVoiceKind::Dead, voiceVolume, {"dead"})) {
+                        (void)lockPartySpeakerState(partyIndex, game::audio::BattleVoiceKind::Dead);
                     }
-                    (void)gOneShotAudio.playWavOneShot(*deadVoice, voiceVolume);
                     return;
                 }
 
@@ -3384,11 +3913,7 @@ private:
                     return;
                 }
 
-                if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
-                    for (int hit = 0; hit < repeatCount; ++hit) {
-                        (void)gOneShotAudio.playWavOneShot(*hitVoice, voiceVolume);
-                    }
-                }
+                (void)playPartyVoiceClip(partyIndex, game::audio::BattleVoiceKind::Hit, voiceVolume, {"hit"});
             };
 
             if (targetPartyIndex >= 0 && targetPartyIndex < static_cast<int>(battleState.party.size())) {
@@ -3405,16 +3930,9 @@ private:
             return;
         }
 
-        const std::string casterVoiceKey = getPresentationCasterVoiceKey(context, manager_);
-        if (context.presentationId == "drum_attack" && casterVoiceKey == "cupcakke") {
-            (void)playCombatVoiceClip(casterVoiceKey, "ability2", voiceVolume, hitEvents);
-            manager_.markPresentationHitAudioPlayed();
-            return;
-        }
-
         const int nowBossHp = manager_.getBossCurrentHp();
         if (manager_.playerDamageHealsBoss() && nowBossHp > bossHpBefore) {
-            (void)playBossHealedVoice(battleState, voiceVolume, hitEvents);
+            (void)playBossHealedVoice(voiceVolume);
             manager_.markPresentationHitAudioPlayed();
             return;
         }
@@ -3422,17 +3940,22 @@ private:
             markBossHit(hudFeedback_, SDL_GetTicks64());
         }
         const bool bossDiedNow = bossHpBefore > 0 && nowBossHp <= 0;
-        const auto bossDeadVoice = resolveBossDeadVoicePath(battleState);
-        if (bossDiedNow && bossDeadVoice.has_value()) {
-            if (const auto bossHitVoice = resolveBossHitVoicePath(battleState); bossHitVoice.has_value()) {
-                gOneShotAudio.stopPlayback(*bossHitVoice);
+        if (bossDiedNow) {
+            if (const auto bossDeadVoice = resolveBossDeadVoicePath(battleState); bossDeadVoice.has_value()) {
+                (void)requestBattleVoice(
+                    bossVoiceSpeakerKey(),
+                    game::audio::BattleVoiceKind::Dead,
+                    game::audio::BattleVoiceChannel::OneShot,
+                    *bossDeadVoice,
+                    voiceVolume);
+            } else {
+                (void)lockBossSpeakerState(game::audio::BattleVoiceKind::Dead);
             }
-            (void)gOneShotAudio.playWavOneShot(*bossDeadVoice, voiceVolume);
             manager_.markPresentationHitAudioPlayed();
             return;
         }
 
-        (void)playBossHitVoice(battleState, voiceVolume, hitEvents);
+        (void)playBossHitVoice(voiceVolume);
         manager_.markPresentationHitAudioPlayed();
     }
 
@@ -3832,6 +4355,22 @@ private:
             const Uint64 nowMs = SDL_GetTicks64();
             showToast(hudFeedback_, "CANNOT PAUSE DURING A CUTSCENE.", nowMs, 1800);
             syncHudDocument(nowMs);
+        };
+        callbacks.onSplashArtStart = [this, &context]() {
+            const std::string speakerKey = presentationCasterVoiceSpeakerKey(context);
+            const std::string assetName = getPresentationCasterVoiceKey(context, manager_);
+            if (!requestCombatVoiceClip(speakerKey,
+                                        assetName,
+                                        game::audio::BattleVoiceKind::UltimateActivation,
+                                        currentVoiceVolume(),
+                                        {"ready", "special"}) &&
+                context.isBoss) {
+                (void)requestCombatVoiceClip(speakerKey,
+                                             manager_.getBattleState().boss.key,
+                                             game::audio::BattleVoiceKind::UltimateActivation,
+                                             currentVoiceVolume(),
+                                             {"ready", "special"});
+            }
         };
 
         const battle::presentation_runtime::PlaybackResult result =
@@ -5172,12 +5711,7 @@ private:
         completeTutorialForAction(battle::BattleAction::Skill);
         flushBufferedManualUltimateRequests(nowMs);
         manager_.processAutomaticTurns();
-        consumeBattleActionEvents(
-            hudFeedback_,
-            manager_,
-            settings_ != nullptr ? settings_->voiceVolume : 1.0f,
-            nowMs,
-            &cameraStaging_);
+        consumeBattleActionEvents(nowMs, &cameraStaging_);
     }
 
     void attemptAction(battle::BattleAction action) {
@@ -5220,12 +5754,7 @@ private:
         }
         completeTutorialForAction(action);
         manager_.processAutomaticTurns();
-        consumeBattleActionEvents(
-            hudFeedback_,
-            manager_,
-            settings_ != nullptr ? settings_->voiceVolume : 1.0f,
-            nowMs,
-            &cameraStaging_);
+        consumeBattleActionEvents(nowMs, &cameraStaging_);
     }
 
     void onActiveActorChanged(const battle::TurnActor* actor, const battle::BattleState& state, Uint64 nowMs) {
@@ -5243,7 +5772,7 @@ private:
         stopIdleVoicelinePlayback();
         idleActorPartyIndex_ = partyIndex;
         idleVoiceClipPath_ = findIdleVoicePath(assetName);
-        idlePlayingPath_.clear();
+        idlePlayingHandle_.reset();
         idleNextPlayMs_ = idleVoiceClipPath_.has_value() ? nowMs + kIdleDelayMs : 0;
     }
 
@@ -5255,9 +5784,9 @@ private:
     }
 
     void stopIdleVoicelinePlayback() {
-        if (!idlePlayingPath_.empty()) {
-            gOneShotAudio.stopPlayback(idlePlayingPath_);
-            idlePlayingPath_.clear();
+        if (idlePlayingHandle_.has_value()) {
+            gOneShotAudio.stopPlayback(*idlePlayingHandle_);
+            idlePlayingHandle_.reset();
         }
     }
 
@@ -5278,15 +5807,25 @@ private:
             return;
         }
 
+        if (tutorialOverlay_.step != TutorialStep::None ||
+            isDialogueInProgress() ||
+            presentationPlaybackActive_ ||
+            activeUltimateTurnSplash_ != nullptr ||
+            rhythmChallenge_.active ||
+            manager_.isBattleOver()) {
+            stopIdleVoicelinePlayback();
+            return;
+        }
+
         const std::optional<int> activeIndex = getActiveCharacterPartyIndex(manager_);
         if (!activeIndex.has_value() || activeIndex != idleActorPartyIndex_) {
             resetIdleVoicelineState();
             return;
         }
 
-        if (!idlePlayingPath_.empty()) {
-            if (!gOneShotAudio.isPlaying(idlePlayingPath_)) {
-                idlePlayingPath_.clear();
+        if (idlePlayingHandle_.has_value()) {
+            if (!gOneShotAudio.isPlaying(*idlePlayingHandle_)) {
+                idlePlayingHandle_.reset();
                 idleNextPlayMs_ = nowMs + kIdleDelayMs;
             }
             return;
@@ -5296,9 +5835,14 @@ private:
             return;
         }
 
-        const float voiceVolume = settings_ != nullptr ? settings_->voiceVolume : 1.0f;
-        if (gOneShotAudio.playWavOneShot(*idleVoiceClipPath_, voiceVolume)) {
-            idlePlayingPath_ = *idleVoiceClipPath_;
+        std::optional<game::audio::WavOneShotPlayer::PlaybackHandle> startedHandle;
+        if (requestBattleVoice(characterVoiceSpeakerKey(*idleActorPartyIndex_),
+                               game::audio::BattleVoiceKind::Idle,
+                               game::audio::BattleVoiceChannel::OneShot,
+                               *idleVoiceClipPath_,
+                               currentVoiceVolume(),
+                               &startedHandle)) {
+            idlePlayingHandle_ = startedHandle;
             idleNextPlayMs_ = 0;
         } else {
             idleNextPlayMs_ = nowMs + kIdleDelayMs;
@@ -5402,9 +5946,12 @@ private:
     int presentationAudioCueIndex_ = 0;
     std::optional<int> idleActorPartyIndex_;
     std::optional<std::string> idleVoiceClipPath_;
-    std::string idlePlayingPath_;
+    std::optional<game::audio::WavOneShotPlayer::PlaybackHandle> idlePlayingHandle_;
     Uint64 idleNextPlayMs_ = 0;
     std::unordered_map<std::string, std::optional<std::string>> idleVoicePathCache_;
+    game::audio::BattleVoiceArbiter voiceArbiter_;
+    std::optional<game::audio::WavOneShotPlayer::PlaybackHandle> tutorialVoiceHandle_;
+    std::string activeVnVoiceSpeakerKey_;
     std::string bossPhaseIntroHintText_;
     std::string lastTurnToken_;
     bool frameTimingEnabled_ = false;

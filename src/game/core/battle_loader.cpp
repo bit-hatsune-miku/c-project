@@ -248,6 +248,7 @@ bool parseBossDefinition(const json& bossJson, const std::string& key, BossDefin
     outBoss.title = bossJson.value("title", key);
     outBoss.assets = bossJson.value("assets", "");
     outBoss.voiceHit = bossJson.value("voiceHit", "");
+    outBoss.voiceSpeakerId = bossJson.value("voiceSpeakerId", "");
     outBoss.spd = bossJson.value("spd", 0);
     outBoss.atk = bossJson.value("atk", 0);
     outBoss.hp = bossJson.value("hp", 0);
@@ -287,6 +288,7 @@ bool parseCharacterDefinition(const json& characterJson,
     outCharacter.key = key;
     outCharacter.title = characterJson.value("title", key);
     outCharacter.assets = characterJson.value("assets", "");
+    outCharacter.voiceSpeakerId = characterJson.value("voiceSpeakerId", "");
     outCharacter.characterClass = characterJson.value("class", "");
     outCharacter.spd = characterJson.value("spd", 0);
     outCharacter.atk = characterJson.value("atk", 0);

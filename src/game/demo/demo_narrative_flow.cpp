@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "../core/battle_turn_flow.h"
@@ -47,6 +48,10 @@ bool DemoNarrativeFlow::initialize(bool deferIntroDialogue) {
         startDialogueSequence(introDialogueLines_);
     }
     return true;
+}
+
+void DemoNarrativeFlow::setDialogueLinePresenter(DialogueLinePresenter presenter) {
+    dialogueLinePresenter_ = std::move(presenter);
 }
 
 /**
@@ -205,6 +210,11 @@ bool DemoNarrativeFlow::loadDialogueLinesFromScript(const std::string& jsonRelat
 }
 
 void DemoNarrativeFlow::showDialogueLine(const DialogueLine& line) const {
+    if (dialogueLinePresenter_) {
+        dialogueLinePresenter_(line);
+        return;
+    }
+
     const std::string speakerName = vn::getDisplaySpeakerName(line);
     const std::string iconPath = line.icon.empty() ? std::string{} : platform::path::resolvePath(line.icon);
     const std::string backgroundPath = line.background.empty()

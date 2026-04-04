@@ -1,6 +1,7 @@
 #ifndef DEMO_NARRATIVE_FLOW_H
 #define DEMO_NARRATIVE_FLOW_H
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -75,8 +76,12 @@ namespace battle::demo {
 
 class DemoNarrativeFlow {
 public:
+    using DialogueLine = vn::ScriptEntry;
+    using DialogueLinePresenter = std::function<void(const DialogueLine&)>;
+
     bool initialize(bool deferIntroDialogue = false);
     void shutdown();
+    void setDialogueLinePresenter(DialogueLinePresenter presenter);
 
     bool isDialogueInProgress() const;
     bool isSpaceEnabledForBattle() const;
@@ -89,8 +94,6 @@ public:
     void handleAutomaticProgression(BattleManager& manager);
 
 private:
-    using DialogueLine = vn::ScriptEntry;
-
     bool loadDialogueLinesFromScript(const std::string& jsonRelativePath, std::vector<DialogueLine>& outLines);
     void showDialogueLine(const DialogueLine& line) const;
 
@@ -114,6 +117,7 @@ private:
     bool hasShownPostLyooAttackAfterMikuUltimateTutorial_ = false;
     bool pendingPostLyooAttackAfterMikuUltimateTutorial_ = false;
     bool hasShownBossDefeatedDialogue_ = false;
+    DialogueLinePresenter dialogueLinePresenter_;
 };
 
 } // namespace battle::demo

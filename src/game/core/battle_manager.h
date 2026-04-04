@@ -29,6 +29,7 @@ struct BossDefinition {
     std::string title;
     std::string assets;
     std::string voiceHit;
+    std::string voiceSpeakerId;
     int spd = 0;
     int atk = 0;
     int hp = 0;
@@ -48,6 +49,7 @@ struct CharacterDefinition {
     std::string key;
     std::string title;
     std::string assets;
+    std::string voiceSpeakerId;
     std::string characterClass;
     int spd = 0;
     int atk = 0;
@@ -413,6 +415,8 @@ struct BattleActionEvent {
     std::vector<int> targetPartyIndices;
     std::vector<int> targetHpBefore;
     std::vector<int> targetHpAfter;
+    std::vector<int> targetShieldBefore;
+    std::vector<int> targetShieldAfter;
 };
 
 struct BattleTelemetry {

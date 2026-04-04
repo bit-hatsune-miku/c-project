@@ -8,6 +8,7 @@
       "type": "dialogue",
       "background": "",
       "voice": "assets/vn/voices/demo/yatta.wav",
+      "voiceSpeakerId": "miku",
       "fontPath": "",
       "icon": "assets/combat/icons/miku.png",
       "iconFrameCount": 1,
