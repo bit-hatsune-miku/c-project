@@ -142,6 +142,8 @@ Supported fields:
 - `targetRule`
 - `multiplier`
 - `flatHeal`
+- `baseShield`
+- `amountPercentOfCasterMaxHp`
 - `speedBuff`
 - `atkBuff`
 - `actionAdvance`

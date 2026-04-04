@@ -80,6 +80,7 @@
                             <div class="boss-percent" id="boss-percent">74%</div>
                         </div>
                     </div>
+                    <div class="status-badge-lane status-badge-lane--boss" id="boss-status-badges"></div>
                 </div>
                 <div class="boss-hit-flash" id="boss-hit-flash"></div>
             </div>
@@ -106,9 +107,8 @@
                             <div class="unit-hp-text" id="unit-hp-text-1">32 / 40</div>
                         </div>
                     </div>
-                    <div class="unit-shield-badge" id="unit-shield-badge-1">
-                        <div class="unit-shield-icon"></div>
-                        <div class="unit-shield-value" id="unit-shield-value-1">8</div>
+                    <div class="unit-status-host">
+                        <div class="status-badge-lane status-badge-lane--unit" id="unit-status-badges-1"></div>
                     </div>
                     <div class="unit-hit-flash" id="unit-hit-flash-1"></div>
                 </div>
@@ -134,9 +134,8 @@
                             <div class="unit-hp-text" id="unit-hp-text-2">47 / 60</div>
                         </div>
                     </div>
-                    <div class="unit-shield-badge" id="unit-shield-badge-2">
-                        <div class="unit-shield-icon"></div>
-                        <div class="unit-shield-value" id="unit-shield-value-2">14</div>
+                    <div class="unit-status-host">
+                        <div class="status-badge-lane status-badge-lane--unit" id="unit-status-badges-2"></div>
                     </div>
                     <div class="unit-hit-flash" id="unit-hit-flash-2"></div>
                 </div>
@@ -162,9 +161,8 @@
                             <div class="unit-hp-text" id="unit-hp-text-3">74 / 80</div>
                         </div>
                     </div>
-                    <div class="unit-shield-badge" id="unit-shield-badge-3">
-                        <div class="unit-shield-icon"></div>
-                        <div class="unit-shield-value" id="unit-shield-value-3">6</div>
+                    <div class="unit-status-host">
+                        <div class="status-badge-lane status-badge-lane--unit" id="unit-status-badges-3"></div>
                     </div>
                     <div class="unit-hit-flash" id="unit-hit-flash-3"></div>
                 </div>
@@ -190,9 +188,8 @@
                             <div class="unit-hp-text" id="unit-hp-text-4">39 / 52</div>
                         </div>
                     </div>
-                    <div class="unit-shield-badge" id="unit-shield-badge-4">
-                        <div class="unit-shield-icon"></div>
-                        <div class="unit-shield-value" id="unit-shield-value-4">3</div>
+                    <div class="unit-status-host">
+                        <div class="status-badge-lane status-badge-lane--unit" id="unit-status-badges-4"></div>
                     </div>
                     <div class="unit-hit-flash" id="unit-hit-flash-4"></div>
                 </div>

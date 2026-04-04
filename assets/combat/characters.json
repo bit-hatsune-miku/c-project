@@ -17,7 +17,7 @@
                 "instructionHint": "Press different keys quickly to boost healing. Repeating recent keys does not count.",
                 "type": "heal",
                 "targetRule": "all_allies",
-                "flatHeal": 2,
+                "amountPercentOfCasterMaxHp": 2.5,
                 "multiplier": 0.0,
                 "interactionType": "rhythm",
                 "presentationId": "heal_hearts",
@@ -28,7 +28,7 @@
                 "name": "I love you!",
                 "type": "heal",
                 "targetRule": "all_allies",
-                "flatHeal": 30,
+                "amountPercentOfCasterMaxHp": 37.5,
                 "multiplier": 0.0,
                 "interactionType": "none",
                 "reviveDeadAllies": true,
@@ -37,8 +37,7 @@
             }
         },
         "ultimatePoints": 3,
-        "startingOrbs": 0,
-        "baseShield": 18
+        "startingOrbs": 0
     },
     "miku": {
         "title": "Hatsune Miku",
@@ -209,6 +208,7 @@
             "ultimate": {
                 "id": "MeiCiDuXiangZhuang",
                 "name": "每次都想装",
+                "statusName": "Egg Spinner",
                 "type": "debuff",
                 "targetRule": "single_enemy",
                 "multiplier": 1.2,
@@ -266,7 +266,6 @@
         "spd": 200,
         "atk": 14,
         "hp": 64,
-        "baseShield": 25,
         "standardAbility": "BasicAttack",
         "skillAbility": "SaoMaZhiFu",
         "ability": "SaoMaZhiFu",
@@ -277,11 +276,11 @@
                 "name": "扫码支付",
                 "type": "shield",
                 "targetRule": "all_allies",
+                "amountPercentOfCasterMaxHp": 39.0625,
                 "multiplier": 1.0,
                 "interactionType": "rhythm",
                 "presentationId": "sao_ma_zhi_fu",
-                "inputPromptType": "arrows",
-                "baseShield": 18
+                "inputPromptType": "arrows"
             },
             "ultimate": {
                 "id": "8888",
@@ -352,7 +351,7 @@
                 "name": "Heal all allies",
                 "type": "heal",
                 "targetRule": "all_allies",
-                "flatHeal": 18,
+                "amountPercentOfCasterMaxHp": 29.032258,
                 "multiplier": 0.0,
                 "interactionType": "none",
                 "presentationId": "teto_group_heal"
