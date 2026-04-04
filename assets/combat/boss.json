@@ -3,9 +3,9 @@
         "title": "Host | Lyoo",
         "assets": "lyooBoss",
         "voiceHit": "assets/combat/voices/lyoo/hit.wav",
-        "spd": 220,
-        "atk": 7,
-        "hp": 300,
+        "spd": 100,
+        "atk": 5,
+        "hp": 480,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "MoonSpiralHeartAttack",
         "ability": "MoonSpiralHeartAttack",
@@ -44,30 +44,30 @@
             "phase2": {
                 "bgm": "lyooBoss2",
                 "bgmVolume": 0.3,
-                "atkBonusPercent": 15,
+                "atkBonusPercent": 40,
                 "presentation": {
                     "intParams": {
-                        "pulseCount": 5
+                        "pulseCount": 3
                     },
                     "floatParams": {
-                        "zoomDurationSeconds": 1.35,
-                        "pulseTravelSeconds": 0.8,
-                        "parryToleranceSeconds": 0.4
+                        "zoomDurationSeconds": 1.4,
+                        "pulseTravelSeconds": 0.9,
+                        "parryToleranceSeconds": 0.42
                     }
                 }
             },
             "phase3": {
                 "bgm": "lyooBoss3",
                 "bgmVolume": 0.3,
-                "atkBonusPercent": 30,
+                "atkBonusPercent": 80,
                 "presentation": {
                     "intParams": {
-                        "pulseCount": 10
+                        "pulseCount": 4
                     },
                     "floatParams": {
-                        "zoomDurationSeconds": 1.15,
-                        "pulseTravelSeconds": 0.75,
-                        "parryToleranceSeconds": 0.3
+                        "zoomDurationSeconds": 1.25,
+                        "pulseTravelSeconds": 0.8,
+                        "parryToleranceSeconds": 0.36
                     }
                 }
             }
