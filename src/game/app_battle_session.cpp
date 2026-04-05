@@ -571,7 +571,6 @@ constexpr Uint64 kHudUltSheenDurationMs = 520;
 constexpr const char* kBattleHintTutorialSfxPath = "assets/ui/sfx/UI_overlay-pop-in.wav";
 constexpr const char* kBattleHintWarningSfxPath = "assets/ui/sfx/UI_generic-error.wav";
 constexpr const char* kBattleHintMajorSfxPath = "assets/ui/sfx/UI_overlay-big-pop-in.wav";
-constexpr const char* kBattleHintKeyBossPhaseIntro = "boss_phase_intro";
 constexpr const char* kBattleHintKeyPresentationInstruction = "presentation_instruction";
 constexpr const char* kBattleHintKeyManualUltimateStatus = "manual_ultimate_status";
 constexpr const char* kBattleHintKeyTutorialOverlay = "tutorial_overlay";
@@ -1022,6 +1021,17 @@ void tickHudFeedback(HudFeedbackState& feedback, Uint64 nowMs) {
     if (feedback.toastUntilMs != 0 && nowMs >= feedback.toastUntilMs) {
         feedback.toastText.clear();
         feedback.toastUntilMs = 0;
+    }
+    if (feedback.autoActionIndicator.active) {
+        const Uint64 totalDurationMs =
+            feedback.autoActionIndicator.enterDurationMs +
+            feedback.autoActionIndicator.holdDurationMs +
+            feedback.autoActionIndicator.exitDurationMs;
+        if (totalDurationMs == 0 ||
+            (feedback.autoActionIndicator.startedMs != 0 &&
+             nowMs >= feedback.autoActionIndicator.startedMs + totalDurationMs)) {
+            feedback.autoActionIndicator = battle::app::ui::AutoActionIndicatorState{};
+        }
     }
     if (feedback.judgementUntilMs != 0 && nowMs >= feedback.judgementUntilMs) {
         clearJudgement(feedback);
@@ -1529,21 +1539,8 @@ int findBossEntityIndex(const std::vector<SceneEntity>& entities) {
     return -1;
 }
 
-/**
- * HUD hint text for a boss phase transition.
- *
- * @param phaseIndex Index of the new boss phase (1-based).
- * @return Hint text to display: "ENTERING PHASE TWO" for phaseIndex == 1, "ENTERING PHASE THREE" for phaseIndex == 2, and "ENTERING NEW PHASE" otherwise.
- */
-std::string bossPhaseHintText(int phaseIndex) {
-    switch (phaseIndex) {
-        case 1:
-            return "ENTERING PHASE TWO";
-        case 2:
-            return "ENTERING PHASE THREE";
-        default:
-            return "ENTERING NEW PHASE";
-    }
+std::string autoActionPhaseLabel(int phaseIndex) {
+    return "Phase " + std::to_string(std::max(1, phaseIndex + 1));
 }
 
 /**
@@ -2091,7 +2088,6 @@ public:
         activeUltimateTurnSplash_.reset();
         previewUltimateSplashPartyIndex_ = -1;
         bossPhaseIntro_ = CameraIntroAnimation{};
-        bossPhaseIntroHintText_.clear();
         activeOverlay_ = nullptr;
         resultOverlay_ = BattleResultOverlayState{};
         vsIntroOverlay_ = BattleVsIntroOverlayState{};
@@ -2282,7 +2278,7 @@ public:
                         !narrativeInitialized_ ||
                         narrative_.onPlayerTurnExecuted(turnExecution);
                     if (allowAutoTurns) {
-                        manager_.processAutomaticTurns();
+                        (void)processNextAutomaticTurnWithIndicator(nowMs);
                     }
                     consumeBattleActionEvents(nowMs, &cameraStaging_);
                     return;
@@ -2365,7 +2361,8 @@ public:
         }
 
         while (const std::optional<battle::BossPhaseTransition> transition = manager_.consumeBossPhaseTransition()) {
-            startBossPhaseIntro(*transition, nowMs);
+            startBossPhaseIntro(*transition);
+            startBossPhaseAutoActionIndicator(*transition, nowMs);
             battleBgmBaseVolume_ = std::clamp(manager_.getCurrentBossBgmVolume(), 0.0f, 1.0f);
             const std::string bgmName = manager_.getCurrentBossBgm();
             if (bgmName.empty()) {
@@ -2385,7 +2382,7 @@ public:
         }
 
         if (bossPhaseIntro_.active) {
-            updateBossPhaseIntro(deltaSeconds, nowMs);
+            updateBossPhaseIntro(deltaSeconds);
             refreshBattleInputPromptPreview(nowMs);
             const flow::PreviewActorContext preview = flow::inspectPreviewActor(manager_);
             const bool bossActing = !(preview.valid && preview.type == battle::ParticipantType::Character);
@@ -2404,15 +2401,21 @@ public:
             return;
         }
 
+        primePreviewAutoActionIndicator(nowMs);
+
         if (narrativeEnabled_ && narrativeInitialized_) {
             vn::setPaused(false);
             syncNarrativeSettings();
             vn::update(deltaSeconds);
             syncFinishedBattleVoiceState();
             narrative_.maybeStartBossDefeatedDialogue(manager_);
-            narrative_.handleAutomaticProgression(manager_);
+            narrative_.handleAutomaticProgression(
+                manager_,
+                [this, nowMs](battle::BattleManager&) {
+                    return processNextAutomaticTurnWithIndicator(nowMs);
+                });
         } else {
-            manager_.processAutomaticTurns();
+            (void)processNextAutomaticTurnWithIndicator(nowMs);
         }
 
         consumeBattleActionEvents(nowMs, &cameraStaging_);
@@ -2964,15 +2967,13 @@ private:
     }
 
     /**
-     * @brief Starts the boss-phase intro sequence: focuses the camera on the boss, shows the phase hint, and begins the camera interpolation.
+     * @brief Starts the boss-phase intro camera sequence for a boss phase transition.
      *
      * If no boss entity is present the function is a no-op.
      *
-     * @param transition Describes the boss phase change; its `toPhaseIndex` is used to select the hint text and to drive the intro.
-     * @param nowMs Current time in milliseconds used to timestamp the displayed hint.
+     * @param transition Describes the boss phase change and the target phase to focus.
      */
-    void startBossPhaseIntro(const battle::BossPhaseTransition& transition, Uint64 nowMs) {
-        (void)nowMs;
+    void startBossPhaseIntro(const battle::BossPhaseTransition& transition) {
         const int bossEntityIndex = findBossEntityIndex(entities_);
         if (bossEntityIndex < 0 || static_cast<size_t>(bossEntityIndex) >= entities_.size()) {
             return;
@@ -2983,17 +2984,6 @@ private:
         battle::Camera3D endCamera = makeBossPhaseIntroEndCamera(bossEntity);
         aimCameraAtBossIntroTarget(startCamera, bossEntity);
         aimCameraAtBossIntroTarget(endCamera, bossEntity);
-        const std::string hintText = bossPhaseHintText(transition.toPhaseIndex);
-        BattleHintRequest request;
-        request.stableKey = kBattleHintKeyBossPhaseIntro;
-        request.family = BattleHintFamily::Major;
-        request.kicker = "PHASE SHIFT";
-        request.sourceTag = "BOSS FLOW";
-        request.badgeText = "PHASE";
-        request.message = hintText;
-        request.resolveRule.kind = BattleHintResolveKind::BossPhaseIntroEnd;
-        enqueueBattleHint(std::move(request));
-        bossPhaseIntroHintText_ = hintText;
         startCameraIntroBetween(
             startCamera,
             endCamera,
@@ -3003,19 +2993,14 @@ private:
     }
 
     /**
-     * @brief Advances the boss-phase intro sequence and updates the camera and HUD hint.
+     * @brief Advances the boss-phase intro sequence and updates the camera.
      *
      * Advances the boss phase intro animation by the given frame delta, updates the active
-     * camera transform toward the intro goal, displays the phase hint in the HUD while the
-     * intro is active, and deactivates the intro (clearing the hint) when the animation completes.
+     * camera transform toward the intro goal, and deactivates the intro when the animation completes.
      *
      * @param deltaSeconds Time elapsed since the previous update, in seconds.
-     * @param nowMs Current time in milliseconds used for HUD hint timing.
-     *
-     * @note This function mutates the internal camera state, the `bossPhaseIntro_` active/elapsed
-     *       state, and the HUD feedback hint. */
-    void updateBossPhaseIntro(float deltaSeconds, Uint64 nowMs) {
-        (void)nowMs;
+     * @note This function mutates the internal camera state and the `bossPhaseIntro_` active/elapsed state. */
+    void updateBossPhaseIntro(float deltaSeconds) {
         if (!bossPhaseIntro_.active) {
             return;
         }
@@ -3041,10 +3026,6 @@ private:
             camera_.pitchDegrees = bossPhaseIntro_.goalPitch;
             camera_.yawDegrees = bossPhaseIntro_.goalYaw;
             camera_.focalLength = bossPhaseIntro_.goalFocal;
-        }
-        if (!bossPhaseIntro_.active) {
-            bossPhaseIntroHintText_.clear();
-            dismissBattleHintsByResolveKind(hudFeedback_, BattleHintResolveKind::BossPhaseIntroEnd);
         }
     }
 
@@ -3075,6 +3056,112 @@ private:
 
     std::string resolveScriptVoiceSpeakerKey(const vn::ScriptEntry& entry) const {
         return inferScriptSpeakerKey(entry, manager_.getBattleState());
+    }
+
+    void startAutoActionIndicator(const std::string& assetName,
+                                  const std::string& labelText,
+                                  bool isBoss,
+                                  Uint64 nowMs) {
+        if (labelText.empty()) {
+            hudFeedback_.autoActionIndicator = ui::AutoActionIndicatorState{};
+            return;
+        }
+
+        const ui::AutoActionIndicatorState& currentIndicator = hudFeedback_.autoActionIndicator;
+        const Uint64 currentTotalDurationMs =
+            currentIndicator.enterDurationMs +
+            currentIndicator.holdDurationMs +
+            currentIndicator.exitDurationMs;
+        if (currentIndicator.active &&
+            currentIndicator.isBoss == isBoss &&
+            currentIndicator.assetName == assetName &&
+            currentIndicator.labelText == labelText &&
+            currentIndicator.startedMs != 0 &&
+            currentTotalDurationMs > 0 &&
+            nowMs < currentIndicator.startedMs + currentTotalDurationMs) {
+            return;
+        }
+
+        hudFeedback_.autoActionIndicator.active = true;
+        hudFeedback_.autoActionIndicator.isBoss = isBoss;
+        hudFeedback_.autoActionIndicator.startedMs = nowMs;
+        hudFeedback_.autoActionIndicator.enterDurationMs = ui::kAutoActionIndicatorEnterDurationMs;
+        hudFeedback_.autoActionIndicator.holdDurationMs = ui::kAutoActionIndicatorHoldDurationMs;
+        hudFeedback_.autoActionIndicator.exitDurationMs = ui::kAutoActionIndicatorExitDurationMs;
+        hudFeedback_.autoActionIndicator.assetName = assetName;
+        hudFeedback_.autoActionIndicator.labelText = labelText;
+    }
+
+    std::string resolvePreviewAutoActionIndicatorLabel() const {
+        const battle::flow::PreviewAbilityContext previewAbility = battle::flow::inspectPreviewAbility(manager_);
+        if (!previewAbility.valid ||
+            previewAbility.actorType != battle::ParticipantType::Character ||
+            previewAbility.abilityId.empty()) {
+            return std::string();
+        }
+
+        const battle::AbilityDefinition* abilityDef = manager_.findAbilityDefinition(previewAbility.abilityId);
+        if (abilityDef == nullptr) {
+            return previewAbility.abilityId;
+        }
+        return !abilityDef->name.empty() ? abilityDef->name : abilityDef->id;
+    }
+
+    bool maybeStartPreviewAutoActionIndicator(Uint64 nowMs) {
+        const battle::flow::PreviewActorContext preview = battle::flow::inspectPreviewActor(manager_);
+        if (!preview.valid ||
+            preview.type != battle::ParticipantType::Character ||
+            !preview.isExtraTurn ||
+            !preview.autoExecute ||
+            preview.extraTurnAction == battle::BattleAction::Ultimate) {
+            return false;
+        }
+
+        const battle::BattleState& battleState = manager_.getBattleState();
+        if (preview.partyIndex < 0 || static_cast<size_t>(preview.partyIndex) >= battleState.party.size()) {
+            return false;
+        }
+        if (!manager_.isCharacterAlive(preview.partyIndex)) {
+            return false;
+        }
+
+        const battle::CharacterDefinition& character = battleState.party[static_cast<size_t>(preview.partyIndex)];
+        const std::string labelText = resolvePreviewAutoActionIndicatorLabel();
+        if (labelText.empty()) {
+            return false;
+        }
+
+        startAutoActionIndicator(character.assets.empty() ? character.key : character.assets,
+                                 labelText,
+                                 false,
+                                 nowMs);
+        return true;
+    }
+
+    void startBossPhaseAutoActionIndicator(const battle::BossPhaseTransition& transition, Uint64 nowMs) {
+        const battle::BossDefinition& boss = manager_.getBattleState().boss;
+        startAutoActionIndicator(boss.assets.empty() ? boss.key : boss.assets,
+                                 autoActionPhaseLabel(transition.toPhaseIndex),
+                                 true,
+                                 nowMs);
+    }
+
+    bool processNextAutomaticTurnWithIndicator(Uint64 nowMs) {
+        (void)maybeStartPreviewAutoActionIndicator(nowMs);
+        return manager_.processNextAutomaticTurn();
+    }
+
+    void primePreviewAutoActionIndicator(Uint64 nowMs) {
+        if (paused_ ||
+            bossPhaseIntro_.active ||
+            resultOverlay_.active ||
+            presentationPlaybackActive_ ||
+            activeUltimateTurnSplash_ != nullptr ||
+            isDialogueInProgress()) {
+            return;
+        }
+
+        (void)maybeStartPreviewAutoActionIndicator(nowMs);
     }
 
     bool shouldCancelIdleForVoiceKind(game::audio::BattleVoiceKind kind) const {
@@ -3555,10 +3642,6 @@ private:
         request.resolveRule.kind = BattleHintResolveKind::Timeout;
         request.resolveRule.durationMs = 1800;
         enqueueBattleHint(std::move(request));
-    }
-
-    void dismissBossPhaseHint(bool immediate = false) {
-        dismissBattleHintByKey(hudFeedback_, kBattleHintKeyBossPhaseIntro, immediate);
     }
 
     void dismissPresentationHint(bool immediate = false) {
@@ -5777,7 +5860,7 @@ private:
         showToast(hudFeedback_, onBeat ? "ON-BEAT INPUT." : "LATE INPUT.", nowMs, 1100);
         completeTutorialForAction(battle::BattleAction::Skill);
         flushBufferedManualUltimateRequests(nowMs);
-        manager_.processAutomaticTurns();
+        (void)processNextAutomaticTurnWithIndicator(nowMs);
         consumeBattleActionEvents(nowMs, &cameraStaging_);
     }
 
@@ -5820,7 +5903,7 @@ private:
             return;
         }
         completeTutorialForAction(action);
-        manager_.processAutomaticTurns();
+        (void)processNextAutomaticTurnWithIndicator(nowMs);
         consumeBattleActionEvents(nowMs, &cameraStaging_);
     }
 
@@ -6019,7 +6102,6 @@ private:
     game::audio::BattleVoiceArbiter voiceArbiter_;
     std::optional<game::audio::WavOneShotPlayer::PlaybackHandle> tutorialVoiceHandle_;
     std::string activeVnVoiceSpeakerKey_;
-    std::string bossPhaseIntroHintText_;
     std::string lastTurnToken_;
     bool frameTimingEnabled_ = false;
     Uint64 frameTimingFrequency_ = 0;

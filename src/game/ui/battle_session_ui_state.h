@@ -113,8 +113,20 @@ struct BattleHintOverlayState {
     std::vector<BattleHintInstance> active;
 };
 
+struct AutoActionIndicatorState {
+    bool active = false;
+    bool isBoss = false;
+    Uint64 startedMs = 0;
+    Uint64 enterDurationMs = 0;
+    Uint64 holdDurationMs = 0;
+    Uint64 exitDurationMs = 0;
+    std::string assetName;
+    std::string labelText;
+};
+
 struct HudFeedbackState {
     BattleHintOverlayState hints;
+    AutoActionIndicatorState autoActionIndicator;
     std::string toastText;
     Uint64 toastUntilMs = 0;
     int comboCount = 0;
@@ -145,6 +157,9 @@ inline constexpr Uint64 kBattleHintCloseDurationMs = 180;
 inline constexpr float kBattleHintMinWidthDp = 460.0f;
 inline constexpr float kBattleHintMaxWidthDp = 790.0f;
 inline constexpr float kBattleHintStackGapDp = 2.0f;
+inline constexpr Uint64 kAutoActionIndicatorEnterDurationMs = 320;
+inline constexpr Uint64 kAutoActionIndicatorHoldDurationMs = 980;
+inline constexpr Uint64 kAutoActionIndicatorExitDurationMs = 240;
 
 inline bool battleHintHasAutoTimeout(const BattleHintInstance& hint) {
     return hint.request.resolveRule.kind == BattleHintResolveKind::Timeout &&

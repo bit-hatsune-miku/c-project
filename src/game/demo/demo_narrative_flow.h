@@ -78,6 +78,7 @@ class DemoNarrativeFlow {
 public:
     using DialogueLine = vn::ScriptEntry;
     using DialogueLinePresenter = std::function<void(const DialogueLine&)>;
+    using AutomaticProgressionRunner = std::function<bool(BattleManager&)>;
 
     bool initialize(bool deferIntroDialogue = false);
     void shutdown();
@@ -91,7 +92,8 @@ public:
     bool onPlayerTurnExecuted(const flow::PlayerTurnExecution& turnExecution);
 
     void maybeStartBossDefeatedDialogue(const BattleManager& manager);
-    void handleAutomaticProgression(BattleManager& manager);
+    void handleAutomaticProgression(BattleManager& manager,
+                                    const AutomaticProgressionRunner& automaticRunner = {});
 
 private:
     bool loadDialogueLinesFromScript(const std::string& jsonRelativePath, std::vector<DialogueLine>& outLines);

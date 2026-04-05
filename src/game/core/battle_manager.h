@@ -552,6 +552,7 @@ public:
     void applyBossSplitHitDamage(int damage);
     bool commitCurrentPlayerSplitAttackTurn();
     bool executePlayerTurn();
+    bool processNextAutomaticTurn();
     bool processAutomaticTurns();
     bool isBattleOver() const;
     BattleResolvedOutcome outcome() const;

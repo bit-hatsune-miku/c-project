@@ -1501,6 +1501,45 @@ bool BattleManager::executePlayerTurn() {
     return resolvePlayerAction(BattleAction::Skill);
 }
 
+bool BattleManager::processNextAutomaticTurn() {
+    if (isBattleOver()) {
+        return false;
+    }
+
+    const TurnEvent next = peekNextTurnEvent();
+    if (!next.valid || next.actingActorIndex >= turnState_.actors.size()) {
+        return false;
+    }
+
+    const TurnActor& nextActor = turnState_.actors[next.actingActorIndex];
+    if (nextActor.type == ParticipantType::Boss) {
+        return resolveBossAction();
+    }
+
+    if (!(nextActor.isExtraTurn && nextActor.autoExecute)) {
+        return false;
+    }
+
+    if (nextActor.partyIndex < 0 || static_cast<size_t>(nextActor.partyIndex) >= characters_.size()) {
+        return false;
+    }
+
+    BattleCharacter& character = characters_[static_cast<size_t>(nextActor.partyIndex)];
+    if (!character.isAlive()) {
+        return consumeInvalidPreviewCharacterTurn(*this, characters_, turnState_, next);
+    }
+
+    const TurnEvent event = advanceToNextTurnEvent();
+    if (!event.valid || event.actingActorIndex >= turnState_.actors.size()) {
+        return false;
+    }
+
+    return executeCharacterAction(event.actingActorIndex,
+                                  character,
+                                  nextActor.extraTurnAction,
+                                  event.consumedActionValue);
+}
+
 /**
  * @brief Advances and executes any pending automatic turns until no further auto-executable actions remain.
  *
@@ -1515,53 +1554,11 @@ bool BattleManager::executePlayerTurn() {
 bool BattleManager::processAutomaticTurns() {
     bool progressed = false;
 
-    while (!isBattleOver()) {
-        const TurnEvent next = peekNextTurnEvent();
-        if (!next.valid || next.actingActorIndex >= turnState_.actors.size()) {
-            break;
-        }
-
-        const TurnActor& nextActor = turnState_.actors[next.actingActorIndex];
-        if (nextActor.type == ParticipantType::Boss) {
-            if (!resolveBossAction()) {
-                break;
-            }
-            progressed = true;
-            if (pendingBossPhaseTransition_.has_value()) {
-                break;
-            }
-            continue;
-        }
-
-        if (!(nextActor.isExtraTurn && nextActor.autoExecute)) {
-            break;
-        }
-
-        if (nextActor.partyIndex < 0 || static_cast<size_t>(nextActor.partyIndex) >= characters_.size()) {
-            break;
-        }
-
-        BattleCharacter& character = characters_[static_cast<size_t>(nextActor.partyIndex)];
-        if (!character.isAlive()) {
-            if (!consumeInvalidPreviewCharacterTurn(*this, characters_, turnState_, next)) {
-                break;
-            }
-            progressed = true;
-            continue;
-        }
-
-        const TurnEvent event = advanceToNextTurnEvent();
-        if (!event.valid || event.actingActorIndex >= turnState_.actors.size()) {
-            break;
-        }
-
-        if (!executeCharacterAction(event.actingActorIndex,
-                                    character,
-                                    nextActor.extraTurnAction,
-                                    event.consumedActionValue)) {
-            break;
-        }
+    while (processNextAutomaticTurn()) {
         progressed = true;
+        if (pendingBossPhaseTransition_.has_value()) {
+            break;
+        }
     }
 
     return progressed;

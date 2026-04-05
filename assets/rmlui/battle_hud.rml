@@ -210,6 +210,19 @@
                 <div class="battle-total-damage-value" id="battle-total-damage-value"></div>
             </div>
 
+            <div class="battle-auto-action" id="battle-auto-action">
+                <div class="battle-auto-action-shell" id="battle-auto-action-shell">
+                    <div class="battle-auto-action-portrait-shell" id="battle-auto-action-portrait-shell">
+                        <div class="battle-auto-action-portrait-glow"></div>
+                        <div class="battle-auto-action-portrait" id="battle-auto-action-portrait"></div>
+                    </div>
+                    <div class="battle-auto-action-copy" id="battle-auto-action-copy">
+                        <div class="battle-auto-action-kicker" id="battle-auto-action-kicker"></div>
+                        <div class="battle-auto-action-label" id="battle-auto-action-label"></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="battle-judgement" id="battle-judgement">
                 <div class="battle-judgement-word" id="battle-judgement-word"></div>
                 <div class="battle-judgement-reward" id="battle-judgement-reward"></div>

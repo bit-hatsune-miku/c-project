@@ -1566,6 +1566,237 @@ inline float presentationDamageLabelProgress(const HudFeedbackState& feedback, U
     return easeOutCubic(std::clamp(labelElapsedSeconds / kLabelDurationSeconds, 0.0f, 1.0f));
 }
 
+inline const JudgementPalette& autoActionIndicatorPalette(bool isBoss) {
+    static const JudgementPalette character{
+        {88, 21, 66},
+        {255, 194, 232},
+        {255, 208, 122},
+        {255, 244, 233},
+        {72, 15, 51},
+        {255, 212, 140}
+    };
+    static const JudgementPalette boss{
+        {102, 28, 36},
+        {255, 200, 176},
+        {255, 139, 112},
+        {255, 240, 228},
+        {85, 26, 31},
+        {255, 195, 170}
+    };
+    return isBoss ? boss : character;
+}
+
+inline Uint64 autoActionIndicatorTotalDurationMs(const AutoActionIndicatorState& indicator) {
+    return indicator.enterDurationMs + indicator.holdDurationMs + indicator.exitDurationMs;
+}
+
+inline std::string autoActionIndicatorLetterStyle(const AutoActionIndicatorState& indicator,
+                                                  float elapsedSeconds) {
+    constexpr float kLetterDurationSeconds = 0.46f;
+    const float progress = std::clamp(elapsedSeconds / kLetterDurationSeconds, 0.0f, 1.0f);
+    const JudgementPalette& palette = autoActionIndicatorPalette(indicator.isBoss);
+
+    float opacity = 1.0f;
+    float translateYDp = 0.0f;
+    float scale = 1.0f;
+    JudgementColor color = palette.final;
+
+    if (progress < 0.52f) {
+        const float t = easeOutCubic(progress / 0.52f);
+        opacity = t;
+        translateYDp = lerpValue(-88.0f, 10.0f, t);
+        scale = lerpValue(1.72f, 0.90f, t);
+        color = lerpColor(palette.dark, palette.mid, t);
+    } else if (progress < 0.78f) {
+        const float t = easeOutCubic((progress - 0.52f) / 0.26f);
+        translateYDp = lerpValue(10.0f, -3.0f, t);
+        scale = lerpValue(0.90f, 1.05f, t);
+        color = lerpColor(palette.mid, palette.bright, t);
+    } else {
+        const float t = easeOutCubic((progress - 0.78f) / 0.22f);
+        translateYDp = lerpValue(-3.0f, 0.0f, t);
+        scale = lerpValue(1.05f, 1.0f, t);
+        color = lerpColor(palette.bright, palette.final, t);
+    }
+
+    std::string style = "opacity: ";
+    style += decimalText(opacity);
+    style += "; transform: translateY(";
+    style += decimalText(translateYDp);
+    style += "dp) scale(";
+    style += decimalText(scale);
+    style += "); color: ";
+    style += rgbaText(color, 1.0f);
+    style += ";";
+    return style;
+}
+
+inline std::string autoActionIndicatorMarkup(const AutoActionIndicatorState& indicator, Uint64 nowMs) {
+    constexpr float kLetterIntervalSeconds = 0.022f;
+    const float elapsedSeconds =
+        indicator.startedMs == 0 || nowMs <= indicator.startedMs
+            ? 0.0f
+            : static_cast<float>(nowMs - indicator.startedMs) / 1000.0f;
+
+    std::string markup;
+    markup.reserve(indicator.labelText.size() * 120);
+
+    int visibleGlyphIndex = 0;
+    std::size_t byteOffset = 0;
+    while (byteOffset < indicator.labelText.size()) {
+        const std::size_t codeBytes = utf8CodepointBytes(indicator.labelText, byteOffset);
+        if (codeBytes == 0 || byteOffset + codeBytes > indicator.labelText.size()) {
+            break;
+        }
+
+        const std::string glyph = indicator.labelText.substr(byteOffset, codeBytes);
+        byteOffset += codeBytes;
+
+        if (glyph == " ") {
+            markup += "<span class=\"battle-auto-action-space\"></span>";
+            continue;
+        }
+
+        const float letterElapsedSeconds =
+            elapsedSeconds - (static_cast<float>(visibleGlyphIndex) * kLetterIntervalSeconds);
+        if (letterElapsedSeconds < 0.0f) {
+            ++visibleGlyphIndex;
+            continue;
+        }
+
+        markup += "<span class=\"battle-auto-action-letter\" style=\"";
+        markup += autoActionIndicatorLetterStyle(indicator, letterElapsedSeconds);
+        markup += "\">";
+        markup += escapeRmlText(glyph);
+        markup += "</span>";
+        ++visibleGlyphIndex;
+    }
+
+    return markup;
+}
+
+inline std::string autoActionIndicatorContainerTransform(const AutoActionIndicatorState& indicator, Uint64 nowMs) {
+    if (indicator.startedMs == 0) {
+        return "translateX(108dp) scale(0.92)";
+    }
+
+    const Uint64 elapsedMs = nowMs > indicator.startedMs ? nowMs - indicator.startedMs : 0;
+    float translateXDp = 0.0f;
+    float scale = 1.0f;
+
+    if (elapsedMs < indicator.enterDurationMs) {
+        const float enterProgress =
+            std::clamp(static_cast<float>(elapsedMs) / static_cast<float>(std::max<Uint64>(indicator.enterDurationMs, 1)),
+                       0.0f,
+                       1.0f);
+        if (enterProgress < 0.72f) {
+            const float t = easeOutCubic(enterProgress / 0.72f);
+            translateXDp = lerpValue(108.0f, -12.0f, t);
+            scale = lerpValue(0.92f, 1.03f, t);
+        } else {
+            const float t = easeOutCubic((enterProgress - 0.72f) / 0.28f);
+            translateXDp = lerpValue(-12.0f, 0.0f, t);
+            scale = lerpValue(1.03f, 1.0f, t);
+        }
+        return "translateX(" + decimalText(translateXDp) + "dp) scale(" + decimalText(scale) + ")";
+    }
+
+    const Uint64 holdEndMs = indicator.enterDurationMs + indicator.holdDurationMs;
+    if (elapsedMs <= holdEndMs) {
+        return "translateX(0dp) scale(1)";
+    }
+
+    const Uint64 exitElapsedMs = elapsedMs - holdEndMs;
+    const float exitProgress =
+        easeInCubic(std::clamp(static_cast<float>(exitElapsedMs) /
+                                   static_cast<float>(std::max<Uint64>(indicator.exitDurationMs, 1)),
+                               0.0f,
+                               1.0f));
+    translateXDp = lerpValue(0.0f, 24.0f, exitProgress);
+    scale = lerpValue(1.0f, 0.985f, exitProgress);
+    return "translateX(" + decimalText(translateXDp) + "dp) scale(" + decimalText(scale) + ")";
+}
+
+inline float autoActionIndicatorContainerOpacity(const AutoActionIndicatorState& indicator, Uint64 nowMs) {
+    if (indicator.startedMs == 0) {
+        return 0.0f;
+    }
+
+    const Uint64 elapsedMs = nowMs > indicator.startedMs ? nowMs - indicator.startedMs : 0;
+    if (elapsedMs < indicator.enterDurationMs) {
+        return easeOutCubic(
+            std::clamp(static_cast<float>(elapsedMs) / static_cast<float>(std::max<Uint64>(indicator.enterDurationMs, 1)),
+                       0.0f,
+                       1.0f));
+    }
+
+    const Uint64 holdEndMs = indicator.enterDurationMs + indicator.holdDurationMs;
+    if (elapsedMs <= holdEndMs) {
+        return 1.0f;
+    }
+
+    const Uint64 exitElapsedMs = elapsedMs - holdEndMs;
+    const float exitProgress =
+        std::clamp(static_cast<float>(exitElapsedMs) /
+                       static_cast<float>(std::max<Uint64>(indicator.exitDurationMs, 1)),
+                   0.0f,
+                   1.0f);
+    return 1.0f - easeInCubic(exitProgress);
+}
+
+inline void updateAutoActionIndicatorDocument(Rml::ElementDocument* document,
+                                              const HudFeedbackState& feedback,
+                                              Uint64 nowMs,
+                                              const BattleHudDocumentDependencies& dependencies) {
+    if (document == nullptr) {
+        return;
+    }
+
+    const AutoActionIndicatorState& indicator = feedback.autoActionIndicator;
+    const Uint64 totalDurationMs = autoActionIndicatorTotalDurationMs(indicator);
+    const bool visible = indicator.active &&
+        !indicator.labelText.empty() &&
+        indicator.startedMs != 0 &&
+        totalDurationMs > 0 &&
+        nowMs < indicator.startedMs + totalDurationMs;
+
+    setElementDisplay(document, "battle-auto-action", visible);
+    setElementClass(document, "battle-auto-action", "boss", visible && indicator.isBoss);
+    setElementClass(document, "battle-auto-action", "cjk", visible && containsCjkText(indicator.labelText));
+
+    std::string portraitPath;
+    if (visible && dependencies.findCombatImagePath && !indicator.assetName.empty()) {
+        portraitPath = dependencies.findCombatImagePath("sprites", indicator.assetName);
+    }
+    const bool hasPortrait = visible && !portraitPath.empty();
+    setElementClass(document, "battle-auto-action", "has-portrait", hasPortrait);
+    setElementDisplay(document, "battle-auto-action-portrait-shell", hasPortrait);
+
+    if (Rml::Element* container = document->GetElementById("battle-auto-action")) {
+        if (!visible) {
+            container->SetProperty("opacity", "0");
+            container->SetProperty("transform", "translateX(108dp) scale(0.92)");
+        } else {
+            container->SetProperty("opacity", decimalText(autoActionIndicatorContainerOpacity(indicator, nowMs)));
+            container->SetProperty("transform", autoActionIndicatorContainerTransform(indicator, nowMs));
+        }
+    }
+
+    if (Rml::Element* portrait = document->GetElementById("battle-auto-action-portrait")) {
+        if (hasPortrait) {
+            portrait->SetProperty("decorator", "image(" + portraitPath + " cover center center)");
+        } else {
+            portrait->RemoveProperty("decorator");
+        }
+    }
+
+    setElementText(document, "battle-auto-action-kicker", "");
+    setElementDisplay(document, "battle-auto-action-kicker", false);
+    if (Rml::Element* label = document->GetElementById("battle-auto-action-label")) {
+        label->SetInnerRML(visible ? autoActionIndicatorMarkup(indicator, nowMs) : "");
+    }
+}
+
 inline const JudgementPalette& battleResultPalette(BattleResultOverlayOutcome outcome) {
     static const JudgementPalette victory{
         {92, 23, 63},
@@ -1809,6 +2040,7 @@ inline void applyBattleResultOverlayDocumentState(Rml::ElementDocument* document
     }
 
     setElementDisplay(document, "battle-total-damage", false);
+    setElementDisplay(document, "battle-auto-action", false);
     setElementDisplay(document, "battle-judgement", false);
     setElementClass(document, "battle-rhythm", "visible", false);
     setElementDisplay(document, "battle-hint-lane", false);
@@ -2272,6 +2504,7 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
     detail::ensurePartyRackDocument(document, battleState.party.size());
     detail::updateComboDocument(document, feedback);
     detail::updatePresentationDamageDocument(document, feedback, nowMs);
+    detail::updateAutoActionIndicatorDocument(document, feedback, nowMs, dependencies);
     detail::updateJudgementDocument(document, feedback, nowMs);
 
     const std::string bossDisplayName = !battleState.boss.title.empty() ? battleState.boss.title : battleState.boss.key;
@@ -2451,6 +2684,7 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
     detail::updateToastDocument(document, feedback);
     detail::updateRhythmDocument(document, rhythm, nowMs);
     if (paused || resultOverlay.active || vsIntroOverlay.pendingStart || vsIntroOverlay.active) {
+        detail::setElementDisplay(document, "battle-auto-action", false);
         detail::setElementDisplay(document, "battle-hint-lane", false);
         detail::setElementDisplay(document, "battle-input-prompt", false);
         detail::setElementClass(document, "battle-input-prompt", "visible", false);

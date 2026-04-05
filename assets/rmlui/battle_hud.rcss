@@ -17,6 +17,7 @@ body {
 #hud-root.vs-intro-blocking #hud-edge-layer,
 #hud-root.vs-intro-blocking .battle-combo,
 #hud-root.vs-intro-blocking .battle-total-damage,
+#hud-root.vs-intro-blocking .battle-auto-action,
 #hud-root.vs-intro-blocking .battle-judgement,
 #hud-root.vs-intro-blocking .battle-hint-lane,
 #hud-root.vs-intro-blocking .battle-input-prompt,
@@ -139,6 +140,135 @@ body {
 .battle-total-damage-space {
     display: inline-block;
     width: 14dp;
+}
+
+.battle-auto-action {
+    position: absolute;
+    right: 18dp;
+    top: 178dp;
+    width: 312dp;
+    height: 188dp;
+    opacity: 0;
+    display: none;
+    pointer-events: none;
+}
+
+.battle-auto-action-shell {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: rgba(18, 12, 24, 214);
+    border: 1dp rgba(255, 255, 255, 30);
+    border-radius: 24dp;
+    box-shadow: 0 18dp 36dp rgba(0, 0, 0, 34);
+    decorator: linear-gradient(155deg, rgba(255, 109, 185, 30) 0%, rgba(255, 109, 185, 0) 38%, rgba(18, 12, 24, 0) 100%);
+}
+
+.battle-auto-action.boss .battle-auto-action-shell {
+    background-color: rgba(23, 11, 15, 220);
+    decorator: linear-gradient(155deg, rgba(255, 127, 109, 34) 0%, rgba(255, 127, 109, 0) 38%, rgba(23, 11, 15, 0) 100%);
+}
+
+.battle-auto-action-portrait-shell {
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+}
+
+.battle-auto-action-portrait-glow {
+    position: absolute;
+    right: -28dp;
+    top: -20dp;
+    width: 196dp;
+    height: 196dp;
+    border-radius: 999dp;
+    background-color: rgba(255, 118, 189, 34);
+    box-shadow: 0 0 42dp rgba(255, 118, 189, 42);
+}
+
+.battle-auto-action.boss .battle-auto-action-portrait-glow {
+    background-color: rgba(255, 124, 95, 38);
+    box-shadow: 0 0 42dp rgba(255, 124, 95, 48);
+}
+
+.battle-auto-action-portrait {
+    position: absolute;
+    left: 2dp;
+    right: -10dp;
+    top: 4dp;
+    height: 252dp;
+    opacity: 0.98;
+}
+
+.battle-auto-action.boss .battle-auto-action-portrait {
+    left: -16dp;
+    right: -6dp;
+    top: 2dp;
+    height: 220dp;
+}
+
+.battle-auto-action-copy {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 14dp 18dp 16dp;
+    background-color: rgba(8, 6, 12, 196);
+    border-top: 1dp rgba(255, 255, 255, 20);
+    text-align: right;
+}
+
+.battle-auto-action.has-portrait .battle-auto-action-copy {
+    decorator: linear-gradient(to top, rgba(8, 6, 12, 225) 0%, rgba(8, 6, 12, 196) 72%, rgba(8, 6, 12, 0) 100%);
+}
+
+.battle-auto-action-kicker {
+    color: rgba(255, 212, 140, 220);
+    font-size: 12dp;
+    font-weight: bold;
+    letter-spacing: 2dp;
+    text-transform: uppercase;
+    line-height: 1;
+    font-effect: outline(1dp #3d1028);
+}
+
+.battle-auto-action.boss .battle-auto-action-kicker {
+    color: rgba(255, 195, 170, 224);
+    font-effect: outline(1dp #46161a);
+}
+
+.battle-auto-action-label {
+    min-height: 42dp;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.battle-auto-action-letter {
+    display: inline-block;
+    margin-left: 4dp;
+    font-size: 34dp;
+    line-height: 40dp;
+    font-weight: bold;
+    letter-spacing: 1dp;
+    font-effect: outline(2dp #480f33), shadow(0 8dp rgba(72, 15, 51, 120));
+}
+
+.battle-auto-action.cjk .battle-auto-action-letter {
+    font-size: 30dp;
+    line-height: 36dp;
+}
+
+.battle-auto-action.boss .battle-auto-action-letter {
+    font-effect: outline(2dp #551a1f), shadow(0 8dp rgba(85, 26, 31, 120));
+}
+
+.battle-auto-action-space {
+    display: inline-block;
+    width: 12dp;
 }
 
 .battle-judgement {

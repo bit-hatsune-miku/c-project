@@ -167,14 +167,22 @@ void DemoNarrativeFlow::maybeStartBossDefeatedDialogue(const BattleManager& mana
     startDialogueSequence(bossDefeatedDialogueLines_);
 }
 
-void DemoNarrativeFlow::handleAutomaticProgression(BattleManager& manager) {
+void DemoNarrativeFlow::handleAutomaticProgression(BattleManager& manager,
+                                                  const AutomaticProgressionRunner& automaticRunner) {
     if (dialogueInProgress_) {
         return;
     }
 
+    const auto runAutomaticProgression = [&](BattleManager& targetManager) {
+        if (automaticRunner) {
+            return automaticRunner(targetManager);
+        }
+        return targetManager.processAutomaticTurns();
+    };
+
     if (pendingPostLyooAttackAfterMikuUltimateTutorial_ && !hasShownPostLyooAttackAfterMikuUltimateTutorial_) {
         const std::size_t eventCountBefore = manager.getRecentActionEvents().size();
-        if (manager.processAutomaticTurns()) {
+        if (runAutomaticProgression(manager)) {
             const auto& actionEvents = manager.getRecentActionEvents();
             for (std::size_t i = eventCountBefore; i < actionEvents.size(); ++i) {
                 if (actionEvents[i].actorType != ParticipantType::Boss) {
@@ -191,7 +199,7 @@ void DemoNarrativeFlow::handleAutomaticProgression(BattleManager& manager) {
         return;
     }
 
-    manager.processAutomaticTurns();
+    (void)runAutomaticProgression(manager);
 }
 
 bool DemoNarrativeFlow::loadDialogueLinesFromScript(const std::string& jsonRelativePath,
