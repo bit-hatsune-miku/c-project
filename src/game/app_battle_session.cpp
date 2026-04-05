@@ -2372,6 +2372,14 @@ public:
             if (const auto bgmPath = platform::path::resolveCombatBgmPath(bgmName); bgmPath.has_value()) {
                 gBattleBgmController.requestTrack(*bgmPath, battleBgmBaseVolume_);
             }
+            const battle::BattleState& battleState = manager_.getBattleState();
+            int phaseIndex = transition->toPhaseIndex;
+            if (phaseIndex >= 0 && phaseIndex < static_cast<int>(battleState.boss.phases.size())) {
+                const std::string& phaseVoice = battleState.boss.phases[phaseIndex].phaseChangeVoice;
+                if (!phaseVoice.empty()) {
+                    (void)playBossPhaseTransitionVoice(phaseVoice, currentVoiceVolume());
+                }
+            }
         }
 
         if (bossPhaseIntro_.active) {
@@ -3072,6 +3080,7 @@ private:
             case game::audio::BattleVoiceKind::Dialogue:
             case game::audio::BattleVoiceKind::UltimateActivation:
             case game::audio::BattleVoiceKind::Ultimate:
+            case game::audio::BattleVoiceKind::PhaseTransition:
             case game::audio::BattleVoiceKind::Ability:
             case game::audio::BattleVoiceKind::Revived:
             case game::audio::BattleVoiceKind::Dead:
@@ -3217,6 +3226,17 @@ private:
             return true;
         }
         return requestCombatVoiceClip(speakerKey, battleState.boss.key, game::audio::BattleVoiceKind::Hit, voiceVolume, {"hit"});
+    }
+
+    bool playBossPhaseTransitionVoice(const std::string& voicePath, float voiceVolume) {
+        if (voicePath.empty()) {
+            return false;
+        }
+        return requestBattleVoicePath(
+            bossVoiceSpeakerKey(),
+            game::audio::BattleVoiceKind::PhaseTransition,
+            voicePath,
+            voiceVolume);
     }
 
     bool playBossHealedVoice(float voiceVolume) {

@@ -1674,6 +1674,17 @@ private:
         return requestCombatVoiceClip(speakerKey, battleState.boss.key, game::audio::BattleVoiceKind::Hit, volume, {"hit"});
     }
 
+    bool playBossPhaseTransitionVoice(const BattleManager& manager, const std::string& voicePath, float voiceVolume) {
+        if (voicePath.empty()) {
+            return false;
+        }
+        return requestBattleVoicePath(
+            bossVoiceSpeakerKey(manager),
+            game::audio::BattleVoiceKind::PhaseTransition,
+            voicePath,
+            voiceVolume);
+    }
+
     bool playBossHealedVoice(const BattleManager& manager, float volume) {
         const BattleState& battleState = manager.getBattleState();
         if (const auto healedVoice = resolveBossHealedVoicePath(battleState); healedVoice.has_value()) {
@@ -1984,6 +1995,14 @@ private:
                 return;
             }
             battleBgmController_.requestTrack(*bgmPath, manager.getCurrentBossBgmVolume());
+            const BattleState& battleState = manager.getBattleState();
+            int phaseIndex = transition.toPhaseIndex;
+            if (phaseIndex >= 0 && phaseIndex < static_cast<int>(battleState.boss.phases.size())) {
+                const std::string& phaseVoice = battleState.boss.phases[phaseIndex].phaseChangeVoice;
+                if (!phaseVoice.empty()) {
+                    (void)playBossPhaseTransitionVoice(manager, phaseVoice, 1.0f);
+                }
+            }
         };
         hooks.isBattleFinishBlocked = [](const BattleManager& manager) {
             if (manager.getBossCurrentHp() > 0) {

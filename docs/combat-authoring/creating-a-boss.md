@@ -18,7 +18,7 @@ A boss is made of:
 
 1. A boss entry in `assets/combat/boss.json`
 2. A battle entry in `assets/combat/battles.json`
-3. Sprite/icon/audio assets
+3. Sprite, icon, BGM, and voice assets
 4. Usually a custom boss presentation
 
 ## Required Files
@@ -30,21 +30,24 @@ At minimum, a new boss should have:
 - An icon at `assets/combat/icons/<assets>.png`
 - A battle entry in `assets/combat/battles.json`
 
-Recommended voice files:
+Safe recommended voice files:
 
 - `assets/combat/voices/<bossKey>/ability.wav`
 - `assets/combat/voices/<assets>/hit.wav`
 - `assets/combat/voices/<assets>/dead.wav`
 
-You can also set:
+Optional additional voice files:
 
-- `voiceHit` directly in `boss.json`
+- `assets/combat/voices/<bossKey>/ultimate.wav`
+- `assets/combat/voices/<bossKey>/ready.wav`
+- `assets/combat/voices/<bossKey>/special.wav`
+- `assets/combat/voices/<assets>/healed.wav`
 
-Important:
+Notes:
 
-- Boss hit and death voice lookup are not identical.
-- `voiceHit` only overrides hit voice lookup.
-- Dead voice is still resolved from combat voice folders, usually by `assets` or `bossKey`.
+- `voiceHit` can also be set directly in `boss.json`.
+- `phaseChangeVoice` is not a clip name lookup. It is a direct path stored in phase data.
+- `.png` is still the safest art format for boss sprites and icons.
 
 ## Boss JSON Schema
 
@@ -57,6 +60,7 @@ Minimal example:
   "myBoss": {
     "title": "My Boss",
     "assets": "myBoss",
+    "voiceSpeakerId": "my_boss_voice",
     "voiceHit": "assets/combat/voices/myBoss/hit.wav",
     "spd": 180,
     "atk": 40,
@@ -65,6 +69,35 @@ Minimal example:
     "skillAbility": "MyBossAttack",
     "ability": "MyBossAttack",
     "ultimate": "MyBossAttack",
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "myBossTheme",
+    "bgmVolume": 0.3,
+    "phases": {
+      "phase1": {
+        "bgm": "myBossTheme",
+        "presentation": {
+          "profileId": "myBoss.phase1"
+        }
+      },
+      "phase2": {
+        "atkBonusPercent": 20,
+        "bgm": "myBossThemePhase2",
+        "bgmVolume": 0.32,
+        "phaseChangeVoice": "assets/combat/voices/myBoss/phase2change.wav",
+        "presentation": {
+          "profileId": "myBoss.phase2"
+        }
+      },
+      "phase3": {
+        "atkBonusPercent": 40,
+        "bgm": "myBossThemePhase3",
+        "phaseChangeVoice": "assets/combat/voices/myBoss/phase3change.wav",
+        "presentation": {
+          "profileId": "myBoss.phase3"
+        }
+      }
+    },
     "abilities": {
       "skill": {
         "id": "MyBossAttack",
@@ -76,11 +109,7 @@ Minimal example:
         "interactionType": "parry",
         "presentationId": "my_boss_attack"
       }
-    },
-    "ultimatePoints": 6,
-    "startingOrbs": 1,
-    "bgm": "myBossTheme",
-    "bgmVolume": 0.3
+    }
   }
 }
 ```
@@ -92,6 +121,7 @@ Supported boss fields:
 - `title`
 - `assets`
 - `voiceHit`
+- `voiceSpeakerId`
 - `spd`
 - `atk`
 - `hp`
@@ -103,6 +133,7 @@ Supported boss fields:
 - `startingOrbs`
 - `bgm`
 - `bgmVolume`
+- `phases`
 - `abilities`
 
 ## Real Boss Behavior vs Compatibility Fields
@@ -115,19 +146,17 @@ The current system still stores:
 - `skillAbility`
 - `ultimate`
 
-But actual boss turn execution in `BattleManager::executeBossAction()` always resolves the boss's normal ability through:
+But actual boss turn execution in `BattleManager::executeBossAction()` resolves the boss's normal action through:
 
 - `ability`
 - then `skillAbility`
 - then `standardAbility`
 
-And `resolveBossAction()` only runs the boss's standard turn path.
-
 Practical authoring rule:
 
-- Treat the boss as having one real combat ability
-- Set `ability`, `skillAbility`, and `ultimate` to the same real boss skill unless you are intentionally preserving compatibility for other systems
-- Keep `standardAbility` filled for compatibility, but do not rely on it for actual design
+- Treat the boss as having one real combat ability.
+- Set `ability`, `skillAbility`, and `ultimate` to the same real boss skill unless you are intentionally preserving compatibility for other systems.
+- Keep `standardAbility` filled for compatibility, but do not rely on it as a distinct design slot.
 
 ## Boss Ability Schema
 
@@ -137,6 +166,7 @@ Supported fields:
 
 - `id`
 - `name`
+- `statusName`
 - `instructionHint`
 - `type`
 - `targetRule`
@@ -146,10 +176,16 @@ Supported fields:
 - `amountPercentOfCasterMaxHp`
 - `speedBuff`
 - `atkBuff`
+- `orbGain`
 - `actionAdvance`
+- `selfHpCostPercentOfMax`
+- `selfHpCostPercentIncreasePerUse`
+- `selfHpCostPercentMax`
 - `reviveDeadAllies`
 - `interactionType`
 - `presentationId`
+- `inputPromptType`
+- `inputPromptKeys`
 
 Supported `type` values:
 
@@ -172,6 +208,41 @@ Supported `interactionType` values:
 - `none`
 - `rhythm`
 - `parry`
+
+Supported `inputPromptType` values:
+
+- `none`
+- `space`
+- `wild`
+- `custom`
+- `arrows`
+- `leftRight`
+- `spamSpace`
+
+## Phases
+
+Boss phase data is now authored directly in `boss.json`.
+
+The current loader supports:
+
+- `phases.phase1`
+- `phases.phase2`
+- `phases.phase3`
+
+Each phase entry can contain:
+
+- `atkBonusPercent`
+- `bgm`
+- `bgmVolume`
+- `presentation`
+- `phaseChangeVoice`
+
+Notes:
+
+- Phase data is optional.
+- You can author only phase 2 and phase 3 if phase 1 uses the base boss defaults.
+- `phaseChangeVoice` is optional. If it is missing, empty, or points to a file that does not exist, the transition still works and no voice is played.
+- `phaseChangeVoice` is a direct file path, not an implicit `phase2change.wav` or `phase3change.wav` convention.
 
 ## Targeting Rules for Bosses
 
@@ -200,15 +271,16 @@ Examples already in the codebase:
 Safest current voice layout for bosses:
 
 - Put `ability.wav` under `assets/combat/voices/<bossKey>/`
-- Put `hit.wav` and `dead.wav` under `assets/combat/voices/<assets>/`
+- Put `hit.wav`, `dead.wav`, and `healed.wav` under `assets/combat/voices/<assets>/`
 - Optionally set `voiceHit` to an explicit path if hit audio should come from somewhere else
+- Put phase-change clips wherever you want, then reference them directly with `phaseChangeVoice`
 
 Why this split is safest:
 
-- Boss ability voice playback often tries `<bossKey>` first
-- Boss hit/death fallback usually tries `assets`, then `bossKey`
-
-If you only provide one folder, use both names if possible to avoid surprises.
+- Boss ability voice playback often tries `<bossKey>` first.
+- Boss hit / death fallback usually tries `assets`, then `bossKey`.
+- `voiceHit` only overrides hit voice lookup.
+- Phase-change voice does not participate in the clip-name lookup rules; it uses the exact path authored in the phase entry.
 
 ## BGM
 
@@ -225,6 +297,8 @@ the runtime looks for:
 
 `bgmVolume` is a direct float multiplier.
 
+Phase entries can override both `bgm` and `bgmVolume`.
+
 ## Splash Art Behavior
 
 Boss splash art is effectively automatic.
@@ -234,7 +308,7 @@ During presentation playback:
 - if the boss presentation provides `getSplashConfig()`, that config is used
 - otherwise the runtime creates a default splash using the boss sprite texture
 
-The splash title now uses the ability `name`, not the raw ability id.
+The splash title uses the resolved ability `name`, not the raw ability id.
 
 ## Adding the Boss to Battles
 
@@ -261,8 +335,10 @@ Example:
 
 - Boss exists in `assets/combat/boss.json`
 - `assets` matches a real sprite and icon
-- `ability`, `skillAbility`, and `ultimate` point to the same real boss skill
+- `ability`, `skillAbility`, and `ultimate` point to the same real boss skill unless you intentionally need compatibility differences
 - Boss nested `abilities.skill.id` matches those ids
+- Any authored phases use `phase1`, `phase2`, and `phase3`
+- Any `phaseChangeVoice` path points to a real file
 - `presentationId` is registered
 - Voice files exist in the folders the runtime actually checks
 - Battle entry exists in `assets/combat/battles.json`
@@ -270,9 +346,10 @@ Example:
 
 ## Known Gotchas
 
-- Bosses do not really use separate standard/skill/ultimate combat behaviors right now
-- Generic single-target boss behavior targets the first living ally, not a random ally
-- `voiceHit` does not configure death voice
-- Ability ids are global; duplicate ids overwrite earlier entries during ability loading
-- Icons and sprites are safest as `.png`
-- If your boss mechanic changes game rules, expect `BattleManager` work in addition to JSON and presentation work
+- Bosses do not really use separate standard / skill / ultimate combat behaviors right now.
+- Generic single-target boss behavior targets the first living ally, not a random ally.
+- `voiceHit` does not configure death voice.
+- `phaseChangeVoice` only plays on phase transition if the file is present.
+- Ability ids are global; duplicate ids overwrite earlier entries during ability loading.
+- `.png` is still the safest cross-runtime art format for boss sprites and icons.
+- If your boss mechanic changes game rules, expect `BattleManager` work in addition to JSON and presentation work.

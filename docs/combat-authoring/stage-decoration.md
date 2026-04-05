@@ -28,7 +28,7 @@ Think of it as a two-step lookup:
 - `battles.json` says which stage a battle wants
 - `stages.json` says what that stage contains
 
-So yes, the normal workflow is:
+So the normal workflow is:
 
 - create a stage entry in `assets/combat/stages.json`
 - give it a unique key such as `city_rooftop_night`
@@ -122,7 +122,7 @@ Notes:
 - `width` and `depth` are in world units
 - `tileSize` is the desired tile size, but the renderer caps floor geometry to a `20 x 20` budget
 - if `texture` is missing or fails to load, the engine generates a checker floor from `baseColor` and `accentColor`
-- floor size only affects the environment, not combat logic or party/boss slot positions
+- floor size only affects the environment, not combat logic or party / boss slot positions
 
 ### `backdrop`
 
@@ -151,8 +151,47 @@ Quick comparison:
 | --- | --- | --- | --- |
 | `screen` | dialogue-heavy fights, simple stages, safest baseline | cheapest and most stable | feels flat |
 | `parallax` | most normal battles that want a bit more depth | good depth-per-cost ratio | still a 2D plate |
-| `panorama` | spaces where the surrounding walls/horizon matter more than ceiling/floor | strong sense of place from one image | limited top/bottom coverage |
-| `skybox` | showcase arenas, open spaces, or scenes where looking around in all directions matters | strongest full-environment feel | most expensive and hardest to author cleanly |
+| `panorama` | spaces where the surrounding walls / horizon matter more than ceiling / floor | strong sense of place from one image | large images can fail if you author them too aggressively |
+| `skybox` | showcase arenas, open spaces, or scenes where looking around in all directions matters | strongest full-environment feel | most asset-heavy and easiest to oversize |
+
+## Backdrop Size Recommendations
+
+These recommendations are intentionally conservative.
+
+Why:
+
+- the SDL battle texture loader explicitly rejects images above the renderer's reported max texture size
+- very large panorama / skybox assets can fail to load on some machines even before they become visually useful
+- the GL path does not make oversized source art safer; large textures are still a practical hardware risk
+
+Practical rule:
+
+- start with the sizes below
+- only scale up after testing the actual build on your real target hardware
+- bigger is not automatically better
+
+Recommended starting sizes:
+
+| Mode | Recommended Size | Notes |
+| --- | --- | --- |
+| `screen` | `1920x1080` | safest baseline |
+| `parallax` | `2560x1440` | gives the renderer some overscan room |
+| `panorama` | `2048x1024` | true `2:1` panorama is the sweet spot |
+| `skybox` | `1024x1024` per face | safest default for all six faces |
+
+Optional larger versions, only after testing:
+
+- `screen`: `2560x1440`
+- `parallax`: `3840x2160`
+- `panorama`: `4096x2048`
+- `skybox`: `2048x2048` per face
+
+Avoid treating these as defaults:
+
+- `8192`-wide panoramas
+- `4096+` skybox faces without real in-game testing
+
+Those can work on strong setups, but they are much more likely to fail or be wasteful.
 
 #### `screen`
 
@@ -167,6 +206,11 @@ Behavior:
 - the image is stretched to the screen
 - camera movement and rotation do not change it
 - this is the cheapest and safest readability-first option
+
+Recommended source size:
+
+- `1920x1080` recommended
+- `2560x1440` optional if you want cleaner upscale headroom
 
 Strengths:
 
@@ -205,12 +249,17 @@ Fields:
 Behavior:
 
 - the image stays a 2D plate, not a world object
-- the renderer gives it overscan and shifts it slightly with camera yaw/pitch
+- the renderer gives it overscan and shifts it slightly with camera yaw / pitch
 - stronger values create more drift, but too much can look fake quickly
 
 Recommended range:
 
 - `0.15` to `0.75`
+
+Recommended source size:
+
+- `1920x1080` minimum
+- `2560x1440` recommended
 
 Strengths:
 
@@ -253,17 +302,22 @@ Behavior:
 - translation is ignored, so it behaves like a distant environment
 - best results come from a true wide panorama, ideally around `2:1`
 
+Recommended source size:
+
+- `2048x1024` recommended default
+- `4096x2048` only if tested successfully on your target build
+
 Strengths:
 
 - excellent when the surrounding environment matters more than the ceiling or floor
 - strong sense of horizontal place with only one image
-- good fit for interiors where the walls matter but the roof/floor do not need full skybox coverage
+- good fit for interiors where the walls matter but the roof / floor do not need full skybox coverage
 
 Weaknesses:
 
 - top and bottom coverage are limited compared with a true skybox
 - source art needs to be wide enough or the effect feels cramped
-- not ideal when players should feel enclosed in all directions
+- very large panoramas are one of the easiest ways to hit texture-loading problems
 
 Example fit:
 
@@ -302,17 +356,28 @@ Behavior:
 - translation is ignored, so the skybox feels infinitely far away
 - missing faces simply fall back to the gradient in those regions
 
+Recommended source size:
+
+- `1024x1024` per face recommended default
+- `2048x2048` per face only if tested in-game
+
+Authoring rules:
+
+- keep all six faces the same resolution
+- keep all faces square
+- keep orientation consistent across the full set
+
 Strengths:
 
 - best full-surround option
 - strongest sense of being inside a larger space
-- works well when up/down views matter visually
+- works well when up / down views matter visually
 
 Weaknesses:
 
 - most asset-heavy option
 - hardest to author cleanly because seams and face orientation matter
-- usually overkill for small or dialogue-heavy fights
+- easy to overbuild with textures that are larger than the game really needs
 
 Example:
 
@@ -390,7 +455,7 @@ If something is missing:
 - unknown `stageKey` falls back to `default_stage`
 - missing `default_stage` falls back to built-in hardcoded defaults
 - missing floor texture falls back to procedural floor colors
-- missing screen/parallax/panorama image means gradient-only background
+- missing screen / parallax / panorama image means gradient-only background
 - missing skybox faces are skipped instead of failing battle startup
 - missing prop textures are skipped instead of failing battle startup
 
@@ -418,37 +483,27 @@ When making a new stage:
 - use `screen` for stability, `parallax` for light depth, `panorama` for scenic rotation, and `skybox` for showcase spaces
 - add at most `1` to `2` hero props first and check silhouette clarity
 - only add camera overrides if the default framing feels clearly wrong for that stage
+- keep backdrop textures smaller unless you have already verified a larger version in-game
 
 For the current system, prefer:
 
-- broad color/gradient atmosphere
+- broad color / gradient atmosphere
 - a readable floor with moderate contrast
 - a few large props instead of many small props
 - low visual noise behind the combat lane
 - `screen` or `parallax` for most fights
 - `panorama` or `skybox` only when the art really benefits from camera-reactive background motion
-- keep backdrop images within GPU texture limits (as a rule of thumb, make panorama/skybox faces `<= 8192px` on the longest edge)
 
 ## Useful Test Stages
 
-`assets/combat/stages.json` now includes a few quick test entries:
+`assets/combat/stages.json` includes a few quick test entries:
 
-- `default_stage` for fixed `screen` backdrop behavior
-- `tutorial_test_stage` for quick iteration on backdrops + props
+- `default_stage` for fixed baseline behavior
+- `tutorial_test_stage` for quick iteration on backdrops and props
 - `debug_panorama_stage` for `panorama`
 - `debug_skybox_stage` for `skybox`
 
 You can point any battle at one of those keys to test the mode quickly.
-
-## Future Options
-
-If skybox source art needs per-face correction later, likely useful authoring additions would be:
-
-- `flipX`
-- `flipY`
-- `rotate90`
-
-Those are not implemented right now because the current skybox path is working well enough without adding more authoring complexity.
 
 ## Current Limitation
 

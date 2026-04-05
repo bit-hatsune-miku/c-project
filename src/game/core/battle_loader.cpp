@@ -221,6 +221,7 @@ void parseBossPhaseDefinition(const json& phaseJson,
         bgmVolumeIt != phaseJson.end() && bgmVolumeIt->is_number()) {
         outPhase.bgmVolume = bgmVolumeIt->get<float>();
     }
+    outPhase.phaseChangeVoice = phaseJson.value("phaseChangeVoice", "");
 
     if (const auto presentationIt = phaseJson.find("presentation");
         presentationIt != phaseJson.end()) {

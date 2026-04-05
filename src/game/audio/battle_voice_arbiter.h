@@ -12,6 +12,7 @@ enum class BattleVoiceKind {
     Dialogue,
     UltimateActivation,
     Ultimate,
+    PhaseTransition,
     Ability,
     Hit,
     Healed,
@@ -150,6 +151,8 @@ private:
 
     static bool canRetriggerKind(BattleVoiceKind kind) {
         switch (kind) {
+            case BattleVoiceKind::PhaseTransition:
+                return false;
             case BattleVoiceKind::Ability:
             case BattleVoiceKind::Hit:
             case BattleVoiceKind::Healed:
@@ -175,6 +178,8 @@ private:
             case BattleVoiceKind::Dialogue:
                 return 5;
             case BattleVoiceKind::Ultimate:
+                return 4;
+            case BattleVoiceKind::PhaseTransition:
                 return 4;
             case BattleVoiceKind::Ability:
                 return 3;

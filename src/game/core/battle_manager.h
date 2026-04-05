@@ -23,6 +23,7 @@ struct BossDefinition {
         std::string bgm;
         std::optional<float> bgmVolume;
         PresentationTuningProfile tuningProfile{};
+        std::string phaseChangeVoice;
     };
 
     std::string key;
