@@ -354,9 +354,9 @@
         "title": "Kasane Teto",
         "assets": "teto",
         "class": "Healer",
-        "spd": 102,
-        "atk": 12,
-        "hp": 62,
+        "spd": 160,
+        "atk": 0,
+        "hp": 73,
         "standardAbility": "BasicAttack",
         "skillAbility": "HealAlliesLeastHpBonus",
         "ability": "HealAlliesLeastHpBonus",
@@ -364,7 +364,7 @@
         "abilities": {
             "skill": {
                 "id": "HealAlliesLeastHpBonus",
-                "name": "Heal all allies",
+                "name": "I want to be a Diva!",
                 "type": "heal",
                 "targetRule": "all_allies",
                 "amountPercentOfCasterMaxHp": 29.032258,
@@ -374,7 +374,7 @@
             },
             "ultimate": {
                 "id": "HitRecoveryEncore",
-                "name": "Recovery Encore",
+                "name": "Kyuuu...! Chimera!",
                 "type": "buff",
                 "targetRule": "all_allies",
                 "multiplier": 0.0,

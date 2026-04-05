@@ -140,7 +140,7 @@
         "voiceHit": "assets/combat/voices/jiafei/hit.wav",
         "spd": 185,
         "atk": 85,
-        "hp": 420,
+        "hp": 650,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "AestheticWarning",
         "ability": "AestheticWarning",
@@ -160,10 +160,10 @@
         },
         "ultimatePoints": 6,
         "startingOrbs": 1,
-        "bgm": "yehuaxiang",
-        "bgmVolume": 0.4,
         "phases": {
             "phase1": {
+                "bgm": "yehuaxiang",
+                "bgmVolume": 0.4,
                 "atkBonusPercent": 0,
                 "presentation": {
                     "intParams": {
@@ -179,6 +179,8 @@
             },
             "phase2": {
                 "atkBonusPercent": 10,
+                "bgm": "jiafeiBoss3",
+                "bgmVolume": 0.4,
                 "presentation": {
                     "intParams": {
                         "totalWaves": 13,
@@ -192,6 +194,8 @@
                 }
             },
             "phase3": {
+                "bgm": "jiafeiBoss2",
+                "bgmVolume": 0.4,
                 "atkBonusPercent": 20,
                 "presentation": {
                     "intParams": {
@@ -304,11 +308,11 @@
         },
         "ultimatePoints": 6,
         "startingOrbs": 1,
-        "bgm": "weizhi",
-        "bgmVolume": 0.4,
         "phases": {
             "phase1": {
                 "atkBonusPercent": 0,
+                "bgm": "weizhi",
+                "bgmVolume": 0.3,
                 "presentation": {
                     "intParams": {
                         "initialSpawnCount": 1
@@ -483,5 +487,66 @@
         "startingOrbs": 1,
         "bgm": "私は、わたしの事が好き",
         "bgmVolume": 0.4
+    },
+    "tetoBoss": {
+        "title": "Kasane Teto",
+        "assets": "tetoBoss",
+        "voiceHit": "assets/combat/voices/teto/hit.wav",
+        "spd": 145,
+        "atk": 10,
+        "hp": 600,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "BaguetteEat",
+        "ability": "BaguetteEat",
+        "ultimate": "BaguetteEat",
+        "abilities": {
+            "skill": {
+                "id": "BaguetteEat",
+                "name": "Baguette Eat",
+                "instructionHint": "Press ARROW UP or DOWN to move between lanes and dodge baguettes",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.9,
+                "interactionType": "parry",
+                "presentationId": "teto_baguette_attack",
+                "inputPromptType": "arrows"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "tetoBoss",
+        "bgmVolume": 0.4,
+        "phases": {
+            "phase1": {
+                "atkBonusPercent": 0,
+                "presentation": {
+                    "floatParams": {
+                        "survivalDurationSeconds": 5.0,
+                        "baseBaguetteSpeed": 500.0,
+                        "baseSpawnInterval": 0.8
+                    }
+                }
+            },
+            "phase2": {
+                "atkBonusPercent": 15,
+                "presentation": {
+                    "floatParams": {
+                        "survivalDurationSeconds": 8.0,
+                        "baseBaguetteSpeed": 700.0,
+                        "baseSpawnInterval": 0.5
+                    }
+                }
+            },
+            "phase3": {
+                "atkBonusPercent": 30,
+                "presentation": {
+                    "floatParams": {
+                        "survivalDurationSeconds": 12.0,
+                        "baseBaguetteSpeed": 900.0,
+                        "baseSpawnInterval": 0.35
+                    }
+                }
+            }
+        }
     }
 }

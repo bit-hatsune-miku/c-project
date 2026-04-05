@@ -2117,8 +2117,8 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
         presContext.tuningProfile = currentBossPhaseDefinition().tuningProfile;
         int presentationTargetHpBefore = -1;
 
-        // For Jiafei boss parry interaction, pick a random alive character to focus.
-        if (abilityDef->id == "AestheticWarning" && abilityDef->targetRule == TargetRule::AllEnemies) {
+        // For Jiafei and Teto boss parry interaction, pick a random alive character to focus.
+        if ((abilityDef->id == "AestheticWarning" || abilityDef->id == "BaguetteEat") && abilityDef->targetRule == TargetRule::AllEnemies) {
             std::vector<int> alive;
             for (const BattleCharacter& c : characters_) {
                 if (c.isAlive()) {
@@ -2150,8 +2150,8 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
                 actionEvent.targetShieldBefore.push_back(currentShield);
                 actionEvent.targetShieldAfter.push_back(currentShield);
             }
-        } else if (abilityDef->id == "AestheticWarning" && presContext.targetIndex >= 0) {
-            // Jiafei handles all damage through presentation hit events.
+        } else if ((abilityDef->id == "AestheticWarning" || abilityDef->id == "BaguetteEat") && presContext.targetIndex >= 0) {
+            // Jiafei/Teto handles all damage through presentation hit events.
         } else if (abilityDef->targetRule == TargetRule::AllEnemies) {
             for (BattleCharacter& c : characters_) {
                 if (!c.isAlive()) {

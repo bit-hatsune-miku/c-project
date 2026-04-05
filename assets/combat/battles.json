@@ -64,6 +64,30 @@
       ],
       "stageKey": "wildflower_stage"
     },
+    "roomateConflicts": {
+      "id": 2,
+      "storyOrder": 201,
+      "name": "Fight between Roommates",
+      "description": "It's time to settle the score between you and your roommate",
+      "bossKey": "tetoBoss",
+      "storyScript": "ch0302",
+      "victoryStoryScript": "ch0303",
+      "nextStoryScript": "ch0400",
+      "selectorVisible": true,
+      "isLineupFixed": false,
+      "buffs": {
+        "hp": 8,
+        "atk": 2,
+        "spd": 1
+      },
+      "lineup": [
+        "miku",
+        "cupcakke",
+        "jiafei",
+        "lyoo"
+      ],
+      "stageKey": "scan_to_pay_stage"
+    },
     "scan_to_pay": {
       "id": 100,
       "storyOrder": 300,
@@ -72,7 +96,7 @@
       "bossKey": "wechatalipayBoss",
       "storyScript": "ch0300",
       "victoryStoryScript": "ch0301",
-      "nextStoryScript": "ch0400",
+      "nextStoryScript": "ch0302",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
