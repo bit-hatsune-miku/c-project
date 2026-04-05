@@ -17,6 +17,10 @@ cmake --build build
 sudo apt update
 sudo apt install build-essential cmake libsdl2-dev
 
+For Opus audio playback support, also install the opusfile development package:
+
+sudo apt install libopusfile-dev
+
 2. Configure + build:
 
 cmake -S . -B build
@@ -31,7 +35,7 @@ cmake --build build
 1. Install Visual Studio (Desktop development with C++) and CMake.
 2. Install vcpkg and then SDL2:
 
-vcpkg install sdl2:x64-windows
+vcpkg install sdl2:x64-windows opusfile:x64-windows
 
 3. Configure + build from project folder:
 
@@ -47,6 +51,10 @@ Run `OurUndergroundBITIdol.exe` from the generated build output directory.
 1. Install tools and SDL2:
 
 brew install cmake sdl2
+
+For Opus audio playback support, also install:
+
+brew install opusfile
 
 2. Configure + build:
 

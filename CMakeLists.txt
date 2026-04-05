@@ -33,6 +33,38 @@ set(SDL2_IMAGE_LIBRARIES SDL2_image::SDL2_image)
 
 find_package(PkgConfig QUIET)
 
+set(GAME_OPUSFILE_FOUND FALSE)
+set(GAME_OPUSFILE_INCLUDE_DIRS)
+set(GAME_OPUSFILE_LIBRARIES)
+if(PkgConfig_FOUND)
+    pkg_check_modules(OPUSFILE QUIET opusfile)
+    if(OPUSFILE_FOUND)
+        set(GAME_OPUSFILE_FOUND TRUE)
+        set(GAME_OPUSFILE_INCLUDE_DIRS ${OPUSFILE_INCLUDE_DIRS})
+        set(GAME_OPUSFILE_LIBRARIES ${OPUSFILE_LIBRARIES})
+    endif()
+endif()
+
+if(NOT GAME_OPUSFILE_FOUND)
+    find_path(GAME_OPUSFILE_INCLUDE_DIR
+        NAMES opus/opusfile.h opusfile.h
+    )
+    find_library(GAME_OPUSFILE_LIBRARY
+        NAMES opusfile
+    )
+    if(GAME_OPUSFILE_INCLUDE_DIR AND GAME_OPUSFILE_LIBRARY)
+        set(GAME_OPUSFILE_FOUND TRUE)
+        set(GAME_OPUSFILE_INCLUDE_DIRS ${GAME_OPUSFILE_INCLUDE_DIR})
+        set(GAME_OPUSFILE_LIBRARIES ${GAME_OPUSFILE_LIBRARY})
+    endif()
+endif()
+
+if(GAME_OPUSFILE_FOUND)
+    message(STATUS "Opus audio decoding enabled.")
+else()
+    message(WARNING "opusfile was not found. WAV playback still works, but .opus assets will not decode until opusfile is installed.")
+endif()
+
 add_compile_definitions(SDL2_TTF_FOUND=1)
 add_compile_definitions(SDL2_IMAGE_FOUND=1)
 
@@ -209,6 +241,17 @@ set(HEADERS
     src/game/vn/vn_script.h
     src/game/save/save.h
 )
+
+add_library(game_audio_runtime STATIC
+    src/game/audio/audio_clip_loader.cpp
+    src/game/audio/audio_clip_loader.h
+)
+target_include_directories(game_audio_runtime PRIVATE ${SDL2_INCLUDE_DIRS})
+if(GAME_OPUSFILE_FOUND)
+    target_include_directories(game_audio_runtime PRIVATE ${GAME_OPUSFILE_INCLUDE_DIRS})
+    target_compile_definitions(game_audio_runtime PRIVATE GAME_AUDIO_ENABLE_OPUS=1)
+    target_link_libraries(game_audio_runtime PUBLIC ${GAME_OPUSFILE_LIBRARIES})
+endif()
 
 # Create executable
 add_executable(OurUndergroundBITIdol
@@ -481,6 +524,7 @@ if (ENABLE_RMLUI)
     target_compile_definitions(battle_testing PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
     target_link_libraries(battle_testing PRIVATE
         ${SDL2_LIBRARIES}
+        game_audio_runtime
         OpenGL::GL
         nlohmann_json::nlohmann_json
         RmlUi::RmlUi
@@ -492,6 +536,7 @@ if (ENABLE_RMLUI)
     target_compile_definitions(boss_selector PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
     target_link_libraries(boss_selector PRIVATE
         ${SDL2_LIBRARIES}
+        game_audio_runtime
         OpenGL::GL
         nlohmann_json::nlohmann_json
         RmlUi::RmlUi
@@ -513,18 +558,21 @@ if (ENABLE_RMLUI)
     target_compile_definitions(party_loader_preview PRIVATE RMLUI_SDL_VERSION_MAJOR=2)
     target_link_libraries(menu_preview PRIVATE
         ${SDL2_LIBRARIES}
+        game_audio_runtime
         OpenGL::GL
         nlohmann_json::nlohmann_json
         RmlUi::RmlUi
     )
     target_link_libraries(battle_selector_preview PRIVATE
         ${SDL2_LIBRARIES}
+        game_audio_runtime
         OpenGL::GL
         nlohmann_json::nlohmann_json
         RmlUi::RmlUi
     )
     target_link_libraries(party_loader_preview PRIVATE
         ${SDL2_LIBRARIES}
+        game_audio_runtime
         OpenGL::GL
         nlohmann_json::nlohmann_json
         RmlUi::RmlUi
@@ -723,15 +771,15 @@ if (SDL2_IMAGE_FOUND)
 endif()
 
 # Link libraries
-target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
-target_link_libraries(finale PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
-target_link_libraries(ch0 PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
-target_link_libraries(demo PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
-target_link_libraries(demo_jiafei PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
-target_link_libraries(demo_lyoo_plot_twist PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
-target_link_libraries(demo_wechatalipay PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
-target_link_libraries(demo_ari PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
-target_link_libraries(demo_luotianyi PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
+target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
+target_link_libraries(finale PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
+target_link_libraries(ch0 PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
+target_link_libraries(demo PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
+target_link_libraries(demo_jiafei PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
+target_link_libraries(demo_lyoo_plot_twist PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
+target_link_libraries(demo_wechatalipay PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
+target_link_libraries(demo_ari PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
+target_link_libraries(demo_luotianyi PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
 if (ENABLE_RMLUI)
     target_compile_definitions(OurUndergroundBITIdol PRIVATE RMLUI_SDL_VERSION_MAJOR=2 APP_ENABLE_RMLUI=1)
     target_link_libraries(OurUndergroundBITIdol PRIVATE OpenGL::GL RmlUi::RmlUi)
@@ -753,12 +801,12 @@ if (ENABLE_RMLUI)
     endif()
 endif()
 if (NOT ENABLE_RMLUI)
-    target_link_libraries(battle_testing PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
-    target_link_libraries(battle_testing_jiafei PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
+    target_link_libraries(battle_testing PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
+    target_link_libraries(battle_testing_jiafei PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
 endif()
 if (TARGET battle_testing_legacy)
-    target_link_libraries(battle_testing_legacy PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
-    target_link_libraries(battle_testing_jiafei PRIVATE ${SDL2_LIBRARIES} nlohmann_json::nlohmann_json)
+    target_link_libraries(battle_testing_legacy PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
+    target_link_libraries(battle_testing_jiafei PRIVATE ${SDL2_LIBRARIES} game_audio_runtime nlohmann_json::nlohmann_json)
 endif()
 if (SDL2_TTF_FOUND)
     target_link_libraries(OurUndergroundBITIdol PRIVATE ${SDL2_TTF_LIBRARIES})

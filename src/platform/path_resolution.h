@@ -2,6 +2,7 @@
 
 #include <array>
 #include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -17,8 +18,19 @@ namespace platform::path {
 
 inline std::string findCjkFontPath();
 
+inline std::string lowercaseAsciiCopy(std::string value) {
+    std::transform(value.begin(), value.end(), value.begin(), [](unsigned char ch) {
+        return static_cast<char>(std::tolower(ch));
+    });
+    return value;
+}
+
 inline std::string portablePathString(const std::filesystem::path& path) {
     return path.lexically_normal().generic_string();
+}
+
+inline std::string lowercaseExtension(const std::filesystem::path& path) {
+    return lowercaseAsciiCopy(path.extension().string());
 }
 
 inline std::optional<std::filesystem::path> executablePath() {
@@ -216,6 +228,35 @@ inline std::vector<std::string> preferredCjkFontPaths(const std::vector<std::str
     return candidates;
 }
 
+inline std::optional<std::string> resolveAudioPath(const std::string& assetPath) {
+    namespace fs = std::filesystem;
+
+    if (assetPath.empty()) {
+        return std::nullopt;
+    }
+
+    const fs::path input(assetPath);
+    const std::string extension = lowercaseExtension(input);
+
+    std::vector<fs::path> candidates;
+    candidates.reserve(3);
+    if (extension == ".wav" || extension == ".opus") {
+        candidates.push_back(input.parent_path() / (input.stem().string() + ".opus"));
+        candidates.push_back(input.parent_path() / (input.stem().string() + ".wav"));
+    } else {
+        candidates.push_back(input);
+    }
+
+    for (const fs::path& candidate : candidates) {
+        const std::string resolved = resolvePath(portablePathString(candidate));
+        if (std::filesystem::exists(resolved)) {
+            return resolved;
+        }
+    }
+
+    return std::nullopt;
+}
+
 inline std::string findCombatImagePath(const std::string& folder, const std::string& assetName) {
     const std::array<std::pair<std::string, std::string>, 2> candidates = {
         std::pair<std::string, std::string>{
@@ -240,31 +281,34 @@ inline std::optional<std::string> resolveCombatVoicePath(const std::string& asse
         return std::nullopt;
     }
 
-    const std::array<std::string, 2> candidates = {
-        resolvePath("assets/combat/voices/" + assetName + "/" + clipName + ".wav"),
-        resolvePath("assets/combat/voices/" + assetName + "." + clipName + ".wav")
+    const std::array<std::string, 4> candidates = {
+        "assets/combat/voices/" + assetName + "/" + clipName + ".opus",
+        "assets/combat/voices/" + assetName + "/" + clipName + ".wav",
+        "assets/combat/voices/" + assetName + "." + clipName + ".opus",
+        "assets/combat/voices/" + assetName + "." + clipName + ".wav"
     };
     for (const std::string& candidate : candidates) {
-        if (std::filesystem::exists(candidate)) {
-            return candidate;
+        if (const std::optional<std::string> resolved = resolveAudioPath(candidate); resolved.has_value()) {
+            return resolved;
         }
     }
     return std::nullopt;
 }
 
-// Resolve a BGM clip name to a file path (.wav preferred, .mp3 fallback).
+// Resolve a BGM clip name to a file path (.opus preferred, .wav fallback).
 inline std::optional<std::string> resolveCombatBgmPath(const std::string& bgmName) {
     if (bgmName.empty()) {
         return std::nullopt;
     }
 
-    const std::array<std::string, 2> candidates = {
-        resolvePath("assets/combat/bgm/" + bgmName + ".wav"),
-        resolvePath("assets/combat/bgm/" + bgmName + ".mp3")
+    const std::array<std::string, 3> candidates = {
+        "assets/combat/bgm/" + bgmName + ".opus",
+        "assets/combat/bgm/" + bgmName + ".wav",
+        "assets/combat/bgm/" + bgmName + ".mp3"
     };
     for (const std::string& candidate : candidates) {
-        if (std::filesystem::exists(candidate)) {
-            return candidate;
+        if (const std::string resolved = resolvePath(candidate); std::filesystem::exists(resolved)) {
+            return resolved;
         }
     }
     return std::nullopt;

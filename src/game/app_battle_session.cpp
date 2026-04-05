@@ -223,13 +223,13 @@ game::audio::BgmPlayer gPresentationLoopAudio;
 game::audio::BgmPlayer gPauseMenuBgmPlayer;
 
 std::vector<std::string> resolveUiMusicTrackPaths() {
-    std::vector<std::string> tracks;
+    std::map<std::string, std::filesystem::path> bestByStem;
     const std::string classicsDirectory = platform::path::resolvePath("assets/ui/classics");
     std::error_code filesystemError;
     if (classicsDirectory.empty() ||
         !std::filesystem::exists(classicsDirectory, filesystemError) ||
         filesystemError) {
-        return tracks;
+        return {};
     }
 
     for (const std::filesystem::directory_entry& entry : std::filesystem::directory_iterator(classicsDirectory, filesystemError)) {
@@ -244,11 +244,22 @@ std::vector<std::string> resolveUiMusicTrackPaths() {
         std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char ch) {
             return static_cast<char>(std::tolower(ch));
         });
-        if (extension == ".wav") {
-            tracks.push_back(entry.path().string());
+        if (extension != ".opus" && extension != ".wav") {
+            continue;
+        }
+
+        const std::string stemKey = entry.path().stem().string();
+        auto [it, inserted] = bestByStem.emplace(stemKey, entry.path());
+        if (!inserted && extension == ".opus") {
+            it->second = entry.path();
         }
     }
 
+    std::vector<std::string> tracks;
+    tracks.reserve(bestByStem.size());
+    for (const auto& [_, path] : bestByStem) {
+        tracks.push_back(path.string());
+    }
     std::sort(tracks.begin(), tracks.end());
     return tracks;
 }
@@ -317,14 +328,14 @@ bool playResolvedVoicePath(const std::string& path, float voiceVolume, int repea
         return false;
     }
 
-    const std::string resolved = platform::path::resolvePath(path);
-    if (!std::filesystem::exists(resolved)) {
+    const std::optional<std::string> resolved = platform::path::resolveAudioPath(path);
+    if (!resolved.has_value()) {
         return false;
     }
 
     bool played = false;
     for (int index = 0; index < repeatCount; ++index) {
-        if (gOneShotAudio.playWavOneShot(resolved, voiceVolume)) {
+        if (gOneShotAudio.playWavOneShot(*resolved, voiceVolume)) {
             played = true;
         }
     }
@@ -340,12 +351,12 @@ bool playResolvedOneShot(game::audio::WavOneShotPlayer& player,
         return false;
     }
 
-    const std::string resolved = platform::path::resolvePath(path);
-    if (!std::filesystem::exists(resolved)) {
+    const std::optional<std::string> resolved = platform::path::resolveAudioPath(path);
+    if (!resolved.has_value()) {
         return false;
     }
 
-    return player.playWavOneShot(resolved, volume, replaceExisting);
+    return player.playWavOneShot(*resolved, volume, replaceExisting);
 }
 
 bool playResolvedLoop(game::audio::BgmPlayer& player, const std::string& path, float volume) {
@@ -353,12 +364,12 @@ bool playResolvedLoop(game::audio::BgmPlayer& player, const std::string& path, f
         return false;
     }
 
-    const std::string resolved = platform::path::resolvePath(path);
-    if (!std::filesystem::exists(resolved)) {
+    const std::optional<std::string> resolved = platform::path::resolveAudioPath(path);
+    if (!resolved.has_value()) {
         return false;
     }
 
-    return player.play(resolved, volume);
+    return player.play(*resolved, volume);
 }
 
 /**

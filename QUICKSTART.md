@@ -22,3 +22,4 @@ cmake --build build
 
 - Do not commit the generated `build/` directory.
 - Optional features enable themselves automatically when `SDL2_ttf` and `SDL2_image` are installed.
+- Install `opusfile` before converting assets to `.opus`; without it the game will build, but Opus clips will not decode at runtime.

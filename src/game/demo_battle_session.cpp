@@ -1076,14 +1076,14 @@ bool playResolvedVoicePath(const std::string& path, float volume, int repeatCoun
         return false;
     }
 
-    const std::string resolved = platform::path::resolvePath(path);
-    if (!std::filesystem::exists(resolved)) {
+    const std::optional<std::string> resolved = platform::path::resolveAudioPath(path);
+    if (!resolved.has_value()) {
         return false;
     }
 
     bool played = false;
     for (int index = 0; index < repeatCount; ++index) {
-        if (gOneShotAudio.playWavOneShot(resolved, volume)) {
+        if (gOneShotAudio.playWavOneShot(*resolved, volume)) {
             played = true;
         }
     }
@@ -1098,12 +1098,12 @@ bool playResolvedOneShot(game::audio::WavOneShotPlayer& player,
         return false;
     }
 
-    const std::string resolved = platform::path::resolvePath(path);
-    if (!std::filesystem::exists(resolved)) {
+    const std::optional<std::string> resolved = platform::path::resolveAudioPath(path);
+    if (!resolved.has_value()) {
         return false;
     }
 
-    return player.playWavOneShot(resolved, volume, replaceExisting);
+    return player.playWavOneShot(*resolved, volume, replaceExisting);
 }
 
 bool playResolvedLoop(game::audio::BgmPlayer& player, const std::string& path, float volume) {
@@ -1111,12 +1111,12 @@ bool playResolvedLoop(game::audio::BgmPlayer& player, const std::string& path, f
         return false;
     }
 
-    const std::string resolved = platform::path::resolvePath(path);
-    if (!std::filesystem::exists(resolved)) {
+    const std::optional<std::string> resolved = platform::path::resolveAudioPath(path);
+    if (!resolved.has_value()) {
         return false;
     }
 
-    return player.play(resolved, volume);
+    return player.play(*resolved, volume);
 }
 
 std::optional<std::string> resolveCombatVoiceClipPath(

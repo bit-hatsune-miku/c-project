@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <system_error>
 
 #include "../../platform/path_resolution.h"
@@ -196,7 +197,7 @@ bool UiMusicController::loadTrackPool() {
         return false;
     }
 
-    std::vector<std::filesystem::path> candidates;
+    std::map<std::string, std::filesystem::path> bestByStem;
     std::filesystem::directory_iterator iterator(classicsDirectory, filesystemError);
     const std::filesystem::directory_iterator end;
     if (filesystemError) {
@@ -218,11 +219,22 @@ bool UiMusicController::loadTrackPool() {
         std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char ch) {
             return static_cast<char>(std::tolower(ch));
         });
-        if (extension == ".wav") {
-            candidates.push_back(entry.path());
+        if (extension != ".opus" && extension != ".wav") {
+            continue;
+        }
+
+        const std::string stemKey = lowercaseTrackStem(entry.path().string());
+        auto [bestIt, inserted] = bestByStem.emplace(stemKey, entry.path());
+        if (!inserted && extension == ".opus") {
+            bestIt->second = entry.path();
         }
     }
 
+    std::vector<std::filesystem::path> candidates;
+    candidates.reserve(bestByStem.size());
+    for (const auto& [_, path] : bestByStem) {
+        candidates.push_back(path);
+    }
     std::sort(candidates.begin(), candidates.end());
     for (const std::filesystem::path& path : candidates) {
         tracks_.push_back(TrackEntry{path.string(), true});

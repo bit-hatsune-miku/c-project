@@ -16,6 +16,7 @@
 #endif
 
 #include "window.h"
+#include "game/audio/audio_clip_loader.h"
 #include "game/core/battle_manager.h"
 #include "game/render/battle_ui.h"
 #include "game/render/camera_3d.h"
@@ -205,22 +206,19 @@ void cleanupFinishedHitVoices() {
 }
 
 bool startWavOneShotOnNewDevice(const std::string& wavPath) {
-    SDL_AudioSpec wavSpec{};
-    Uint8* wavBuffer = nullptr;
-    Uint32 wavLength = 0;
-
-    if (SDL_LoadWAV(wavPath.c_str(), &wavSpec, &wavBuffer, &wavLength) == nullptr) {
+    game::audio::DecodedAudioClip clip;
+    if (!game::audio::loadDecodedAudioClip(wavPath, clip)) {
         return false;
     }
 
-    SDL_AudioDeviceID device = SDL_OpenAudioDevice(nullptr, 0, &wavSpec, nullptr, 0);
+    SDL_AudioDeviceID device = SDL_OpenAudioDevice(nullptr, 0, &clip.spec, nullptr, 0);
     if (device == 0) {
-        SDL_FreeWAV(wavBuffer);
         return false;
     }
 
-    const int queueResult = SDL_QueueAudio(device, wavBuffer, wavLength);
-    SDL_FreeWAV(wavBuffer);
+    const int queueResult = SDL_QueueAudio(device,
+                                           clip.audioData.data(),
+                                           static_cast<Uint32>(clip.audioData.size()));
     if (queueResult != 0) {
         SDL_CloseAudioDevice(device);
         return false;

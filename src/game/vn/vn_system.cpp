@@ -15,6 +15,7 @@
 #endif
 
 #include "../audio/bgm_player.h"
+#include "../audio/audio_clip_loader.h"
 #include "../../platform/path_resolution.h"
 #include "../../platform/text_fallback.h"
 
@@ -76,9 +77,8 @@ bool gPaused = false;
 
 // Basic WAV playback via SDL audio queue (no external mixer needed)
 SDL_AudioDeviceID gAudioDevice = 0;
-SDL_AudioSpec gLoadedWavSpec{};
-Uint8* gLoadedWavBuffer = nullptr;
-Uint32 gLoadedWavLength = 0;
+SDL_AudioSpec gLoadedVoiceSpec{};
+std::vector<Uint8> gLoadedVoiceData;
 bool gVoicePlaying = false;
 bool gImageInitialized = false;
 bool gTtfInitialized = false;
@@ -227,11 +227,7 @@ std::string escapeRmlText(const std::string& text) {
 }
 
 void freeLoadedVoiceBuffer() {
-    if (gLoadedWavBuffer != nullptr) {
-        SDL_FreeWAV(gLoadedWavBuffer);
-        gLoadedWavBuffer = nullptr;
-        gLoadedWavLength = 0;
-    }
+    gLoadedVoiceData.clear();
 }
 
 void closeAudioDeviceIfOpen() {
@@ -251,7 +247,7 @@ void stopAndFreeVoiceBuffer() {
 }
 
 bool queueLoadedVoiceBuffer() {
-    if (gAudioDevice == 0 || gLoadedWavBuffer == nullptr || gLoadedWavLength == 0) {
+    if (gAudioDevice == 0 || gLoadedVoiceData.empty()) {
         return false;
     }
 
@@ -262,13 +258,14 @@ bool queueLoadedVoiceBuffer() {
         return true;
     }
 
+    const Uint32 audioLength = static_cast<Uint32>(gLoadedVoiceData.size());
     if (sdlVolume >= SDL_MIX_MAXVOLUME) {
-        return SDL_QueueAudio(gAudioDevice, gLoadedWavBuffer, gLoadedWavLength) == 0;
+        return SDL_QueueAudio(gAudioDevice, gLoadedVoiceData.data(), audioLength) == 0;
     }
 
-    std::vector<Uint8> mixedBuffer(gLoadedWavLength, 0);
-    SDL_MixAudioFormat(mixedBuffer.data(), gLoadedWavBuffer, gLoadedWavSpec.format, gLoadedWavLength, sdlVolume);
-    return SDL_QueueAudio(gAudioDevice, mixedBuffer.data(), gLoadedWavLength) == 0;
+    std::vector<Uint8> mixedBuffer(gLoadedVoiceData.size(), 0);
+    SDL_MixAudioFormat(mixedBuffer.data(), gLoadedVoiceData.data(), gLoadedVoiceSpec.format, audioLength, sdlVolume);
+    return SDL_QueueAudio(gAudioDevice, mixedBuffer.data(), audioLength) == 0;
 }
 
 void playVoiceIfAny() {
@@ -278,12 +275,17 @@ void playVoiceIfAny() {
         return;
     }
 
-    if (SDL_LoadWAV(gVoicePath.c_str(), &gLoadedWavSpec, &gLoadedWavBuffer, &gLoadedWavLength) == nullptr) {
-        std::cerr << "[VN] Could not load voice WAV: " << gVoicePath << " (" << SDL_GetError() << ")\n";
+    game::audio::DecodedAudioClip voiceClip;
+    std::string resolvedVoicePath;
+    std::string errorMessage;
+    if (!game::audio::loadDecodedAudioClip(gVoicePath, voiceClip, &resolvedVoicePath, &errorMessage)) {
+        std::cerr << "[VN] Could not load voice clip: " << gVoicePath << " (" << errorMessage << ")\n";
         return;
     }
 
-    gAudioDevice = SDL_OpenAudioDevice(nullptr, 0, &gLoadedWavSpec, nullptr, 0);
+    gLoadedVoiceSpec = voiceClip.spec;
+    gLoadedVoiceData = std::move(voiceClip.audioData);
+    gAudioDevice = SDL_OpenAudioDevice(nullptr, 0, &gLoadedVoiceSpec, nullptr, 0);
     if (gAudioDevice == 0) {
         std::cerr << "[VN] Could not open audio device: " << SDL_GetError() << "\n";
         stopAndFreeVoiceBuffer();
@@ -1445,7 +1447,7 @@ void setVoiceVolume(float volume01) {
     }
     gVoiceVolume = clamped;
 
-    if (gAudioDevice == 0 || gLoadedWavBuffer == nullptr || gLoadedWavLength == 0) {
+    if (gAudioDevice == 0 || gLoadedVoiceData.empty()) {
         return;
     }
 
