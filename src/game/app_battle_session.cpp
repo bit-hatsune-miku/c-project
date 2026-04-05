@@ -575,6 +575,8 @@ constexpr const char* kBattleHintKeyBossPhaseIntro = "boss_phase_intro";
 constexpr const char* kBattleHintKeyPresentationInstruction = "presentation_instruction";
 constexpr const char* kBattleHintKeyManualUltimateStatus = "manual_ultimate_status";
 constexpr const char* kBattleHintKeyTutorialOverlay = "tutorial_overlay";
+constexpr const char* kBattleHintKeyPauseBlocked = "pause_blocked";
+constexpr const char* kBattleHintKeyWaitForAllyTurn = "wait_for_ally_turn";
 
 std::string resolveBattleSpritePath(const std::string& assetName) {
     const std::array<std::string, 2> candidates = {
@@ -2159,7 +2161,7 @@ public:
 
         if (isBattleVsIntroBlocking() || combatBeginAnimation_.isActive()) {
             if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
-                showToast(hudFeedback_, "CANNOT PAUSE DURING A CUTSCENE.", SDL_GetTicks64(), 1800);
+                showPauseBlockedHint();
             }
             return;
         }
@@ -2167,7 +2169,7 @@ public:
         if (activeUltimateTurnSplash_ != nullptr) {
             if (event.type == SDL_KEYDOWN) {
                 if (event.key.keysym.sym == SDLK_ESCAPE) {
-                    showToast(hudFeedback_, "CANNOT PAUSE DURING A CUTSCENE.", SDL_GetTicks64(), 1800);
+                    showPauseBlockedHint();
                 } else if (event.key.keysym.sym == SDLK_SPACE) {
                     activeUltimateTurnSplash_->skip();
                 } else {
@@ -2187,7 +2189,7 @@ public:
         if (event.type == SDL_KEYDOWN &&
             event.key.keysym.sym == SDLK_ESCAPE &&
             (isDialogueInProgress() || tutorialOverlay_.step != TutorialStep::None)) {
-            showToast(hudFeedback_, "CANNOT PAUSE DURING A CUTSCENE.", SDL_GetTicks64(), 1800);
+            showPauseBlockedHint();
             return;
         }
 
@@ -2271,7 +2273,7 @@ public:
                     const battle::flow::PlayerTurnExecution turnExecution =
                         battle::flow::executeDefaultPlayerTurn(manager_);
                     if (!turnExecution.executed) {
-                        showToast(hudFeedback_, "WAIT FOR AN ALLY TURN.", nowMs);
+                        showWaitForAllyTurnHint();
                         return;
                     }
 
@@ -3529,6 +3531,32 @@ private:
         }
     }
 
+    void showPauseBlockedHint() {
+        BattleHintRequest request;
+        request.stableKey = kBattleHintKeyPauseBlocked;
+        request.family = BattleHintFamily::Warning;
+        request.kicker = "CUTSCENE LOCK";
+        request.sourceTag = "BATTLE FLOW";
+        request.badgeText = "WAIT";
+        request.message = "CANNOT PAUSE DURING A CUTSCENE.";
+        request.resolveRule.kind = BattleHintResolveKind::Timeout;
+        request.resolveRule.durationMs = 1800;
+        enqueueBattleHint(std::move(request));
+    }
+
+    void showWaitForAllyTurnHint() {
+        BattleHintRequest request;
+        request.stableKey = kBattleHintKeyWaitForAllyTurn;
+        request.family = BattleHintFamily::Warning;
+        request.kicker = "TURN ORDER";
+        request.sourceTag = "PLAYER ACTION";
+        request.badgeText = "WAIT";
+        request.message = "WAIT FOR AN ALLY TURN.";
+        request.resolveRule.kind = BattleHintResolveKind::Timeout;
+        request.resolveRule.durationMs = 1800;
+        enqueueBattleHint(std::move(request));
+    }
+
     void dismissBossPhaseHint(bool immediate = false) {
         dismissBattleHintByKey(hudFeedback_, kBattleHintKeyBossPhaseIntro, immediate);
     }
@@ -4384,7 +4412,7 @@ private:
         };
         callbacks.onPauseBlocked = [this]() {
             const Uint64 nowMs = SDL_GetTicks64();
-            showToast(hudFeedback_, "CANNOT PAUSE DURING A CUTSCENE.", nowMs, 1800);
+            showPauseBlockedHint();
             syncHudDocument(nowMs);
         };
         callbacks.onSplashArtStart = [this, &context]() {
@@ -5764,7 +5792,7 @@ private:
         }
         const std::optional<int> activePartyIndex = getActiveCharacterPartyIndex(manager_);
         if (!activePartyIndex.has_value()) {
-            showToast(hudFeedback_, "WAIT FOR AN ALLY TURN.", nowMs);
+            showWaitForAllyTurnHint();
             return;
         }
         if (action == battle::BattleAction::Ultimate && !manager_.isPlayerActionReady(action)) {
