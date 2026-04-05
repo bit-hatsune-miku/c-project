@@ -57,6 +57,18 @@ std::string getUnitAbilityReferenceId(const json& unitJson, const char* slotName
     return {};
 }
 
+bool parseCharacterAbilityKitDefinition(const json& kitJson, CharacterAbilityKitDefinition& outKit) {
+    if (!kitJson.is_object()) {
+        return false;
+    }
+
+    outKit = CharacterAbilityKitDefinition{};
+    outKit.standardAbility = kitJson.value("standardAbility", "");
+    outKit.skillAbility = kitJson.value("skillAbility", kitJson.value("ability", ""));
+    outKit.ultimate = kitJson.value("ultimate", "");
+    return true;
+}
+
 bool parseNestedUnitAbilities(const json& unitJson,
                               const std::string& unitKey,
                               std::unordered_map<std::string, AbilityDefinition>& outAbilities) {
@@ -300,6 +312,22 @@ bool parseCharacterDefinition(const json& characterJson,
     outCharacter.ultimatePoints = characterJson.value("ultimatePoints", 0);
     outCharacter.startingOrbs = characterJson.value("startingOrbs", 0);
     outCharacter.baseShield = characterJson.value("baseShield", 0);
+
+    if (const auto kitsIt = characterJson.find("abilityKits");
+        kitsIt != characterJson.end()) {
+        if (!kitsIt->is_object()) {
+            return false;
+        }
+
+        for (auto it = kitsIt->begin(); it != kitsIt->end(); ++it) {
+            CharacterAbilityKitDefinition kit;
+            if (!parseCharacterAbilityKitDefinition(it.value(), kit)) {
+                return false;
+            }
+            outCharacter.abilityKits[it.key()] = std::move(kit);
+        }
+    }
+
     return true;
 }
 
@@ -751,6 +779,7 @@ bool parseAbilityDefinition(const json& abilityJson,
     outAbility.multiplier = abilityJson.value("multiplier", 1.0f);
     outAbility.flatHeal = abilityJson.value("flatHeal", 0);
     outAbility.baseShield = abilityJson.value("baseShield", 0);
+    outAbility.orbGain = std::max(0, abilityJson.value("orbGain", 1));
     outAbility.amountPercentOfCasterMaxHp.reset();
     if (const auto percentIt = abilityJson.find("amountPercentOfCasterMaxHp");
         percentIt != abilityJson.end() && percentIt->is_number()) {

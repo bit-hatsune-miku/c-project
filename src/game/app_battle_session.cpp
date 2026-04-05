@@ -4862,10 +4862,18 @@ private:
         }
 
         const battle::CharacterDefinition& character = battleState.party[static_cast<size_t>(preview.partyIndex)];
-        const battle::AbilityDefinition* abilityDef = manager_.findAbilityDefinition(character.ultimate);
+        const std::string abilityId = manager_.resolveCharacterAbilityId(
+            preview.partyIndex,
+            preview.extraTurnAction,
+            preview.abilityKitOverride
+        );
+        if (abilityId.empty()) {
+            return;
+        }
+        const battle::AbilityDefinition* abilityDef = manager_.findAbilityDefinition(abilityId);
 
         battle::SplashArtConfig cfg;
-        cfg.abilityName = abilityDef != nullptr ? abilityDef->name : character.ultimate;
+        cfg.abilityName = abilityDef != nullptr ? abilityDef->name : abilityId;
         cfg.sprite = resolveOverlayTextureByAsset(character.assets);
         if (cfg.sprite == nullptr) {
             cfg.sprite = resolveSceneTextureByAsset(character.assets);

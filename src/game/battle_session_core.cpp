@@ -914,7 +914,14 @@ void BattleSessionCore::maybeStartUltimateTurnSplash(const flow::PreviewActorCon
     }
 
     const CharacterDefinition& character = battleState.party[static_cast<size_t>(preview.partyIndex)];
-    const std::string& abilityId = character.ultimate;
+    const std::string abilityId = manager_.resolveCharacterAbilityId(
+        preview.partyIndex,
+        preview.extraTurnAction,
+        preview.abilityKitOverride
+    );
+    if (abilityId.empty()) {
+        return;
+    }
     const AbilityDefinition* abilityDef = manager_.findAbilityDefinition(abilityId);
 
     SplashArtConfig cfg;

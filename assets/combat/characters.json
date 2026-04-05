@@ -194,6 +194,11 @@
         "skillAbility": "AestheticScream",
         "ability": "AestheticScream",
         "ultimate": "MeiCiDuXiangZhuang",
+        "abilityKits": {
+            "followUp": {
+                "skillAbility": "AestheticScreamFollowUp"
+            }
+        },
         "abilities": {
             "skill": {
                 "id": "AestheticScream",
@@ -201,6 +206,17 @@
                 "type": "attack",
                 "targetRule": "single_enemy",
                 "multiplier": 1.1,
+                "interactionType": "none",
+                "presentationId": "aesthetic_scream",
+                "inputPromptType": "space"
+            },
+            "followUpSkill": {
+                "id": "AestheticScreamFollowUp",
+                "name": "Aesthetic Scream",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.1,
+                "orbGain": 0,
                 "interactionType": "none",
                 "presentationId": "aesthetic_scream",
                 "inputPromptType": "space"

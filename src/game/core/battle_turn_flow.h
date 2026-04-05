@@ -11,6 +11,7 @@ struct PreviewActorContext {
     bool valid = false;
     ParticipantType type = ParticipantType::Character;
     std::string key;
+    std::string abilityKitOverride;
     int partyIndex = -1;
     bool isExtraTurn = false;
     BattleAction extraTurnAction = BattleAction::Skill;

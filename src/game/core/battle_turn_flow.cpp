@@ -19,6 +19,7 @@ PreviewActorContext inspectPreviewActor(const BattleManager& manager) {
     ctx.valid = true;
     ctx.type = actor.type;
     ctx.key = actor.key;
+    ctx.abilityKitOverride = actor.abilityKitOverride;
     ctx.partyIndex = actor.partyIndex;
     ctx.isExtraTurn = actor.isExtraTurn;
     ctx.extraTurnAction = actor.extraTurnAction;
@@ -45,10 +46,11 @@ PreviewAbilityContext inspectPreviewAbility(const BattleManager& manager) {
             return PreviewAbilityContext{};
         }
 
-        const CharacterDefinition& definition = state.party[static_cast<size_t>(actor.partyIndex)];
-        ctx.abilityId = (ctx.action == BattleAction::Ultimate)
-            ? definition.ultimate
-            : getCharacterRegularAbilityId(definition);
+        ctx.abilityId = manager.resolveCharacterAbilityId(
+            actor.partyIndex,
+            ctx.action,
+            actor.abilityKitOverride
+        );
         return ctx.abilityId.empty() ? PreviewAbilityContext{} : ctx;
     }
 

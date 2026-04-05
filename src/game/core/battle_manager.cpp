@@ -25,21 +25,21 @@ constexpr const char* kDefaultCharacterStandardAbilityId = "BasicAttack";
 constexpr const char* kDefaultBossStandardAbilityId = "BossStandardAttack";
 
 std::string getCharacterRegularAbilityId(const CharacterDefinition& definition) {
-    if (!definition.ability.empty()) {
-        return definition.ability;
-    }
     if (!definition.skillAbility.empty()) {
         return definition.skillAbility;
+    }
+    if (!definition.ability.empty()) {
+        return definition.ability;
     }
     return definition.standardAbility.empty() ? std::string{kDefaultCharacterStandardAbilityId} : definition.standardAbility;
 }
 
 std::string getBossNormalAbilityId(const BossDefinition& definition) {
-    if (!definition.ability.empty()) {
-        return definition.ability;
-    }
     if (!definition.skillAbility.empty()) {
         return definition.skillAbility;
+    }
+    if (!definition.ability.empty()) {
+        return definition.ability;
     }
     return definition.standardAbility.empty() ? std::string{kDefaultBossStandardAbilityId} : definition.standardAbility;
 }
@@ -48,15 +48,52 @@ namespace {
 
 constexpr float kActionValueEpsilon = 0.0001f;
 
-void grantUltimatePointForAction(BattleCharacter& character, bool grantsUltimatePointOnAction) {
+std::string getCharacterStandardAbilityId(const CharacterDefinition& definition) {
+    if (!definition.standardAbility.empty()) {
+        return definition.standardAbility;
+    }
+    return getCharacterRegularAbilityId(definition);
+}
+
+int resolveAbilityOrbGain(const AbilityDefinition* ability) {
+    return ability != nullptr ? std::max(0, ability->orbGain) : 1;
+}
+
+void grantUltimatePointForAction(BattleCharacter& character,
+                                 const AbilityDefinition* ability,
+                                 bool grantsUltimatePointOnAction) {
     if (!grantsUltimatePointOnAction) {
         return;
     }
 
-    character.gainUltimatePoint(1);
+    character.gainUltimatePoint(resolveAbilityOrbGain(ability));
 }
 
-bool consumeInvalidPreviewCharacterTurn(const std::vector<BattleCharacter>& characters,
+bool canPreviewActorExecuteQueuedAction(const BattleManager& manager,
+                                        const BattleCharacter& previewCharacter,
+                                        const TurnActor& previewActor) {
+    if (!previewCharacter.isAlive()) {
+        return false;
+    }
+
+    const std::string abilityId = manager.resolveCharacterAbilityId(
+        previewActor.partyIndex,
+        previewActor.extraTurnAction,
+        previewActor.abilityKitOverride
+    );
+    if (abilityId.empty()) {
+        return false;
+    }
+
+    if (previewActor.extraTurnAction == BattleAction::Ultimate) {
+        return previewCharacter.canUseUltimate();
+    }
+
+    return true;
+}
+
+bool consumeInvalidPreviewCharacterTurn(const BattleManager& manager,
+                                        const std::vector<BattleCharacter>& characters,
                                         TurnState& turnState,
                                         const TurnEvent& next) {
     if (!next.valid || next.actingActorIndex >= turnState.actors.size()) {
@@ -75,20 +112,9 @@ bool consumeInvalidPreviewCharacterTurn(const std::vector<BattleCharacter>& char
         return false;
     }
 
-    if (previewActor.isExtraTurn && previewCharacter.isAlive()) {
-        switch (previewActor.extraTurnAction) {
-            case BattleAction::Standard:
-            case BattleAction::Skill:
-                if (previewCharacter.canUseSkill()) {
-                    return false;
-                }
-                break;
-            case BattleAction::Ultimate:
-                if (previewCharacter.canUseUltimate()) {
-                    return false;
-                }
-                break;
-        }
+    if (previewActor.isExtraTurn &&
+        canPreviewActorExecuteQueuedAction(manager, previewCharacter, previewActor)) {
+        return false;
     }
 
     TurnEvent consumed = turn::advanceToNextTurnEvent(turnState);
@@ -293,6 +319,7 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     simulatedActions_ = 0;
     activePartyBuffs_.clear();
     activeBossDebuffs_.clear();
+    activeCharacterAbilityKits_.clear();
     bossAbilityUseCounts_.clear();
     nextManualUltimatePriority_ = 1000;
     luotianyiCorrectTones_ = 0;
@@ -323,6 +350,7 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     bossCurrentHp_ = state_.boss.hp;
     bossAtkBuffBonus_ = currentBossPhaseDefinition().atkBonusPercent;
     bossUltimateCharge_ = std::clamp(state_.boss.startingOrbs, 0, std::max(1, state_.boss.ultimatePoints));
+    activeCharacterAbilityKits_.assign(state_.party.size(), "");
     for (size_t i = 0; i < state_.party.size(); ++i) {
         characters_.emplace_back(state_.party[i], static_cast<int>(i));
     }
@@ -573,7 +601,8 @@ ManualUltimateRequestResult BattleManager::previewManualUltimateTurnRequest(int 
     }
 
     const BattleCharacter& character = characters_[static_cast<size_t>(partyIndex)];
-    if (!character.isAlive() || character.definition().ultimate.empty()) {
+    if (!character.isAlive() ||
+        resolveCharacterAbilityId(partyIndex, BattleAction::Ultimate).empty()) {
         return ManualUltimateRequestResult::Unavailable;
     }
 
@@ -630,6 +659,56 @@ int BattleManager::getCharacterUltimateRequired(int partyIndex) const {
         return 1;
     }
     return std::max(1, characters_[static_cast<size_t>(partyIndex)].definition().ultimatePoints);
+}
+
+bool BattleManager::setCharacterAbilityKit(int partyIndex, const std::string& kitId) {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= state_.party.size()) {
+        return false;
+    }
+
+    if (kitId.empty()) {
+        clearCharacterAbilityKit(partyIndex);
+        return true;
+    }
+
+    const CharacterDefinition& definition = state_.party[static_cast<size_t>(partyIndex)];
+    if (definition.abilityKits.find(kitId) == definition.abilityKits.end()) {
+        return false;
+    }
+
+    activeCharacterAbilityKits_[static_cast<size_t>(partyIndex)] = kitId;
+    syncCharacterTurnParticipation(partyIndex);
+    syncCharacterUltimateTurn(partyIndex);
+    return true;
+}
+
+void BattleManager::clearCharacterAbilityKit(int partyIndex) {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= activeCharacterAbilityKits_.size()) {
+        return;
+    }
+
+    activeCharacterAbilityKits_[static_cast<size_t>(partyIndex)].clear();
+    syncCharacterTurnParticipation(partyIndex);
+    syncCharacterUltimateTurn(partyIndex);
+}
+
+std::string BattleManager::resolveCharacterAbilityId(int partyIndex,
+                                                     BattleAction action,
+                                                     const std::string& turnAbilityKitOverride) const {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= state_.party.size()) {
+        return {};
+    }
+
+    const std::string activeKitId =
+        static_cast<size_t>(partyIndex) < activeCharacterAbilityKits_.size()
+        ? activeCharacterAbilityKits_[static_cast<size_t>(partyIndex)]
+        : std::string{};
+    return resolveCharacterAbilityId(
+        state_.party[static_cast<size_t>(partyIndex)],
+        action,
+        activeKitId,
+        turnAbilityKitOverride
+    );
 }
 
 void BattleManager::addLuotianyiCorrectTones(int amount) {
@@ -1206,24 +1285,15 @@ bool BattleManager::isPlayerActionReady(BattleAction action) const {
     }
 
     if (actor.isExtraTurn) {
-        if (!character.isAlive()) {
-            return false;
-        }
-
-        switch (actor.extraTurnAction) {
-            case BattleAction::Standard:
-            case BattleAction::Skill:
-                return action == actor.extraTurnAction && character.canUseSkill();
-            case BattleAction::Ultimate:
-                return action == BattleAction::Ultimate && character.canUseUltimate();
-        }
+        return action == actor.extraTurnAction &&
+            canCharacterUseAction(actor.partyIndex, actor.extraTurnAction, actor.abilityKitOverride);
     }
 
     switch (action) {
         case BattleAction::Standard:
-            return character.isAlive() && character.canUseSkill();
+            return canCharacterUseAction(actor.partyIndex, BattleAction::Skill);
         case BattleAction::Skill:
-            return character.isAlive() && character.canUseSkill();
+            return canCharacterUseAction(actor.partyIndex, BattleAction::Skill);
         case BattleAction::Ultimate:
             return false;
     }
@@ -1285,13 +1355,15 @@ bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vecto
 
     pendingSplitAttackActorKey_ = character.definition().key;
 
-    const AbilityDefinition* abilityDef = getAbility(getCharacterRegularAbilityId(character.definition()));
+    const AbilityDefinition* abilityDef = getAbility(
+        resolveCharacterAbilityId(actor.partyIndex, BattleAction::Skill)
+    );
 
     if (abilityDef == nullptr || abilityDef->type != AbilityType::Attack) {
         return false;
     }
 
-    grantUltimatePointForAction(character, true);
+    grantUltimatePointForAction(character, abilityDef, true);
     syncCharacterUltimateTurn(character.partyIndex());
 
     PresentationContext presContext;
@@ -1471,7 +1543,7 @@ bool BattleManager::processAutomaticTurns() {
 
         BattleCharacter& character = characters_[static_cast<size_t>(nextActor.partyIndex)];
         if (!character.isAlive()) {
-            if (!consumeInvalidPreviewCharacterTurn(characters_, turnState_, next)) {
+            if (!consumeInvalidPreviewCharacterTurn(*this, characters_, turnState_, next)) {
                 break;
             }
             progressed = true;
@@ -1612,6 +1684,7 @@ void BattleManager::queueExtraTurnForCharacter(int partyIndex) {
         BattleAction::Ultimate,
         false,
         false,
+        {},
         nextManualUltimatePriority_--
     );
 }
@@ -1631,6 +1704,7 @@ void BattleManager::queueExtraTurnForCharacter(int partyIndex,
                                                BattleAction action,
                                                bool autoExecute,
                                                bool grantsUltimatePointOnAction,
+                                               const std::string& abilityKitOverride,
                                                int priority) {
     if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
         return;
@@ -1645,6 +1719,7 @@ void BattleManager::queueExtraTurnForCharacter(int partyIndex,
         action,
         autoExecute,
         grantsUltimatePointOnAction,
+        abilityKitOverride,
         priority
     );
 }
@@ -1723,7 +1798,7 @@ bool BattleManager::resolvePlayerAction(BattleAction action) {
             return false;
         }
 
-        if (!consumeInvalidPreviewCharacterTurn(characters_, turnState_, next)) {
+        if (!consumeInvalidPreviewCharacterTurn(*this, characters_, turnState_, next)) {
             break;
         }
     }
@@ -1751,11 +1826,12 @@ bool BattleManager::resolvePlayerAction(BattleAction action) {
 
     BattleCharacter& character = characters_[static_cast<size_t>(previewActor.partyIndex)];
     if (!character.isAlive()) {
-        return consumeInvalidPreviewCharacterTurn(characters_, turnState_, next) && resolvePlayerAction(action);
+        return consumeInvalidPreviewCharacterTurn(*this, characters_, turnState_, next) && resolvePlayerAction(action);
     }
 
-    if (((action == BattleAction::Standard || action == BattleAction::Skill) && !character.canUseSkill()) ||
-        (action == BattleAction::Ultimate && !character.canUseUltimate())) {
+    const BattleAction resolvedAction =
+        (action == BattleAction::Standard) ? BattleAction::Skill : action;
+    if (!canCharacterUseAction(previewActor.partyIndex, resolvedAction, previewActor.abilityKitOverride)) {
         return false;
     }
 
@@ -1826,15 +1902,20 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
     currentActionOutgoingDamage_ = 0;
     pendingSplitAttackActorKey_.clear();
 
-    const bool wasExtraTurn = turnState_.actors[actorIndex].isExtraTurn;
-    const bool grantsUltimatePointOnAction = turnState_.actors[actorIndex].grantsUltimatePointOnAction;
+    const TurnActor& turnActor = turnState_.actors[actorIndex];
+    const bool wasExtraTurn = turnActor.isExtraTurn;
+    const bool grantsUltimatePointOnAction = turnActor.grantsUltimatePointOnAction;
     if (!wasExtraTurn) {
         expireBuffsFromCaster(character.partyIndex());
     }
 
-    const std::string abilityId = (action == BattleAction::Ultimate)
-        ? character.definition().ultimate
-        : getCharacterRegularAbilityId(character.definition());
+    const BattleAction abilityAction =
+        (!wasExtraTurn && action == BattleAction::Standard) ? BattleAction::Skill : action;
+    const std::string abilityId = resolveCharacterAbilityId(
+        character.partyIndex(),
+        abilityAction,
+        turnActor.abilityKitOverride
+    );
     const AbilityDefinition* abilityDef = getAbility(abilityId);
     float presentationMultiplier = 1.0f;
     BattleActionEvent actionEvent;
@@ -1867,14 +1948,14 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
         }
     }
 
-    grantUltimatePointForAction(character, grantsUltimatePointOnAction);
+    grantUltimatePointForAction(character, abilityDef, grantsUltimatePointOnAction);
     if (grantsUltimatePointOnAction) {
         syncCharacterUltimateTurn(character.partyIndex());
     }
 
     if (abilityDef == nullptr) {
         const int fallbackDamage = normalizeDamage(
-            character.effectiveAtk() * ((action == BattleAction::Ultimate) ? 2 : 1)
+            character.effectiveAtk() * ((abilityAction == BattleAction::Ultimate) ? 2 : 1)
         );
         applyPlayerOffenseToBoss(fallbackDamage);
     } else {
@@ -1889,7 +1970,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
             presContext.presentationValue = getLuotianyiCorrectTones();
         }
         presContext.isBoss = false;
-        presContext.isUltimate = action == BattleAction::Ultimate;
+        presContext.isUltimate = abilityAction == BattleAction::Ultimate;
 
         presentationMultiplier = runPresentationInteraction(presContext);
         const bool presentationHitApplied = consumePresentationHitDamageApplied();
@@ -2153,6 +2234,93 @@ const AbilityDefinition* BattleManager::getAbility(const std::string& abilityId)
         return &it->second;
     }
     return nullptr;
+}
+
+const CharacterAbilityKitDefinition* BattleManager::findCharacterAbilityKit(
+    const CharacterDefinition& definition,
+    const std::string& kitId) const {
+    if (kitId.empty()) {
+        return nullptr;
+    }
+
+    const auto it = definition.abilityKits.find(kitId);
+    if (it != definition.abilityKits.end()) {
+        return &it->second;
+    }
+    return nullptr;
+}
+
+std::string BattleManager::resolveCharacterAbilityId(const CharacterDefinition& definition,
+                                                     BattleAction action,
+                                                     const std::string& activeKitId,
+                                                     const std::string& turnAbilityKitOverride) const {
+    const auto slotOverride = [action](const CharacterAbilityKitDefinition* kit) -> std::string {
+        if (kit == nullptr) {
+            return {};
+        }
+
+        switch (action) {
+            case BattleAction::Standard:
+                return kit->standardAbility;
+            case BattleAction::Skill:
+                return kit->skillAbility;
+            case BattleAction::Ultimate:
+                return kit->ultimate;
+        }
+
+        return {};
+    };
+
+    if (const CharacterAbilityKitDefinition* turnKit =
+            findCharacterAbilityKit(definition, turnAbilityKitOverride)) {
+        const std::string overriddenAbility = slotOverride(turnKit);
+        if (!overriddenAbility.empty()) {
+            return overriddenAbility;
+        }
+    }
+
+    if (const CharacterAbilityKitDefinition* activeKit =
+            findCharacterAbilityKit(definition, activeKitId)) {
+        const std::string overriddenAbility = slotOverride(activeKit);
+        if (!overriddenAbility.empty()) {
+            return overriddenAbility;
+        }
+    }
+
+    switch (action) {
+        case BattleAction::Standard:
+            return getCharacterStandardAbilityId(definition);
+        case BattleAction::Skill:
+            return getCharacterRegularAbilityId(definition);
+        case BattleAction::Ultimate:
+            return definition.ultimate;
+    }
+
+    return {};
+}
+
+bool BattleManager::canCharacterUseAction(int partyIndex,
+                                          BattleAction action,
+                                          const std::string& turnAbilityKitOverride) const {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
+        return false;
+    }
+
+    const BattleCharacter& character = characters_[static_cast<size_t>(partyIndex)];
+    if (!character.isAlive()) {
+        return false;
+    }
+
+    const std::string abilityId = resolveCharacterAbilityId(partyIndex, action, turnAbilityKitOverride);
+    if (abilityId.empty()) {
+        return false;
+    }
+
+    if (action == BattleAction::Ultimate) {
+        return character.canUseUltimate();
+    }
+
+    return true;
 }
 
 void BattleManager::executeAbilityEffect(const AbilityExecutionContext& context) {
@@ -2586,7 +2754,10 @@ void BattleManager::syncCharacterUltimateTurn(int partyIndex) {
     }
 
     const BattleCharacter& character = characters_[static_cast<size_t>(partyIndex)];
-    const bool shouldKeepExtraTurn = character.isAlive() && character.canUseUltimate();
+    const bool shouldKeepExtraTurn =
+        character.isAlive() &&
+        character.canUseUltimate() &&
+        !resolveCharacterAbilityId(partyIndex, BattleAction::Ultimate).empty();
     bool hasExtraTurn = false;
 
     for (size_t i = 0; i < turnState_.actors.size();) {
@@ -2717,7 +2888,8 @@ void BattleManager::tryQueueJiafeiFollowUp(const BattleActionEvent& actionEvent)
         jiafeiPartyIndex,
         BattleAction::Skill,
         true,
-        false,
+        true,
+        "followUp",
         200
     );
 

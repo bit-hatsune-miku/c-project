@@ -45,6 +45,12 @@ struct BossDefinition {
     bool hasPhaseData = false;
 };
 
+struct CharacterAbilityKitDefinition {
+    std::string standardAbility;
+    std::string skillAbility;
+    std::string ultimate;
+};
+
 struct CharacterDefinition {
     std::string key;
     std::string title;
@@ -61,6 +67,7 @@ struct CharacterDefinition {
     int ultimatePoints = 0;
     int startingOrbs = 1;
     int baseShield = 0; // New: base shield value for shield abilities
+    std::unordered_map<std::string, CharacterAbilityKitDefinition> abilityKits;
 };
 
 std::string getCharacterRegularAbilityId(const CharacterDefinition& definition);
@@ -145,6 +152,7 @@ struct AbilityDefinition {
     std::optional<float> amountPercentOfCasterMaxHp;
     int speedBuff = 0;
     int atkBuff = 0;   // ATK % buff applied to targets (negative = nerf)
+    int orbGain = 1;
     float actionAdvance = 0.0f;
     float selfHpCostPercentOfMax = 0.0f;
     float selfHpCostPercentIncreasePerUse = 0.0f;
@@ -367,6 +375,7 @@ struct TurnActor {
     std::string key;
     std::string assetId;
     std::string title;
+    std::string abilityKitOverride;
     int partyIndex = -1; // 0 = left-most character. -1 for boss.
     int priority = 0; // Higher comes first on same action value.
     bool isExtraTurn = false;
@@ -508,6 +517,11 @@ public:
     ManualUltimateRequestResult requestManualUltimateTurn(int partyIndex);
     int getCharacterUltimateCharge(int partyIndex) const;
     int getCharacterUltimateRequired(int partyIndex) const;
+    bool setCharacterAbilityKit(int partyIndex, const std::string& kitId);
+    void clearCharacterAbilityKit(int partyIndex);
+    std::string resolveCharacterAbilityId(int partyIndex,
+                                          BattleAction action,
+                                          const std::string& turnAbilityKitOverride = {}) const;
     void addLuotianyiCorrectTones(int amount);
     int getLuotianyiCorrectTones() const;
     const BattleComboState& getComboState() const;
@@ -568,6 +582,7 @@ private:
                                     BattleAction action,
                                     bool autoExecute,
                                     bool grantsUltimatePointOnAction,
+                                    const std::string& abilityKitOverride,
                                     int priority);
     void queueBossPhaseIntroTurn(int fromPhaseIndex, int toPhaseIndex);
     int firstLivingCharacterPartyIndex() const;
@@ -575,6 +590,15 @@ private:
     bool hasQueuedExtraTurn(int partyIndex, BattleAction action, bool autoExecute) const;
     static int normalizeDamage(int value);
     const AbilityDefinition* getAbility(const std::string& abilityId) const;
+    const CharacterAbilityKitDefinition* findCharacterAbilityKit(const CharacterDefinition& definition,
+                                                                 const std::string& kitId) const;
+    std::string resolveCharacterAbilityId(const CharacterDefinition& definition,
+                                          BattleAction action,
+                                          const std::string& activeKitId,
+                                          const std::string& turnAbilityKitOverride) const;
+    bool canCharacterUseAction(int partyIndex,
+                               BattleAction action,
+                               const std::string& turnAbilityKitOverride = {}) const;
     void executeAbilityEffect(const AbilityExecutionContext& context);
     float runPresentationInteraction(const PresentationContext& context);
     BattleResolvedOutcome computeDerivedOutcome() const;
@@ -641,6 +665,7 @@ private:
     BattleComboState comboState_{};
     std::vector<ActivePartyBuff> activePartyBuffs_;
     std::vector<ActiveBossDebuff> activeBossDebuffs_;
+    std::vector<std::string> activeCharacterAbilityKits_;
     std::unordered_map<std::string, int> bossAbilityUseCounts_;
     int nextManualUltimatePriority_ = 1000;
     int currentActionOutgoingDamage_ = 0;
