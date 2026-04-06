@@ -37,6 +37,13 @@ constexpr int kReferenceHeight = 720;
 constexpr float kHoldInitialDelaySeconds = 0.21f;
 constexpr float kHoldRepeatIntervalSeconds = 0.105f;
 constexpr float kSelectionLerpSpeed = 9.0f;
+constexpr float kCarouselCardWidthDp = 164.0f;
+constexpr float kCarouselCardHeightDp = 280.0f;
+constexpr float kCarouselStepX = 118.0f;
+constexpr float kCarouselBaseLeft = 58.0f;
+constexpr float kCarouselBaseTop = 150.0f;
+constexpr float kCarouselStairStep = 18.0f;
+constexpr float kCarouselFocusedSlotIndex = 2.0f;
 constexpr const char* kDocumentPath = "assets/rmlui/previews/battle_selector_preview.rml";
 constexpr const char* kScrollSfxRelativePath = "assets/ui/sfx/Selection_roulette-3.wav";
 constexpr const char* kConfirmSfxRelativePath = "assets/ui/sfx/SongSelect_confirm-selection.wav";
@@ -659,13 +666,6 @@ void BattleSelectorPreviewSession::updateAnimatedLayout() {
         return;
     }
 
-    const float cardWidth = 164.0f;
-    const float xStep = 118.0f;
-    const float baseLeft = 58.0f;
-    const float baseTop = 150.0f;
-    const float stairStep = 18.0f;
-    const int selectedSlot = static_cast<int>(entries_.size() / 2);
-
     for (std::size_t i = 0; i < cardElements_.size(); ++i) {
         Rml::Element* element = cardElements_[i];
         if (element == nullptr) {
@@ -682,15 +682,15 @@ void BattleSelectorPreviewSession::updateAnimatedLayout() {
             offset += count;
         }
 
-        const float slot = offset + static_cast<float>(selectedSlot);
-        const float x = baseLeft + static_cast<float>(slot) * xStep;
+        const float slot = offset + kCarouselFocusedSlotIndex;
+        const float x = kCarouselBaseLeft + (slot * kCarouselStepX);
         const float absOffset = std::fabs(offset);
-        const float y = baseTop - offset * stairStep + absOffset * 6.0f;
+        const float y = kCarouselBaseTop - (offset * kCarouselStairStep) + (absOffset * 6.0f);
         const float scale = absOffset < 0.05f ? 1.08f : std::max(0.88f, 1.0f - absOffset * 0.04f);
         const float opacity = absOffset < 0.05f ? 1.0f : std::max(0.50f, 0.92f - absOffset * 0.10f);
 
-        element->SetProperty("width", formatDp(cardWidth));
-        element->SetProperty("height", formatDp(280.0f));
+        element->SetProperty("width", formatDp(kCarouselCardWidthDp));
+        element->SetProperty("height", formatDp(kCarouselCardHeightDp));
         element->SetProperty("transform", translateScale(x, y, scale));
         element->SetProperty("opacity", formatNumber(opacity));
         element->SetProperty("z-index", std::to_string(static_cast<int>(100.0f - absOffset * 10.0f)));
