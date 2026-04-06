@@ -1578,16 +1578,18 @@ bool GlBattleSceneRenderer::renderNativeAboveHud(const battle::BattleSessionCore
             return lhs->partyIndex < rhs->partyIndex;
         });
 
-        std::vector<std::string> cheeringAssets;
-        cheeringAssets.reserve(partyEntities.size() + 1);
-        for (const auto* entity : partyEntities) {
-            if (entity == nullptr || entity->assetName.empty()) {
-                continue;
+        std::vector<std::string> cheeringAssets = corruptedMiku->getCheeringAssetNames();
+        if (cheeringAssets.empty()) {
+            cheeringAssets.reserve(partyEntities.size() + 1);
+            for (const auto* entity : partyEntities) {
+                if (entity == nullptr || entity->assetName.empty()) {
+                    continue;
+                }
+                cheeringAssets.push_back(entity->assetName);
             }
-            cheeringAssets.push_back(entity->assetName);
-        }
-        if (std::find(cheeringAssets.begin(), cheeringAssets.end(), "lyoo") == cheeringAssets.end()) {
-            cheeringAssets.push_back("lyoo");
+            if (std::find(cheeringAssets.begin(), cheeringAssets.end(), "lyoo") == cheeringAssets.end()) {
+                cheeringAssets.push_back("lyoo");
+            }
         }
 
         auto frameTexture = [&](int preferredIndex) -> TextureInfo {

@@ -47,6 +47,7 @@ public:
     void applyCameraState(Camera3D& camera) const override;
 
     void setPartyAssetNames(const std::vector<std::string>& assetNames) override;
+    const std::vector<std::string>& getCheeringAssetNames() const;
 
     bool shouldHideNonCasterCharacters() const override;
     bool shouldRenderCasterEntity() const override;

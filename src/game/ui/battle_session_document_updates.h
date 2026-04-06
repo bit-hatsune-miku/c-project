@@ -269,20 +269,64 @@ inline std::string formatHexColor(unsigned char red, unsigned char green, unsign
     return buffer;
 }
 
-inline std::string buildPartyRackMarkup(std::size_t partyCount) {
+inline bool useCompactPartyRackLayout(const battle::BattleDefinition& battleDefinition,
+                                      std::size_t partyCount) {
+    return battleDefinition.key == "miku_plot_twist" && partyCount > 4;
+}
+
+inline std::string manualUltimateHotkeyBadgeLabel(std::size_t partyIndex) {
+    const std::size_t oneBasedIndex = partyIndex + 1;
+    if (oneBasedIndex <= 9) {
+        return std::to_string(oneBasedIndex);
+    }
+    if (oneBasedIndex == 10) {
+        return "0";
+    }
+
+    const std::size_t shiftedIndex = oneBasedIndex - 10;
+    if (shiftedIndex <= 9) {
+        return "S" + std::to_string(shiftedIndex);
+    }
+    if (shiftedIndex == 10) {
+        return "S0";
+    }
+    return std::string();
+}
+
+inline std::string buildPartyRackMarkup(std::size_t partyCount,
+                                        bool compactLayout) {
     std::ostringstream markup;
     constexpr int kCardLeftStepDp = 198;
+    constexpr int kCompactColumns = 5;
+    constexpr int kCompactCardLeftStepDp = 152;
+    constexpr int kCompactCardBottomStepDp = 106;
+    const int compactColumns = std::max(1, std::min(kCompactColumns, static_cast<int>(partyCount)));
+    const int compactRows = std::max(
+        1,
+        static_cast<int>((partyCount + static_cast<std::size_t>(compactColumns) - 1) /
+                         static_cast<std::size_t>(compactColumns)));
     for (std::size_t i = 0; i < partyCount; ++i) {
         const std::size_t displayIndex = i + 1;
-        const int leftDp = static_cast<int>(i) * kCardLeftStepDp;
+        int leftDp = static_cast<int>(i) * kCardLeftStepDp;
+        int bottomDp = 0;
+        std::string cardClass = "unit-card";
+        if (compactLayout) {
+            const int row = static_cast<int>(i) / compactColumns;
+            const int column = static_cast<int>(i) % compactColumns;
+            leftDp = column * kCompactCardLeftStepDp;
+            bottomDp = (compactRows - 1 - row) * kCompactCardBottomStepDp;
+            cardClass += " unit-card--compact";
+        }
         markup
-            << "<div class=\"unit-card\" id=\"unit-card-" << displayIndex << "\" style=\"left: " << leftDp << "dp;\">"
+            << "<div class=\"" << cardClass << "\" id=\"unit-card-" << displayIndex
+            << "\" style=\"left: " << leftDp << "dp; bottom: " << bottomDp << "dp;\">"
             << "<div class=\"unit-ult\">"
             << "<div class=\"unit-ult-fill\" id=\"unit-ult-fill-" << displayIndex << "\"></div>"
             << "<div class=\"unit-ult-sheen\" id=\"unit-ult-sheen-" << displayIndex << "\"></div>"
             << "<div class=\"unit-ult-rim\"></div>"
             << "<div class=\"unit-ult-core\" id=\"unit-ult-text-" << displayIndex << "\"></div>"
             << "</div>"
+            << "<div class=\"unit-hotkey-badge\">" << escapeRmlText(manualUltimateHotkeyBadgeLabel(i)) << "</div>"
             << "<div class=\"unit-icon\" id=\"unit-icon-" << displayIndex << "\"></div>"
             << "<div class=\"unit-hp-shell\">"
             << "<div class=\"unit-hp-lane\">"
@@ -409,7 +453,9 @@ inline void updateStatusBadgeLaneDocument(Rml::ElementDocument* document,
     }
 }
 
-inline void ensurePartyRackDocument(Rml::ElementDocument* document, std::size_t partyCount) {
+inline void ensurePartyRackDocument(Rml::ElementDocument* document,
+                                    const battle::BattleDefinition& battleDefinition,
+                                    std::size_t partyCount) {
     if (document == nullptr) {
         return;
     }
@@ -419,18 +465,39 @@ inline void ensurePartyRackDocument(Rml::ElementDocument* document, std::size_t 
         return;
     }
 
-    const std::string countValue = std::to_string(partyCount);
-    if (partyRack->GetAttribute<std::string>("data-party-count", "") != countValue) {
-        partyRack->SetInnerRML(buildPartyRackMarkup(partyCount));
-        partyRack->SetAttribute("data-party-count", countValue);
+    const bool compactLayout = useCompactPartyRackLayout(battleDefinition, partyCount);
+    const std::string layoutKey =
+        std::to_string(partyCount) + ":" + (compactLayout ? "compact" : "default");
+    if (partyRack->GetAttribute<std::string>("data-layout-key", "") != layoutKey) {
+        partyRack->SetInnerRML(buildPartyRackMarkup(partyCount, compactLayout));
+        partyRack->SetAttribute("data-layout-key", layoutKey);
     }
 
     constexpr int kCardWidthDp = 186;
     constexpr int kCardLeftStepDp = 198;
-    const int rackWidthDp = partyCount == 0
+    constexpr int kCompactCardWidthDp = 146;
+    constexpr int kCompactCardLeftStepDp = 152;
+    constexpr int kCompactCardHeightDp = 102;
+    constexpr int kCompactCardBottomStepDp = 106;
+    constexpr int kCompactColumns = 5;
+    int rackWidthDp = partyCount == 0
         ? kCardWidthDp
         : kCardWidthDp + static_cast<int>(partyCount - 1) * kCardLeftStepDp;
+    int rackHeightDp = 146;
+    if (compactLayout) {
+        const int compactColumns = std::max(1, std::min(kCompactColumns, static_cast<int>(partyCount)));
+        const int compactRows = std::max(
+            1,
+            static_cast<int>((partyCount + static_cast<std::size_t>(compactColumns) - 1) /
+                             static_cast<std::size_t>(compactColumns)));
+        rackWidthDp = partyCount == 0
+            ? kCompactCardWidthDp
+            : kCompactCardWidthDp + std::max(0, compactColumns - 1) * kCompactCardLeftStepDp;
+        rackHeightDp = kCompactCardHeightDp + std::max(0, compactRows - 1) * kCompactCardBottomStepDp;
+    }
+    partyRack->SetClass("party-rack--compact", compactLayout);
     partyRack->SetProperty("width", std::to_string(rackWidthDp) + "dp");
+    partyRack->SetProperty("height", std::to_string(rackHeightDp) + "dp");
 }
 
 inline float hitReactionProgress(const HudHitReactionState& state, Uint64 nowMs) {
@@ -2536,7 +2603,7 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
     const int activeActorIndex = manager.getPreviewNextActorIndex();
     const std::vector<battle::BattleStatusBadge> statusBadges = manager.getActiveStatusBadges();
 
-    detail::ensurePartyRackDocument(document, battleState.party.size());
+    detail::ensurePartyRackDocument(document, manager.getBattleDefinition(), battleState.party.size());
     detail::updateComboDocument(document, feedback);
     detail::updatePresentationDamageDocument(document, feedback, nowMs);
     detail::updateAutoActionIndicatorDocument(document, feedback, nowMs, dependencies);

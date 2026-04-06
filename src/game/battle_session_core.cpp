@@ -52,28 +52,65 @@ using WorldEntity = render::SceneEntity;
 /**
  * @brief Maps numeric key presses to a party member index.
  *
- * Converts SDL key codes for the number keys 1–4 (including keypad variants) to the corresponding party index.
+ * Corrupted Miku expands the mapping to `1..0` for slots `1..10` and
+ * `Shift + 1..0` for slots `11..20`. Other battles keep the legacy `1..4`
+ * mapping.
  *
  * @param key SDL key code to map.
- * @return int Party index `0`–`3` for keys `1`–`4` (or keypad equivalents), `-1` if the key does not correspond to a party index.
+ * @param mod SDL modifier mask active for the key event.
+ * @param battleDefinition Active battle definition.
+ * @return int Mapped party index, or `-1` if the key does not correspond to a manual-ultimate slot.
  */
-int manualUltimatePartyIndexFromKey(SDL_Keycode key) {
-    switch (key) {
-        case SDLK_1:
-        case SDLK_KP_1:
-            return 0;
-        case SDLK_2:
-        case SDLK_KP_2:
-            return 1;
-        case SDLK_3:
-        case SDLK_KP_3:
-            return 2;
-        case SDLK_4:
-        case SDLK_KP_4:
-            return 3;
-        default:
-            return -1;
+int manualUltimatePartyIndexFromKey(SDL_Keycode key,
+                                    SDL_Keymod mod,
+                                    const BattleDefinition& battleDefinition) {
+    const auto digitIndexFromKey = [](SDL_Keycode digitKey) -> int {
+        switch (digitKey) {
+            case SDLK_1:
+            case SDLK_KP_1:
+                return 0;
+            case SDLK_2:
+            case SDLK_KP_2:
+                return 1;
+            case SDLK_3:
+            case SDLK_KP_3:
+                return 2;
+            case SDLK_4:
+            case SDLK_KP_4:
+                return 3;
+            case SDLK_5:
+            case SDLK_KP_5:
+                return 4;
+            case SDLK_6:
+            case SDLK_KP_6:
+                return 5;
+            case SDLK_7:
+            case SDLK_KP_7:
+                return 6;
+            case SDLK_8:
+            case SDLK_KP_8:
+                return 7;
+            case SDLK_9:
+            case SDLK_KP_9:
+                return 8;
+            case SDLK_0:
+            case SDLK_KP_0:
+                return 9;
+            default:
+                return -1;
+        }
+    };
+
+    const int digitIndex = digitIndexFromKey(key);
+    if (digitIndex < 0) {
+        return -1;
     }
+
+    if (battleDefinition.key == "miku_plot_twist") {
+        return (mod & KMOD_SHIFT) != 0 ? digitIndex + 10 : digitIndex;
+    }
+
+    return digitIndex < 4 ? digitIndex : -1;
 }
 
 /**
@@ -348,7 +385,9 @@ void BattleSessionCore::handleEvent(const SDL_Event& event) {
             if (event.key.keysym.sym == SDLK_SPACE) {
                 activeUltimateTurnSplash_->skip();
             }
-            (void)handleManualUltimateHotkey(event.key.keysym.sym);
+            (void)handleManualUltimateHotkey(
+                event.key.keysym.sym,
+                static_cast<SDL_Keymod>(event.key.keysym.mod));
             return;
         }
 
@@ -364,7 +403,9 @@ void BattleSessionCore::handleEvent(const SDL_Event& event) {
             }
             return;
         }
-        if (handleManualUltimateHotkey(event.key.keysym.sym)) return;
+        if (handleManualUltimateHotkey(
+                event.key.keysym.sym,
+                static_cast<SDL_Keymod>(event.key.keysym.mod))) return;
         if (event.key.keysym.sym != SDLK_SPACE) return;
 
         const flow::PreviewActorContext preview = flow::inspectPreviewActor(manager_);
@@ -835,9 +876,12 @@ std::vector<render::FeedbackEntityAnchor> BattleSessionCore::buildFeedbackAnchor
  * @return bool `true` if the key was handled (it mapped to a party index or battle input was blocked), `false` if the key did not map to any party index.
  */
 
-bool BattleSessionCore::handleManualUltimateHotkey(SDL_Keycode key) {
-    const int partyIndex = manualUltimatePartyIndexFromKey(key);
+bool BattleSessionCore::handleManualUltimateHotkey(SDL_Keycode key, SDL_Keymod mod) {
+    const int partyIndex = manualUltimatePartyIndexFromKey(key, mod, manager_.getBattleDefinition());
     if (partyIndex < 0) {
+        return false;
+    }
+    if (static_cast<size_t>(partyIndex) >= manager_.getBattleState().party.size()) {
         return false;
     }
 
@@ -1188,7 +1232,7 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
     }
     callbacks.onWindowResized     = hooks_.onWindowResized;
     callbacks.onUnhandledKeyDown  = [this](SDL_Keycode key) {
-        (void)handleManualUltimateHotkey(key);
+        (void)handleManualUltimateHotkey(key, static_cast<SDL_Keymod>(SDL_GetModState()));
     };
     callbacks.onAudioCommands     = [&](const std::vector<PresentationAudioCommand>& commands) {
         if (commands.empty()) {

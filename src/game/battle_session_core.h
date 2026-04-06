@@ -239,7 +239,7 @@ public:
 private:
     int computeFocusedEntityIndex() const;
     std::vector<render::FeedbackEntityAnchor> buildFeedbackAnchors() const;
-    bool handleManualUltimateHotkey(SDL_Keycode key);
+    bool handleManualUltimateHotkey(SDL_Keycode key, SDL_Keymod mod = KMOD_NONE);
     void maybeStartUltimateTurnSplash(const flow::PreviewActorContext& preview, bool dialogueActive);
     void startBossPhaseIntro(const BossPhaseTransition& transition);
     void updateBossPhaseIntro(float deltaSeconds);

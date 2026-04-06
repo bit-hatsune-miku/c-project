@@ -42,6 +42,22 @@ std::string resolvePresentationFramePath(const char* name) {
     return platform::path::resolvePath(std::string("assets/combat/presentations/mikuBoss/") + name);
 }
 
+std::string resolveCheerVoicePath(const std::string& assetName) {
+    const std::array<const char*, 2> candidates{
+        "special.wav",
+        "ability.wav"
+    };
+    for (const char* fileName : candidates) {
+        const std::string path =
+            platform::path::resolvePath("assets/combat/voices/" + assetName + "/" + fileName);
+        std::error_code error;
+        if (!path.empty() && std::filesystem::exists(std::filesystem::path(path), error) && !error) {
+            return path;
+        }
+    }
+    return {};
+}
+
 float clamp01Local(float value) {
     return std::clamp(value, 0.0f, 1.0f);
 }
@@ -123,10 +139,14 @@ void MikuSelfCorruptionPresentation::update(float deltaTime) {
             if (localTime < voiceTime) {
                 break;
             }
-            queueAudioCommand(
-                PresentationAudioCommandType::PlayOneShotAllowOverlap,
-                "assets/combat/voices/" + partyAssetNames_[static_cast<std::size_t>(nextCheerVoiceIndex_)] + "/special.wav",
-                0.92f);
+            const std::string cheerVoicePath =
+                resolveCheerVoicePath(partyAssetNames_[static_cast<std::size_t>(nextCheerVoiceIndex_)]);
+            if (!cheerVoicePath.empty()) {
+                queueAudioCommand(
+                    PresentationAudioCommandType::PlayOneShotAllowOverlap,
+                    cheerVoicePath,
+                    0.92f);
+            }
             ++nextCheerVoiceIndex_;
         }
     }
@@ -315,6 +335,10 @@ void MikuSelfCorruptionPresentation::setPartyAssetNames(const std::vector<std::s
     if (std::find(partyAssetNames_.begin(), partyAssetNames_.end(), "lyoo") == partyAssetNames_.end()) {
         partyAssetNames_.push_back("lyoo");
     }
+}
+
+const std::vector<std::string>& MikuSelfCorruptionPresentation::getCheeringAssetNames() const {
+    return partyAssetNames_;
 }
 
 bool MikuSelfCorruptionPresentation::shouldHideNonCasterCharacters() const {

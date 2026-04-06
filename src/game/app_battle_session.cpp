@@ -157,28 +157,67 @@ float radiansToDegrees(float radians) {
 }
 
 /**
- * @brief Maps number-row and numeric-pad keys 1–4 to party indices.
+ * @brief Maps numeric manual-ultimate hotkeys to party indices.
+ *
+ * The corrupted Miku battle expands the mapping to `1..0` for slots `1..10`
+ * and `Shift + 1..0` for slots `11..20`. Other battles keep the legacy `1..4`
+ * mapping.
  *
  * @param key SDL keycode to map.
- * @return int Party index 0–3 for keys `1`/`KP_1`…`4`/`KP_4`, or `-1` if the key does not correspond to a party index.
+ * @param mod SDL modifier mask active for the key event.
+ * @param battleDefinition Active battle definition.
+ * @return int Mapped party index, or `-1` if the key does not correspond to a manual-ultimate slot.
  */
-int manualUltimatePartyIndexFromKey(SDL_Keycode key) {
-    switch (key) {
-        case SDLK_1:
-        case SDLK_KP_1:
-            return 0;
-        case SDLK_2:
-        case SDLK_KP_2:
-            return 1;
-        case SDLK_3:
-        case SDLK_KP_3:
-            return 2;
-        case SDLK_4:
-        case SDLK_KP_4:
-            return 3;
-        default:
-            return -1;
+int manualUltimatePartyIndexFromKey(SDL_Keycode key,
+                                    SDL_Keymod mod,
+                                    const battle::BattleDefinition& battleDefinition) {
+    const auto digitIndexFromKey = [](SDL_Keycode digitKey) -> int {
+        switch (digitKey) {
+            case SDLK_1:
+            case SDLK_KP_1:
+                return 0;
+            case SDLK_2:
+            case SDLK_KP_2:
+                return 1;
+            case SDLK_3:
+            case SDLK_KP_3:
+                return 2;
+            case SDLK_4:
+            case SDLK_KP_4:
+                return 3;
+            case SDLK_5:
+            case SDLK_KP_5:
+                return 4;
+            case SDLK_6:
+            case SDLK_KP_6:
+                return 5;
+            case SDLK_7:
+            case SDLK_KP_7:
+                return 6;
+            case SDLK_8:
+            case SDLK_KP_8:
+                return 7;
+            case SDLK_9:
+            case SDLK_KP_9:
+                return 8;
+            case SDLK_0:
+            case SDLK_KP_0:
+                return 9;
+            default:
+                return -1;
+        }
+    };
+
+    const int digitIndex = digitIndexFromKey(key);
+    if (digitIndex < 0) {
+        return -1;
     }
+
+    if (battleDefinition.key == "miku_plot_twist") {
+        return (mod & KMOD_SHIFT) != 0 ? digitIndex + 10 : digitIndex;
+    }
+
+    return digitIndex < 4 ? digitIndex : -1;
 }
 
 struct CameraIntroAnimation {
@@ -2183,7 +2222,10 @@ public:
                 } else if (event.key.keysym.sym == SDLK_SPACE) {
                     activeUltimateTurnSplash_->skip();
                 } else {
-                    (void)handleManualUltimateHotkey(event.key.keysym.sym, SDL_GetTicks64());
+                    (void)handleManualUltimateHotkey(
+                        event.key.keysym.sym,
+                        SDL_GetTicks64(),
+                        static_cast<SDL_Keymod>(event.key.keysym.mod));
                 }
             }
             return;
@@ -2253,7 +2295,10 @@ public:
             } else if (event.key.keysym.sym == SDLK_BACKSPACE && dismissNewestManualBattleHint(hudFeedback_)) {
                 return;
             } else if (rhythmChallenge_.active) {
-                if (handleManualUltimateHotkey(event.key.keysym.sym, nowMs)) {
+                if (handleManualUltimateHotkey(
+                        event.key.keysym.sym,
+                        nowMs,
+                        static_cast<SDL_Keymod>(event.key.keysym.mod))) {
                     return;
                 }
                 if (event.key.keysym.sym == SDLK_e) {
@@ -2264,7 +2309,10 @@ public:
                                            progress <= rhythmChallenge_.targetCenter + halfWindow);
                 }
             } else if (!freeViewEnabled_) {
-                if (handleManualUltimateHotkey(event.key.keysym.sym, nowMs)) {
+                if (handleManualUltimateHotkey(
+                        event.key.keysym.sym,
+                        nowMs,
+                        static_cast<SDL_Keymod>(event.key.keysym.mod))) {
                     return;
                 }
                 if (event.key.keysym.sym == SDLK_SPACE) {
@@ -4327,7 +4375,10 @@ private:
             }
         }
         callbacks.onUnhandledKeyDown = [this](SDL_Keycode key) {
-            (void)handleManualUltimateHotkey(key, SDL_GetTicks64());
+            (void)handleManualUltimateHotkey(
+                key,
+                SDL_GetTicks64(),
+                static_cast<SDL_Keymod>(SDL_GetModState()));
         };
         callbacks.onWindowResized = [this](int width, int height) {
             if (windowHost_ != nullptr && window_ != nullptr) {
@@ -5958,11 +6009,15 @@ private:
      *
      * @param key SDL key code pressed; numeric keypad / number keys map to party indices.
      * @param nowMs Current time in milliseconds used for HUD hint timing.
+     * @param mod SDL modifier mask active for the triggering key event.
      * @return true if the key was consumed (handled or queued), false if the key did not map to a party index.
      */
-    bool handleManualUltimateHotkey(SDL_Keycode key, Uint64 nowMs) {
-        const int partyIndex = manualUltimatePartyIndexFromKey(key);
+    bool handleManualUltimateHotkey(SDL_Keycode key, Uint64 nowMs, SDL_Keymod mod = KMOD_NONE) {
+        const int partyIndex = manualUltimatePartyIndexFromKey(key, mod, battleDefinition_);
         if (partyIndex < 0) {
+            return false;
+        }
+        if (static_cast<size_t>(partyIndex) >= manager_.getBattleState().party.size()) {
             return false;
         }
 

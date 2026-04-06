@@ -678,6 +678,11 @@ body {
     overflow: visible;
 }
 
+.unit-card--compact {
+    width: 146dp;
+    height: 102dp;
+}
+
 #unit-card-1 { left: 0dp; }
 #unit-card-2 { left: 198dp; }
 #unit-card-3 { left: 396dp; }
@@ -689,6 +694,37 @@ body {
 
 .unit-card.ghost {
     opacity: 0.56;
+}
+
+.unit-hotkey-badge {
+    position: absolute;
+    display: none;
+    left: 6dp;
+    top: 4dp;
+    min-width: 26dp;
+    height: 18dp;
+    padding: 0dp 6dp;
+    color: rgba(255, 250, 253, 240);
+    font-size: 9dp;
+    font-weight: bold;
+    line-height: 18dp;
+    text-align: center;
+    background-color: rgba(23, 20, 31, 190);
+    border: 1dp rgba(255, 255, 255, 38);
+    border-radius: 999dp;
+    box-shadow: 0 6dp 14dp rgba(0, 0, 0, 18);
+    z-index: 6;
+}
+
+.unit-card--compact .unit-hotkey-badge {
+    display: block;
+    left: 4dp;
+    top: 2dp;
+    min-width: 22dp;
+    height: 16dp;
+    padding: 0dp 5dp;
+    font-size: 8dp;
+    line-height: 16dp;
 }
 
 .unit-ult {
@@ -705,6 +741,13 @@ body {
     box-shadow: 0 12dp 20dp rgba(0, 0, 0, 16);
 }
 
+.unit-card--compact .unit-ult {
+    right: 3dp;
+    bottom: 24dp;
+    width: 60dp;
+    height: 60dp;
+}
+
 .unit-ult-sheen {
     position: absolute;
     left: -30dp;
@@ -717,6 +760,11 @@ body {
     z-index: 2;
 }
 
+.unit-card--compact .unit-ult-sheen {
+    top: -10dp;
+    height: 82dp;
+}
+
 .unit-ult-fill {
     position: absolute;
     left: 0;
@@ -727,6 +775,10 @@ body {
     decorator: linear-gradient(to bottom, rgba(255, 148, 192, 0.96), rgba(255, 103, 182, 0.94), rgba(248, 183, 96, 0.90)) border-box;
 }
 
+.unit-card--compact .unit-ult-fill {
+    width: 60dp;
+}
+
 .unit-ult-rim {
     position: absolute;
     left: 6dp;
@@ -735,6 +787,13 @@ body {
     height: 74dp;
     border: 1dp rgba(255, 255, 255, 40);
     border-radius: 999dp;
+}
+
+.unit-card--compact .unit-ult-rim {
+    left: 5dp;
+    top: 5dp;
+    width: 50dp;
+    height: 50dp;
 }
 
 .unit-ult-core {
@@ -749,6 +808,15 @@ body {
     letter-spacing: 1dp;
     text-align: center;
     text-transform: uppercase;
+}
+
+.unit-card--compact .unit-ult-core {
+    left: 11dp;
+    top: 20dp;
+    width: 38dp;
+    height: 14dp;
+    font-size: 7dp;
+    letter-spacing: 0dp;
 }
 
 .unit-card.ult-ready .unit-ult {
@@ -771,6 +839,12 @@ body {
     image-color: #ffffff;
 }
 
+.unit-card--compact .unit-icon {
+    bottom: 14dp;
+    width: 82dp;
+    height: 82dp;
+}
+
 .unit-hp-shell {
     position: absolute;
     left: 38dp;
@@ -783,6 +857,14 @@ body {
     border-radius: 14dp;
     transform: skewX(-18deg);
     box-shadow: 0 10dp 20dp rgba(0, 0, 0, 16);
+}
+
+.unit-card--compact .unit-hp-shell {
+    left: 28dp;
+    bottom: 8dp;
+    width: 116dp;
+    height: 24dp;
+    border-radius: 11dp;
 }
 
 .unit-hp-lane {
@@ -798,6 +880,14 @@ body {
     overflow: hidden;
 }
 
+.unit-card--compact .unit-hp-lane {
+    left: 2dp;
+    top: 2dp;
+    width: 112dp;
+    height: 18dp;
+    border-radius: 8dp;
+}
+
 .unit-hp-fill {
     position: absolute;
     left: 0;
@@ -806,6 +896,10 @@ body {
     width: 100%;
     background-color: #61d59a;
     decorator: linear-gradient(to right, rgba(159, 242, 186, 0.96), rgba(97, 213, 154, 0.94), rgba(66, 176, 126, 0.98)) border-box;
+}
+
+.unit-card--compact .unit-hp-fill {
+    height: 18dp;
 }
 
 .unit-hp-trail {
@@ -817,6 +911,10 @@ body {
     background-color: rgba(118, 40, 40, 0.82);
     decorator: linear-gradient(to right, rgba(166, 74, 74, 0.90), rgba(118, 40, 40, 0.88), rgba(88, 28, 28, 0.96)) border-box;
     opacity: 0;
+}
+
+.unit-card--compact .unit-hp-trail {
+    height: 18dp;
 }
 
 .unit-hp-text {
@@ -831,12 +929,24 @@ body {
     text-align: center;
 }
 
+.unit-card--compact .unit-hp-text {
+    top: 3dp;
+    width: 112dp;
+    font-size: 8dp;
+    letter-spacing: 0dp;
+}
+
 .unit-shield-stroke {
     position: absolute;
     left: 0;
     top: 0;
     width: 140dp;
     height: 24dp;
+}
+
+.unit-card--compact .unit-shield-stroke {
+    width: 112dp;
+    height: 18dp;
 }
 
 .unit-shield-line {
@@ -876,6 +986,11 @@ body {
     right: 0;
 }
 
+.unit-card--compact .unit-shield-line-left,
+.unit-card--compact .unit-shield-line-right {
+    height: 18dp;
+}
+
 .unit-status-host {
     position: absolute;
     left: 38dp;
@@ -884,6 +999,13 @@ body {
     min-height: 30dp;
     z-index: 5;
     overflow: visible;
+}
+
+.unit-card--compact .unit-status-host {
+    left: 28dp;
+    bottom: -12dp;
+    width: 116dp;
+    min-height: 20dp;
 }
 
 .status-badge-lane--unit {
