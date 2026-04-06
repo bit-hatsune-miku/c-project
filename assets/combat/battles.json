@@ -144,7 +144,7 @@
       "bossKey": "luotianyiBoss",
       "storyScript": "ch0500",
       "victoryStoryScript": "ch0501",
-      "nextStoryScript": "finale",
+      "nextStoryScript": "ch0600",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
@@ -159,6 +159,30 @@
         "wechatalipay"
       ],
       "stageKey": "yinlong_stage"
+    },
+    "zhoushen_boss_demo": {
+      "id": 103,
+      "storyOrder": 550,
+      "name": "Big Fish",
+      "description": "The magnificent voice that split the seas.",
+      "bossKey": "zhouShenBoss",
+      "storyScript": "ch0600",
+      "victoryStoryScript": "ch0601",
+      "nextStoryScript": "finale",
+      "selectorVisible": true,
+      "isLineupFixed": false,
+      "buffs": {
+        "hp": 14,
+        "atk": 4,
+        "spd": 2
+      },
+      "lineup": [
+        "miku",
+        "lyoo",
+        "luotianyi",
+        "ari"
+      ],
+      "stageKey": "default_stage"
     },
     "lyoo_plot_twist": {
       "id": 99,

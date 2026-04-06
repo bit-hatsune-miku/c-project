@@ -73,7 +73,7 @@
             }
         }
     },
-    "lyooPlotTwist":  {
+    "lyooPlotTwist": {
         "title": "断川 | CaiNiao Reinforcement Learning Assistant",
         "assets": "lyooPlotTwist",
         "voiceHit": "assets/combat/voices/lyooPlotTwist/hit.wav",
@@ -233,7 +233,12 @@
                 "interactionType": "none",
                 "presentationId": "yin_long",
                 "inputPromptType": "custom",
-                "inputPromptKeys": ["1", "2", "3", "4"]
+                "inputPromptKeys": [
+                    "1",
+                    "2",
+                    "3",
+                    "4"
+                ]
             }
         },
         "ultimatePoints": 6,
@@ -544,6 +549,79 @@
                         "survivalDurationSeconds": 12.0,
                         "baseBaguetteSpeed": 900.0,
                         "baseSpawnInterval": 0.35
+                    }
+                }
+            }
+        }
+    },
+    "zhouShenBoss": {
+        "title": "周深",
+        "assets": "zhouShen",
+        "voiceHit": "assets/combat/voices/zhouShen/hit.wav",
+        "spd": 160,
+        "atk": 50,
+        "hp": 800,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "BigFish",
+        "ability": "BigFish",
+        "ultimate": "BigFish",
+        "abilities": {
+            "skill": {
+                "id": "BigFish",
+                "name": "世界全都火掉的高首",
+                "instructionHint": "Sing correctly to reduce DMG Taken! D/F/J/K",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 3.0,
+                "interactionType": "rhythm",
+                "presentationId": "boss_attack_zhoushen",
+                "inputPromptType": "custom",
+                "inputPromptKeys": [
+                    "D",
+                    "F",
+                    "J",
+                    "K"
+                ]
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "zhoushenBoss",
+        "bgmVolume": 0.4,
+        "phases": {
+            "phase1": {
+                "presentation": {
+                    "floatParams": {
+                        "speed": 10,
+                        "freq": 1.8,
+                        "dur": 5.0
+                    },
+                    "intParams": {
+                        "multi": 0
+                    }
+                }
+            },
+            "phase2": {
+                "presentation": {
+                    "floatParams": {
+                        "speed": 15,
+                        "freq": 5,
+                        "dur": 8.0
+                    },
+                    "intParams": {
+                        "multi": 0
+                    }
+                }
+            },
+            "phase3": {
+                "presentation": {
+                    "floatParams": {
+                        "speed": 30,
+                        "freq": 9,
+                        "dur": 12.0
+                    },
+                    "intParams": {
+                        "multi": 1
                     }
                 }
             }

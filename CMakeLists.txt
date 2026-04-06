@@ -132,6 +132,7 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/teto_ultimate_presentation.cpp
     src/game/presentation/teto_ultimate_presentation.h
     src/game/presentation/ari_boss_presentation.cpp
+    src/game/presentation/zhou_shen_presentation.cpp
     src/game/presentation/ari_boss_presentation.h
     src/game/presentation/ari_skill_presentation.cpp
     src/game/presentation/ari_skill_presentation.h

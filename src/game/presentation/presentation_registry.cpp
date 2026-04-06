@@ -23,11 +23,13 @@
 #include "teto_boss_presentation.h"
 #include "teto_skill_presentation.h"
 #include "teto_ultimate_presentation.h"
+#include "zhou_shen_presentation.h"
 
 namespace battle {
 
 void registerAllPresentations() {
     auto& registry = PresentationRegistry::instance();
+    registry.registerPresentation("boss_attack_zhoushen", [](float cwx, float cwy, float cwz, float twx, float twy, float twz) -> std::unique_ptr<AbilityPresentation> { return std::make_unique<ZhouShenPresentation>(cwx, cwy, cwz, twx, twy, twz); });
     registry.registerPresentation("wechatalipay_ultimate", [](
         float casterWorldX, float casterWorldY, float casterWorldZ,
         float targetWorldX, float targetWorldY, float targetWorldZ
