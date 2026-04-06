@@ -5,6 +5,7 @@
 #include <iostream>
 #include <array>
 #include <optional>
+#include <random>
 #include <unordered_map>
 #include <vector>
 
@@ -170,6 +171,7 @@ struct AbilityDefinition {
     int speedBuff = 0;
     int atkBuff = 0;   // ATK % buff applied to targets (negative = nerf)
     int damageBuff = 0; // DMG % buff applied to outgoing damage (negative = nerf)
+    int casterTurnDuration = 1;
     int orbGain = 1;
     float actionAdvance = 0.0f;
     ActionAdvanceMode actionAdvanceMode = ActionAdvanceMode::RemainingFraction;
@@ -198,6 +200,7 @@ struct PresentationContext {
     int casterIndex = -1;
     int targetIndex = -1;
     int presentationValue = 0;
+    std::vector<int> resolvedRolls;
     bool isBoss = false;
     bool isUltimate = false;
     PresentationTuningProfile tuningProfile{};
@@ -613,12 +616,16 @@ private:
         int speedBuff = 0;
         int atkBuff = 0; // ATK % buff/nerf (signed)
         int damageBuff = 0; // DMG % buff/nerf (signed)
+        int turnsRemaining = 1;
     };
 
     struct ActiveBossDebuff {
         std::string abilityId;
         int sourcePartyIndex = -1;
         int charges = 0;
+        int atkPercent = 0;
+        int damageTakenPercent = 0;
+        int bossTurnsRemaining = 0;
     };
 
     bool buildInitialTurnState();
@@ -709,8 +716,16 @@ private:
     void applyBossDebuffCharges(int sourcePartyIndex,
                                 const AbilityDefinition& ability,
                                 int charges);
+    void applyBossTimedModifier(int sourcePartyIndex,
+                                const AbilityDefinition& ability,
+                                int atkPercent,
+                                int damageTakenPercent,
+                                int bossTurnsRemaining);
     int getBossDebuffCharges(const std::string& abilityId) const;
     void consumeBossDebuffCharge(const std::string& abilityId);
+    void tickBossDebuffsForBossTurnEnd();
+    int totalBossAtkModifierPercent() const;
+    int totalBossDamageTakenModifierPercent() const;
     std::vector<int> collectSupportTargetPartyIndices(int sourcePartyIndex,
                                                       const AbilityDefinition& ability,
                                                       int requestedTargetPartyIndex) const;
@@ -720,6 +735,15 @@ private:
     void revertSailorVenusTransformation(bool advanceNextAction);
     void consumeSailorVenusTurnAndQueueFinisherIfNeeded(int partyIndex);
     int getSailorVenusSpaceTally() const;
+    bool isPomPomPartyIndex(int partyIndex) const;
+    std::vector<int> resolvePomPomPulls(int pullCount);
+    void applyPomPomPullBuffs(int sourcePartyIndex, const std::vector<int>& pullResults);
+    void grantPomPomUltimateTeamOrbs(int sourcePartyIndex);
+    void grantHuafeiUltimateTeamOrbs(int sourcePartyIndex);
+    void clearPomPomBuffs();
+    void tickPomPomBuffsForTurnStart(int partyIndex, bool isExtraTurn);
+    void removePomPomBuffsFromDefeatedCharacters();
+    int pomPomDamageBuffTotalForTarget(int targetPartyIndex) const;
 
     BattleState state_;
     BattleDefinition battleDefinition_{};
@@ -750,6 +774,21 @@ private:
     int currentActionOutgoingDamage_ = 0;
     std::string pendingSplitAttackActorKey_;
     int tetoHealingTally_ = 0;
+    std::mt19937 pomPomRng_{std::random_device{}()};
+
+    struct PomPomBuffStack {
+        int targetPartyIndex = -1;
+        int rarity = 3;
+        int damageBuff = 0;
+        int pomPomTurnsRemaining = 0;
+    };
+
+    struct PomPomState {
+        int partyIndex = -1;
+        int pullsSinceLastFourStar = 0;
+        int pullsSinceLastFiveStar = 0;
+        std::vector<PomPomBuffStack> activeBuffs;
+    } pomPomState_{};
 
     struct SailorVenusState {
         int partyIndex = -1;

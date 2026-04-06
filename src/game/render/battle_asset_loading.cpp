@@ -92,7 +92,53 @@ std::optional<SDL_Texture*> tryLoadCombatIconTexture(SDL_Renderer* renderer, con
             return texture;
         }
     }
+
+#ifdef BATTLE_ENABLE_IMAGE
+    if (renderer == nullptr || assetName.empty()) {
+        return std::nullopt;
+    }
+
+    const std::vector<std::string> spriteCandidates = {
+        "assets/combat/sprites/" + assetName + ".png",
+        "assets/combat/sprites/" + assetName + ".webp"
+    };
+    for (const std::string& candidate : spriteCandidates) {
+        const std::string resolvedPath = platform::path::resolvePath(candidate);
+        if (!std::filesystem::exists(resolvedPath)) {
+            continue;
+        }
+
+        SDL_Surface* source = IMG_Load(resolvedPath.c_str());
+        if (source == nullptr) {
+            continue;
+        }
+
+        const int side = std::max(1, std::min(source->w, source->h));
+        SDL_Surface* cropped = SDL_CreateRGBSurfaceWithFormat(0, side, side, 32, SDL_PIXELFORMAT_RGBA32);
+        if (cropped == nullptr) {
+            SDL_FreeSurface(source);
+            continue;
+        }
+
+        SDL_FillRect(cropped, nullptr, SDL_MapRGBA(cropped->format, 0, 0, 0, 0));
+        const SDL_Rect srcRect{
+            std::max(0, (source->w - side) / 2),
+            0,
+            side,
+            side
+        };
+        SDL_BlitSurface(source, &srcRect, cropped, nullptr);
+        SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, cropped);
+        SDL_FreeSurface(cropped);
+        SDL_FreeSurface(source);
+        if (texture != nullptr) {
+            return texture;
+        }
+    }
+#else
+    (void)renderer;
     (void)assetName;
+#endif
     return std::nullopt;
 }
 

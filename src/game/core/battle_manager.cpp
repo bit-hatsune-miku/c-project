@@ -20,7 +20,9 @@ int BattleManager::getCharacterShield(int partyIndex) const {
 #include <cmath>
 #include <iostream>
 #include <limits>
+#include <random>
 #include <sstream>
+#include <utility>
 
 namespace battle {
 constexpr const char* kDefaultCharacterStandardAbilityId = "BasicAttack";
@@ -363,6 +365,7 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     currentActionOutgoingDamage_ = 0;
     pendingSplitAttackActorKey_.clear();
     tetoHealingTally_ = 0;
+    pomPomState_ = PomPomState{};
     sailorVenusState_ = SailorVenusState{};
 
     if (battleDefinition_.bossKey.empty()) {
@@ -390,6 +393,9 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     activeCharacterAbilityKits_.assign(state_.party.size(), "");
     for (size_t i = 0; i < state_.party.size(); ++i) {
         characters_.emplace_back(state_.party[i], static_cast<int>(i));
+        if (state_.party[i].key == "pompom") {
+            pomPomState_.partyIndex = static_cast<int>(i);
+        }
         if (state_.party[i].key == "sailorVenus") {
             sailorVenusState_.partyIndex = static_cast<int>(i);
         }
@@ -503,8 +509,9 @@ int BattleManager::getBossMaxHp() const {
  * @return int The boss's effective attack value (>= 0).
  */
 int BattleManager::getBossEffectiveAtk() const {
+    const int totalAtkPercent = bossAtkBuffBonus_ + totalBossAtkModifierPercent();
     const float scaled = static_cast<float>(state_.boss.atk) *
-        (1.0f + static_cast<float>(bossAtkBuffBonus_) / 100.0f);
+        (1.0f + static_cast<float>(totalAtkPercent) / 100.0f);
     return std::max(0, static_cast<int>(scaled));
 }
 
@@ -974,14 +981,23 @@ void BattleManager::applyPlayerOffenseToBoss(int amount) {
         return;
     }
 
-    currentActionOutgoingDamage_ += amount;
+    int finalAmount = amount;
+    if (!playerDamageHealsBoss()) {
+        const float damageTakenMultiplier =
+            1.0f + (static_cast<float>(totalBossDamageTakenModifierPercent()) / 100.0f);
+        finalAmount = std::max(1, static_cast<int>(std::lround(
+            static_cast<float>(amount) * std::max(0.0f, damageTakenMultiplier)
+        )));
+    }
+
+    currentActionOutgoingDamage_ += finalAmount;
 
     if (playerDamageHealsBoss()) {
-        applyBossHealing(amount);
+        applyBossHealing(finalAmount);
         return;
     }
 
-    applyBossDamage(amount);
+    applyBossDamage(finalAmount);
 }
 
 void BattleManager::addToTetoHealingTally(int amount) {
@@ -1382,7 +1398,7 @@ const AbilityDefinition* BattleManager::findAbilityDefinition(const std::string&
 
 std::vector<BattleStatusBadge> BattleManager::getActiveStatusBadges() const {
     std::vector<BattleStatusBadge> badges;
-    badges.reserve(characters_.size() + activePartyBuffs_.size() * 3 + activeBossDebuffs_.size());
+    badges.reserve(characters_.size() * 2 + activePartyBuffs_.size() * 3 + activeBossDebuffs_.size());
 
     for (size_t i = 0; i < characters_.size(); ++i) {
         const BattleCharacter& character = characters_[i];
@@ -1492,10 +1508,39 @@ std::vector<BattleStatusBadge> BattleManager::getActiveStatusBadges() const {
         appendVenusBadge(40, BattleStatusBadgeValueKind::Percent, "ATK");
     }
 
+    if (isPomPomPartyIndex(pomPomState_.partyIndex) &&
+        static_cast<size_t>(pomPomState_.partyIndex) < characters_.size() &&
+        characters_[static_cast<size_t>(pomPomState_.partyIndex)].isAlive()) {
+        const BattleCharacter& pomPom = characters_[static_cast<size_t>(pomPomState_.partyIndex)];
+        for (const BattleCharacter& target : characters_) {
+            if (!target.isAlive()) {
+                continue;
+            }
+
+            const int totalDamageBuff = pomPomDamageBuffTotalForTarget(target.partyIndex());
+            if (totalDamageBuff <= 0) {
+                continue;
+            }
+
+            BattleStatusBadge badge;
+            badge.target = BattleStatusBadgeTarget::PartyMember;
+            badge.targetPartyIndex = target.partyIndex();
+            badge.sourcePartyIndex = pomPom.partyIndex();
+            badge.category = BattleStatusBadgeCategory::Buff;
+            badge.valueKind = BattleStatusBadgeValueKind::Percent;
+            badge.abilityId = "PomPomTenPull";
+            badge.sourceKey = pomPom.definition().key;
+            badge.sourceAssetId = resolveCharacterAssetId(pomPom.partyIndex());
+            badge.statusName = "PomPom Pull";
+            badge.statLabel = "DMG";
+            badge.value = totalDamageBuff;
+            badges.push_back(std::move(badge));
+        }
+    }
+
     if (bossCurrentHp_ > 0) {
         for (const ActiveBossDebuff& debuff : activeBossDebuffs_) {
-            if (debuff.charges <= 0 ||
-                debuff.sourcePartyIndex < 0 ||
+            if (debuff.sourcePartyIndex < 0 ||
                 static_cast<size_t>(debuff.sourcePartyIndex) >= characters_.size()) {
                 continue;
             }
@@ -1511,17 +1556,32 @@ std::vector<BattleStatusBadge> BattleManager::getActiveStatusBadges() const {
                     ? ability->statusName
                     : ((ability != nullptr && !ability->name.empty()) ? ability->name : debuff.abilityId);
 
-            BattleStatusBadge badge;
-            badge.target = BattleStatusBadgeTarget::Boss;
-            badge.sourcePartyIndex = debuff.sourcePartyIndex;
-            badge.category = BattleStatusBadgeCategory::Debuff;
-            badge.valueKind = BattleStatusBadgeValueKind::Charges;
-            badge.abilityId = debuff.abilityId;
-            badge.sourceKey = source.definition().key;
-            badge.sourceAssetId = resolveCharacterAssetId(source.partyIndex());
-            badge.statusName = statusName;
-            badge.value = debuff.charges;
-            badges.push_back(std::move(badge));
+            const auto appendBossBadge = [&](BattleStatusBadgeValueKind valueKind,
+                                             int value,
+                                             const char* statLabel) {
+                BattleStatusBadge badge;
+                badge.target = BattleStatusBadgeTarget::Boss;
+                badge.sourcePartyIndex = debuff.sourcePartyIndex;
+                badge.category = BattleStatusBadgeCategory::Debuff;
+                badge.valueKind = valueKind;
+                badge.abilityId = debuff.abilityId;
+                badge.sourceKey = source.definition().key;
+                badge.sourceAssetId = resolveCharacterAssetId(source.partyIndex());
+                badge.statusName = statusName;
+                badge.statLabel = statLabel == nullptr ? std::string() : std::string(statLabel);
+                badge.value = value;
+                badges.push_back(std::move(badge));
+            };
+
+            if (debuff.charges > 0) {
+                appendBossBadge(BattleStatusBadgeValueKind::Charges, debuff.charges, nullptr);
+            }
+            if (debuff.damageTakenPercent != 0) {
+                appendBossBadge(BattleStatusBadgeValueKind::Percent, debuff.damageTakenPercent, "DMG TAKEN");
+            }
+            if (debuff.atkPercent != 0) {
+                appendBossBadge(BattleStatusBadgeValueKind::Percent, debuff.atkPercent, "ATK");
+            }
         }
     }
 
@@ -2216,6 +2276,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
     const bool wasExtraTurn = turnActor.isExtraTurn;
     const bool grantsUltimatePointOnAction = turnActor.grantsUltimatePointOnAction;
     if (!wasExtraTurn) {
+        tickPomPomBuffsForTurnStart(character.partyIndex(), wasExtraTurn);
         expireBuffsFromCaster(character.partyIndex());
     }
 
@@ -2250,6 +2311,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
     std::vector<int> supportTargetPartyIndices;
     std::vector<int> supportHpBefore;
     std::vector<int> supportShieldBefore;
+    std::vector<int> pomPomPullResults;
     if (abilityDef != nullptr &&
         (abilityDef->type == AbilityType::Heal ||
          abilityDef->type == AbilityType::Shield ||
@@ -2292,6 +2354,13 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
             presContext.presentationValue = getSailorVenusSpaceTally();
         } else if (character.definition().key == "zhouShen") {
             presContext.presentationValue = getSingerCountInParty();
+        }
+        if (isPomPomPartyIndex(character.partyIndex()) &&
+            (abilityDef->id == "PomPomTenPull" || abilityDef->id == "PomPomTwentyPull")) {
+            pomPomPullResults = resolvePomPomPulls(
+                abilityDef->id == "PomPomTwentyPull" ? 20 : 10
+            );
+            presContext.resolvedRolls = pomPomPullResults;
         }
         presContext.isBoss = false;
         presContext.isUltimate = abilityAction == BattleAction::Ultimate;
@@ -2360,7 +2429,8 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
         turnState_.actors[actorIndex].priority = 0;
     }
 
-    if (abilityDef != nullptr && abilityDef->type == AbilityType::Buff) {
+    if (abilityDef != nullptr &&
+        (abilityDef->speedBuff != 0 || abilityDef->atkBuff != 0 || abilityDef->damageBuff != 0)) {
         applyPartyBuffFromAbility(character.partyIndex(), *abilityDef, presentationMultiplier);
     }
     if (abilityDef != nullptr && abilityDef->actionAdvance > 0.0f) {
@@ -2373,6 +2443,27 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
             consumeSailorVenusTurnAndQueueFinisherIfNeeded(character.partyIndex());
         } else if (abilityDef->id == "VenusLoveMeChain") {
             revertSailorVenusTransformation(true);
+        } else if (abilityDef->id == "PomPomTenPull" || abilityDef->id == "PomPomTwentyPull") {
+            applyPomPomPullBuffs(character.partyIndex(), pomPomPullResults);
+            if (abilityDef->id == "PomPomTwentyPull") {
+                grantPomPomUltimateTeamOrbs(character.partyIndex());
+            }
+        } else if (abilityDef->id == "ImperialFavor") {
+            grantHuafeiUltimateTeamOrbs(character.partyIndex());
+        } else if (abilityDef->id == "CQuiz" && bossCurrentHp_ > 0) {
+            if (presentationMultiplier >= 0.3f) {
+                applyBossTimedModifier(
+                    character.partyIndex(),
+                    *abilityDef,
+                    0,
+                    static_cast<int>(std::lround(presentationMultiplier * 100.0f)),
+                    1
+                );
+            } else {
+                applyBossTimedModifier(character.partyIndex(), *abilityDef, 30, 0, 1);
+            }
+        } else if (abilityDef->id == "DeadlinePressure" && bossCurrentHp_ > 0) {
+            applyBossTimedModifier(character.partyIndex(), *abilityDef, -50, 0, 1);
         }
     }
 
@@ -2539,6 +2630,7 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
         applyBossAbilitySelfCost(*abilityDef);
     }
     removeBuffsFromDefeatedCharacters();
+    tickBossDebuffsForBossTurnEnd();
 
     actionEvent.abilityVoicesHandledDuringPresentation = consumePresentationAbilityAudioPlayed();
     actionEvent.hitVoicesHandledDuringPresentation = consumePresentationHitAudioPlayed();
@@ -2805,6 +2897,7 @@ void BattleManager::applyPartyBuffFromAbility(int sourcePartyIndex,
                 buff.speedBuff = scaledSpeedBuff;
                 buff.atkBuff   = scaledAtkBuff;
                 buff.damageBuff = scaledDamageBuff;
+                buff.turnsRemaining = std::max(1, ability.casterTurnDuration);
                 return;
             }
         }
@@ -2815,7 +2908,8 @@ void BattleManager::applyPartyBuffFromAbility(int sourcePartyIndex,
             targetPartyIndex,
             scaledSpeedBuff,
             scaledAtkBuff,
-            scaledDamageBuff
+            scaledDamageBuff,
+            std::max(1, ability.casterTurnDuration)
         });
     };
 
@@ -2839,14 +2933,26 @@ void BattleManager::expireBuffsFromCaster(int sourcePartyIndex) {
         return;
     }
 
+    bool removedAny = false;
+    for (ActivePartyBuff& buff : activePartyBuffs_) {
+        if (buff.sourcePartyIndex != sourcePartyIndex) {
+            continue;
+        }
+        --buff.turnsRemaining;
+    }
+
     const auto newEnd = std::remove_if(
         activePartyBuffs_.begin(),
         activePartyBuffs_.end(),
-        [sourcePartyIndex](const ActivePartyBuff& buff) {
-            return buff.sourcePartyIndex == sourcePartyIndex;
+        [&removedAny](const ActivePartyBuff& buff) {
+            if (buff.turnsRemaining > 0) {
+                return false;
+            }
+            removedAny = true;
+            return true;
         }
     );
-    if (newEnd == activePartyBuffs_.end()) {
+    if (!removedAny) {
         return;
     }
 
@@ -2856,6 +2962,8 @@ void BattleManager::expireBuffsFromCaster(int sourcePartyIndex) {
 }
 
 void BattleManager::removeBuffsFromDefeatedCharacters() {
+    removePomPomBuffsFromDefeatedCharacters();
+
     if (isSailorVenusPartyIndex(sailorVenusState_.partyIndex) &&
         static_cast<size_t>(sailorVenusState_.partyIndex) < characters_.size() &&
         !characters_[static_cast<size_t>(sailorVenusState_.partyIndex)].isAlive()) {
@@ -2893,7 +3001,11 @@ void BattleManager::removeBossDebuffsFromDefeatedCharacters() {
         activeBossDebuffs_.begin(),
         activeBossDebuffs_.end(),
         [this](const ActiveBossDebuff& debuff) {
-            if (debuff.charges <= 0 || bossCurrentHp_ <= 0) {
+            const bool hasChargeState = debuff.charges > 0;
+            const bool hasTimedState =
+                debuff.bossTurnsRemaining > 0 &&
+                (debuff.atkPercent != 0 || debuff.damageTakenPercent != 0);
+            if ((!hasChargeState && !hasTimedState) || bossCurrentHp_ <= 0) {
                 return true;
             }
             if (debuff.sourcePartyIndex < 0 ||
@@ -2928,6 +3040,13 @@ void BattleManager::refreshCharacterBuffBonuses() {
         static_cast<size_t>(sailorVenusState_.partyIndex) < characters_.size()) {
         speedTotals[static_cast<size_t>(sailorVenusState_.partyIndex)] += 65;
         atkTotals[static_cast<size_t>(sailorVenusState_.partyIndex)] += 40;
+    }
+
+    for (const PomPomBuffStack& buff : pomPomState_.activeBuffs) {
+        if (buff.targetPartyIndex < 0 || static_cast<size_t>(buff.targetPartyIndex) >= damageTotals.size()) {
+            continue;
+        }
+        damageTotals[static_cast<size_t>(buff.targetPartyIndex)] += buff.damageBuff;
     }
 
     for (size_t i = 0; i < characters_.size(); ++i) {
@@ -3373,6 +3492,205 @@ std::vector<int> BattleManager::collectSupportTargetPartyIndices(int sourceParty
     return targets;
 }
 
+bool BattleManager::isPomPomPartyIndex(int partyIndex) const {
+    return partyIndex >= 0 &&
+        partyIndex == pomPomState_.partyIndex &&
+        static_cast<size_t>(partyIndex) < characters_.size() &&
+        characters_[static_cast<size_t>(partyIndex)].definition().key == "pompom";
+}
+
+std::vector<int> BattleManager::resolvePomPomPulls(int pullCount) {
+    std::vector<int> results;
+    results.reserve(std::max(0, pullCount));
+
+    std::uniform_real_distribution<float> distribution(0.0f, 1.0f);
+    for (int pullIndex = 0; pullIndex < pullCount; ++pullIndex) {
+        const bool guaranteedFiveStar = pomPomState_.pullsSinceLastFiveStar >= 49;
+        const bool rolledFiveStar = guaranteedFiveStar || distribution(pomPomRng_) < 0.02f;
+        if (rolledFiveStar) {
+            results.push_back(5);
+            pomPomState_.pullsSinceLastFourStar = 0;
+            pomPomState_.pullsSinceLastFiveStar = 0;
+            continue;
+        }
+
+        const bool guaranteedFourStar = pomPomState_.pullsSinceLastFourStar >= 9;
+        const bool rolledFourStar = guaranteedFourStar || distribution(pomPomRng_) < 0.12f;
+        if (rolledFourStar) {
+            results.push_back(4);
+            pomPomState_.pullsSinceLastFourStar = 0;
+            ++pomPomState_.pullsSinceLastFiveStar;
+            continue;
+        }
+
+        results.push_back(3);
+        ++pomPomState_.pullsSinceLastFourStar;
+        ++pomPomState_.pullsSinceLastFiveStar;
+    }
+
+    return results;
+}
+
+void BattleManager::applyPomPomPullBuffs(int sourcePartyIndex, const std::vector<int>& pullResults) {
+    if (!isPomPomPartyIndex(sourcePartyIndex) ||
+        static_cast<size_t>(sourcePartyIndex) >= characters_.size() ||
+        !characters_[static_cast<size_t>(sourcePartyIndex)].isAlive() ||
+        pullResults.empty()) {
+        return;
+    }
+
+    bool appliedAny = false;
+    for (int rarity : pullResults) {
+        int damageBuff = 0;
+        int turnsRemaining = 0;
+        switch (rarity) {
+            case 5:
+                damageBuff = 130;
+                turnsRemaining = 3;
+                break;
+            case 4:
+                damageBuff = 20;
+                turnsRemaining = 2;
+                break;
+            case 3:
+            default:
+                damageBuff = 5;
+                turnsRemaining = 1;
+                break;
+        }
+
+        for (const BattleCharacter& target : characters_) {
+            if (!target.isAlive()) {
+                continue;
+            }
+
+            pomPomState_.activeBuffs.push_back(PomPomBuffStack{
+                target.partyIndex(),
+                rarity,
+                damageBuff,
+                turnsRemaining
+            });
+            appliedAny = true;
+        }
+    }
+
+    if (appliedAny) {
+        refreshCharacterBuffBonuses();
+    }
+}
+
+void BattleManager::grantPomPomUltimateTeamOrbs(int sourcePartyIndex) {
+    if (!isPomPomPartyIndex(sourcePartyIndex)) {
+        return;
+    }
+
+    for (const BattleCharacter& target : characters_) {
+        if (!target.isAlive() || target.partyIndex() == sourcePartyIndex) {
+            continue;
+        }
+
+        characters_[static_cast<size_t>(target.partyIndex())].gainUltimatePoint(1);
+        syncCharacterUltimateTurn(target.partyIndex());
+    }
+}
+
+void BattleManager::grantHuafeiUltimateTeamOrbs(int sourcePartyIndex) {
+    if (sourcePartyIndex < 0 || static_cast<size_t>(sourcePartyIndex) >= characters_.size()) {
+        return;
+    }
+
+    if (characters_[static_cast<size_t>(sourcePartyIndex)].definition().key != "huafei") {
+        return;
+    }
+
+    for (const BattleCharacter& target : characters_) {
+        if (!target.isAlive() || target.partyIndex() == sourcePartyIndex) {
+            continue;
+        }
+
+        characters_[static_cast<size_t>(target.partyIndex())].gainUltimatePoint(1);
+        syncCharacterUltimateTurn(target.partyIndex());
+    }
+}
+
+void BattleManager::clearPomPomBuffs() {
+    if (pomPomState_.activeBuffs.empty()) {
+        return;
+    }
+
+    pomPomState_.activeBuffs.clear();
+    refreshCharacterBuffBonuses();
+}
+
+void BattleManager::tickPomPomBuffsForTurnStart(int partyIndex, bool isExtraTurn) {
+    if (isExtraTurn || !isPomPomPartyIndex(partyIndex) || pomPomState_.activeBuffs.empty()) {
+        return;
+    }
+
+    bool changed = false;
+    for (PomPomBuffStack& buff : pomPomState_.activeBuffs) {
+        --buff.pomPomTurnsRemaining;
+        changed = true;
+    }
+
+    const auto newEnd = std::remove_if(
+        pomPomState_.activeBuffs.begin(),
+        pomPomState_.activeBuffs.end(),
+        [](const PomPomBuffStack& buff) {
+            return buff.pomPomTurnsRemaining <= 0;
+        }
+    );
+    if (newEnd != pomPomState_.activeBuffs.end()) {
+        pomPomState_.activeBuffs.erase(newEnd, pomPomState_.activeBuffs.end());
+    }
+
+    if (changed) {
+        refreshCharacterBuffBonuses();
+    }
+}
+
+void BattleManager::removePomPomBuffsFromDefeatedCharacters() {
+    bool changed = false;
+
+    if (isPomPomPartyIndex(pomPomState_.partyIndex) &&
+        static_cast<size_t>(pomPomState_.partyIndex) < characters_.size() &&
+        !characters_[static_cast<size_t>(pomPomState_.partyIndex)].isAlive()) {
+        if (!pomPomState_.activeBuffs.empty()) {
+            pomPomState_.activeBuffs.clear();
+            changed = true;
+        }
+    }
+
+    const auto newEnd = std::remove_if(
+        pomPomState_.activeBuffs.begin(),
+        pomPomState_.activeBuffs.end(),
+        [this](const PomPomBuffStack& buff) {
+            return buff.targetPartyIndex < 0 ||
+                static_cast<size_t>(buff.targetPartyIndex) >= characters_.size() ||
+                !characters_[static_cast<size_t>(buff.targetPartyIndex)].isAlive() ||
+                buff.pomPomTurnsRemaining <= 0;
+        }
+    );
+    if (newEnd != pomPomState_.activeBuffs.end()) {
+        pomPomState_.activeBuffs.erase(newEnd, pomPomState_.activeBuffs.end());
+        changed = true;
+    }
+
+    if (changed) {
+        refreshCharacterBuffBonuses();
+    }
+}
+
+int BattleManager::pomPomDamageBuffTotalForTarget(int targetPartyIndex) const {
+    int total = 0;
+    for (const PomPomBuffStack& buff : pomPomState_.activeBuffs) {
+        if (buff.targetPartyIndex == targetPartyIndex && buff.pomPomTurnsRemaining > 0) {
+            total += buff.damageBuff;
+        }
+    }
+    return total;
+}
+
 bool BattleManager::isSailorVenusPartyIndex(int partyIndex) const {
     return partyIndex >= 0 &&
         partyIndex == sailorVenusState_.partyIndex &&
@@ -3466,7 +3784,55 @@ void BattleManager::applyBossDebuffCharges(int sourcePartyIndex,
         }
     }
 
-    activeBossDebuffs_.push_back(ActiveBossDebuff{ability.id, sourcePartyIndex, charges});
+    ActiveBossDebuff debuff;
+    debuff.abilityId = ability.id;
+    debuff.sourcePartyIndex = sourcePartyIndex;
+    debuff.charges = charges;
+    activeBossDebuffs_.push_back(std::move(debuff));
+    removeBossDebuffsFromDefeatedCharacters();
+}
+
+void BattleManager::applyBossTimedModifier(int sourcePartyIndex,
+                                           const AbilityDefinition& ability,
+                                           int atkPercent,
+                                           int damageTakenPercent,
+                                           int bossTurnsRemaining) {
+    if (sourcePartyIndex < 0 ||
+        static_cast<size_t>(sourcePartyIndex) >= characters_.size() ||
+        bossTurnsRemaining <= 0 ||
+        (atkPercent == 0 && damageTakenPercent == 0)) {
+        return;
+    }
+
+    for (ActiveBossDebuff& debuff : activeBossDebuffs_) {
+        if (debuff.abilityId != ability.id || debuff.sourcePartyIndex != sourcePartyIndex) {
+            continue;
+        }
+
+        debuff.bossTurnsRemaining = std::max(debuff.bossTurnsRemaining, bossTurnsRemaining);
+        if (atkPercent != 0) {
+            if (atkPercent > 0) {
+                debuff.atkPercent = std::max(debuff.atkPercent, atkPercent);
+            } else {
+                debuff.atkPercent = std::min(debuff.atkPercent, atkPercent);
+            }
+        }
+        if (damageTakenPercent > 0) {
+            debuff.damageTakenPercent = std::max(debuff.damageTakenPercent, damageTakenPercent);
+        } else if (damageTakenPercent < 0) {
+            debuff.damageTakenPercent = std::min(debuff.damageTakenPercent, damageTakenPercent);
+        }
+        removeBossDebuffsFromDefeatedCharacters();
+        return;
+    }
+
+    ActiveBossDebuff debuff;
+    debuff.abilityId = ability.id;
+    debuff.sourcePartyIndex = sourcePartyIndex;
+    debuff.atkPercent = atkPercent;
+    debuff.damageTakenPercent = damageTakenPercent;
+    debuff.bossTurnsRemaining = bossTurnsRemaining;
+    activeBossDebuffs_.push_back(std::move(debuff));
     removeBossDebuffsFromDefeatedCharacters();
 }
 
@@ -3490,6 +3856,37 @@ void BattleManager::consumeBossDebuffCharge(const std::string& abilityId) {
     }
 
     removeBossDebuffsFromDefeatedCharacters();
+}
+
+void BattleManager::tickBossDebuffsForBossTurnEnd() {
+    for (ActiveBossDebuff& debuff : activeBossDebuffs_) {
+        if (debuff.bossTurnsRemaining > 0) {
+            --debuff.bossTurnsRemaining;
+        }
+    }
+    removeBossDebuffsFromDefeatedCharacters();
+}
+
+int BattleManager::totalBossAtkModifierPercent() const {
+    int total = 0;
+    for (const ActiveBossDebuff& debuff : activeBossDebuffs_) {
+        if (debuff.bossTurnsRemaining <= 0 || debuff.atkPercent == 0) {
+            continue;
+        }
+        total += debuff.atkPercent;
+    }
+    return total;
+}
+
+int BattleManager::totalBossDamageTakenModifierPercent() const {
+    int total = 0;
+    for (const ActiveBossDebuff& debuff : activeBossDebuffs_) {
+        if (debuff.bossTurnsRemaining <= 0 || debuff.damageTakenPercent == 0) {
+            continue;
+        }
+        total += debuff.damageTakenPercent;
+    }
+    return total;
 }
 
 void BattleManager::applyJiafeiUltimateDebuff(int sourcePartyIndex, const AbilityDefinition& ability) {

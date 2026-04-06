@@ -548,6 +548,129 @@
         "ultimatePoints": 2,
         "startingOrbs": 1
     },
+    "pompom": {
+        "isSinger": false,
+        "title": "PomPom",
+        "assets": "pompom",
+        "class": "Buffer",
+        "spd": 185,
+        "atk": 8,
+        "hp": 58,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "PomPomTenPull",
+        "ability": "PomPomTenPull",
+        "ultimate": "PomPomTwentyPull",
+        "abilities": {
+            "skill": {
+                "id": "PomPomTenPull",
+                "name": "PomPom 10-Pull",
+                "type": "buff",
+                "targetRule": "all_allies",
+                "multiplier": 0.0,
+                "interactionType": "none",
+                "presentationId": "pompom_gacha_skill",
+                "inputPromptType": "space"
+            },
+            "ultimate": {
+                "id": "PomPomTwentyPull",
+                "name": "PomPom 20-Pull",
+                "type": "buff",
+                "targetRule": "all_allies",
+                "multiplier": 0.0,
+                "orbGain": 0,
+                "interactionType": "none",
+                "presentationId": "pompom_gacha_ultimate",
+                "inputPromptType": "space"
+            }
+        },
+        "ultimatePoints": 3,
+        "startingOrbs": 2
+    },
+    "huafei": {
+        "isSinger": false,
+        "title": "Huafei",
+        "assets": "huafei",
+        "voiceAssetId": "huafei",
+        "class": "Shielder",
+        "spd": 145,
+        "atk": 4,
+        "hp": 72,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "GugongWard",
+        "ability": "GugongWard",
+        "ultimate": "ImperialFavor",
+        "abilities": {
+            "skill": {
+                "id": "GugongWard",
+                "name": "Gugong Ward",
+                "type": "shield",
+                "targetRule": "all_allies",
+                "amountPercentOfCasterMaxHp": 28,
+                "multiplier": 1.0,
+                "interactionType": "none",
+                "presentationId": "huafei_support",
+                "inputPromptType": "none"
+            },
+            "ultimate": {
+                "id": "ImperialFavor",
+                "name": "Imperial Favor",
+                "statusName": "Imperial Favor",
+                "type": "shield",
+                "targetRule": "all_allies",
+                "amountPercentOfCasterMaxHp": 48,
+                "multiplier": 1.0,
+                "damageBuff": 20,
+                "casterTurnDuration": 2,
+                "orbGain": 0,
+                "interactionType": "none",
+                "presentationId": "huafei_support",
+                "inputPromptType": "none"
+            }
+        },
+        "ultimatePoints": 2,
+        "startingOrbs": 0
+    },
+    "randy": {
+        "isSinger": false,
+        "title": "Randy",
+        "assets": "randy",
+        "voiceAssetId": "randy",
+        "class": "Debuffer",
+        "spd": 175,
+        "atk": 10,
+        "hp": 54,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "CQuiz",
+        "ability": "CQuiz",
+        "ultimate": "DeadlinePressure",
+        "abilities": {
+            "skill": {
+                "id": "CQuiz",
+                "name": "C Quiz",
+                "statusName": "C Quiz",
+                "type": "debuff",
+                "targetRule": "single_enemy",
+                "multiplier": 0.0,
+                "interactionType": "rhythm",
+                "presentationId": "randy_c_quiz",
+                "inputPromptType": "none"
+            },
+            "ultimate": {
+                "id": "DeadlinePressure",
+                "name": "Deadline Pressure",
+                "statusName": "Deadline Pressure",
+                "type": "debuff",
+                "targetRule": "single_enemy",
+                "multiplier": 0.0,
+                "orbGain": 0,
+                "interactionType": "none",
+                "presentationId": "randy_logo_strike",
+                "inputPromptType": "none"
+            }
+        },
+        "ultimatePoints": 2,
+        "startingOrbs": 0
+    },
     "sans": {
         "isSinger": false,
         "title": "Sans",

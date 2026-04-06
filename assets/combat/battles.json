@@ -242,6 +242,31 @@
       "bossKey": "huafeiBoss",
       "storyScript": "ch0704",
       "victoryStoryScript": "ch0705",
+      "nextStoryScript": "ch0706",
+      "selectorVisible": true,
+      "isLineupFixed": false,
+      "buffs": {
+        "hp": 20,
+        "atk": 6,
+        "spd": 3
+      },
+      "lineup": [
+        "miku",
+        "cupcakke",
+        "jiafei",
+        "lyoo",
+        "wechatalipay"
+      ],
+      "stageKey": "default_stage"
+    },
+    "randy": {
+      "id": 107,
+      "storyOrder": 598,
+      "name": "Submit Before Deadline",
+      "description": "Zhao Laoshi demands your assignment. Type fast enough to survive the deduction.",
+      "bossKey": "randyBoss",
+      "storyScript": "ch0706",
+      "victoryStoryScript": "ch0707",
       "nextStoryScript": "finale",
       "selectorVisible": true,
       "isLineupFixed": false,

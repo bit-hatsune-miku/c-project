@@ -1,0 +1,58 @@
+{
+  "questions": [
+    {
+      "question": "Which header is used for printf in C?",
+      "answers": [
+        "<stdio.h>",
+        "<stdlib.h>",
+        "<string.h>"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "What symbol ends a statement in C?",
+      "answers": [
+        ":",
+        ";",
+        ","
+      ],
+      "correctIndex": 1
+    },
+    {
+      "question": "Which type is commonly used for whole numbers in beginner C code?",
+      "answers": [
+        "int",
+        "char*",
+        "float[]"
+      ],
+      "correctIndex": 0
+    },
+    {
+      "question": "Which keyword starts a conditional branch in C?",
+      "answers": [
+        "for",
+        "if",
+        "switches"
+      ],
+      "correctIndex": 1
+    },
+    {
+      "question": "What does ++i do?",
+      "answers": [
+        "Subtract 1 from i",
+        "Multiply i by 2",
+        "Increase i by 1"
+      ],
+      "correctIndex": 2
+    },
+    {
+      "question": "Which function usually reads formatted input from stdin?",
+      "answers": [
+        "scanf",
+        "malloc",
+        "puts"
+      ],
+      "correctIndex": 0
+    }
+  ]
+}

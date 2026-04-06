@@ -1,0 +1,13 @@
+{
+  "chapter": 7,
+  "scriptId": "ch0706",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "speaker": "Zhao Laoshi",
+      "text": "Class is not over. Submit your assignment before the deadline.",
+      "type": "dialogue",
+      "battleKey": "randy"
+    }
+  ]
+}

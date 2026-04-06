@@ -680,6 +680,69 @@
             }
         }
     },
+    "randyBoss": {
+        "title": "Zhao Laoshi",
+        "assets": "randy",
+        "spd": 160,
+        "atk": 17,
+        "hp": 5000,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "AssignmentDeadline",
+        "ability": "AssignmentDeadline",
+        "ultimate": "AssignmentDeadline",
+        "abilities": {
+            "skill": {
+                "id": "AssignmentDeadline",
+                "name": "Assignment Deadline",
+                "instructionHint": "Submit your assignment before the deadline!",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.8,
+                "interactionType": "rhythm",
+                "presentationId": "randy_assignment",
+                "inputPromptType": "none"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "tetoBoss",
+        "bgmVolume": 0.4,
+        "phases": {
+            "phase1": {
+                "atkBonusPercent": 0,
+                "presentation": {
+                    "intParams": {
+                        "spamQuota": 36
+                    },
+                    "floatParams": {
+                        "inputDurationSeconds": 7.0
+                    }
+                }
+            },
+            "phase2": {
+                "atkBonusPercent": 15,
+                "presentation": {
+                    "intParams": {
+                        "spamQuota": 58
+                    },
+                    "floatParams": {
+                        "inputDurationSeconds": 7.0
+                    }
+                }
+            },
+            "phase3": {
+                "atkBonusPercent": 30,
+                "presentation": {
+                    "intParams": {
+                        "spamQuota": 88
+                    },
+                    "floatParams": {
+                        "inputDurationSeconds": 7.0
+                    }
+                }
+            }
+        }
+    },
     "sailorVenusBoss": {
         "title": "Sailor Venus",
         "assets": "sailorVenusBoss",

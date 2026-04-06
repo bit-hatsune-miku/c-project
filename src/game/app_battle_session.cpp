@@ -4362,6 +4362,42 @@ private:
             }
             handlePresentationAudioCommands(context, commands);
         };
+        callbacks.onHintCommands = [this](const std::vector<battle::PresentationHintCommand>& commands) {
+            auto mapFamily = [](battle::PresentationHintFamily family) {
+                switch (family) {
+                    case battle::PresentationHintFamily::Tutorial:
+                        return BattleHintFamily::Tutorial;
+                    case battle::PresentationHintFamily::Warning:
+                        return BattleHintFamily::Warning;
+                    case battle::PresentationHintFamily::Major:
+                        return BattleHintFamily::Major;
+                    case battle::PresentationHintFamily::Info:
+                    default:
+                        return BattleHintFamily::Info;
+                }
+            };
+
+            for (const battle::PresentationHintCommand& command : commands) {
+                if (command.stableKey.empty()) {
+                    continue;
+                }
+
+                if (command.type == battle::PresentationHintCommandType::Dismiss) {
+                    dismissBattleHintByKey(hudFeedback_, command.stableKey, command.immediate);
+                    continue;
+                }
+
+                BattleHintRequest request;
+                request.stableKey = command.stableKey;
+                request.family = mapFamily(command.family);
+                request.kicker = command.kicker;
+                request.sourceTag = command.sourceTag;
+                request.badgeText = command.badgeText;
+                request.message = command.message;
+                request.resolveRule.kind = BattleHintResolveKind::PresentationEnd;
+                enqueueBattleHint(std::move(request), false);
+            }
+        };
         callbacks.onAbilityAudioCues = [this, &context](int cueCount) {
             handlePresentationAbilityAudio(context, cueCount);
         };

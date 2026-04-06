@@ -18,7 +18,12 @@
 #include "miku_self_corruption_presentation.h"
 #include "minako_strike_presentation.h"
 #include "huafei_boss_presentation.h"
+#include "huafei_support_presentation.h"
 #include "pompom_boss_presentation.h"
+#include "pompom_gacha_presentation.h"
+#include "randy_boss_presentation.h"
+#include "randy_logo_strike_presentation.h"
+#include "randy_quiz_presentation.h"
 
 #include "qr_code_attack_presentation.h"
 #include "qr_code_shield_presentation.h"
@@ -111,6 +116,33 @@ void registerAllPresentations() {
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ,
             SailorVenusBossPresentation::Variant::LoveMeChain
+        );
+    });
+    registry.registerPresentation("randy_assignment", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<RandyBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+    registry.registerPresentation("randy_c_quiz", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<RandyQuizPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+    registry.registerPresentation("randy_logo_strike", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<RandyLogoStrikePresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
         );
     });
     registry.registerPresentation("wechatalipay_ultimate", [](
@@ -379,12 +411,41 @@ void registerAllPresentations() {
             targetWorldX, targetWorldY, targetWorldZ
         );
     });
+    registry.registerPresentation("pompom_gacha_skill", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<PomPomGachaPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ,
+            PomPomGachaPresentation::Variant::Skill
+        );
+    });
+    registry.registerPresentation("pompom_gacha_ultimate", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<PomPomGachaPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ,
+            PomPomGachaPresentation::Variant::Ultimate
+        );
+    });
 
     registry.registerPresentation("huafei_hostage_grab", [](
         float casterWorldX, float casterWorldY, float casterWorldZ,
         float targetWorldX, float targetWorldY, float targetWorldZ
     ) -> std::unique_ptr<AbilityPresentation> {
         return std::make_unique<HuafeiBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+    registry.registerPresentation("huafei_support", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<HuafeiSupportPresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
         );

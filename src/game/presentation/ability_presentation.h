@@ -45,6 +45,29 @@ enum class PresentationAudioCommandType {
     ResumeBgm
 };
 
+enum class PresentationHintFamily {
+    Info,
+    Tutorial,
+    Warning,
+    Major
+};
+
+enum class PresentationHintCommandType {
+    Upsert,
+    Dismiss
+};
+
+struct PresentationHintCommand {
+    PresentationHintCommandType type = PresentationHintCommandType::Upsert;
+    PresentationHintFamily family = PresentationHintFamily::Info;
+    std::string stableKey;
+    std::string kicker;
+    std::string sourceTag;
+    std::string badgeText;
+    std::string message;
+    bool immediate = false;
+};
+
 struct PresentationAudioCommand {
     PresentationAudioCommandType type = PresentationAudioCommandType::PlayOneShot;
     std::string id;
@@ -101,6 +124,7 @@ public:
     virtual int consumeHitEvents() { return 0; }
     virtual int getDamageLabelHitCount() const { return 1; }
     virtual std::vector<PresentationAudioCommand> consumeAudioCommands() { return {}; }
+    virtual std::vector<PresentationHintCommand> consumeHintCommands() { return {}; }
 
     // Focused target (optional)
     virtual int getFocusedPartyIndex() const { return -1; }
@@ -130,6 +154,9 @@ public:
     }
     virtual void setPresentationValue(int value) {
         (void)value;
+    }
+    virtual void setResolvedRolls(const std::vector<int>& rolls) {
+        (void)rolls;
     }
     virtual void setTuningProfile(const PresentationTuningProfile& profile) {
         (void)profile;

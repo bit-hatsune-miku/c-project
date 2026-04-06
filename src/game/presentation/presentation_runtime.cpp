@@ -286,6 +286,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     presentation->setTargetPartyIndex(context.targetIndex);
     presentation->setTargetWorldPosition(targetX, targetY, targetZ);
     presentation->setPresentationValue(context.presentationValue);
+    presentation->setResolvedRolls(context.resolvedRolls);
     presentation->setTuningProfile(context.tuningProfile);
     {
         std::vector<std::string> partyAssetNames;
@@ -487,6 +488,11 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
         const std::vector<PresentationAudioCommand> audioCommands = presentation->consumeAudioCommands();
         if (!audioCommands.empty() && callbacks.onAudioCommands) {
             callbacks.onAudioCommands(audioCommands);
+        }
+
+        const std::vector<PresentationHintCommand> hintCommands = presentation->consumeHintCommands();
+        if (!hintCommands.empty() && callbacks.onHintCommands) {
+            callbacks.onHintCommands(hintCommands);
         }
 
         const int abilityAudioCues = presentation->consumeAbilityAudioCues();

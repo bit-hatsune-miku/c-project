@@ -815,6 +815,7 @@ bool parseAbilityDefinition(const json& abilityJson,
     outAbility.speedBuff = abilityJson.value("speedBuff", 0);
     outAbility.atkBuff = abilityJson.value("atkBuff", 0);
     outAbility.damageBuff = abilityJson.value("damageBuff", 0);
+    outAbility.casterTurnDuration = std::max(1, abilityJson.value("casterTurnDuration", 1));
     outAbility.actionAdvance = abilityJson.value("actionAdvance", 0.0f);
     outAbility.actionAdvanceMode = parseActionAdvanceMode(
         abilityJson.value("actionAdvanceMode", "remaining_fraction")

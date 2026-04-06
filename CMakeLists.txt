@@ -158,8 +158,18 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/minako_strike_presentation.h
     src/game/presentation/huafei_boss_presentation.cpp
     src/game/presentation/huafei_boss_presentation.h
+    src/game/presentation/huafei_support_presentation.cpp
+    src/game/presentation/huafei_support_presentation.h
     src/game/presentation/pompom_boss_presentation.cpp
     src/game/presentation/pompom_boss_presentation.h
+    src/game/presentation/pompom_gacha_presentation.cpp
+    src/game/presentation/pompom_gacha_presentation.h
+    src/game/presentation/randy_boss_presentation.cpp
+    src/game/presentation/randy_boss_presentation.h
+    src/game/presentation/randy_quiz_presentation.cpp
+    src/game/presentation/randy_quiz_presentation.h
+    src/game/presentation/randy_logo_strike_presentation.cpp
+    src/game/presentation/randy_logo_strike_presentation.h
     src/game/presentation/cupcakke_drum_presentation.cpp
     src/game/presentation/cupcakke_drum_presentation.h
     src/game/presentation/cupcakke_ultimate_presentation.cpp
