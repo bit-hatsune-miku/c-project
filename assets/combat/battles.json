@@ -86,7 +86,7 @@
         "jiafei",
         "lyoo"
       ],
-      "stageKey": "scan_to_pay_stage"
+      "stageKey": "terrain_stage"
     },
     "scan_to_pay": {
       "id": 100,
@@ -158,7 +158,7 @@
         "cupcakke",
         "wechatalipay"
       ],
-      "stageKey": "yinlong_stage"
+      "stageKey": "terrain_stage"
     },
     "zhoushen_boss_demo": {
       "id": 103,
@@ -182,7 +182,7 @@
         "luotianyi",
         "ari"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "whistle_note_stage"
     },
     "sailorVenus": {
       "id": 104,
@@ -207,7 +207,7 @@
         "lyoo",
         "wechatalipay"
       ],
-      "stageKey": "sailor_venus_stage"
+      "stageKey": "scan_to_pay_stage"
     },
     "pompom": {
       "id": 105,
@@ -232,7 +232,7 @@
         "lyoo",
         "wechatalipay"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "tutorial_test_stage"
     },
     "huafei": {
       "id": 106,
@@ -257,7 +257,7 @@
         "lyoo",
         "wechatalipay"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "wildflower_stage"
     },
     "randy": {
       "id": 107,
@@ -282,7 +282,7 @@
         "lyoo",
         "wechatalipay"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "classroom_stage"
     },
     "disciple": {
       "id": 108,
@@ -307,7 +307,7 @@
         "lyoo",
         "wechatalipay"
       ],
-      "stageKey": "default_stage"
+      "stageKey": "terrain_stage"
     },
     "lyoo_plot_twist": {
       "id": 99,
@@ -365,7 +365,7 @@
         "revivePartyToFull": true,
         "bossSelfKnockoutIsDefeat": true
       },
-      "stageKey": "corruption_stage"
+      "stageKey": "twilight_stage"
     }
   }
 }

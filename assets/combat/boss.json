@@ -106,7 +106,7 @@
         "title": "Corrupted Hatsune Miku",
         "assets": "mikuBoss",
         "voiceHit": "assets/combat/voices/miku/hit.wav",
-        "spd": 134,
+        "spd": 500,
         "atk": 25,
         "hp": 1000,
         "standardAbility": "BossStandardAttack",
