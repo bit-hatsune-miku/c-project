@@ -172,6 +172,9 @@ struct AbilityDefinition {
     int atkBuff = 0;   // ATK % buff applied to targets (negative = nerf)
     int damageBuff = 0; // DMG % buff applied to outgoing damage (negative = nerf)
     int casterTurnDuration = 1;
+    int bossAtkBuff = 0; // Boss ATK % modifier applied for bossTurnDuration boss turns.
+    int bossDamageTakenBuff = 0; // Boss DMG TAKEN % modifier applied for bossTurnDuration boss turns.
+    int bossTurnDuration = 1;
     int orbGain = 1;
     float actionAdvance = 0.0f;
     ActionAdvanceMode actionAdvanceMode = ActionAdvanceMode::RemainingFraction;
@@ -201,6 +204,7 @@ struct PresentationContext {
     int targetIndex = -1;
     int presentationValue = 0;
     std::vector<int> resolvedRolls;
+    std::vector<int> resolvedTargetIndices;
     bool isBoss = false;
     bool isUltimate = false;
     PresentationTuningProfile tuningProfile{};
@@ -726,6 +730,7 @@ private:
     void tickBossDebuffsForBossTurnEnd();
     int totalBossAtkModifierPercent() const;
     int totalBossDamageTakenModifierPercent() const;
+    std::vector<int> resolveRandomLivingPartyTargets(int hitCount);
     std::vector<int> collectSupportTargetPartyIndices(int sourcePartyIndex,
                                                       const AbilityDefinition& ability,
                                                       int requestedTargetPartyIndex) const;
@@ -774,6 +779,7 @@ private:
     int currentActionOutgoingDamage_ = 0;
     std::string pendingSplitAttackActorKey_;
     int tetoHealingTally_ = 0;
+    std::mt19937 battleRng_{std::random_device{}()};
     std::mt19937 pomPomRng_{std::random_device{}()};
 
     struct PomPomBuffStack {

@@ -4,6 +4,8 @@
 #include "ari_ultimate_presentation.h"
 #include "cupcakke_drum_presentation.h"
 #include "cupcakke_ultimate_presentation.h"
+#include "disciple_boss_presentation.h"
+#include "disciple_debuff_presentation.h"
 #include "jiafei_boss_presentation.h"
 #include "jiafei_scream_presentation.h"
 #include "jiafei_ultimate_presentation.h"
@@ -143,6 +145,35 @@ void registerAllPresentations() {
         return std::make_unique<RandyLogoStrikePresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+    registry.registerPresentation("disciple_blackout_barrage", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<DiscipleBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+    registry.registerPresentation("disciple_mark", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<DiscipleDebuffPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ,
+            DiscipleDebuffPresentation::Variant::Skill
+        );
+    });
+    registry.registerPresentation("disciple_sermon", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<DiscipleDebuffPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ,
+            DiscipleDebuffPresentation::Variant::Ultimate
         );
     });
     registry.registerPresentation("wechatalipay_ultimate", [](

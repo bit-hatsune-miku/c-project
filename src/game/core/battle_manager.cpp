@@ -94,6 +94,11 @@ bool bossAbilityUsesFocusedPartyPresentation(const AbilityDefinition& ability) {
            ability.presentationId == "huafei_hostage_grab";
 }
 
+bool bossAbilityUsesResolvedTargetSequence(const AbilityDefinition& ability) {
+    return ability.targetRule == TargetRule::AllEnemies &&
+           ability.presentationId == "disciple_blackout_barrage";
+}
+
 bool canPreviewActorExecuteQueuedAction(const BattleManager& manager,
                                         const BattleCharacter& previewCharacter,
                                         const TurnActor& previewActor) {
@@ -2462,8 +2467,15 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
             } else {
                 applyBossTimedModifier(character.partyIndex(), *abilityDef, 30, 0, 1);
             }
-        } else if (abilityDef->id == "DeadlinePressure" && bossCurrentHp_ > 0) {
-            applyBossTimedModifier(character.partyIndex(), *abilityDef, -50, 0, 1);
+        } else if (bossCurrentHp_ > 0 &&
+                   (abilityDef->bossAtkBuff != 0 || abilityDef->bossDamageTakenBuff != 0)) {
+            applyBossTimedModifier(
+                character.partyIndex(),
+                *abilityDef,
+                abilityDef->bossAtkBuff,
+                abilityDef->bossDamageTakenBuff,
+                abilityDef->bossTurnDuration
+            );
         }
     }
 
@@ -2545,6 +2557,8 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
         presContext.isUltimate = action == BattleAction::Ultimate;
         presContext.tuningProfile = currentBossPhaseDefinition().tuningProfile;
         int presentationTargetHpBefore = -1;
+        std::vector<int> presentationPartyHpBefore;
+        std::vector<int> presentationPartyShieldBefore;
 
         // Some boss presentations focus one random alive ally and drive all damage through the presentation itself.
         if (bossAbilityUsesFocusedPartyPresentation(*abilityDef)) {
@@ -2562,13 +2576,45 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
                         characters_[static_cast<size_t>(presContext.targetIndex)].hp();
                 }
             }
+        } else if (bossAbilityUsesResolvedTargetSequence(*abilityDef)) {
+            int hitCount = 1;
+            if (const auto hitCountIt = presContext.tuningProfile.intParams.find("hitCount");
+                hitCountIt != presContext.tuningProfile.intParams.end()) {
+                hitCount = std::max(1, hitCountIt->second);
+            }
+            presContext.resolvedTargetIndices = resolveRandomLivingPartyTargets(hitCount);
+            presentationPartyHpBefore.reserve(characters_.size());
+            presentationPartyShieldBefore.reserve(characters_.size());
+            for (const BattleCharacter& character : characters_) {
+                presentationPartyHpBefore.push_back(character.hp());
+                presentationPartyShieldBefore.push_back(character.getShield());
+            }
         }
 
         const float multiplier = runPresentationInteraction(presContext);
         presentationHitApplied = consumePresentationHitDamageApplied();
 
         if (presentationHitApplied && abilityDef->type == AbilityType::Attack) {
-            if (presContext.targetIndex >= 0 &&
+            if (!presContext.resolvedTargetIndices.empty()) {
+                std::vector<int> recordedTargets;
+                for (int targetPartyIndex : presContext.resolvedTargetIndices) {
+                    if (targetPartyIndex < 0 ||
+                        static_cast<size_t>(targetPartyIndex) >= characters_.size() ||
+                        std::find(recordedTargets.begin(), recordedTargets.end(), targetPartyIndex) != recordedTargets.end()) {
+                        continue;
+                    }
+                    recordedTargets.push_back(targetPartyIndex);
+                    actionEvent.targetPartyIndices.push_back(targetPartyIndex);
+                    actionEvent.targetHpBefore.push_back(
+                        presentationPartyHpBefore[static_cast<size_t>(targetPartyIndex)]);
+                    actionEvent.targetHpAfter.push_back(
+                        characters_[static_cast<size_t>(targetPartyIndex)].hp());
+                    actionEvent.targetShieldBefore.push_back(
+                        presentationPartyShieldBefore[static_cast<size_t>(targetPartyIndex)]);
+                    actionEvent.targetShieldAfter.push_back(
+                        characters_[static_cast<size_t>(targetPartyIndex)].getShield());
+                }
+            } else if (presContext.targetIndex >= 0 &&
                 static_cast<size_t>(presContext.targetIndex) < characters_.size() &&
                 presentationTargetHpBefore >= 0) {
                 actionEvent.targetPartyIndices.push_back(presContext.targetIndex);
@@ -2579,7 +2625,8 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
                 actionEvent.targetShieldBefore.push_back(currentShield);
                 actionEvent.targetShieldAfter.push_back(currentShield);
             }
-        } else if (bossAbilityUsesFocusedPartyPresentation(*abilityDef) && presContext.targetIndex >= 0) {
+        } else if ((bossAbilityUsesFocusedPartyPresentation(*abilityDef) && presContext.targetIndex >= 0) ||
+                   bossAbilityUsesResolvedTargetSequence(*abilityDef)) {
             // Focused boss presentations handle all damage through presentation hit events.
         } else if (abilityDef->targetRule == TargetRule::AllEnemies) {
             for (BattleCharacter& c : characters_) {
@@ -3767,6 +3814,28 @@ void BattleManager::consumeSailorVenusTurnAndQueueFinisherIfNeeded(int partyInde
 
 int BattleManager::getSailorVenusSpaceTally() const {
     return std::max(0, sailorVenusState_.spaceTally);
+}
+
+std::vector<int> BattleManager::resolveRandomLivingPartyTargets(int hitCount) {
+    std::vector<int> alive;
+    alive.reserve(characters_.size());
+    for (const BattleCharacter& character : characters_) {
+        if (character.isAlive()) {
+            alive.push_back(character.partyIndex());
+        }
+    }
+
+    if (alive.empty() || hitCount <= 0) {
+        return {};
+    }
+
+    std::uniform_int_distribution<int> pickIndex(0, static_cast<int>(alive.size()) - 1);
+    std::vector<int> targets;
+    targets.reserve(static_cast<size_t>(hitCount));
+    for (int i = 0; i < hitCount; ++i) {
+        targets.push_back(alive[static_cast<size_t>(pickIndex(battleRng_))]);
+    }
+    return targets;
 }
 
 void BattleManager::applyBossDebuffCharges(int sourcePartyIndex,

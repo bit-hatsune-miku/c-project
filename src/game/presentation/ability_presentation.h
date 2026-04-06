@@ -122,6 +122,7 @@ public:
     virtual int getScoreValue() const { return 0; }
     virtual int consumeAbilityAudioCues() { return 0; }
     virtual int consumeHitEvents() { return 0; }
+    virtual std::vector<int> consumeHitTargetIndices() { return {}; }
     virtual int getDamageLabelHitCount() const { return 1; }
     virtual std::vector<PresentationAudioCommand> consumeAudioCommands() { return {}; }
     virtual std::vector<PresentationHintCommand> consumeHintCommands() { return {}; }
@@ -157,6 +158,9 @@ public:
     }
     virtual void setResolvedRolls(const std::vector<int>& rolls) {
         (void)rolls;
+    }
+    virtual void setResolvedTargetIndices(const std::vector<int>& targetIndices) {
+        (void)targetIndices;
     }
     virtual void setTuningProfile(const PresentationTuningProfile& profile) {
         (void)profile;

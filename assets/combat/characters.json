@@ -662,9 +662,55 @@
                 "type": "debuff",
                 "targetRule": "single_enemy",
                 "multiplier": 0.0,
+                "bossAtkBuff": -50,
+                "bossTurnDuration": 1,
                 "orbGain": 0,
                 "interactionType": "none",
                 "presentationId": "randy_logo_strike",
+                "inputPromptType": "none"
+            }
+        },
+        "ultimatePoints": 2,
+        "startingOrbs": 0
+    },
+    "disciple": {
+        "isSinger": false,
+        "title": "Disciple",
+        "assets": "disciple",
+        "class": "Debuffer",
+        "spd": 162,
+        "atk": 8,
+        "hp": 62,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "ForbiddenMark",
+        "ability": "ForbiddenMark",
+        "ultimate": "NightSermon",
+        "abilities": {
+            "skill": {
+                "id": "ForbiddenMark",
+                "name": "Forbidden Mark",
+                "statusName": "Forbidden Mark",
+                "type": "debuff",
+                "targetRule": "single_enemy",
+                "multiplier": 0.0,
+                "bossDamageTakenBuff": 35,
+                "bossTurnDuration": 1,
+                "interactionType": "none",
+                "presentationId": "disciple_mark",
+                "inputPromptType": "none"
+            },
+            "ultimate": {
+                "id": "NightSermon",
+                "name": "Night Sermon",
+                "statusName": "Night Sermon",
+                "type": "debuff",
+                "targetRule": "single_enemy",
+                "multiplier": 0.0,
+                "bossDamageTakenBuff": 80,
+                "bossTurnDuration": 2,
+                "orbGain": 0,
+                "interactionType": "none",
+                "presentationId": "disciple_sermon",
                 "inputPromptType": "none"
             }
         },

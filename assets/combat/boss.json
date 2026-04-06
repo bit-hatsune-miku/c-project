@@ -743,6 +743,59 @@
             }
         }
     },
+    "discipleBoss": {
+        "title": "Disciple",
+        "assets": "discipleBoss",
+        "spd": 158,
+        "atk": 18,
+        "hp": 1500,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "DiscipleNightAssault",
+        "ability": "DiscipleNightAssault",
+        "ultimate": "DiscipleNightAssault",
+        "abilities": {
+            "skill": {
+                "id": "DiscipleNightAssault",
+                "name": "Night Assault",
+                "instructionHint": "Survive the blackout barrage.",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 0.6,
+                "interactionType": "none",
+                "presentationId": "disciple_blackout_barrage",
+                "inputPromptType": "none"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "tetoBoss",
+        "bgmVolume": 0.4,
+        "phases": {
+            "phase1": {
+                "presentation": {
+                    "intParams": {
+                        "hitCount": 3
+                    }
+                }
+            },
+            "phase2": {
+                "atkBonusPercent": 15,
+                "presentation": {
+                    "intParams": {
+                        "hitCount": 5
+                    }
+                }
+            },
+            "phase3": {
+                "atkBonusPercent": 30,
+                "presentation": {
+                    "intParams": {
+                        "hitCount": 7
+                    }
+                }
+            }
+        }
+    },
     "sailorVenusBoss": {
         "title": "Sailor Venus",
         "assets": "sailorVenusBoss",

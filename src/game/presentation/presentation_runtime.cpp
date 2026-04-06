@@ -287,6 +287,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     presentation->setTargetWorldPosition(targetX, targetY, targetZ);
     presentation->setPresentationValue(context.presentationValue);
     presentation->setResolvedRolls(context.resolvedRolls);
+    presentation->setResolvedTargetIndices(context.resolvedTargetIndices);
     presentation->setTuningProfile(context.tuningProfile);
     {
         std::vector<std::string> partyAssetNames;

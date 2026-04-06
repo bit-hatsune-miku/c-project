@@ -4536,6 +4536,50 @@ private:
             const int totalDamage = std::max(1, static_cast<int>(totalDamageRaw));
             const int perHitDamage = std::max(1, totalDamage / std::max(1, damageLabelHitCount));
             const int presentationTargetPartyIndex = context.isBoss ? context.targetIndex : -1;
+            const std::vector<int> targetedHitIndices =
+                activePresentation_ != nullptr
+                    ? activePresentation_->consumeHitTargetIndices()
+                    : std::vector<int>{};
+
+            if (context.isBoss && !targetedHitIndices.empty()) {
+                std::vector<int> partyHpTracker = partyHpBefore;
+                for (int targetPartyIndex : targetedHitIndices) {
+                    if (targetPartyIndex < 0) {
+                        continue;
+                    }
+
+                    manager_.applyPresentationHitDamage(
+                        true,
+                        perHitDamage,
+                        1,
+                        targetPartyIndex,
+                        context.casterIndex
+                    );
+                    handlePresentationHitAudio(
+                        context,
+                        1,
+                        targetPartyIndex,
+                        bossHpBefore,
+                        partyHpTracker
+                    );
+                    const int spawnedDamagePopups = feedback_.queuePresentationHitFeedback(
+                        true,
+                        1,
+                        perHitDamage,
+                        manager_,
+                        targetPartyIndex
+                    );
+                    registerPresentationDamage(
+                        hudFeedback_,
+                        perHitDamage * std::max(0, spawnedDamagePopups),
+                        SDL_GetTicks64());
+                    if (static_cast<size_t>(targetPartyIndex) < partyHpTracker.size()) {
+                        partyHpTracker[static_cast<size_t>(targetPartyIndex)] =
+                            manager_.getCharacterCurrentHp(targetPartyIndex);
+                    }
+                }
+                return;
+            }
 
             manager_.applyPresentationHitDamage(
                 context.isBoss,

@@ -160,6 +160,10 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/huafei_boss_presentation.h
     src/game/presentation/huafei_support_presentation.cpp
     src/game/presentation/huafei_support_presentation.h
+    src/game/presentation/disciple_boss_presentation.cpp
+    src/game/presentation/disciple_boss_presentation.h
+    src/game/presentation/disciple_debuff_presentation.cpp
+    src/game/presentation/disciple_debuff_presentation.h
     src/game/presentation/pompom_boss_presentation.cpp
     src/game/presentation/pompom_boss_presentation.h
     src/game/presentation/pompom_gacha_presentation.cpp

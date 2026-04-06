@@ -267,13 +267,38 @@
       "bossKey": "randyBoss",
       "storyScript": "ch0706",
       "victoryStoryScript": "ch0707",
-      "nextStoryScript": "finale",
+      "nextStoryScript": "ch0708",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
         "hp": 20,
         "atk": 6,
         "spd": 3
+      },
+      "lineup": [
+        "miku",
+        "cupcakke",
+        "jiafei",
+        "lyoo",
+        "wechatalipay"
+      ],
+      "stageKey": "default_stage"
+    },
+    "disciple": {
+      "id": 108,
+      "storyOrder": 599,
+      "name": "Disciple",
+      "description": "The Disciple extinguishes the battlefield and lets the darkness pick who bleeds next.",
+      "bossKey": "discipleBoss",
+      "storyScript": "ch0708",
+      "victoryStoryScript": "ch0709",
+      "nextStoryScript": "finale",
+      "selectorVisible": true,
+      "isLineupFixed": false,
+      "buffs": {
+        "hp": 22,
+        "atk": 6,
+        "spd": 4
       },
       "lineup": [
         "miku",
