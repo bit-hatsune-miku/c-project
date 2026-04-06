@@ -43,6 +43,7 @@ struct PlaybackCallbacks {
     SDL_Texture* targetSpriteTexture = nullptr;
     SDL_Texture* overlayCasterSpriteTexture = nullptr;
     SDL_Texture* overlayTargetSpriteTexture = nullptr;
+    std::vector<bool> partyTargetableStates;
     // Set a render overlay function that is called after world render but before SDL_RenderPresent.
     std::function<void(std::function<void(SDL_Renderer*, int, int)>)> setRenderOverlay;
     // Clear the render overlay set above.

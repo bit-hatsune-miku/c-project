@@ -1,5 +1,6 @@
 {
     "lyoo": {
+        "isSinger": false,
         "title": "Lyoo",
         "assets": "lyoo",
         "class": "Healer",
@@ -40,6 +41,7 @@
         "startingOrbs": 0
     },
     "miku": {
+        "isSinger": true,
         "title": "Hatsune Miku",
         "assets": "miku",
         "class": "DPS",
@@ -78,6 +80,7 @@
         "startingOrbs": 0
     },
     "iroha": {
+        "isSinger": true,
         "title": "Iroha",
         "assets": "iroha",
         "class": "Vanguard",
@@ -113,6 +116,7 @@
         "startingOrbs": 0
     },
     "kaguya": {
+        "isSinger": true,
         "title": "Kaguya",
         "assets": "kaguya",
         "class": "aoe / fua sub DPS",
@@ -147,6 +151,7 @@
         "startingOrbs": 0
     },
     "cupcakke": {
+        "isSinger": true,
         "title": "Cupcakke",
         "assets": "cupcakke",
         "class": "Tank",
@@ -237,6 +242,7 @@
         "startingOrbs": 0
     },
     "luotianyi": {
+        "isSinger": true,
         "title": "洛天依",
         "assets": "luotianyi",
         "class": "Buffer",
@@ -280,7 +286,7 @@
         "assets": "wechatalipay",
         "class": "Shielder",
         "spd": 200,
-        "atk": 14,
+        "atk": 0,
         "hp": 64,
         "standardAbility": "BasicAttack",
         "skillAbility": "SaoMaZhiFu",
@@ -313,6 +319,7 @@
         "startingOrbs": 0
     },
     "ari": {
+        "isSinger": true,
         "title": "Ariana Grande",
         "assets": "ari",
         "class": "Buffer",
@@ -351,39 +358,62 @@
         "startingOrbs": 0
     },
     "teto": {
+        "isSinger": true,
         "title": "Kasane Teto",
         "assets": "teto",
         "class": "Healer",
-        "spd": 160,
+        "spd": 300,
         "atk": 0,
         "hp": 73,
         "standardAbility": "BasicAttack",
-        "skillAbility": "HealAlliesLeastHpBonus",
-        "ability": "HealAlliesLeastHpBonus",
-        "ultimate": "HitRecoveryEncore",
+        "skillAbility": "HealingTouch",
+        "ability": "HealingTouch",
+        "ultimate": "RecoveryEncore",
         "abilities": {
             "skill": {
-                "id": "HealAlliesLeastHpBonus",
+                "id": "HealingTouch",
                 "name": "I want to be a Diva!",
                 "type": "heal",
-                "targetRule": "all_allies",
-                "amountPercentOfCasterMaxHp": 29.032258,
-                "multiplier": 0.0,
+                "targetRule": "single_ally",
+                "amountPercentOfCasterMaxHp": 3,
+                "baseHeal": 0,
+                "multiplier": 1.0,
+                "reviveDeadAllies": false,
                 "interactionType": "none",
-                "presentationId": "teto_group_heal"
+                "specialDamageSource": "none",
+                "presentationId": "teto_healing_touch",
+                "inputPromptType": "custom",
+                "inputPromptKeys": ["1", "2", "3", "4"]
             },
             "ultimate": {
-                "id": "HitRecoveryEncore",
+                "id": "RecoveryEncore",
                 "name": "Kyuuu...! Chimera!",
-                "type": "buff",
+                "type": "heal",
                 "targetRule": "all_allies",
-                "multiplier": 0.0,
+                "amountPercentOfCasterMaxHp": 25,
+                "baseHeal": 0,
+                "multiplier": 0.25,
+                "reviveDeadAllies": false,
                 "interactionType": "none",
+                "specialDamageSource": "stored_healing_tally",
                 "presentationId": "teto_recovery_encore"
             }
         },
-        "ultimatePoints": 4,
+        "ultimatePoints": 3,
         "startingOrbs": 0
+    },
+    "zhouShen": {
+        "isSinger": true,
+        "title": "周深",
+        "assets": "zhouShen",
+        "class": "Buffer",
+        "spd": 190,
+        "atk": 40,
+        "hp": 45,
+        "abilities": {
+        },
+        "ultimatePoints": 2,
+        "startingOrbs": 1
     },
     "sans": {
         "title": "Sans",

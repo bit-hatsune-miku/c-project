@@ -26,6 +26,7 @@ public:
     bool shouldHideNonCasterCharacters() const override;
     bool shouldRenderCasterEntity() const override;
     bool shouldRenderBossEntity() const override;
+    bool shouldRenderFocusedTargetEntity() const override;
     bool shouldRenderAboveHud() const override;
     bool overridesCamera() const override;
     void applyCameraState(Camera3D& camera) const override;
@@ -62,6 +63,7 @@ private:
     void ensureTexturesLoaded(SDL_Renderer* renderer);
     SDL_Texture* loadTextureFallback(SDL_Renderer* renderer, const std::string& path) const;
     void spawnBaguette();
+    void queueDamageHit(float multiplier);
 
     float casterX_ = 0.0f;
     float casterY_ = 0.0f;
@@ -86,11 +88,11 @@ private:
     std::vector<Baguette> baguettes_;
 
     int pendingAbilityAudioCues_ = 0;
-    int pendingHitEvents_ = 0;
     std::vector<PresentationFeedbackEvent> pendingFeedbackEvents_;
+    std::vector<float> pendingHitDamageMultipliers_;
 
     float damageMultiplier_ = 1.0f;
-    float targetDamageMultiplier_ = 1.0f;
+    int landedHitCount_ = 0;
 
     SDL_Texture* baguetteTexture_ = nullptr;
     

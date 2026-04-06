@@ -1193,6 +1193,10 @@ body {
     width: 220dp;
 }
 
+.battle-input-prompt.type-up-down {
+    width: 132dp;
+}
+
 .battle-input-prompt.type-left-right,
 .battle-input-prompt.type-spam-space {
     width: 176dp;

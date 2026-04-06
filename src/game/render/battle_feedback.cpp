@@ -288,7 +288,8 @@ int BattleFeedbackSystem::queuePresentationHitFeedback(bool isBossCaster,
 void BattleFeedbackSystem::queuePresentationHealFeedback(bool isBossCaster,
                                                         int hitEvents,
                                                         int perHitHealing,
-                                                        const BattleManager& manager) {
+                                                        const BattleManager& manager,
+                                                        int targetPartyIndex) {
     if (hitEvents <= 0 || perHitHealing <= 0) {
         return;
     }
@@ -309,6 +310,18 @@ void BattleFeedbackSystem::queuePresentationHealFeedback(bool isBossCaster,
         suppressCharacterNextHealingPopup_.assign(state.party.size(), false);
     }
 
+    // If targetPartyIndex is specified, only show popup on that target
+    if (targetPartyIndex >= 0 && static_cast<size_t>(targetPartyIndex) < state.party.size()) {
+        if (manager.getCharacterCurrentHp(targetPartyIndex) > 0) {
+            for (int h = 0; h < hitEvents; ++h) {
+                spawnHealingPopup(false, targetPartyIndex, perHitHealing);
+            }
+            suppressCharacterNextHealingPopup_[targetPartyIndex] = true;
+        }
+        return;
+    }
+
+    // Otherwise, show popup on all living allies
     for (size_t i = 0; i < state.party.size(); ++i) {
         if (manager.getCharacterCurrentHp(static_cast<int>(i)) <= 0) {
             continue;

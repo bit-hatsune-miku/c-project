@@ -136,8 +136,16 @@ enum class InputPromptType {
     Wild,
     Custom,
     Arrows,
+    UpDown,
     LeftRight,
     SpamSpace
+};
+
+enum class SpecialDamageSource {
+    None,
+    TeamShield,
+    AppliedHeal,
+    StoredHealingTally
 };
 
 struct AbilityDefinition {
@@ -160,6 +168,7 @@ struct AbilityDefinition {
     float selfHpCostPercentMax = 0.0f;
     bool reviveDeadAllies = false;
     InteractionType interactionType = InteractionType::None;
+    SpecialDamageSource specialDamageSource = SpecialDamageSource::None;
     std::string presentationId;
     InputPromptType inputPromptType = InputPromptType::None;
     std::vector<std::string> inputPromptKeys;
@@ -187,6 +196,7 @@ struct PresentationContext {
 struct AbilityExecutionContext {
     const AbilityDefinition* ability = nullptr;
     int casterPartyIndex = -1;
+    int targetPartyIndex = -1;
     bool isBossCaster = false;
     bool playerDamageHealsBoss = false;
     int baseDamage = 0;
@@ -531,8 +541,20 @@ public:
                                     int perHitDamage,
                                     int hitEvents,
                                     int targetPartyIndex = -1);
-    void applyPresentationHealing(bool isBossCaster, int perHitHeal, int hitEvents, bool reviveDeadAllies = false);
-    int applyCurrentTeamShieldDamageToBoss(bool markPresentationResolved = false);
+    int applyPresentationHealing(bool isBossCaster,
+                                 int perHitHeal,
+                                 int hitEvents,
+                                 TargetRule targetRule = TargetRule::AllAllies,
+                                 int targetPartyIndex = -1,
+                                 bool reviveDeadAllies = false,
+                                 bool recordForTetoTally = true);
+    int applyConvertedPlayerSpecialDamageToBoss(int rawAmount,
+                                                float abilityMultiplier,
+                                                bool markPresentationResolved = false);
+    int applyCurrentTeamShieldDamageToBoss(bool markPresentationResolved = false,
+                                           float abilityMultiplier = 1.0f);
+    int getTetoHealingTally() const;
+    int consumeTetoHealingTally();
     bool consumePresentationHitDamageApplied();
     bool consumePresentationHealingApplied();
     void markPresentationAbilityAudioPlayed();
@@ -607,6 +629,18 @@ private:
     void applyBossDamage(int amount);
     void applyBossHealing(int amount);
     void applyPlayerOffenseToBoss(int amount);
+    int resolveSupportTargetPartyIndex(TargetRule targetRule, int requestedTargetPartyIndex) const;
+    int applyHealingToTargets(int perTargetHeal,
+                              TargetRule targetRule,
+                              int requestedTargetPartyIndex,
+                              bool reviveDeadAllies,
+                              bool recordForTetoTally,
+                              bool* outAnyTargetResolved = nullptr,
+                              bool* outAnyActualHpChange = nullptr);
+    int applyShieldToTargets(int perTargetShield,
+                             TargetRule targetRule,
+                             int requestedTargetPartyIndex);
+    void addToTetoHealingTally(int amount);
     int currentLivingPartyShieldTotal() const;
     void applyBossPhaseTransitionIfNeeded();
     const BossDefinition::PhaseDefinition& currentBossPhaseDefinition() const;
@@ -672,6 +706,7 @@ private:
     int nextManualUltimatePriority_ = 1000;
     int currentActionOutgoingDamage_ = 0;
     std::string pendingSplitAttackActorKey_;
+    int tetoHealingTally_ = 0;
 };
 
 } // namespace battle

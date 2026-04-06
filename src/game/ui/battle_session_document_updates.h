@@ -866,6 +866,7 @@ inline void applyBattleInputPromptTypeClasses(Rml::ElementDocument* document,
     setElementClass(document, "battle-input-prompt", "type-wild", prompt.type == battle::InputPromptType::Wild);
     setElementClass(document, "battle-input-prompt", "type-custom", prompt.type == battle::InputPromptType::Custom);
     setElementClass(document, "battle-input-prompt", "type-arrows", prompt.type == battle::InputPromptType::Arrows);
+    setElementClass(document, "battle-input-prompt", "type-up-down", prompt.type == battle::InputPromptType::UpDown);
     setElementClass(document, "battle-input-prompt", "type-left-right", prompt.type == battle::InputPromptType::LeftRight);
     setElementClass(document, "battle-input-prompt", "type-spam-space", prompt.type == battle::InputPromptType::SpamSpace);
 }
@@ -897,7 +898,13 @@ inline float battleInputPromptKeyTiltDegrees(const BattleInputPromptState& promp
 }
 
 inline bool battleInputPromptUsesArrowGrid(const BattleInputPromptState& prompt, std::size_t keyCount) {
-    return prompt.type == battle::InputPromptType::Arrows && keyCount >= 4;
+    if (prompt.type == battle::InputPromptType::Arrows) {
+        return keyCount >= 4;
+    }
+    if (prompt.type == battle::InputPromptType::UpDown) {
+        return keyCount >= 2;
+    }
+    return false;
 }
 
 inline std::string battleInputPromptTransformText(float translateYDp, float rotateDeg = 0.0f) {
@@ -1138,6 +1145,34 @@ inline void updateBattleInputPromptDocument(Rml::ElementDocument* document,
                                              false,
                                              "",
                                              false);
+            }
+
+            if (prompt.type == battle::InputPromptType::UpDown) {
+                setBattleInputPromptKeyState(document,
+                                             "battle-input-prompt-arrow-key-up",
+                                             "battle-input-prompt-arrow-label-up",
+                                             true,
+                                             followUpLabels[0],
+                                             activeFollowUpIndex == 0);
+                setBattleInputPromptKeyState(document,
+                                             "battle-input-prompt-arrow-key-left",
+                                             "battle-input-prompt-arrow-label-left",
+                                             false,
+                                             "",
+                                             false);
+                setBattleInputPromptKeyState(document,
+                                             "battle-input-prompt-arrow-key-down",
+                                             "battle-input-prompt-arrow-label-down",
+                                             true,
+                                             followUpLabels[1],
+                                             activeFollowUpIndex == 1);
+                setBattleInputPromptKeyState(document,
+                                             "battle-input-prompt-arrow-key-right",
+                                             "battle-input-prompt-arrow-label-right",
+                                             false,
+                                             "",
+                                             false);
+                return;
             }
 
             setBattleInputPromptKeyState(document,

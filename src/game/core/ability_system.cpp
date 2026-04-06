@@ -63,6 +63,10 @@ bool isTeamShieldBurstUltimate(const AbilityDefinition& ability) {
     return ability.id == "8888" || ability.presentationId == "wechatalipay_ultimate";
 }
 
+bool usesSpecialDamageSource(const AbilityDefinition& ability) {
+    return ability.specialDamageSource != SpecialDamageSource::None;
+}
+
 int resolveSupportAmount(const AbilityDefinition& ability,
                          int casterMaxHp,
                          float presentationMultiplier,
@@ -144,6 +148,15 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
                         c.revive(healAmount);
                     }
                 }
+            } else if (ability.targetRule == TargetRule::SingleAlly &&
+                       context.targetPartyIndex >= 0 &&
+                       context.targetPartyIndex < static_cast<int>(characters.size())) {
+                BattleCharacter& target = characters[static_cast<size_t>(context.targetPartyIndex)];
+                if (target.isAlive()) {
+                    target.receiveHealing(healAmount);
+                } else if (ability.reviveDeadAllies && healAmount > 0) {
+                    target.revive(healAmount);
+                }
             }
             break;
         }
@@ -163,8 +176,11 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
                         c.addShield(shieldAmount);
                     }
                 }
-            } else if (ability.targetRule == TargetRule::SingleAlly && context.casterPartyIndex >= 0 && context.casterPartyIndex < (int)characters.size()) {
-                characters[context.casterPartyIndex].addShield(shieldAmount);
+            } else if (ability.targetRule == TargetRule::SingleAlly &&
+                       context.targetPartyIndex >= 0 &&
+                       context.targetPartyIndex < static_cast<int>(characters.size()) &&
+                       characters[static_cast<size_t>(context.targetPartyIndex)].isAlive()) {
+                characters[static_cast<size_t>(context.targetPartyIndex)].addShield(shieldAmount);
             }
             break;
         }

@@ -9,6 +9,7 @@
 namespace battle::ability {
 
 bool isTeamShieldBurstUltimate(const AbilityDefinition& ability);
+bool usesSpecialDamageSource(const AbilityDefinition& ability);
 int resolveSupportAmount(const AbilityDefinition& ability,
                          int casterMaxHp,
                          float presentationMultiplier,

@@ -18,6 +18,7 @@ int BattleManager::getCharacterShield(int partyIndex) const {
 
 #include <algorithm>
 #include <iostream>
+#include <limits>
 #include <sstream>
 
 namespace battle {
@@ -327,6 +328,7 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     forcedOutcome_.reset();
     currentActionOutgoingDamage_ = 0;
     pendingSplitAttackActorKey_.clear();
+    tetoHealingTally_ = 0;
 
     if (battleDefinition_.bossKey.empty()) {
         std::cerr << "[Battle] Missing boss key.\n";
@@ -887,6 +889,131 @@ void BattleManager::applyPlayerOffenseToBoss(int amount) {
     applyBossDamage(amount);
 }
 
+void BattleManager::addToTetoHealingTally(int amount) {
+    if (amount <= 0 || findCharacterPartyIndexByKey("teto") < 0) {
+        return;
+    }
+
+    tetoHealingTally_ += amount;
+}
+
+int BattleManager::resolveSupportTargetPartyIndex(TargetRule targetRule, int requestedTargetPartyIndex) const {
+    if (targetRule != TargetRule::SingleAlly) {
+        return -1;
+    }
+
+    if (requestedTargetPartyIndex >= 0 &&
+        static_cast<size_t>(requestedTargetPartyIndex) < characters_.size() &&
+        characters_[static_cast<size_t>(requestedTargetPartyIndex)].isAlive()) {
+        return requestedTargetPartyIndex;
+    }
+
+    int bestPartyIndex = -1;
+    int bestHp = std::numeric_limits<int>::max();
+    for (const BattleCharacter& character : characters_) {
+        if (!character.isAlive()) {
+            continue;
+        }
+        if (character.hp() < bestHp) {
+            bestHp = character.hp();
+            bestPartyIndex = character.partyIndex();
+        }
+    }
+
+    return bestPartyIndex;
+}
+
+int BattleManager::applyHealingToTargets(int perTargetHeal,
+                                         TargetRule targetRule,
+                                         int requestedTargetPartyIndex,
+                                         bool reviveDeadAllies,
+                                         bool recordForTetoTally,
+                                         bool* outAnyTargetResolved,
+                                         bool* outAnyActualHpChange) {
+    if (outAnyTargetResolved != nullptr) {
+        *outAnyTargetResolved = false;
+    }
+    if (outAnyActualHpChange != nullptr) {
+        *outAnyActualHpChange = false;
+    }
+    if (perTargetHeal <= 0) {
+        return 0;
+    }
+
+    int totalRequestedHealing = 0;
+    const auto applyToTarget = [&](BattleCharacter& target) {
+        const int hpBefore = target.hp();
+        bool targetResolved = false;
+        bool actualHpChange = false;
+
+        if (target.isAlive()) {
+            target.receiveHealing(perTargetHeal);
+            targetResolved = true;
+            actualHpChange = target.hp() > hpBefore;
+            totalRequestedHealing += perTargetHeal;
+        } else if (reviveDeadAllies && perTargetHeal > 0) {
+            target.revive(perTargetHeal);
+            targetResolved = true;
+            actualHpChange = target.hp() > hpBefore;
+            totalRequestedHealing += perTargetHeal;
+        }
+
+        if (targetResolved && outAnyTargetResolved != nullptr) {
+            *outAnyTargetResolved = true;
+        }
+        if (actualHpChange && outAnyActualHpChange != nullptr) {
+            *outAnyActualHpChange = true;
+        }
+    };
+
+    if (targetRule == TargetRule::AllAllies) {
+        for (BattleCharacter& target : characters_) {
+            applyToTarget(target);
+        }
+    } else if (targetRule == TargetRule::SingleAlly) {
+        const int targetPartyIndex = resolveSupportTargetPartyIndex(targetRule, requestedTargetPartyIndex);
+        if (targetPartyIndex >= 0 && static_cast<size_t>(targetPartyIndex) < characters_.size()) {
+            applyToTarget(characters_[static_cast<size_t>(targetPartyIndex)]);
+        }
+    }
+
+    if (recordForTetoTally && totalRequestedHealing > 0) {
+        addToTetoHealingTally(totalRequestedHealing);
+    }
+
+    return totalRequestedHealing;
+}
+
+int BattleManager::applyShieldToTargets(int perTargetShield,
+                                        TargetRule targetRule,
+                                        int requestedTargetPartyIndex) {
+    if (perTargetShield <= 0) {
+        return 0;
+    }
+
+    int applications = 0;
+    if (targetRule == TargetRule::AllAllies) {
+        for (BattleCharacter& target : characters_) {
+            if (!target.isAlive()) {
+                continue;
+            }
+            target.addShield(perTargetShield);
+            ++applications;
+        }
+    } else if (targetRule == TargetRule::SingleAlly) {
+        const int targetPartyIndex = resolveSupportTargetPartyIndex(targetRule, requestedTargetPartyIndex);
+        if (targetPartyIndex >= 0 && static_cast<size_t>(targetPartyIndex) < characters_.size()) {
+            BattleCharacter& target = characters_[static_cast<size_t>(targetPartyIndex)];
+            if (target.isAlive()) {
+                target.addShield(perTargetShield);
+                ++applications;
+            }
+        }
+    }
+
+    return applications;
+}
+
 int BattleManager::currentLivingPartyShieldTotal() const {
     int totalShield = 0;
     for (const BattleCharacter& character : characters_) {
@@ -898,22 +1025,45 @@ int BattleManager::currentLivingPartyShieldTotal() const {
     return totalShield;
 }
 
-int BattleManager::applyCurrentTeamShieldDamageToBoss(bool markPresentationResolved) {
-    if (markPresentationResolved) {
-        presentationHitDamageApplied_ = true;
-    }
-
+int BattleManager::applyConvertedPlayerSpecialDamageToBoss(int rawAmount,
+                                                           float abilityMultiplier,
+                                                           bool markPresentationResolved) {
     if (isBattleOver()) {
         return 0;
     }
 
-    const int totalShield = currentLivingPartyShieldTotal();
-    if (totalShield <= 0) {
+    if (rawAmount <= 0 || abilityMultiplier <= 0.0f) {
         return 0;
     }
 
-    applyPlayerOffenseToBoss(totalShield);
-    return totalShield;
+    if (markPresentationResolved) {
+        presentationHitDamageApplied_ = true;
+    }
+
+    const int finalDamage = std::max(
+        1,
+        static_cast<int>(std::lround(
+            static_cast<float>(rawAmount) *
+            abilityMultiplier *
+            comboDamageMultiplier(comboState_.comboCount)
+        )));
+    applyPlayerOffenseToBoss(finalDamage);
+    return finalDamage;
+}
+
+int BattleManager::applyCurrentTeamShieldDamageToBoss(bool markPresentationResolved, float abilityMultiplier) {
+    const int totalShield = currentLivingPartyShieldTotal();
+    return applyConvertedPlayerSpecialDamageToBoss(totalShield, abilityMultiplier, markPresentationResolved);
+}
+
+int BattleManager::getTetoHealingTally() const {
+    return std::max(0, tetoHealingTally_);
+}
+
+int BattleManager::consumeTetoHealingTally() {
+    const int tally = getTetoHealingTally();
+    tetoHealingTally_ = 0;
+    return tally;
 }
 
 /**
@@ -1049,39 +1199,45 @@ void BattleManager::applyPresentationHitDamage(bool isBossCaster,
     }
 }
 
-void BattleManager::applyPresentationHealing(bool isBossCaster, int perHitHeal, int hitEvents, bool reviveDeadAllies) {
+int BattleManager::applyPresentationHealing(bool isBossCaster,
+                                            int perHitHeal,
+                                            int hitEvents,
+                                            TargetRule targetRule,
+                                            int targetPartyIndex,
+                                            bool reviveDeadAllies,
+                                            bool recordForTetoTally) {
     if (perHitHeal <= 0 || hitEvents <= 0 || isBattleOver()) {
-        return;
+        return 0;
     }
 
     const int totalHeal = std::max(1, perHitHeal) * std::max(1, hitEvents);
 
     if (isBossCaster) {
         if (bossCurrentHp_ <= 0) {
-            return;
+            return 0;
         }
         applyBossHealing(totalHeal);
         presentationHealingApplied_ = true;
-        return;
+        return totalHeal;
     }
 
-    bool applied = false;
-    for (BattleCharacter& c : characters_) {
-        const int hpBefore = c.hp();
-        if (c.isAlive()) {
-            c.receiveHealing(totalHeal);
-        } else if (reviveDeadAllies) {
-            c.revive(totalHeal);
-        }
-        if (c.hp() > hpBefore) {
-            applied = true;
-        }
-    }
+    bool anyTargetResolved = false;
+    const int totalRequestedHealing = applyHealingToTargets(
+        totalHeal,
+        targetRule,
+        targetPartyIndex,
+        reviveDeadAllies,
+        recordForTetoTally,
+        &anyTargetResolved,
+        nullptr
+    );
 
-    if (applied) {
+    if (anyTargetResolved) {
         syncAllCharacterTurnParticipation();
         presentationHealingApplied_ = true;
     }
+
+    return totalRequestedHealing;
 }
 
 bool BattleManager::consumePresentationHitDamageApplied() {
@@ -1183,6 +1339,26 @@ std::vector<BattleStatusBadge> BattleManager::getActiveStatusBadges() const {
 
         appendBadge(buff.speedBuff, BattleStatusBadgeValueKind::Flat, "SPD");
         appendBadge(buff.atkBuff, BattleStatusBadgeValueKind::Percent, "ATK");
+    }
+
+    const int tetoPartyIndex = findCharacterPartyIndexByKey("teto");
+    if (tetoPartyIndex >= 0 &&
+        static_cast<size_t>(tetoPartyIndex) < characters_.size() &&
+        characters_[static_cast<size_t>(tetoPartyIndex)].isAlive() &&
+        tetoHealingTally_ > 0) {
+        const BattleCharacter& teto = characters_[static_cast<size_t>(tetoPartyIndex)];
+        BattleStatusBadge badge;
+        badge.target = BattleStatusBadgeTarget::PartyMember;
+        badge.targetPartyIndex = tetoPartyIndex;
+        badge.sourcePartyIndex = tetoPartyIndex;
+        badge.category = BattleStatusBadgeCategory::Buff;
+        badge.valueKind = BattleStatusBadgeValueKind::Flat;
+        badge.abilityId = "teto_healing_tally";
+        badge.sourceKey = teto.definition().key;
+        badge.sourceAssetId = teto.definition().assets;
+        badge.statLabel = "HEAL";
+        badge.value = tetoHealingTally_;
+        badges.push_back(std::move(badge));
     }
 
     if (bossCurrentHp_ > 0) {
@@ -2321,12 +2497,64 @@ bool BattleManager::canCharacterUseAction(int partyIndex,
 }
 
 void BattleManager::executeAbilityEffect(const AbilityExecutionContext& context) {
-    if (context.ability != nullptr &&
-        !context.isBossCaster &&
-        ability::isTeamShieldBurstUltimate(*context.ability)) {
-        (void)applyCurrentTeamShieldDamageToBoss(false);
-        syncAllCharacterTurnParticipation();
+    if (context.ability == nullptr) {
         return;
+    }
+
+    const AbilityDefinition& ability = *context.ability;
+    if (!context.isBossCaster) {
+        if (ability.specialDamageSource == SpecialDamageSource::TeamShield) {
+            (void)applyCurrentTeamShieldDamageToBoss(false, ability.multiplier);
+            syncAllCharacterTurnParticipation();
+            return;
+        }
+
+        if (ability.type == AbilityType::Heal || ability.type == AbilityType::Shield) {
+            const int casterMaxHp = (context.casterPartyIndex >= 0 &&
+                                     static_cast<size_t>(context.casterPartyIndex) < characters_.size())
+                ? characters_[static_cast<size_t>(context.casterPartyIndex)].maxHp()
+                : 1;
+
+            if (ability.type == AbilityType::Heal) {
+                const int baseHeal = std::max(0, context.baseHeal > 0 ? context.baseHeal : ability.flatHeal);
+                const int healAmount = ability::resolveSupportAmount(
+                    ability,
+                    casterMaxHp,
+                    context.presentationMultiplier,
+                    baseHeal
+                );
+                const int totalRequestedHealing = applyHealingToTargets(
+                    healAmount,
+                    ability.targetRule,
+                    context.targetPartyIndex,
+                    ability.reviveDeadAllies,
+                    ability.specialDamageSource != SpecialDamageSource::StoredHealingTally,
+                    nullptr,
+                    nullptr
+                );
+                if (ability.specialDamageSource == SpecialDamageSource::AppliedHeal) {
+                    (void)applyConvertedPlayerSpecialDamageToBoss(totalRequestedHealing, ability.multiplier, false);
+                } else if (ability.specialDamageSource == SpecialDamageSource::StoredHealingTally) {
+                    (void)applyConvertedPlayerSpecialDamageToBoss(consumeTetoHealingTally(), ability.multiplier, false);
+                }
+                syncAllCharacterTurnParticipation();
+                return;
+            }
+
+            const int shieldAmount = ability::resolveSupportAmount(
+                ability,
+                casterMaxHp,
+                context.presentationMultiplier,
+                ability.baseShield > 0 ? ability.baseShield :
+                    (context.casterPartyIndex >= 0 &&
+                     static_cast<size_t>(context.casterPartyIndex) < characters_.size()
+                        ? characters_[static_cast<size_t>(context.casterPartyIndex)].definition().baseShield
+                        : 0)
+            );
+            (void)applyShieldToTargets(shieldAmount, ability.targetRule, context.targetPartyIndex);
+            syncAllCharacterTurnParticipation();
+            return;
+        }
     }
 
     ability::executeAbilityEffect(context, bossCurrentHp_, characters_);

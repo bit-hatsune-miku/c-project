@@ -29,6 +29,9 @@ InputPromptType parseInputPromptType(const std::string& promptType) {
     if (promptType == "arrows") {
         return InputPromptType::Arrows;
     }
+    if (promptType == "upDown") {
+        return InputPromptType::UpDown;
+    }
     if (promptType == "leftRight") {
         return InputPromptType::LeftRight;
     }
@@ -36,6 +39,19 @@ InputPromptType parseInputPromptType(const std::string& promptType) {
         return InputPromptType::SpamSpace;
     }
     return InputPromptType::None;
+}
+
+SpecialDamageSource parseSpecialDamageSource(const std::string& source) {
+    if (source == "team_shield") {
+        return SpecialDamageSource::TeamShield;
+    }
+    if (source == "applied_heal") {
+        return SpecialDamageSource::AppliedHeal;
+    }
+    if (source == "stored_healing_tally") {
+        return SpecialDamageSource::StoredHealingTally;
+    }
+    return SpecialDamageSource::None;
 }
 
 std::string getUnitAbilityReferenceId(const json& unitJson, const char* slotName) {
@@ -793,6 +809,9 @@ bool parseAbilityDefinition(const json& abilityJson,
     outAbility.selfHpCostPercentIncreasePerUse = abilityJson.value("selfHpCostPercentIncreasePerUse", 0.0f);
     outAbility.selfHpCostPercentMax = abilityJson.value("selfHpCostPercentMax", 0.0f);
     outAbility.reviveDeadAllies = abilityJson.value("reviveDeadAllies", false);
+    outAbility.specialDamageSource = parseSpecialDamageSource(
+        abilityJson.value("specialDamageSource", "")
+    );
     outAbility.presentationId = abilityJson.value("presentationId", "");
     outAbility.inputPromptType = parseInputPromptType(abilityJson.value("inputPromptType", "none"));
 

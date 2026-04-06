@@ -15,6 +15,10 @@ namespace battle {
 namespace {
 constexpr float kIntroDurationSeconds = 1.0f;
 constexpr float kCompleteDurationSeconds = 1.0f;
+constexpr float kBaseDamageMultiplier = 1.0f;
+constexpr float kAdditionalHitDamageMultiplier = 0.5f;
+constexpr float kCollisionStartProgress = 0.45f;
+constexpr float kCollisionEndProgress = 0.55f;
 
 // Camera tuning adapted from Jiafei
 constexpr float kFocusOffsetX = 0.0f;
@@ -32,8 +36,8 @@ constexpr float kFocusedCharacterScale = 0.6f; // "reduce the size of the sprite
 
 constexpr float kLaneSpacing = 80.0f;
 
-constexpr int kBaguetteWidth = 100;
-constexpr int kBaguetteHeight = 50;
+constexpr int kBaguetteWidth = 140;
+constexpr int kBaguetteHeight = 70;
 
 std::mt19937 g_rng(std::random_device{}());
 
@@ -65,8 +69,9 @@ void TetoBossPresentation::start() {
     survivalElapsed_ = 0.0f;
     spawnTimer_ = 0.0f;
     baguettes_.clear();
-    damageMultiplier_ = 1.0f;
-    targetDamageMultiplier_ = 1.0f;
+    damageMultiplier_ = kBaseDamageMultiplier;
+    landedHitCount_ = 0;
+    pendingHitDamageMultipliers_.clear();
     
     if (focusedPartyIndex_ >= 0) {
         // Find a way to randomly select an ally... Actually, BattleSession should set targetPartyIndex if it was resolved
@@ -121,10 +126,13 @@ void TetoBossPresentation::update(float deltaTime) {
             it->progress += progressDelta;
             
             // Hit detection
-            if (it->progress > 0.45f && it->progress < 0.55f) {
+            if (it->progress > kCollisionStartProgress && it->progress < kCollisionEndProgress) {
                 if (it->lane == playerLane_) {
-                    // Hit!
-                    targetDamageMultiplier_ += 0.5f;
+                    ++landedHitCount_;
+                    damageMultiplier_ =
+                        kBaseDamageMultiplier +
+                        (static_cast<float>(landedHitCount_) * kAdditionalHitDamageMultiplier);
+                    queueDamageHit(landedHitCount_ == 1 ? damageMultiplier_ : kAdditionalHitDamageMultiplier);
                     PresentationFeedbackEvent event;
                     event.signal = PresentationFeedbackSignal::binary(false);
                     pendingFeedbackEvents_.push_back(event);
@@ -146,7 +154,10 @@ void TetoBossPresentation::update(float deltaTime) {
         if (survivalElapsed_ >= survivalDurationSeconds_ && baguettes_.empty()) {
             phase_ = Phase::Complete;
             survivalElapsed_ = 0.0f;
-            pendingHitEvents_ = 1;
+            if (landedHitCount_ == 0) {
+                damageMultiplier_ = kBaseDamageMultiplier;
+                queueDamageHit(kBaseDamageMultiplier);
+            }
         }
         return;
     }
@@ -168,6 +179,10 @@ void TetoBossPresentation::spawnBaguette() {
     baguettes_.push_back(b);
 }
 
+void TetoBossPresentation::queueDamageHit(float multiplier) {
+    pendingHitDamageMultipliers_.push_back(std::max(0.0f, multiplier));
+}
+
 void TetoBossPresentation::render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) {
     ensureTexturesLoaded(renderer);
     
@@ -184,8 +199,8 @@ void TetoBossPresentation::render(SDL_Renderer* renderer, int screenW, int scree
         SDL_QueryTexture(targetIconTexture_, nullptr, nullptr, &texW, &texH);
         if (texW > 0 && texH > 0) {
             // Give icon a fixed screen size matched to the baguette logic
-            float targetDrawH = kBaguetteHeight * 1.5f; 
-            float targetDrawW = targetDrawH * (static_cast<float>(texW) / static_cast<float>(texH));
+            const float targetDrawH = kBaguetteHeight * 1.5f;
+            const float targetDrawW = targetDrawH * (static_cast<float>(texW) / static_cast<float>(texH));
             
             float targetDrawY = chestY - currentLaneOffset_;
 
@@ -234,7 +249,9 @@ void TetoBossPresentation::renderBelowWorld(SDL_Renderer* renderer, int screenW,
 }
 
 bool TetoBossPresentation::isComplete() const {
-    return phase_ == Phase::Complete && survivalElapsed_ >= kCompleteDurationSeconds;
+    return phase_ == Phase::Complete &&
+        survivalElapsed_ >= kCompleteDurationSeconds &&
+        pendingHitDamageMultipliers_.empty();
 }
 
 bool TetoBossPresentation::onKeyPressed(SDL_Keycode key) {
@@ -260,6 +277,10 @@ bool TetoBossPresentation::shouldRenderCasterEntity() const {
 
 bool TetoBossPresentation::shouldRenderBossEntity() const {
     return true; // Match jiafei
+}
+
+bool TetoBossPresentation::shouldRenderFocusedTargetEntity() const {
+    return phase_ != Phase::Attack;
 }
 
 bool TetoBossPresentation::shouldRenderAboveHud() const {
@@ -292,7 +313,7 @@ void TetoBossPresentation::applyCameraState(Camera3D& camera) const {
 }
 
 bool TetoBossPresentation::getTargetWorldOverride(float& outX, float& outY, float& outZ) const {
-    if (focusedPartyIndex_ < 0) return false;
+    if (focusedPartyIndex_ < 0 || phase_ != Phase::Attack) return false;
     
     // Apply lane offset vertically
     outX = targetX_;
@@ -322,7 +343,7 @@ void TetoBossPresentation::setPartyAssetNames(const std::vector<std::string>& as
 }
 
 float TetoBossPresentation::getInputMultiplier() const {
-    return 1.0f;
+    return damageMultiplier_;
 }
 
 PresentationFeedbackSignal TetoBossPresentation::getFeedbackSignal() const {
@@ -336,9 +357,13 @@ std::vector<PresentationFeedbackEvent> TetoBossPresentation::consumeFeedbackEven
 }
 
 float TetoBossPresentation::consumeHitDamageMultiplier() {
-    float mult = targetDamageMultiplier_;
-    targetDamageMultiplier_ = 1.0f; // reset maybe or just keep growing depending on mechanics
-    return mult;
+    if (pendingHitDamageMultipliers_.empty()) {
+        return damageMultiplier_;
+    }
+
+    const float multiplier = pendingHitDamageMultipliers_.front();
+    pendingHitDamageMultipliers_.erase(pendingHitDamageMultipliers_.begin());
+    return multiplier;
 }
 
 int TetoBossPresentation::consumeAbilityAudioCues() {
@@ -348,10 +373,7 @@ int TetoBossPresentation::consumeAbilityAudioCues() {
 }
 
 int TetoBossPresentation::consumeHitEvents() {
-    int c = pendingHitEvents_;
-    pendingHitEvents_ = 0;
-    damageMultiplier_ = targetDamageMultiplier_; // apply accumulated damage mult
-    return c;
+    return pendingHitDamageMultipliers_.empty() ? 0 : 1;
 }
 
 int TetoBossPresentation::getDamageLabelHitCount() const {

@@ -3671,6 +3671,7 @@ private:
             case battle::InputPromptType::Wild:
             case battle::InputPromptType::Custom:
             case battle::InputPromptType::Arrows:
+            case battle::InputPromptType::UpDown:
             case battle::InputPromptType::LeftRight:
             case battle::InputPromptType::SpamSpace:
                 return true;
@@ -3689,6 +3690,8 @@ private:
                 return abilityDef.inputPromptKeys;
             case battle::InputPromptType::Arrows:
                 return {"<", "^", "V", ">"};
+            case battle::InputPromptType::UpDown:
+                return {"^", "V"};
             case battle::InputPromptType::LeftRight:
                 return {"<", ">"};
             case battle::InputPromptType::SpamSpace:
@@ -4290,6 +4293,15 @@ private:
         callbacks.targetSpriteTexture = targetSpriteTexture;
         callbacks.overlayCasterSpriteTexture = overlayCasterSpriteTexture;
         callbacks.overlayTargetSpriteTexture = overlayTargetSpriteTexture;
+        {
+            const battle::BattleState& state = manager_.getBattleState();
+            callbacks.partyTargetableStates.reserve(state.party.size());
+            for (std::size_t i = 0; i < state.party.size(); ++i) {
+                callbacks.partyTargetableStates.push_back(
+                    manager_.isCharacterAlive(static_cast<int>(i))
+                );
+            }
+        }
         callbacks.onUnhandledKeyDown = [this](SDL_Keycode key) {
             (void)handleManualUltimateHotkey(key, SDL_GetTicks64());
         };
@@ -4343,14 +4355,53 @@ private:
                     abilityDef->flatHeal
                 );
                 const int perHitHeal = totalHeal / std::max(1, hitEvents);
-                manager_.applyPresentationHealing(
+                const int targetPartyIndex =
+                    (abilityDef->targetRule == battle::TargetRule::SingleAlly && activePresentation_ != nullptr)
+                    ? activePresentation_->getFocusedPartyIndex()
+                    : -1;
+                const int totalRequestedHealing = manager_.applyPresentationHealing(
                     context.isBoss,
                     perHitHeal,
                     hitEvents,
-                    abilityDef->reviveDeadAllies
+                    abilityDef->targetRule,
+                    targetPartyIndex,
+                    abilityDef->reviveDeadAllies,
+                    abilityDef->specialDamageSource != battle::SpecialDamageSource::StoredHealingTally
                 );
-                feedback_.queuePresentationHealFeedback(context.isBoss, hitEvents, perHitHeal, manager_);
+                feedback_.queuePresentationHealFeedback(
+                    context.isBoss,
+                    hitEvents,
+                    perHitHeal,
+                    manager_,
+                    targetPartyIndex
+                );
                 handlePresentationHealAudio(context, hitEvents);
+
+                int specialDamage = 0;
+                if (!context.isBoss && abilityDef->specialDamageSource == battle::SpecialDamageSource::AppliedHeal) {
+                    specialDamage = manager_.applyConvertedPlayerSpecialDamageToBoss(
+                        totalRequestedHealing,
+                        abilityDef->multiplier,
+                        true
+                    );
+                } else if (!context.isBoss &&
+                           abilityDef->specialDamageSource == battle::SpecialDamageSource::StoredHealingTally) {
+                    specialDamage = manager_.applyConvertedPlayerSpecialDamageToBoss(
+                        manager_.consumeTetoHealingTally(),
+                        abilityDef->multiplier,
+                        true
+                    );
+                }
+
+                if (specialDamage > 0) {
+                    feedback_.queuePresentationHitFeedback(
+                        context.isBoss,
+                        1,
+                        specialDamage,
+                        manager_,
+                        -1
+                    );
+                }
                 return;
             }
 
@@ -4374,7 +4425,7 @@ private:
             }
 
             if (battle::ability::isTeamShieldBurstUltimate(*abilityDef)) {
-                const int totalDamage = manager_.applyCurrentTeamShieldDamageToBoss(true);
+                const int totalDamage = manager_.applyCurrentTeamShieldDamageToBoss(true, abilityDef->multiplier);
                 if (totalDamage > 0) {
                     handlePresentationHitAudio(
                         context,
@@ -4544,7 +4595,11 @@ private:
             finalFeedback.signal = result.feedbackSignal;
             finalFeedback.multiplier = result.multiplier;
             applyPresentationFeedbackEvent(context, abilityDef, finalFeedback);
+            std::cout << "[Battle] Applied presentation feedback signal (mode=" << (int)result.feedbackSignal.mode << ")\n";
+        } else {
+            std::cout << "[Battle] No feedback signal or already consumed (valid=" << result.feedbackSignal.valid() << ", consumed=" << consumedPresentationFeedback << ")\n";
         }
+
         finishPresentationDamageTracking(hudFeedback_, SDL_GetTicks64());
         clearBattleInputPrompt();
         refreshBattleInputPromptPreview(SDL_GetTicks64());

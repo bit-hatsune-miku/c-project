@@ -1143,6 +1143,15 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
     callbacks.targetSpriteTexture = targetSprite;
     callbacks.overlayCasterSpriteTexture = casterSprite;
     callbacks.overlayTargetSpriteTexture = targetSprite;
+    {
+        const BattleState& state = manager_.getBattleState();
+        callbacks.partyTargetableStates.reserve(state.party.size());
+        for (std::size_t i = 0; i < state.party.size(); ++i) {
+            callbacks.partyTargetableStates.push_back(
+                manager_.isCharacterAlive(static_cast<int>(i))
+            );
+        }
+    }
     callbacks.onWindowResized     = hooks_.onWindowResized;
     callbacks.onUnhandledKeyDown  = [this](SDL_Keycode key) {
         (void)handleManualUltimateHotkey(key);
@@ -1188,21 +1197,64 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
                 abilityDef->flatHeal
             );
             const int perHitHeal = totalHeal / std::max(1, hitEvents);
-            manager_.applyPresentationHealing(
+            const int targetPartyIndex =
+                (abilityDef->targetRule == TargetRule::SingleAlly && activePresentation_ != nullptr)
+                ? activePresentation_->getFocusedPartyIndex()
+                : -1;
+            const int totalRequestedHealing = manager_.applyPresentationHealing(
                 context.isBoss,
                 perHitHeal,
                 hitEvents,
-                abilityDef->reviveDeadAllies
+                abilityDef->targetRule,
+                targetPartyIndex,
+                abilityDef->reviveDeadAllies,
+                abilityDef->specialDamageSource != SpecialDamageSource::StoredHealingTally
             );
-            feedback_.queuePresentationHealFeedback(context.isBoss, hitEvents, perHitHeal, manager_);
+            feedback_.queuePresentationHealFeedback(
+                context.isBoss,
+                hitEvents,
+                perHitHeal,
+                manager_,
+                targetPartyIndex
+            );
             if (hooks_.onPresentationHealAudio) {
                 hooks_.onPresentationHealAudio(context, hitEvents, manager_);
+            }
+
+            int specialDamage = 0;
+            if (!context.isBoss && abilityDef->specialDamageSource == SpecialDamageSource::AppliedHeal) {
+                specialDamage = manager_.applyConvertedPlayerSpecialDamageToBoss(
+                    totalRequestedHealing,
+                    abilityDef->multiplier,
+                    true
+                );
+            } else if (!context.isBoss &&
+                       abilityDef->specialDamageSource == SpecialDamageSource::StoredHealingTally) {
+                specialDamage = manager_.applyConvertedPlayerSpecialDamageToBoss(
+                    manager_.consumeTetoHealingTally(),
+                    abilityDef->multiplier,
+                    true
+                );
+            }
+
+            if (specialDamage > 0) {
+                if (hooks_.onPresentationHitAudio) {
+                    hooks_.onPresentationHitAudio(context, 1, manager_);
+                    manager_.markPresentationHitAudioPlayed();
+                }
+                (void)feedback_.queuePresentationHitFeedback(
+                    context.isBoss,
+                    1,
+                    specialDamage,
+                    manager_,
+                    -1
+                );
             }
             return;
         }
 
         if (ability::isTeamShieldBurstUltimate(*abilityDef)) {
-            const int totalDamage = manager_.applyCurrentTeamShieldDamageToBoss(true);
+            const int totalDamage = manager_.applyCurrentTeamShieldDamageToBoss(true, abilityDef->multiplier);
             if (totalDamage > 0) {
                 if (hooks_.onPresentationHitAudio) {
                     hooks_.onPresentationHitAudio(context, hitEvents, manager_);

@@ -41,7 +41,8 @@ public:
     void queuePresentationHealFeedback(bool isBossCaster,
                                        int hitEvents,
                                        int perHitHealing,
-                                       const BattleManager& manager);
+                                       const BattleManager& manager,
+                                       int targetPartyIndex = -1);
     float getShakeOffsetX(bool isBoss, int partyIndex) const;
     bool hasVisiblePopups() const;
 

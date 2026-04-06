@@ -21,6 +21,8 @@
 #include "qr_code_shield_presentation.h"
 #include "wechatalipay_ultimate_presentation.h"
 #include "teto_boss_presentation.h"
+#include "teto_skill_presentation.h"
+#include "teto_ultimate_presentation.h"
 
 namespace battle {
 
@@ -248,6 +250,26 @@ void registerAllPresentations() {
         float targetWorldX, float targetWorldY, float targetWorldZ
     ) -> std::unique_ptr<AbilityPresentation> {
         return std::make_unique<QrCodeAttackPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("teto_healing_touch", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<TetoSkillPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("teto_recovery_encore", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<TetoUltimatePresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
         );

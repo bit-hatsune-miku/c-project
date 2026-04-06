@@ -298,6 +298,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
         }
         presentation->setPartyAssetNames(partyAssetNames);
     }
+    presentation->setPartyTargetableStates(callbacks.partyTargetableStates);
 
     bool presentationStarted = false;
 
@@ -520,6 +521,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
         const int focusedPartyIndex = presentation->getFocusedPartyIndex();
         const bool renderCasterEntity = presentation->shouldRenderCasterEntity();
         const bool renderBossEntity = presentation->shouldRenderBossEntity();
+        const bool renderFocusedTargetEntity = presentation->shouldRenderFocusedTargetEntity();
 
         for (size_t entityIndex = 0; entityIndex < entities.size(); ++entityIndex) {
             render::SceneEntity& entity = entities[entityIndex];
@@ -543,7 +545,9 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
 
             if (context.isBoss) {
                 if (hideNonCasterCharacters && focusedPartyIndex >= 0) {
-                    entity.visible = entity.partyIndex == focusedPartyIndex;
+                    entity.visible = entity.partyIndex == focusedPartyIndex
+                        ? renderFocusedTargetEntity
+                        : false;
                 } else {
                     entity.visible = !hideNonCasterCharacters;
                 }

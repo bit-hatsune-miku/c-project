@@ -135,6 +135,9 @@ public:
     virtual void setPartyAssetNames(const std::vector<std::string>& assetNames) {
         (void)assetNames;
     }
+    virtual void setPartyTargetableStates(const std::vector<bool>& targetableStates) {
+        (void)targetableStates;
+    }
     virtual void setExternalTextures(SDL_Texture* caster, SDL_Texture* target) {
         (void)caster;
         (void)target;
@@ -146,6 +149,7 @@ public:
     virtual bool shouldHideNonCasterCharacters() const { return true; }
     virtual bool shouldRenderCasterEntity() const { return true; }
     virtual bool shouldRenderBossEntity() const { return true; }
+    virtual bool shouldRenderFocusedTargetEntity() const { return true; }
     virtual bool shouldRenderAboveHud() const { return true; }
     virtual bool shouldBlackoutWorld() const { return false; }
     virtual bool shouldRenderFloor() const { return true; }

@@ -140,7 +140,7 @@
         "voiceHit": "assets/combat/voices/jiafei/hit.wav",
         "spd": 185,
         "atk": 85,
-        "hp": 650,
+        "hp": 1000,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "AestheticWarning",
         "ability": "AestheticWarning",
@@ -162,7 +162,7 @@
         "startingOrbs": 1,
         "phases": {
             "phase1": {
-                "bgm": "yehuaxiang",
+                "bgm": "jiafeiBoss3",
                 "bgmVolume": 0.4,
                 "atkBonusPercent": 0,
                 "presentation": {
@@ -179,7 +179,7 @@
             },
             "phase2": {
                 "atkBonusPercent": 10,
-                "bgm": "jiafeiBoss3",
+                "bgm": "jiafeiBoss2",
                 "bgmVolume": 0.4,
                 "presentation": {
                     "intParams": {
@@ -194,7 +194,7 @@
                 }
             },
             "phase3": {
-                "bgm": "jiafeiBoss2",
+                "bgm": "jiafeiBoss1",
                 "bgmVolume": 0.4,
                 "atkBonusPercent": 20,
                 "presentation": {
@@ -503,13 +503,13 @@
             "skill": {
                 "id": "BaguetteEat",
                 "name": "Baguette Eat",
-                "instructionHint": "Press ARROW UP or DOWN to move between lanes and dodge baguettes",
+                "instructionHint": "Press UP or DOWN to move between lanes and dodge baguettes",
                 "type": "attack",
                 "targetRule": "all_enemies",
                 "multiplier": 1.9,
                 "interactionType": "parry",
                 "presentationId": "teto_baguette_attack",
-                "inputPromptType": "arrows"
+                "inputPromptType": "upDown"
             }
         },
         "ultimatePoints": 6,
