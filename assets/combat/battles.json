@@ -192,7 +192,7 @@
       "bossKey": "sailorVenusBoss",
       "storyScript": "ch0700",
       "victoryStoryScript": "ch0701",
-      "nextStoryScript": "finale",
+      "nextStoryScript": "ch0702",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
@@ -208,6 +208,56 @@
         "wechatalipay"
       ],
       "stageKey": "sailor_venus_stage"
+    },
+    "pompom": {
+      "id": 105,
+      "storyOrder": 590,
+      "name": "PomPom",
+      "description": "The conductor bars the way. Stay on schedule or get flattened.",
+      "bossKey": "pompomBoss",
+      "storyScript": "ch0702",
+      "victoryStoryScript": "ch0703",
+      "nextStoryScript": "ch0704",
+      "selectorVisible": true,
+      "isLineupFixed": false,
+      "buffs": {
+        "hp": 18,
+        "atk": 5,
+        "spd": 3
+      },
+      "lineup": [
+        "miku",
+        "cupcakke",
+        "jiafei",
+        "lyoo",
+        "wechatalipay"
+      ],
+      "stageKey": "default_stage"
+    },
+    "huafei": {
+      "id": 106,
+      "storyOrder": 595,
+      "name": "Huafei",
+      "description": "Huafei sends RongMoMo to seize one of your allies and crush the escape attempt.",
+      "bossKey": "huafeiBoss",
+      "storyScript": "ch0704",
+      "victoryStoryScript": "ch0705",
+      "nextStoryScript": "finale",
+      "selectorVisible": true,
+      "isLineupFixed": false,
+      "buffs": {
+        "hp": 20,
+        "atk": 6,
+        "spd": 3
+      },
+      "lineup": [
+        "miku",
+        "cupcakke",
+        "jiafei",
+        "lyoo",
+        "wechatalipay"
+      ],
+      "stageKey": "default_stage"
     },
     "lyoo_plot_twist": {
       "id": 99,

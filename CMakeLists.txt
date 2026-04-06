@@ -156,6 +156,10 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/miku_self_corruption_presentation.h
     src/game/presentation/minako_strike_presentation.cpp
     src/game/presentation/minako_strike_presentation.h
+    src/game/presentation/huafei_boss_presentation.cpp
+    src/game/presentation/huafei_boss_presentation.h
+    src/game/presentation/pompom_boss_presentation.cpp
+    src/game/presentation/pompom_boss_presentation.h
     src/game/presentation/cupcakke_drum_presentation.cpp
     src/game/presentation/cupcakke_drum_presentation.h
     src/game/presentation/cupcakke_ultimate_presentation.cpp

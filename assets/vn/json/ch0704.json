@@ -1,0 +1,13 @@
+{
+  "chapter": 7,
+  "scriptId": "ch0704",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "speaker": "Huafei",
+      "text": "RongMoMo, hold them still. Let's see if they can break free.",
+      "type": "dialogue",
+      "battleKey": "huafei"
+    }
+  ]
+}

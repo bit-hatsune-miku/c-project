@@ -1,0 +1,12 @@
+{
+  "chapter": 7,
+  "scriptId": "ch0705",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "speaker": "Huafei",
+      "text": "You slipped out this time. Keep running.",
+      "type": "dialogue"
+    }
+  ]
+}

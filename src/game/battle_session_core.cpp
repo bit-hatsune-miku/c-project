@@ -1194,11 +1194,14 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         if (commands.empty()) {
             return;
         }
-        if (context.presentationId == "sailor_venus_transformation" ||
-            context.presentationId == "sailor_venus_love_and_beauty_shock" ||
-            context.presentationId == "sailor_venus_love_and_beauty_shock_playable" ||
-            context.presentationId == "sailor_venus_crescent_beam" ||
-            context.presentationId == "sailor_venus_love_me_chain") {
+        const bool handlesAbilityVoice = std::any_of(
+            commands.begin(),
+            commands.end(),
+            [](const PresentationAudioCommand& command) {
+                return command.type == PresentationAudioCommandType::PlayVoiceOneShot;
+            }
+        );
+        if (handlesAbilityVoice) {
             manager_.markPresentationAbilityAudioPlayed();
         }
         if (hooks_.onPresentationAudioCommands) {

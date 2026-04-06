@@ -1,0 +1,12 @@
+{
+  "chapter": 7,
+  "scriptId": "ch0703",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "speaker": "PomPom",
+      "text": "On time. You may continue.",
+      "type": "dialogue"
+    }
+  ]
+}

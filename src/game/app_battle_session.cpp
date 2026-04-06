@@ -4350,12 +4350,14 @@ private:
             }
         };
         callbacks.onAudioCommands = [this, &context](const std::vector<battle::PresentationAudioCommand>& commands) {
-            if (!commands.empty() &&
-                (context.presentationId == "sailor_venus_transformation" ||
-                 context.presentationId == "sailor_venus_love_and_beauty_shock" ||
-                 context.presentationId == "sailor_venus_love_and_beauty_shock_playable" ||
-                 context.presentationId == "sailor_venus_crescent_beam" ||
-                 context.presentationId == "sailor_venus_love_me_chain")) {
+            const bool handlesAbilityVoice = std::any_of(
+                commands.begin(),
+                commands.end(),
+                [](const battle::PresentationAudioCommand& command) {
+                    return command.type == battle::PresentationAudioCommandType::PlayVoiceOneShot;
+                }
+            );
+            if (handlesAbilityVoice) {
                 manager_.markPresentationAbilityAudioPlayed();
             }
             handlePresentationAudioCommands(context, commands);

@@ -81,6 +81,17 @@ void grantUltimatePointForAction(BattleCharacter& character,
     character.gainUltimatePoint(resolveAbilityOrbGain(ability));
 }
 
+bool bossAbilityUsesFocusedPartyPresentation(const AbilityDefinition& ability) {
+    if (ability.targetRule != TargetRule::AllEnemies) {
+        return false;
+    }
+
+    return ability.presentationId == "aesthetic_warning" ||
+           ability.presentationId == "teto_baguette_attack" ||
+           ability.presentationId == "pompom_dino_attack" ||
+           ability.presentationId == "huafei_hostage_grab";
+}
+
 bool canPreviewActorExecuteQueuedAction(const BattleManager& manager,
                                         const BattleCharacter& previewCharacter,
                                         const TurnActor& previewActor) {
@@ -2444,8 +2455,8 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
         presContext.tuningProfile = currentBossPhaseDefinition().tuningProfile;
         int presentationTargetHpBefore = -1;
 
-        // For Jiafei and Teto boss parry interaction, pick a random alive character to focus.
-        if ((abilityDef->id == "AestheticWarning" || abilityDef->id == "BaguetteEat") && abilityDef->targetRule == TargetRule::AllEnemies) {
+        // Some boss presentations focus one random alive ally and drive all damage through the presentation itself.
+        if (bossAbilityUsesFocusedPartyPresentation(*abilityDef)) {
             std::vector<int> alive;
             for (const BattleCharacter& c : characters_) {
                 if (c.isAlive()) {
@@ -2477,8 +2488,8 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
                 actionEvent.targetShieldBefore.push_back(currentShield);
                 actionEvent.targetShieldAfter.push_back(currentShield);
             }
-        } else if ((abilityDef->id == "AestheticWarning" || abilityDef->id == "BaguetteEat") && presContext.targetIndex >= 0) {
-            // Jiafei/Teto handles all damage through presentation hit events.
+        } else if (bossAbilityUsesFocusedPartyPresentation(*abilityDef) && presContext.targetIndex >= 0) {
+            // Focused boss presentations handle all damage through presentation hit events.
         } else if (abilityDef->targetRule == TargetRule::AllEnemies) {
             for (BattleCharacter& c : characters_) {
                 if (!c.isAlive()) {

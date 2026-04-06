@@ -554,6 +554,132 @@
             }
         }
     },
+    "pompomBoss": {
+        "title": "PomPom",
+        "assets": "pompomBoss",
+        "spd": 150,
+        "atk": 12,
+        "hp": 700,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "PomPomDash",
+        "ability": "PomPomDash",
+        "ultimate": "PomPomDash",
+        "abilities": {
+            "skill": {
+                "id": "PomPomDash",
+                "name": "PomPom Dash",
+                "instructionHint": "Press SPACE to jump over incoming PomPoms.",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.9,
+                "interactionType": "parry",
+                "presentationId": "pompom_dino_attack",
+                "inputPromptType": "space"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "tetoBoss",
+        "bgmVolume": 0.4,
+        "phases": {
+            "phase1": {
+                "atkBonusPercent": 0,
+                "presentation": {
+                    "floatParams": {
+                        "survivalDurationSeconds": 6.0,
+                        "baseObstacleSpeed": 550.0,
+                        "baseSpawnInterval": 0.78,
+                        "judgementProgress": 0.64,
+                        "okayClearancePixels": 28.0,
+                        "goodClearancePixels": 46.0,
+                        "perfectClearancePixels": 62.0
+                    }
+                }
+            },
+            "phase2": {
+                "atkBonusPercent": 15,
+                "presentation": {
+                    "floatParams": {
+                        "survivalDurationSeconds": 9.0,
+                        "baseObstacleSpeed": 800.0,
+                        "baseSpawnInterval": 0.56,
+                        "judgementProgress": 0.645,
+                        "okayClearancePixels": 32.0,
+                        "goodClearancePixels": 52.0,
+                        "perfectClearancePixels": 68.0
+                    }
+                }
+            },
+            "phase3": {
+                "atkBonusPercent": 30,
+                "presentation": {
+                    "floatParams": {
+                        "survivalDurationSeconds": 13.5,
+                        "baseObstacleSpeed": 1100.0,
+                        "baseSpawnInterval": 0.40,
+                        "judgementProgress": 0.65,
+                        "okayClearancePixels": 36.0,
+                        "goodClearancePixels": 58.0,
+                        "perfectClearancePixels": 74.0
+                    }
+                }
+            }
+        }
+    },
+    "huafeiBoss": {
+        "title": "Huafei",
+        "assets": "huafei",
+        "spd": 155,
+        "atk": 16,
+        "hp": 900,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "RongMoMoGrab",
+        "ability": "RongMoMoGrab",
+        "ultimate": "RongMoMoGrab",
+        "abilities": {
+            "skill": {
+                "id": "RongMoMoGrab",
+                "name": "RongMoMo Grab",
+                "instructionHint": "Spam your keyboard to escape RongMoMo's grap!",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.8,
+                "interactionType": "rhythm",
+                "presentationId": "huafei_hostage_grab",
+                "inputPromptType": "wild"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "bgm": "tetoBoss",
+        "bgmVolume": 0.4,
+        "phases": {
+            "phase1": {
+                "atkBonusPercent": 0,
+                "presentation": {
+                    "intParams": {
+                        "spamQuota": 40
+                    }
+                }
+            },
+            "phase2": {
+                "atkBonusPercent": 15,
+                "presentation": {
+                    "intParams": {
+                        "spamQuota": 60
+                    }
+                }
+            },
+            "phase3": {
+                "atkBonusPercent": 30,
+                "presentation": {
+                    "intParams": {
+                        "spamQuota": 92
+                    }
+                }
+            }
+        }
+    },
     "sailorVenusBoss": {
         "title": "Sailor Venus",
         "assets": "sailorVenusBoss",
