@@ -1050,7 +1050,7 @@ std::string getPresentationCasterVoiceKey(const PresentationContext& context, co
         return std::string();
     }
 
-    return battleState.party[static_cast<size_t>(context.casterIndex)].assets;
+    return manager.resolveCharacterVoiceAssetId(context.casterIndex);
 }
 
 bool playCombatVoiceClip(const std::string& assetName, const std::string& clipName, float volume, int repeatCount = 1) {
@@ -1154,6 +1154,19 @@ std::string combatVoiceSpeakerKey(const CharacterDefinition& character) {
     if (!character.voiceSpeakerId.empty()) {
         return character.voiceSpeakerId;
     }
+    if (!character.voiceAssetId.empty()) {
+        return character.voiceAssetId;
+    }
+    if (!character.assets.empty()) {
+        return character.assets;
+    }
+    return character.key;
+}
+
+std::string combatVoiceAssetId(const CharacterDefinition& character) {
+    if (!character.voiceAssetId.empty()) {
+        return character.voiceAssetId;
+    }
     if (!character.assets.empty()) {
         return character.assets;
     }
@@ -1177,6 +1190,7 @@ std::string inferScriptSpeakerKey(const vn::ScriptEntry& entry, const BattleStat
 
     const auto matchesCharacter = [&](const CharacterDefinition& character, const std::string& normalizedToken) {
         return normalizedToken == normalizeVoiceLookupToken(character.assets) ||
+            normalizedToken == normalizeVoiceLookupToken(character.voiceAssetId) ||
             normalizedToken == normalizeVoiceLookupToken(character.key) ||
             normalizedToken == normalizeVoiceLookupToken(character.title);
     };
@@ -1277,7 +1291,7 @@ void consumeBattleActionEvents(BattleManager& manager, float voiceVolume) {
         const std::string actorVoiceKey = event.actorType == ParticipantType::Boss
             ? battleState.boss.key
             : ((event.actorPartyIndex >= 0 && event.actorPartyIndex < static_cast<int>(battleState.party.size()))
-                ? battleState.party[static_cast<size_t>(event.actorPartyIndex)].assets
+                ? combatVoiceAssetId(battleState.party[static_cast<size_t>(event.actorPartyIndex)])
                 : std::string());
 
         if (!event.abilityVoicesHandledDuringPresentation && event.action == BattleAction::Skill) {
@@ -1326,7 +1340,7 @@ void consumeBattleActionEvents(BattleManager& manager, float voiceVolume) {
             if (partyIndex < 0 || partyIndex >= static_cast<int>(battleState.party.size())) {
                 continue;
             }
-            const std::string& assetKey = battleState.party[static_cast<size_t>(partyIndex)].assets;
+            const std::string assetKey = combatVoiceAssetId(battleState.party[static_cast<size_t>(partyIndex)]);
             if (event.targetHpBefore[i] > 0 && event.targetHpAfter[i] <= 0) {
                 if (const auto deadVoice = platform::path::resolveCombatVoicePath(assetKey, "dead"); deadVoice.has_value()) {
                     if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
@@ -1708,7 +1722,11 @@ private:
             return false;
         }
         const CharacterDefinition& character = battleState.party[static_cast<size_t>(partyIndex)];
-        return requestCombatVoiceClip(combatVoiceSpeakerKey(character), character.assets, kind, volume, clipNames);
+        return requestCombatVoiceClip(combatVoiceSpeakerKey(character),
+                                      combatVoiceAssetId(character),
+                                      kind,
+                                      volume,
+                                      clipNames);
     }
 
     bool lockPartySpeakerState(const BattleManager& manager, int partyIndex, game::audio::BattleVoiceKind kind) {
@@ -1788,7 +1806,7 @@ private:
             const std::string actorAssetName = actorIsBoss
                 ? battleState.boss.assets
                 : ((event.actorPartyIndex >= 0 && static_cast<size_t>(event.actorPartyIndex) < battleState.party.size())
-                    ? battleState.party[static_cast<size_t>(event.actorPartyIndex)].assets
+                    ? combatVoiceAssetId(battleState.party[static_cast<size_t>(event.actorPartyIndex)])
                     : std::string());
 
             if (!event.abilityVoicesHandledDuringPresentation && event.action == BattleAction::Skill) {
@@ -1984,6 +2002,12 @@ private:
             consumeBattleActionEvents(manager, 1.0f);
             syncHpSnapshots(manager);
         };
+        hooks.onPresentationFrameUpdate = [this](float deltaSeconds) {
+            battleBgmController_.update(deltaSeconds);
+            gOneShotAudio.cleanupFinishedPlayback();
+            gPresentationSfxAudio.cleanupFinishedPlayback();
+            syncFinishedBattleVoiceState();
+        };
         hooks.onBossPhaseTransition = [this](const BossPhaseTransition& transition, BattleManager& manager) {
             (void)transition;
             const std::string bgmName = manager.getCurrentBossBgm();
@@ -2050,6 +2074,20 @@ private:
                             false
                         );
                         break;
+                    case PresentationAudioCommandType::PlayVoiceOneShot:
+                        if (!requestBattleVoicePath(
+                                presentationCasterVoiceSpeakerKey(context, core_.getBattleManager()),
+                                game::audio::BattleVoiceKind::Ability,
+                                command.id,
+                                std::clamp(command.volume, 0.0f, 1.0f))) {
+                            (void)playResolvedOneShot(
+                                gPresentationSfxAudio,
+                                command.id,
+                                command.volume,
+                                false
+                            );
+                        }
+                        break;
                     case PresentationAudioCommandType::StartLoop:
                         (void)playResolvedLoop(gPresentationLoopAudio, command.id, command.volume);
                         break;
@@ -2060,10 +2098,10 @@ private:
                         stopPresentationAudioPlayback(false);
                         break;
                     case PresentationAudioCommandType::PauseBgm:
-                        battleBgmController_.pause();
+                        battleBgmController_.pauseWithFade();
                         break;
                     case PresentationAudioCommandType::ResumeBgm:
-                        battleBgmController_.resume();
+                        battleBgmController_.resumeWithFade();
                         break;
                 }
             }

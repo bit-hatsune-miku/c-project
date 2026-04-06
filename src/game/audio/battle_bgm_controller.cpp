@@ -326,6 +326,31 @@ void BattleBgmController::update(float deltaSeconds) {
             }
             return;
         }
+        case TransitionState::FadingOutToPause: {
+            transitionElapsedSeconds_ += std::max(deltaSeconds, 0.0f);
+            const float fadeOutProgress = fadeDurationSeconds_ <= 0.0f
+                ? 1.0f
+                : std::clamp(transitionElapsedSeconds_ / fadeDurationSeconds_, 0.0f, 1.0f);
+            const float shapedProgress = smoothstep01(fadeOutProgress);
+            slots_[activeSlotIndex_].fadeGain = activeStartGain_ * (1.0f - shapedProgress);
+            if (incomingSlotIndex_ >= 0 && incomingSlotIndex_ < static_cast<int>(slots_.size())) {
+                slots_[incomingSlotIndex_].fadeGain = incomingStartGain_ * (1.0f - shapedProgress);
+            }
+            applyVolumes();
+            if (fadeOutProgress < 1.0f) {
+                return;
+            }
+
+            paused_ = true;
+            for (PlaybackSlot& slot : slots_) {
+                if (slot.player != nullptr && slot.player->isPlaying() && !slot.player->isPaused()) {
+                    slot.player->pause();
+                }
+            }
+            transitionElapsedSeconds_ = 0.0f;
+            transitionState_ = TransitionState::Idle;
+            return;
+        }
         case TransitionState::FadingOutToStop: {
             transitionElapsedSeconds_ += std::max(deltaSeconds, 0.0f);
             const float fadeOutProgress = fadeDurationSeconds_ <= 0.0f
@@ -403,6 +428,55 @@ void BattleBgmController::update(float deltaSeconds) {
  */
 void BattleBgmController::setMasterVolume(float masterVolume) {
     masterVolume_ = std::clamp(masterVolume, 0.0f, 1.0f);
+    applyVolumes();
+}
+
+void BattleBgmController::pauseWithFade(float fadeDurationSeconds) {
+    if (!anySlotPlaying()) {
+        paused_ = true;
+        return;
+    }
+
+    if (paused_ || transitionState_ == TransitionState::FadingOutToPause) {
+        return;
+    }
+
+    fadeDurationSeconds_ = std::max(0.01f, fadeDurationSeconds);
+    transitionElapsedSeconds_ = 0.0f;
+    activeStartGain_ = std::clamp(slots_[activeSlotIndex_].fadeGain, 0.0f, 1.0f);
+    incomingStartGain_ = 0.0f;
+    if (incomingSlotIndex_ >= 0 && incomingSlotIndex_ < static_cast<int>(slots_.size())) {
+        incomingStartGain_ = std::clamp(slots_[incomingSlotIndex_].fadeGain, 0.0f, 1.0f);
+    }
+    transitionState_ = TransitionState::FadingOutToPause;
+}
+
+void BattleBgmController::resumeWithFade(float fadeDurationSeconds) {
+    if (!anySlotPlaying()) {
+        paused_ = false;
+        return;
+    }
+
+    if (paused_) {
+        paused_ = false;
+        for (PlaybackSlot& slot : slots_) {
+            if (slot.player != nullptr && slot.player->isPlaying() && slot.player->isPaused()) {
+                slot.player->resume();
+            }
+        }
+    }
+
+    fadeDurationSeconds_ = std::max(0.01f, fadeDurationSeconds);
+    transitionElapsedSeconds_ = 0.0f;
+    activeStartGain_ = std::clamp(slots_[activeSlotIndex_].fadeGain, 0.0f, 1.0f);
+    if (activeStartGain_ >= 0.999f) {
+        slots_[activeSlotIndex_].fadeGain = 1.0f;
+        transitionState_ = TransitionState::Idle;
+        applyVolumes();
+        return;
+    }
+
+    transitionState_ = TransitionState::FadingIn;
     applyVolumes();
 }
 

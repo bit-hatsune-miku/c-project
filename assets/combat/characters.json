@@ -189,6 +189,7 @@
         "startingOrbs": 0
     },
     "jiafei": {
+        "isSinger": false,
         "title": "Jiafei",
         "assets": "jiafei",
         "class": "DPS",
@@ -282,6 +283,7 @@
         "startingOrbs": 0
     },
     "wechatalipay": {
+        "isSinger": false,
         "title": "微信姐 & 支付宝姐",
         "assets": "wechatalipay",
         "class": "Shielder",
@@ -410,12 +412,144 @@
         "spd": 190,
         "atk": 40,
         "hp": 45,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "ZhouShenSingerBlessing",
+        "ability": "ZhouShenSingerBlessing",
+        "ultimate": "ZhouShenBigFish",
+        "abilityKits": {
+            "followUp": {
+                "skillAbility": "ZhouShenBigFishFollowUp"
+            }
+        },
         "abilities": {
+            "skill": {
+                "id": "ZhouShenSingerBlessing",
+                "name": "Singer Blessing",
+                "type": "buff",
+                "targetRule": "all_allies",
+                "multiplier": 0.0,
+                "damageBuff": 160,
+                "interactionType": "none",
+                "presentationId": "zhou_shen_singer_buff",
+                "inputPromptType": "none"
+            },
+            "followUpSkill": {
+                "id": "ZhouShenBigFishFollowUp",
+                "name": "世界全都火掉的高首",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.0,
+                "actionAdvance": 0.1,
+                "actionAdvanceMode": "base_av_delta",
+                "interactionType": "none",
+                "presentationId": "zhou_shen_big_fish",
+                "inputPromptType": "none"
+            },
+            "ultimate": {
+                "id": "ZhouShenBigFish",
+                "name": "世界全都火掉的高首",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.0,
+                "actionAdvance": 0.1,
+                "actionAdvanceMode": "base_av_delta",
+                "interactionType": "none",
+                "presentationId": "zhou_shen_big_fish",
+                "inputPromptType": "none"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 0
+    },
+    "sailorVenus": {
+        "isSinger": false,
+        "title": "Sailor Venus",
+        "assets": "minakoAino",
+        "voiceAssetId": "sailorVenus",
+        "class": "DPS",
+        "spd": 135,
+        "atk": 48,
+        "hp": 30,
+        "standardAbility": "BasicAttack",
+        "skillAbility": "MinakoStrike",
+        "ability": "MinakoStrike",
+        "ultimate": "VenusTransformation",
+        "abilityKits": {
+            "transformed": {
+                "skillAbility": "LoveAndBeautyShock",
+                "assetId": "sailorVenus"
+            },
+            "crescentBeam": {
+                "skillAbility": "CrescentBeam",
+                "assetId": "sailorVenus"
+            },
+            "loveMeChain": {
+                "skillAbility": "VenusLoveMeChain",
+                "assetId": "sailorVenus"
+            }
+        },
+        "abilities": {
+            "skill": {
+                "id": "MinakoStrike",
+                "name": "Minako Strike",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 0.4,
+                "interactionType": "none",
+                "presentationId": "minako_strike",
+                "inputPromptType": "none"
+            },
+            "ultimate": {
+                "id": "VenusTransformation",
+                "name": "Venus Transformation",
+                "statusName": "Sailor Venus",
+                "type": "buff",
+                "targetRule": "self",
+                "multiplier": 0.0,
+                "interactionType": "none",
+                "presentationId": "sailor_venus_transformation",
+                "inputPromptType": "none"
+            },
+            "transformedSkill": {
+                "id": "LoveAndBeautyShock",
+                "name": "Love and Beauty Shock",
+                "instructionHint": "SPAM SPACE to keep charging the shot.",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 2.1,
+                "orbGain": 0,
+                "interactionType": "none",
+                "presentationId": "sailor_venus_love_and_beauty_shock_playable",
+                "inputPromptType": "spamSpace"
+            },
+            "crescentBeamSkill": {
+                "id": "CrescentBeam",
+                "name": "Crescent Beam",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 1.25,
+                "orbGain": 0,
+                "interactionType": "none",
+                "presentationId": "sailor_venus_crescent_beam",
+                "inputPromptType": "none"
+            },
+            "loveMeChainSkill": {
+                "id": "VenusLoveMeChain",
+                "name": "Venus Love Me Chain",
+                "type": "attack",
+                "targetRule": "single_enemy",
+                "multiplier": 4.4,
+                "orbGain": 0,
+                "interactionType": "none",
+                "presentationId": "sailor_venus_love_me_chain",
+                "inputPromptType": "none"
+            }
         },
         "ultimatePoints": 2,
         "startingOrbs": 1
     },
     "sans": {
+        "isSinger": false,
         "title": "Sans",
         "assets": "sans",
         "class": "DPS / DOT",

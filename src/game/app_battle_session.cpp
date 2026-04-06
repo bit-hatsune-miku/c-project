@@ -298,7 +298,7 @@ std::string getPresentationCasterVoiceKey(const battle::PresentationContext& con
         return std::string();
     }
 
-    return battleState.party[static_cast<size_t>(context.casterIndex)].assets;
+    return manager.resolveCharacterVoiceAssetId(context.casterIndex);
 }
 
 bool playCombatVoiceClip(const std::string& assetName,
@@ -480,6 +480,19 @@ std::string combatVoiceSpeakerKey(const battle::CharacterDefinition& character) 
     if (!character.voiceSpeakerId.empty()) {
         return character.voiceSpeakerId;
     }
+    if (!character.voiceAssetId.empty()) {
+        return character.voiceAssetId;
+    }
+    if (!character.assets.empty()) {
+        return character.assets;
+    }
+    return character.key;
+}
+
+std::string combatVoiceAssetId(const battle::CharacterDefinition& character) {
+    if (!character.voiceAssetId.empty()) {
+        return character.voiceAssetId;
+    }
     if (!character.assets.empty()) {
         return character.assets;
     }
@@ -504,6 +517,7 @@ std::string inferScriptSpeakerKey(const vn::ScriptEntry& entry, const battle::Ba
     const auto matchesCharacter = [&](const battle::CharacterDefinition& character,
                                       const std::string& normalizedToken) {
         return normalizedToken == normalizeVoiceLookupToken(character.assets) ||
+            normalizedToken == normalizeVoiceLookupToken(character.voiceAssetId) ||
             normalizedToken == normalizeVoiceLookupToken(character.key) ||
             normalizedToken == normalizeVoiceLookupToken(character.title);
     };
@@ -1317,7 +1331,7 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
         const std::string actorVoiceKey = event.actorType == battle::ParticipantType::Boss
             ? battleState.boss.key
             : ((event.actorPartyIndex >= 0 && event.actorPartyIndex < static_cast<int>(battleState.party.size()))
-                ? battleState.party[static_cast<size_t>(event.actorPartyIndex)].assets
+                ? combatVoiceAssetId(battleState.party[static_cast<size_t>(event.actorPartyIndex)])
                 : std::string());
         resolveBattleHintsFromActionEvent(feedback, event);
 
@@ -1376,7 +1390,7 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
                 continue;
             }
             markUnitHit(feedback, partyIndex, nowMs);
-            const std::string& assetKey = battleState.party[static_cast<size_t>(partyIndex)].assets;
+            const std::string assetKey = combatVoiceAssetId(battleState.party[static_cast<size_t>(partyIndex)]);
             if (event.targetHpBefore[i] > 0 && event.targetHpAfter[i] <= 0) {
                 if (const auto deadVoice = platform::path::resolveCombatVoicePath(assetKey, "dead"); deadVoice.has_value()) {
                     if (const auto hitVoice = platform::path::resolveCombatVoicePath(assetKey, "hit"); hitVoice.has_value()) {
@@ -1805,8 +1819,8 @@ public:
             }
         }
         worldAssets_.clear();
-        for (const battle::CharacterDefinition& character : state.party) {
-            worldAssets_.push_back(character.assets);
+        for (size_t i = 0; i < state.party.size(); ++i) {
+            worldAssets_.push_back(manager_.resolveCharacterAssetId(static_cast<int>(i)));
         }
         worldAssets_.push_back(state.boss.assets);
         if (std::find(worldAssets_.begin(), worldAssets_.end(), "miku") == worldAssets_.end()) {
@@ -3067,21 +3081,6 @@ private:
             return;
         }
 
-        const ui::AutoActionIndicatorState& currentIndicator = hudFeedback_.autoActionIndicator;
-        const Uint64 currentTotalDurationMs =
-            currentIndicator.enterDurationMs +
-            currentIndicator.holdDurationMs +
-            currentIndicator.exitDurationMs;
-        if (currentIndicator.active &&
-            currentIndicator.isBoss == isBoss &&
-            currentIndicator.assetName == assetName &&
-            currentIndicator.labelText == labelText &&
-            currentIndicator.startedMs != 0 &&
-            currentTotalDurationMs > 0 &&
-            nowMs < currentIndicator.startedMs + currentTotalDurationMs) {
-            return;
-        }
-
         hudFeedback_.autoActionIndicator.active = true;
         hudFeedback_.autoActionIndicator.isBoss = isBoss;
         hudFeedback_.autoActionIndicator.startedMs = nowMs;
@@ -3125,13 +3124,13 @@ private:
             return false;
         }
 
-        const battle::CharacterDefinition& character = battleState.party[static_cast<size_t>(preview.partyIndex)];
         const std::string labelText = resolvePreviewAutoActionIndicatorLabel();
         if (labelText.empty()) {
             return false;
         }
 
-        startAutoActionIndicator(character.assets.empty() ? character.key : character.assets,
+        const std::string assetId = manager_.resolveCharacterAssetId(preview.partyIndex, preview.abilityKitOverride);
+        startAutoActionIndicator(assetId.empty() ? battleState.party[static_cast<size_t>(preview.partyIndex)].key : assetId,
                                  labelText,
                                  false,
                                  nowMs);
@@ -3350,7 +3349,11 @@ private:
             return false;
         }
         const battle::CharacterDefinition& character = battleState.party[static_cast<size_t>(partyIndex)];
-        return requestCombatVoiceClip(combatVoiceSpeakerKey(character), character.assets, kind, volume, clipNames);
+        return requestCombatVoiceClip(combatVoiceSpeakerKey(character),
+                                      combatVoiceAssetId(character),
+                                      kind,
+                                      volume,
+                                      clipNames);
     }
 
     bool lockPartySpeakerState(int partyIndex, game::audio::BattleVoiceKind kind) {
@@ -3445,7 +3448,7 @@ private:
                 ? battleState.boss.assets
                 : ((event.actorPartyIndex >= 0 &&
                     static_cast<size_t>(event.actorPartyIndex) < battleState.party.size())
-                    ? battleState.party[static_cast<size_t>(event.actorPartyIndex)].assets
+                    ? combatVoiceAssetId(battleState.party[static_cast<size_t>(event.actorPartyIndex)])
                     : std::string());
 
             if (!event.abilityVoicesHandledDuringPresentation && event.action == battle::BattleAction::Skill) {
@@ -3895,6 +3898,20 @@ private:
                         false
                     );
                     break;
+                case battle::PresentationAudioCommandType::PlayVoiceOneShot:
+                    if (!requestBattleVoicePath(
+                            presentationCasterVoiceSpeakerKey(context),
+                            game::audio::BattleVoiceKind::Ability,
+                            command.id,
+                            std::clamp(command.volume, 0.0f, 1.0f) * currentVoiceVolume())) {
+                        (void)playResolvedOneShot(
+                            gPresentationSfxAudio,
+                            command.id,
+                            command.volume,
+                            false
+                        );
+                    }
+                    break;
                 case battle::PresentationAudioCommandType::StartLoop:
                     presentationLoopBaseVolume_ = std::clamp(command.volume, 0.0f, 1.0f);
                     (void)playResolvedLoop(
@@ -3912,10 +3929,10 @@ private:
                     stopPresentationAudioPlayback(false);
                     break;
                 case battle::PresentationAudioCommandType::PauseBgm:
-                    gBattleBgmController.pause();
+                    gBattleBgmController.pauseWithFade();
                     break;
                 case battle::PresentationAudioCommandType::ResumeBgm:
-                    gBattleBgmController.resume();
+                    gBattleBgmController.resumeWithFade();
                     break;
             }
         }
@@ -4156,6 +4173,12 @@ private:
                 return formatSignedPercent(shieldPercent, "SHIELD");
             }
             case battle::AbilityType::Buff: {
+                if (abilityDef->damageBuff != 0) {
+                    const int damagePercent = static_cast<int>(std::lround(
+                        static_cast<float>(abilityDef->damageBuff) * feedback.multiplier
+                    ));
+                    return formatSignedPercent(damagePercent, "DMG");
+                }
                 if (abilityDef->atkBuff != 0) {
                     const int atkPercent = static_cast<int>(std::lround(
                         static_cast<float>(abilityDef->atkBuff) * feedback.multiplier
@@ -4196,6 +4219,7 @@ private:
         const battle::CombatJudgement judgement = battle::classifyCombatJudgement(feedback.signal);
         const std::string rewardText = resolvePresentationRewardText(context, abilityDef, feedback);
         manager_.applyPresentationFeedback(context.isBoss, feedback);
+        syncHudFeedbackState(hudFeedback_, manager_);
         showJudgement(hudFeedback_, judgement, rewardText, SDL_GetTicks64());
         playJudgementSfx(judgement);
     }
@@ -4326,6 +4350,14 @@ private:
             }
         };
         callbacks.onAudioCommands = [this, &context](const std::vector<battle::PresentationAudioCommand>& commands) {
+            if (!commands.empty() &&
+                (context.presentationId == "sailor_venus_transformation" ||
+                 context.presentationId == "sailor_venus_love_and_beauty_shock" ||
+                 context.presentationId == "sailor_venus_love_and_beauty_shock_playable" ||
+                 context.presentationId == "sailor_venus_crescent_beam" ||
+                 context.presentationId == "sailor_venus_love_me_chain")) {
+                manager_.markPresentationAbilityAudioPlayed();
+            }
             handlePresentationAudioCommands(context, commands);
         };
         callbacks.onAbilityAudioCues = [this, &context](int cueCount) {
@@ -4382,14 +4414,16 @@ private:
                     specialDamage = manager_.applyConvertedPlayerSpecialDamageToBoss(
                         totalRequestedHealing,
                         abilityDef->multiplier,
-                        true
+                        true,
+                        context.casterIndex
                     );
                 } else if (!context.isBoss &&
                            abilityDef->specialDamageSource == battle::SpecialDamageSource::StoredHealingTally) {
                     specialDamage = manager_.applyConvertedPlayerSpecialDamageToBoss(
                         manager_.consumeTetoHealingTally(),
                         abilityDef->multiplier,
-                        true
+                        true,
+                        context.casterIndex
                     );
                 }
 
@@ -4405,16 +4439,9 @@ private:
                 return;
             }
 
-            int baseAtk = 0;
-            if (context.isBoss) {
-                baseAtk = manager_.getBossEffectiveAtk();
-            } else {
-                const battle::BattleState& state = manager_.getBattleState();
-                if (context.casterIndex >= 0 &&
-                    static_cast<size_t>(context.casterIndex) < state.party.size()) {
-                    baseAtk = state.party[static_cast<size_t>(context.casterIndex)].atk;
-                }
-            }
+            const int baseAtk = context.isBoss
+                ? manager_.getBossEffectiveAtk()
+                : manager_.getCharacterEffectiveAtk(context.casterIndex);
 
             const int bossHpBefore = manager_.getBossCurrentHp();
             std::vector<int> partyHpBefore;
@@ -4425,7 +4452,11 @@ private:
             }
 
             if (battle::ability::isTeamShieldBurstUltimate(*abilityDef)) {
-                const int totalDamage = manager_.applyCurrentTeamShieldDamageToBoss(true, abilityDef->multiplier);
+                const int totalDamage = manager_.applyCurrentTeamShieldDamageToBoss(
+                    true,
+                    abilityDef->multiplier,
+                    context.casterIndex
+                );
                 if (totalDamage > 0) {
                     handlePresentationHitAudio(
                         context,
@@ -4452,7 +4483,18 @@ private:
             const float hitDamageMultiplier = activePresentation_ != nullptr
                 ? std::max(0.0f, activePresentation_->consumeHitDamageMultiplier())
                 : 1.0f;
-            const float totalDamageRaw = baseAtk * abilityDef->multiplier * hitDamageMultiplier;
+            const float damageBuffMultiplier = context.isBoss
+                ? 1.0f
+                : manager_.getCharacterDamageBuffMultiplier(context.casterIndex);
+            const float comboMultiplier = context.isBoss
+                ? 1.0f
+                : battle::comboDamageMultiplier(manager_.getComboState().comboCount);
+            const float totalDamageRaw =
+                static_cast<float>(baseAtk) *
+                abilityDef->multiplier *
+                hitDamageMultiplier *
+                damageBuffMultiplier *
+                comboMultiplier;
             const int totalDamage = std::max(1, static_cast<int>(totalDamageRaw));
             const int perHitDamage = std::max(1, totalDamage / std::max(1, damageLabelHitCount));
             const int presentationTargetPartyIndex = context.isBoss ? context.targetIndex : -1;
@@ -4461,7 +4503,8 @@ private:
                 context.isBoss,
                 perHitDamage,
                 hitEvents,
-                presentationTargetPartyIndex
+                presentationTargetPartyIndex,
+                context.casterIndex
             );
             handlePresentationHitAudio(
                 context,
@@ -4490,6 +4533,10 @@ private:
             const bool bossActingLayout = context.isBoss || useCenteredPartyLayout;
             const int actingPartyIndex = bossActingLayout ? -1 : context.casterIndex;
             const Uint64 nowMs = SDL_GetTicks64();
+
+            // Presentation playback runs in its own update loop, so battle-music fades
+            // need an explicit tick here or they will stall until the cut-in ends.
+            gBattleBgmController.update(deltaSeconds);
 
             if (activePresentation_ != nullptr) {
                 const std::vector<battle::PresentationFeedbackEvent> feedbackEvents =
@@ -4583,6 +4630,9 @@ private:
             context.presentationId == "rang_wo_men_shuo_zhong_wen" &&
             result.correctToneCount > 0) {
             manager_.addLuotianyiCorrectTones(result.correctToneCount);
+        }
+        if (!context.isBoss && context.abilityId == "LoveAndBeautyShock") {
+            manager_.addSailorVenusSpaceTally(context.casterIndex, result.scoreValue);
         }
 
         presentationAudioSequenceId_.clear();
@@ -4902,6 +4952,16 @@ private:
         );
     }
 
+    bool ensureWorldAssetAvailable(const std::string& assetName) {
+        if (assetName.empty() ||
+            std::find(worldAssets_.begin(), worldAssets_.end(), assetName) != worldAssets_.end()) {
+            return true;
+        }
+
+        worldAssets_.push_back(assetName);
+        return refreshSceneRenderers();
+    }
+
     bool refreshSceneRenderers() {
         if (!sceneRenderer_.initialize(sceneWidth(), sceneHeight(), worldAssets_, resolveBattleSpritePath)) {
             return false;
@@ -4935,9 +4995,10 @@ private:
         entities_.reserve(state.party.size() + 1);
         for (size_t partyIndex = 0; partyIndex < state.party.size(); ++partyIndex) {
             const battle::CharacterDefinition& character = state.party[partyIndex];
+            const std::string assetId = manager_.resolveCharacterAssetId(static_cast<int>(partyIndex));
             entities_.push_back(SceneEntity{
                 character.key,
-                character.assets,
+                assetId,
                 false,
                 battle::render::kDuelCharacterSlotX,
                 battle::render::kDuelCharacterBaseY,
@@ -5016,6 +5077,19 @@ private:
     }
 
     void updateSceneEntities(float deltaSeconds, bool bossActing, int actingPartyIndex) {
+        for (SceneEntity& entity : entities_) {
+            if (entity.isBoss || entity.partyIndex < 0) {
+                continue;
+            }
+
+            const std::string assetId = manager_.resolveCharacterAssetId(entity.partyIndex);
+            if (!ensureWorldAssetAvailable(assetId)) {
+                finished_ = true;
+                return;
+            }
+            entity.assetName = assetId;
+        }
+
         computeCharacterPositions(bossActing, actingPartyIndex);
         updateCharacterVisibilityTransitions(deltaSeconds);
     }
@@ -5047,7 +5121,6 @@ private:
             return;
         }
 
-        const battle::CharacterDefinition& character = battleState.party[static_cast<size_t>(preview.partyIndex)];
         const std::string abilityId = manager_.resolveCharacterAbilityId(
             preview.partyIndex,
             preview.extraTurnAction,
@@ -5060,9 +5133,14 @@ private:
 
         battle::SplashArtConfig cfg;
         cfg.abilityName = abilityDef != nullptr ? abilityDef->name : abilityId;
-        cfg.sprite = resolveOverlayTextureByAsset(character.assets);
+        const std::string assetId = manager_.resolveCharacterAssetId(preview.partyIndex, preview.abilityKitOverride);
+        if (!ensureWorldAssetAvailable(assetId)) {
+            finished_ = true;
+            return;
+        }
+        cfg.sprite = resolveOverlayTextureByAsset(assetId);
         if (cfg.sprite == nullptr) {
-            cfg.sprite = resolveSceneTextureByAsset(character.assets);
+            cfg.sprite = resolveSceneTextureByAsset(assetId);
         }
 
         activeUltimateTurnSplash_ = std::make_unique<battle::SplashArtAnimation>(cfg);
@@ -5970,7 +6048,7 @@ private:
         }
 
         const battle::CharacterDefinition& character = state.party[static_cast<size_t>(actor->partyIndex)];
-        scheduleIdleVoiceline(character.assets, actor->partyIndex, nowMs);
+        scheduleIdleVoiceline(combatVoiceAssetId(character), actor->partyIndex, nowMs);
     }
 
     void scheduleIdleVoiceline(const std::string& assetName, int partyIndex, Uint64 nowMs) {

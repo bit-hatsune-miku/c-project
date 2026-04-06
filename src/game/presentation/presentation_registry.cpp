@@ -16,6 +16,7 @@
 #include "miku_sing_presentation.h"
 #include "miku_diandong_presentation.h"
 #include "miku_self_corruption_presentation.h"
+#include "minako_strike_presentation.h"
 
 #include "qr_code_attack_presentation.h"
 #include "qr_code_shield_presentation.h"
@@ -23,6 +24,9 @@
 #include "teto_boss_presentation.h"
 #include "teto_skill_presentation.h"
 #include "teto_ultimate_presentation.h"
+#include "sailor_venus_boss_presentation.h"
+#include "zhou_shen_skill_presentation.h"
+#include "zhou_shen_ultimate_presentation.h"
 #include "zhou_shen_presentation.h"
 
 namespace battle {
@@ -30,6 +34,83 @@ namespace battle {
 void registerAllPresentations() {
     auto& registry = PresentationRegistry::instance();
     registry.registerPresentation("boss_attack_zhoushen", [](float cwx, float cwy, float cwz, float twx, float twy, float twz) -> std::unique_ptr<AbilityPresentation> { return std::make_unique<ZhouShenPresentation>(cwx, cwy, cwz, twx, twy, twz); });
+    registry.registerPresentation("zhou_shen_singer_buff", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<ZhouShenSkillPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+    registry.registerPresentation("zhou_shen_big_fish", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<ZhouShenUltimatePresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+    registry.registerPresentation("sailor_venus_love_and_beauty_shock", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<SailorVenusBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ,
+            SailorVenusBossPresentation::Variant::BossParry
+        );
+    });
+    registry.registerPresentation("minako_strike", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<MinakoStrikePresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+    registry.registerPresentation("sailor_venus_love_and_beauty_shock_playable", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<SailorVenusBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ,
+            SailorVenusBossPresentation::Variant::LoveAndBeautyShock
+        );
+    });
+    registry.registerPresentation("sailor_venus_transformation", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<SailorVenusBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ,
+            SailorVenusBossPresentation::Variant::Transformation
+        );
+    });
+    registry.registerPresentation("sailor_venus_crescent_beam", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<SailorVenusBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ,
+            SailorVenusBossPresentation::Variant::CrescentBeam
+        );
+    });
+    registry.registerPresentation("sailor_venus_love_me_chain", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<SailorVenusBossPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ,
+            SailorVenusBossPresentation::Variant::LoveMeChain
+        );
+    });
     registry.registerPresentation("wechatalipay_ultimate", [](
         float casterWorldX, float casterWorldY, float casterWorldZ,
         float targetWorldX, float targetWorldY, float targetWorldZ

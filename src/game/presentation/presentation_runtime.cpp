@@ -622,6 +622,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     result.multiplier = presentation->getInputMultiplier();
     result.resultText = presentation->getInputResultText();
     result.correctToneCount = presentation->getCorrectToneCount();
+    result.scoreValue = presentation->getScoreValue();
     result.feedbackSignal = presentation->getFeedbackSignal();
     return result;
 }

@@ -9,6 +9,7 @@
 namespace battle::render {
 
 Camera3D makeDefaultBattleCamera();
+Camera3D makeDefaultBattleActionIntroCamera();
 
 class BattleCameraStaging {
 public:

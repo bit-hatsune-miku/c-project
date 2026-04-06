@@ -198,6 +198,23 @@
       },
       "props": []
     },
+    "sailor_venus_stage": {
+      "floor": {
+        "centerX": -340.0,
+        "centerY": 1180.0,
+        "width": 2600.0,
+        "depth": 3000.0,
+        "tileSize": 180.0,
+        "baseColor": "#31304A",
+        "accentColor": "#46446A"
+      },
+      "backdrop": {
+        "image": "assets/vn/backgrounds/ch4/1.png",
+        "gradientTopColor": "#1F2740",
+        "gradientBottomColor": "#0A101B"
+      },
+      "props": []
+    },
     "yinlong_stage": {
       "floor": {
         "centerX": -290.0,

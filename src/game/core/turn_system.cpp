@@ -129,12 +129,13 @@ void queueExtraTurnForCharacter(TurnState& turnState,
                                 BattleAction action,
                                 bool autoExecute,
                                 bool grantsUltimatePointOnAction,
+                                const std::string& assetId,
                                 const std::string& abilityKitOverride,
                                 int priority) {
     TurnActor extra;
     extra.type = ParticipantType::Character;
     extra.key = character.key;
-    extra.assetId = character.assets;
+    extra.assetId = assetId.empty() ? character.assets : assetId;
     extra.title = character.title;
     extra.abilityKitOverride = abilityKitOverride;
     extra.partyIndex = partyIndex;

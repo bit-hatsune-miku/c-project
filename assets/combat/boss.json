@@ -140,7 +140,7 @@
         "voiceHit": "assets/combat/voices/jiafei/hit.wav",
         "spd": 185,
         "atk": 85,
-        "hp": 1000,
+        "hp": 5000,
         "standardAbility": "BossStandardAttack",
         "skillAbility": "AestheticWarning",
         "ability": "AestheticWarning",
@@ -549,6 +549,56 @@
                         "survivalDurationSeconds": 12.0,
                         "baseBaguetteSpeed": 900.0,
                         "baseSpawnInterval": 0.35
+                    }
+                }
+            }
+        }
+    },
+    "sailorVenusBoss": {
+        "title": "Sailor Venus",
+        "assets": "sailorVenusBoss",
+        "voiceHit": "assets/combat/voices/sailorVenus/hit.wav",
+        "spd": 145,
+        "atk": 24,
+        "hp": 5000,
+        "standardAbility": "BossStandardAttack",
+        "skillAbility": "SailorVenusBossLoveAndBeautyShock",
+        "ability": "SailorVenusBossLoveAndBeautyShock",
+        "ultimate": "SailorVenusBossLoveAndBeautyShock",
+        "abilities": {
+            "skill": {
+                "id": "SailorVenusBossLoveAndBeautyShock",
+                "name": "Love and Beauty Shock",
+                "instructionHint": "Spam SPACE to reduce incoming damage. Phase quotas are 24 / 36 / 48 presses.",
+                "type": "attack",
+                "targetRule": "all_enemies",
+                "multiplier": 1.15,
+                "interactionType": "parry",
+                "presentationId": "sailor_venus_love_and_beauty_shock",
+                "inputPromptType": "spamSpace"
+            }
+        },
+        "ultimatePoints": 6,
+        "startingOrbs": 1,
+        "phases": {
+            "phase1": {
+                "presentation": {
+                    "intParams": {
+                        "spamQuota": 24
+                    }
+                }
+            },
+            "phase2": {
+                "presentation": {
+                    "intParams": {
+                        "spamQuota": 36
+                    }
+                }
+            },
+            "phase3": {
+                "presentation": {
+                    "intParams": {
+                        "spamQuota": 48
                     }
                 }
             }

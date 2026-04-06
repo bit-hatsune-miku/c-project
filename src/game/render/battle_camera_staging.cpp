@@ -37,6 +37,14 @@ Camera3D makeDefaultBattleCamera() {
     return makeDefaultGoalCamera();
 }
 
+Camera3D makeDefaultBattleActionIntroCamera() {
+    Camera3D camera = makeDefaultGoalCamera();
+    camera.posX += kActionIntroOffsetX;
+    camera.posY += kActionIntroOffsetY;
+    camera.posZ += kActionIntroOffsetZ;
+    return camera;
+}
+
 BattleCameraStaging::BattleCameraStaging()
     : goalCamera_(makeDefaultGoalCamera()) {}
 

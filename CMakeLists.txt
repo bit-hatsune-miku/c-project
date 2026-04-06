@@ -132,7 +132,13 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/teto_ultimate_presentation.cpp
     src/game/presentation/teto_ultimate_presentation.h
     src/game/presentation/ari_boss_presentation.cpp
+    src/game/presentation/sailor_venus_boss_presentation.cpp
+    src/game/presentation/sailor_venus_boss_presentation.h
     src/game/presentation/zhou_shen_presentation.cpp
+    src/game/presentation/zhou_shen_skill_presentation.cpp
+    src/game/presentation/zhou_shen_skill_presentation.h
+    src/game/presentation/zhou_shen_ultimate_presentation.cpp
+    src/game/presentation/zhou_shen_ultimate_presentation.h
     src/game/presentation/ari_boss_presentation.h
     src/game/presentation/ari_skill_presentation.cpp
     src/game/presentation/ari_skill_presentation.h
@@ -148,6 +154,8 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/miku_diandong_presentation.h
     src/game/presentation/miku_self_corruption_presentation.cpp
     src/game/presentation/miku_self_corruption_presentation.h
+    src/game/presentation/minako_strike_presentation.cpp
+    src/game/presentation/minako_strike_presentation.h
     src/game/presentation/cupcakke_drum_presentation.cpp
     src/game/presentation/cupcakke_drum_presentation.h
     src/game/presentation/cupcakke_ultimate_presentation.cpp

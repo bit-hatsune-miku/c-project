@@ -54,6 +54,13 @@ SpecialDamageSource parseSpecialDamageSource(const std::string& source) {
     return SpecialDamageSource::None;
 }
 
+ActionAdvanceMode parseActionAdvanceMode(const std::string& mode) {
+    if (mode == "base_av_delta") {
+        return ActionAdvanceMode::BaseActionValueDelta;
+    }
+    return ActionAdvanceMode::RemainingFraction;
+}
+
 std::string getUnitAbilityReferenceId(const json& unitJson, const char* slotName) {
     if (!unitJson.is_object() || slotName == nullptr) {
         return {};
@@ -82,6 +89,7 @@ bool parseCharacterAbilityKitDefinition(const json& kitJson, CharacterAbilityKit
     outKit.standardAbility = kitJson.value("standardAbility", "");
     outKit.skillAbility = kitJson.value("skillAbility", kitJson.value("ability", ""));
     outKit.ultimate = kitJson.value("ultimate", "");
+    outKit.assetId = kitJson.value("assetId", "");
     return true;
 }
 
@@ -317,8 +325,10 @@ bool parseCharacterDefinition(const json& characterJson,
     outCharacter.key = key;
     outCharacter.title = characterJson.value("title", key);
     outCharacter.assets = characterJson.value("assets", "");
+    outCharacter.voiceAssetId = characterJson.value("voiceAssetId", "");
     outCharacter.voiceSpeakerId = characterJson.value("voiceSpeakerId", "");
     outCharacter.characterClass = characterJson.value("class", "");
+    outCharacter.isSinger = characterJson.value("isSinger", false);
     outCharacter.spd = characterJson.value("spd", 0);
     outCharacter.atk = characterJson.value("atk", 0);
     outCharacter.hp = characterJson.value("hp", 0);
@@ -804,7 +814,11 @@ bool parseAbilityDefinition(const json& abilityJson,
     }
     outAbility.speedBuff = abilityJson.value("speedBuff", 0);
     outAbility.atkBuff = abilityJson.value("atkBuff", 0);
+    outAbility.damageBuff = abilityJson.value("damageBuff", 0);
     outAbility.actionAdvance = abilityJson.value("actionAdvance", 0.0f);
+    outAbility.actionAdvanceMode = parseActionAdvanceMode(
+        abilityJson.value("actionAdvanceMode", "remaining_fraction")
+    );
     outAbility.selfHpCostPercentOfMax = abilityJson.value("selfHpCostPercentOfMax", 0.0f);
     outAbility.selfHpCostPercentIncreasePerUse = abilityJson.value("selfHpCostPercentIncreasePerUse", 0.0f);
     outAbility.selfHpCostPercentMax = abilityJson.value("selfHpCostPercentMax", 0.0f);

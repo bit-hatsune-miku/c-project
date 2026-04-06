@@ -92,6 +92,8 @@ public:
     void update(float deltaSeconds);
 
     void setMasterVolume(float masterVolume);
+    void pauseWithFade(float fadeDurationSeconds = 0.22f);
+    void resumeWithFade(float fadeDurationSeconds = 0.18f);
     void pause();
     void resume();
 
@@ -109,6 +111,7 @@ private:
     enum class TransitionState {
         Idle,
         FadingIn,
+        FadingOutToPause,
         FadingOutToStop,
         Crossfading
     };

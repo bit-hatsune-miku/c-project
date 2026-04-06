@@ -17,6 +17,7 @@ int BattleManager::getCharacterShield(int partyIndex) const {
 #include "turn_system.h"
 
 #include <algorithm>
+#include <cmath>
 #include <iostream>
 #include <limits>
 #include <sstream>
@@ -57,7 +58,17 @@ std::string getCharacterStandardAbilityId(const CharacterDefinition& definition)
 }
 
 int resolveAbilityOrbGain(const AbilityDefinition* ability) {
-    return ability != nullptr ? std::max(0, ability->orbGain) : 1;
+    if (ability == nullptr) {
+        return 1;
+    }
+
+    if (ability->id == "LoveAndBeautyShock" ||
+        ability->id == "CrescentBeam" ||
+        ability->id == "VenusLoveMeChain") {
+        return 0;
+    }
+
+    return std::max(0, ability->orbGain);
 }
 
 void grantUltimatePointForAction(BattleCharacter& character,
@@ -271,6 +282,18 @@ void BattleCharacter::setAtkBuffBonus(int percentBonus) {
     atkBuffBonus_ = percentBonus;
 }
 
+int BattleCharacter::damageBuffBonus() const {
+    return damageBuffBonus_;
+}
+
+float BattleCharacter::damageBuffMultiplier() const {
+    return std::max(0.0f, 1.0f + (static_cast<float>(damageBuffBonus_) / 100.0f));
+}
+
+void BattleCharacter::setDamageBuffBonus(int percentBonus) {
+    damageBuffBonus_ = percentBonus;
+}
+
 /**
  * @brief Initializes the battle using the specified boss identifier and party members.
  *
@@ -329,6 +352,7 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     currentActionOutgoingDamage_ = 0;
     pendingSplitAttackActorKey_.clear();
     tetoHealingTally_ = 0;
+    sailorVenusState_ = SailorVenusState{};
 
     if (battleDefinition_.bossKey.empty()) {
         std::cerr << "[Battle] Missing boss key.\n";
@@ -355,6 +379,9 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     activeCharacterAbilityKits_.assign(state_.party.size(), "");
     for (size_t i = 0; i < state_.party.size(); ++i) {
         characters_.emplace_back(state_.party[i], static_cast<int>(i));
+        if (state_.party[i].key == "sailorVenus") {
+            sailorVenusState_.partyIndex = static_cast<int>(i);
+        }
     }
 
     if (!buildInitialTurnState()) {
@@ -549,6 +576,20 @@ int BattleManager::getCharacterMaxHp(int partyIndex) const {
     return characters_[static_cast<size_t>(partyIndex)].maxHp();
 }
 
+int BattleManager::getCharacterEffectiveAtk(int partyIndex) const {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
+        return 0;
+    }
+    return characters_[static_cast<size_t>(partyIndex)].effectiveAtk();
+}
+
+float BattleManager::getCharacterDamageBuffMultiplier(int partyIndex) const {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
+        return 1.0f;
+    }
+    return characters_[static_cast<size_t>(partyIndex)].damageBuffMultiplier();
+}
+
 bool BattleManager::isCharacterAlive(int partyIndex) const {
     if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
         return false;
@@ -681,6 +722,7 @@ bool BattleManager::setCharacterAbilityKit(int partyIndex, const std::string& ki
     activeCharacterAbilityKits_[static_cast<size_t>(partyIndex)] = kitId;
     syncCharacterTurnParticipation(partyIndex);
     syncCharacterUltimateTurn(partyIndex);
+    refreshTurnActorAssets(partyIndex);
     return true;
 }
 
@@ -692,6 +734,7 @@ void BattleManager::clearCharacterAbilityKit(int partyIndex) {
     activeCharacterAbilityKits_[static_cast<size_t>(partyIndex)].clear();
     syncCharacterTurnParticipation(partyIndex);
     syncCharacterUltimateTurn(partyIndex);
+    refreshTurnActorAssets(partyIndex);
 }
 
 std::string BattleManager::resolveCharacterAbilityId(int partyIndex,
@@ -711,6 +754,47 @@ std::string BattleManager::resolveCharacterAbilityId(int partyIndex,
         activeKitId,
         turnAbilityKitOverride
     );
+}
+
+std::string BattleManager::resolveCharacterAssetId(int partyIndex,
+                                                   const std::string& turnAbilityKitOverride) const {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= state_.party.size()) {
+        return {};
+    }
+
+    const std::string activeKitId =
+        static_cast<size_t>(partyIndex) < activeCharacterAbilityKits_.size()
+        ? activeCharacterAbilityKits_[static_cast<size_t>(partyIndex)]
+        : std::string{};
+    return resolveCharacterAssetId(
+        state_.party[static_cast<size_t>(partyIndex)],
+        activeKitId,
+        turnAbilityKitOverride
+    );
+}
+
+std::string BattleManager::resolveCharacterVoiceAssetId(int partyIndex) const {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= state_.party.size()) {
+        return {};
+    }
+
+    const CharacterDefinition& definition = state_.party[static_cast<size_t>(partyIndex)];
+    if (!definition.voiceAssetId.empty()) {
+        return definition.voiceAssetId;
+    }
+    if (!definition.assets.empty()) {
+        return definition.assets;
+    }
+    return definition.key;
+}
+
+void BattleManager::addSailorVenusSpaceTally(int partyIndex, int amount) {
+    if (amount <= 0 ||
+        !isSailorVenusTransformed(partyIndex)) {
+        return;
+    }
+
+    sailorVenusState_.spaceTally += amount;
 }
 
 void BattleManager::addLuotianyiCorrectTones(int amount) {
@@ -1027,7 +1111,8 @@ int BattleManager::currentLivingPartyShieldTotal() const {
 
 int BattleManager::applyConvertedPlayerSpecialDamageToBoss(int rawAmount,
                                                            float abilityMultiplier,
-                                                           bool markPresentationResolved) {
+                                                           bool markPresentationResolved,
+                                                           int sourcePartyIndex) {
     if (isBattleOver()) {
         return 0;
     }
@@ -1045,15 +1130,23 @@ int BattleManager::applyConvertedPlayerSpecialDamageToBoss(int rawAmount,
         static_cast<int>(std::lround(
             static_cast<float>(rawAmount) *
             abilityMultiplier *
+            getCharacterDamageBuffMultiplier(sourcePartyIndex) *
             comboDamageMultiplier(comboState_.comboCount)
         )));
     applyPlayerOffenseToBoss(finalDamage);
     return finalDamage;
 }
 
-int BattleManager::applyCurrentTeamShieldDamageToBoss(bool markPresentationResolved, float abilityMultiplier) {
+int BattleManager::applyCurrentTeamShieldDamageToBoss(bool markPresentationResolved,
+                                                      float abilityMultiplier,
+                                                      int sourcePartyIndex) {
     const int totalShield = currentLivingPartyShieldTotal();
-    return applyConvertedPlayerSpecialDamageToBoss(totalShield, abilityMultiplier, markPresentationResolved);
+    return applyConvertedPlayerSpecialDamageToBoss(
+        totalShield,
+        abilityMultiplier,
+        markPresentationResolved,
+        sourcePartyIndex
+    );
 }
 
 int BattleManager::getTetoHealingTally() const {
@@ -1147,11 +1240,13 @@ void BattleManager::applyBossAbilitySelfCost(const AbilityDefinition& ability) {
  * @param hitEvents Number of hit events (values ≤ 0 are ignored).
  * @param targetPartyIndex If >= 0 and valid, the zero-based party index to target when the boss
  *        is the caster; otherwise targets all alive characters.
+ * @param sourcePartyIndex Party index of the player caster when known; currently informational.
  */
 void BattleManager::applyPresentationHitDamage(bool isBossCaster,
                                                int perHitDamage,
                                                int hitEvents,
-                                               int targetPartyIndex) {
+                                               int targetPartyIndex,
+                                               int sourcePartyIndex) {
     if (perHitDamage <= 0 || hitEvents <= 0 || isBattleOver()) {
         return;
     }
@@ -1191,9 +1286,7 @@ void BattleManager::applyPresentationHitDamage(bool isBossCaster,
     }
 
     if (bossCurrentHp_ > 0) {
-        totalDamage = std::max(1, static_cast<int>(std::lround(
-            static_cast<float>(totalDamage) * comboDamageMultiplier(comboState_.comboCount)
-        )));
+        (void)sourcePartyIndex;
         applyPlayerOffenseToBoss(totalDamage);
         presentationHitDamageApplied_ = true;
     }
@@ -1278,7 +1371,7 @@ const AbilityDefinition* BattleManager::findAbilityDefinition(const std::string&
 
 std::vector<BattleStatusBadge> BattleManager::getActiveStatusBadges() const {
     std::vector<BattleStatusBadge> badges;
-    badges.reserve(characters_.size() + activePartyBuffs_.size() * 2 + activeBossDebuffs_.size());
+    badges.reserve(characters_.size() + activePartyBuffs_.size() * 3 + activeBossDebuffs_.size());
 
     for (size_t i = 0; i < characters_.size(); ++i) {
         const BattleCharacter& character = characters_[i];
@@ -1330,7 +1423,7 @@ std::vector<BattleStatusBadge> BattleManager::getActiveStatusBadges() const {
             badge.valueKind = valueKind;
             badge.abilityId = buff.abilityId;
             badge.sourceKey = source.definition().key;
-            badge.sourceAssetId = source.definition().assets;
+            badge.sourceAssetId = resolveCharacterAssetId(source.partyIndex());
             badge.statusName = statusName;
             badge.statLabel = statLabel == nullptr ? std::string() : std::string(statLabel);
             badge.value = value;
@@ -1339,6 +1432,7 @@ std::vector<BattleStatusBadge> BattleManager::getActiveStatusBadges() const {
 
         appendBadge(buff.speedBuff, BattleStatusBadgeValueKind::Flat, "SPD");
         appendBadge(buff.atkBuff, BattleStatusBadgeValueKind::Percent, "ATK");
+        appendBadge(buff.damageBuff, BattleStatusBadgeValueKind::Percent, "DMG");
     }
 
     const int tetoPartyIndex = findCharacterPartyIndexByKey("teto");
@@ -1355,10 +1449,36 @@ std::vector<BattleStatusBadge> BattleManager::getActiveStatusBadges() const {
         badge.valueKind = BattleStatusBadgeValueKind::Flat;
         badge.abilityId = "teto_healing_tally";
         badge.sourceKey = teto.definition().key;
-        badge.sourceAssetId = teto.definition().assets;
+        badge.sourceAssetId = resolveCharacterAssetId(teto.partyIndex());
         badge.statLabel = "HEAL";
         badge.value = tetoHealingTally_;
         badges.push_back(std::move(badge));
+    }
+
+    if (isSailorVenusTransformed(sailorVenusState_.partyIndex) &&
+        static_cast<size_t>(sailorVenusState_.partyIndex) < characters_.size() &&
+        characters_[static_cast<size_t>(sailorVenusState_.partyIndex)].isAlive()) {
+        const BattleCharacter& venus = characters_[static_cast<size_t>(sailorVenusState_.partyIndex)];
+        const auto appendVenusBadge = [&](int value,
+                                          BattleStatusBadgeValueKind valueKind,
+                                          const char* statLabel) {
+            BattleStatusBadge badge;
+            badge.target = BattleStatusBadgeTarget::PartyMember;
+            badge.targetPartyIndex = venus.partyIndex();
+            badge.sourcePartyIndex = venus.partyIndex();
+            badge.category = BattleStatusBadgeCategory::Buff;
+            badge.valueKind = valueKind;
+            badge.abilityId = "VenusTransformation";
+            badge.sourceKey = venus.definition().key;
+            badge.sourceAssetId = resolveCharacterAssetId(venus.partyIndex());
+            badge.statusName = "Sailor Venus";
+            badge.statLabel = statLabel == nullptr ? std::string() : std::string(statLabel);
+            badge.value = value;
+            badges.push_back(std::move(badge));
+        };
+
+        appendVenusBadge(65, BattleStatusBadgeValueKind::Flat, "SPD");
+        appendVenusBadge(40, BattleStatusBadgeValueKind::Percent, "ATK");
     }
 
     if (bossCurrentHp_ > 0) {
@@ -1387,7 +1507,7 @@ std::vector<BattleStatusBadge> BattleManager::getActiveStatusBadges() const {
             badge.valueKind = BattleStatusBadgeValueKind::Charges;
             badge.abilityId = debuff.abilityId;
             badge.sourceKey = source.definition().key;
-            badge.sourceAssetId = source.definition().assets;
+            badge.sourceAssetId = resolveCharacterAssetId(source.partyIndex());
             badge.statusName = statusName;
             badge.value = debuff.charges;
             badges.push_back(std::move(badge));
@@ -1555,6 +1675,7 @@ bool BattleManager::prepareCurrentPlayerSplitAttackPlan(int hitCount, std::vecto
     const int totalDamage = normalizeDamage(static_cast<int>(
         character.effectiveAtk() *
         abilityDef->multiplier *
+        character.damageBuffMultiplier() *
         multiplier *
         comboDamageMultiplier(comboState_.comboCount)
     ));
@@ -1892,6 +2013,7 @@ void BattleManager::queueExtraTurnForCharacter(int partyIndex,
         action,
         autoExecute,
         grantsUltimatePointOnAction,
+        resolveCharacterAssetId(partyIndex, abilityKitOverride),
         abilityKitOverride,
         priority
     );
@@ -2074,6 +2196,10 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
     telemetry_.totalActionValueConsumed += std::max(0.0f, consumedActionValue);
     currentActionOutgoingDamage_ = 0;
     pendingSplitAttackActorKey_.clear();
+    presentationHitDamageApplied_ = false;
+    presentationHealingApplied_ = false;
+    presentationAbilityAudioPlayed_ = false;
+    presentationHitAudioPlayed_ = false;
 
     const TurnActor& turnActor = turnState_.actors[actorIndex];
     const bool wasExtraTurn = turnActor.isExtraTurn;
@@ -2110,9 +2236,18 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
     actionEvent.targetShieldBefore.clear();
     actionEvent.targetShieldAfter.clear();
 
+    std::vector<int> supportTargetPartyIndices;
     std::vector<int> supportHpBefore;
     std::vector<int> supportShieldBefore;
-    if (abilityDef != nullptr && abilityDef->type != AbilityType::Attack) {
+    if (abilityDef != nullptr &&
+        (abilityDef->type == AbilityType::Heal ||
+         abilityDef->type == AbilityType::Shield ||
+         abilityDef->type == AbilityType::Buff)) {
+        supportTargetPartyIndices = collectSupportTargetPartyIndices(
+            character.partyIndex(),
+            *abilityDef,
+            -1
+        );
         supportHpBefore.reserve(characters_.size());
         supportShieldBefore.reserve(characters_.size());
         for (const BattleCharacter& target : characters_) {
@@ -2127,9 +2262,10 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
     }
 
     if (abilityDef == nullptr) {
-        const int fallbackDamage = normalizeDamage(
-            character.effectiveAtk() * ((abilityAction == BattleAction::Ultimate) ? 2 : 1)
-        );
+        const int fallbackDamage = normalizeDamage(static_cast<int>(std::lround(
+            static_cast<float>(character.effectiveAtk() * ((abilityAction == BattleAction::Ultimate) ? 2 : 1)) *
+            character.damageBuffMultiplier()
+        )));
         applyPlayerOffenseToBoss(fallbackDamage);
     } else {
         PresentationContext presContext;
@@ -2141,6 +2277,10 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
         presContext.targetIndex = -1;
         if (abilityDef->id == "QuanYuTianXia") {
             presContext.presentationValue = getLuotianyiCorrectTones();
+        } else if (abilityDef->id == "VenusLoveMeChain") {
+            presContext.presentationValue = getSailorVenusSpaceTally();
+        } else if (character.definition().key == "zhouShen") {
+            presContext.presentationValue = getSingerCountInParty();
         }
         presContext.isBoss = false;
         presContext.isUltimate = abilityAction == BattleAction::Ultimate;
@@ -2163,6 +2303,7 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
             execContext.baseHeal = abilityDef->flatHeal;
             execContext.presentationMultiplier = presentationMultiplier;
             execContext.comboMultiplier = comboDamageMultiplier(comboState_.comboCount);
+            execContext.damageBuffMultiplier = character.damageBuffMultiplier();
             execContext.bossMaxHp = state_.boss.hp;
             executeAbilityEffect(execContext);
         }
@@ -2183,22 +2324,17 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
     }
 
     if (!supportHpBefore.empty()) {
-        const std::size_t snapshotCount = std::min({characters_.size(), supportHpBefore.size(), supportShieldBefore.size()});
-        for (std::size_t i = 0; i < snapshotCount; ++i) {
-            const BattleCharacter& target = characters_[i];
-            const int hpBefore = supportHpBefore[i];
-            const int hpAfter = target.hp();
-            const int shieldBefore = supportShieldBefore[i];
-            const int shieldAfter = target.getShield();
-            if (hpBefore == hpAfter && shieldBefore == shieldAfter) {
+        for (int targetPartyIndex : supportTargetPartyIndices) {
+            if (targetPartyIndex < 0 || static_cast<size_t>(targetPartyIndex) >= characters_.size()) {
                 continue;
             }
 
-            actionEvent.targetPartyIndices.push_back(target.partyIndex());
-            actionEvent.targetHpBefore.push_back(hpBefore);
-            actionEvent.targetHpAfter.push_back(hpAfter);
-            actionEvent.targetShieldBefore.push_back(shieldBefore);
-            actionEvent.targetShieldAfter.push_back(shieldAfter);
+            const BattleCharacter& target = characters_[static_cast<size_t>(targetPartyIndex)];
+            actionEvent.targetPartyIndices.push_back(targetPartyIndex);
+            actionEvent.targetHpBefore.push_back(supportHpBefore[static_cast<size_t>(targetPartyIndex)]);
+            actionEvent.targetHpAfter.push_back(target.hp());
+            actionEvent.targetShieldBefore.push_back(supportShieldBefore[static_cast<size_t>(targetPartyIndex)]);
+            actionEvent.targetShieldAfter.push_back(target.getShield());
         }
     }
 
@@ -2215,13 +2351,24 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
 
     if (abilityDef != nullptr && abilityDef->type == AbilityType::Buff) {
         applyPartyBuffFromAbility(character.partyIndex(), *abilityDef, presentationMultiplier);
-        if (abilityDef->actionAdvance > 0.0f) {
-            applyAllAlliesActionAdvance(abilityDef->actionAdvance);
+    }
+    if (abilityDef != nullptr && abilityDef->actionAdvance > 0.0f) {
+        applyAllAlliesActionAdvance(abilityDef->actionAdvance, abilityDef->actionAdvanceMode);
+    }
+    if (abilityDef != nullptr) {
+        if (abilityDef->id == "VenusTransformation") {
+            activateSailorVenusTransformation(character.partyIndex());
+        } else if (abilityDef->id == "LoveAndBeautyShock") {
+            consumeSailorVenusTurnAndQueueFinisherIfNeeded(character.partyIndex());
+        } else if (abilityDef->id == "VenusLoveMeChain") {
+            revertSailorVenusTransformation(true);
         }
     }
 
     syncCharacterUltimateTurn(character.partyIndex());
     tryQueueJiafeiFollowUp(actionEvent);
+    tryQueueZhouShenFollowUp(actionEvent);
+    tryQueueSailorVenusFollowUp(actionEvent);
     recentActionEvents_.push_back(std::move(actionEvent));
     return true;
 }
@@ -2257,6 +2404,10 @@ bool BattleManager::executeBossAction(size_t actorIndex, BattleAction action, fl
 
     ++simulatedActions_;
     telemetry_.totalActionValueConsumed += std::max(0.0f, consumedActionValue);
+    presentationHitDamageApplied_ = false;
+    presentationHealingApplied_ = false;
+    presentationAbilityAudioPlayed_ = false;
+    presentationHitAudioPlayed_ = false;
 
     const std::string abilityId = getBossNormalAbilityId(state_.boss);
     const AbilityDefinition* abilityDef = getAbility(abilityId);
@@ -2472,6 +2623,27 @@ std::string BattleManager::resolveCharacterAbilityId(const CharacterDefinition& 
     return {};
 }
 
+std::string BattleManager::resolveCharacterAssetId(const CharacterDefinition& definition,
+                                                   const std::string& activeKitId,
+                                                   const std::string& turnAbilityKitOverride) const {
+    if (const CharacterAbilityKitDefinition* turnKit =
+            findCharacterAbilityKit(definition, turnAbilityKitOverride);
+        turnKit != nullptr && !turnKit->assetId.empty()) {
+        return turnKit->assetId;
+    }
+
+    if (const CharacterAbilityKitDefinition* activeKit =
+            findCharacterAbilityKit(definition, activeKitId);
+        activeKit != nullptr && !activeKit->assetId.empty()) {
+        return activeKit->assetId;
+    }
+
+    if (!definition.assets.empty()) {
+        return definition.assets;
+    }
+    return definition.key;
+}
+
 bool BattleManager::canCharacterUseAction(int partyIndex,
                                           BattleAction action,
                                           const std::string& turnAbilityKitOverride) const {
@@ -2504,7 +2676,11 @@ void BattleManager::executeAbilityEffect(const AbilityExecutionContext& context)
     const AbilityDefinition& ability = *context.ability;
     if (!context.isBossCaster) {
         if (ability.specialDamageSource == SpecialDamageSource::TeamShield) {
-            (void)applyCurrentTeamShieldDamageToBoss(false, ability.multiplier);
+            (void)applyCurrentTeamShieldDamageToBoss(
+                false,
+                ability.multiplier,
+                context.casterPartyIndex
+            );
             syncAllCharacterTurnParticipation();
             return;
         }
@@ -2533,9 +2709,19 @@ void BattleManager::executeAbilityEffect(const AbilityExecutionContext& context)
                     nullptr
                 );
                 if (ability.specialDamageSource == SpecialDamageSource::AppliedHeal) {
-                    (void)applyConvertedPlayerSpecialDamageToBoss(totalRequestedHealing, ability.multiplier, false);
+                    (void)applyConvertedPlayerSpecialDamageToBoss(
+                        totalRequestedHealing,
+                        ability.multiplier,
+                        false,
+                        context.casterPartyIndex
+                    );
                 } else if (ability.specialDamageSource == SpecialDamageSource::StoredHealingTally) {
-                    (void)applyConvertedPlayerSpecialDamageToBoss(consumeTetoHealingTally(), ability.multiplier, false);
+                    (void)applyConvertedPlayerSpecialDamageToBoss(
+                        consumeTetoHealingTally(),
+                        ability.multiplier,
+                        false,
+                        context.casterPartyIndex
+                    );
                 }
                 syncAllCharacterTurnParticipation();
                 return;
@@ -2576,17 +2762,20 @@ void BattleManager::applyPartyBuffFromAbility(int sourcePartyIndex,
         static_cast<float>(ability.speedBuff) * std::max(0.0f, presentationMultiplier)
     )));
 
-    // presentationMultiplier carries the ATK buff ratio from the presentation:
-    //   > 1.0 → buff  (e.g. 1.6 → +60% if atkBuff == 100 base)
+    // presentationMultiplier carries the presentation's resolved scaling for persistent buffs:
+    //   > 1.0 → stronger positive buff
     //   < 1.0 and >= 0 → partial buff
-    //   < 0 → nerf    (the presentation returns negative multipliers for 0-correct)
-    // The ability JSON stores the max-correct ATK buff percent in atkBuff.
-    // We multiply by presentationMultiplier so partial results scale down.
+    //   < 0 → nerf
+    // The authored JSON stores the max-correct buff value and we scale it by the presentation
+    // multiplier so partial results map cleanly onto both ATK% and DMG%.
     const int scaledAtkBuff = (ability.atkBuff != 0)
         ? static_cast<int>(std::lround(static_cast<float>(ability.atkBuff) * presentationMultiplier))
         : 0;
+    const int scaledDamageBuff = (ability.damageBuff != 0)
+        ? static_cast<int>(std::lround(static_cast<float>(ability.damageBuff) * presentationMultiplier))
+        : 0;
 
-    if (scaledSpeedBuff <= 0 && scaledAtkBuff == 0) {
+    if (scaledSpeedBuff <= 0 && scaledAtkBuff == 0 && scaledDamageBuff == 0) {
         return;
     }
 
@@ -2604,6 +2793,7 @@ void BattleManager::applyPartyBuffFromAbility(int sourcePartyIndex,
                 buff.targetPartyIndex == targetPartyIndex) {
                 buff.speedBuff = scaledSpeedBuff;
                 buff.atkBuff   = scaledAtkBuff;
+                buff.damageBuff = scaledDamageBuff;
                 return;
             }
         }
@@ -2613,12 +2803,15 @@ void BattleManager::applyPartyBuffFromAbility(int sourcePartyIndex,
             sourcePartyIndex,
             targetPartyIndex,
             scaledSpeedBuff,
-            scaledAtkBuff
+            scaledAtkBuff,
+            scaledDamageBuff
         });
     };
 
     if (ability.targetRule == TargetRule::Self) {
         refreshOrInsertBuff(sourcePartyIndex);
+    } else if (ability.targetRule == TargetRule::SingleAlly) {
+        refreshOrInsertBuff(resolveSupportTargetPartyIndex(ability.targetRule, -1));
     } else if (ability.targetRule == TargetRule::AllAllies) {
         for (const BattleCharacter& character : characters_) {
             refreshOrInsertBuff(character.partyIndex());
@@ -2652,6 +2845,12 @@ void BattleManager::expireBuffsFromCaster(int sourcePartyIndex) {
 }
 
 void BattleManager::removeBuffsFromDefeatedCharacters() {
+    if (isSailorVenusPartyIndex(sailorVenusState_.partyIndex) &&
+        static_cast<size_t>(sailorVenusState_.partyIndex) < characters_.size() &&
+        !characters_[static_cast<size_t>(sailorVenusState_.partyIndex)].isAlive()) {
+        revertSailorVenusTransformation(false);
+    }
+
     const auto newEnd = std::remove_if(
         activePartyBuffs_.begin(),
         activePartyBuffs_.end(),
@@ -2704,17 +2903,26 @@ void BattleManager::removeBossDebuffsFromDefeatedCharacters() {
 void BattleManager::refreshCharacterBuffBonuses() {
     std::vector<int> speedTotals(characters_.size(), 0);
     std::vector<int> atkTotals(characters_.size(), 0);
+    std::vector<int> damageTotals(characters_.size(), 0);
     for (const ActivePartyBuff& buff : activePartyBuffs_) {
         if (buff.targetPartyIndex < 0 || static_cast<size_t>(buff.targetPartyIndex) >= speedTotals.size()) {
             continue;
         }
         speedTotals[static_cast<size_t>(buff.targetPartyIndex)] += buff.speedBuff;
         atkTotals[static_cast<size_t>(buff.targetPartyIndex)]   += buff.atkBuff;
+        damageTotals[static_cast<size_t>(buff.targetPartyIndex)] += buff.damageBuff;
+    }
+
+    if (isSailorVenusTransformed(sailorVenusState_.partyIndex) &&
+        static_cast<size_t>(sailorVenusState_.partyIndex) < characters_.size()) {
+        speedTotals[static_cast<size_t>(sailorVenusState_.partyIndex)] += 65;
+        atkTotals[static_cast<size_t>(sailorVenusState_.partyIndex)] += 40;
     }
 
     for (size_t i = 0; i < characters_.size(); ++i) {
         characters_[i].setSpdBuffBonus(speedTotals[i]);
         characters_[i].setAtkBuffBonus(atkTotals[i]);
+        characters_[i].setDamageBuffBonus(damageTotals[i]);
     }
 }
 
@@ -2743,6 +2951,20 @@ void BattleManager::refreshTurnActorSpeed(int partyIndex) {
     }
 }
 
+void BattleManager::refreshTurnActorAssets(int partyIndex) {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= state_.party.size()) {
+        return;
+    }
+
+    for (TurnActor& actor : turnState_.actors) {
+        if (actor.type != ParticipantType::Character || actor.partyIndex != partyIndex) {
+            continue;
+        }
+
+        actor.assetId = resolveCharacterAssetId(partyIndex, actor.abilityKitOverride);
+    }
+}
+
 void BattleManager::refreshAllTurnActorSpeeds() {
     for (size_t i = 0; i < characters_.size(); ++i) {
         refreshTurnActorSpeed(static_cast<int>(i));
@@ -2763,7 +2985,7 @@ void BattleManager::refreshAllTurnActorSpeeds() {
  *
  * @param fraction Fraction in [0,1] representing the portion of action progress to advance.
  */
-void BattleManager::applyAllAlliesActionAdvance(float fraction) {
+void BattleManager::applyAllAlliesActionAdvance(float fraction, ActionAdvanceMode mode) {
     const float clampedFraction = std::clamp(fraction, 0.0f, 1.0f);
     if (clampedFraction <= 0.0f) {
         return;
@@ -2772,6 +2994,7 @@ void BattleManager::applyAllAlliesActionAdvance(float fraction) {
     struct ActionAdvanceCandidate {
         size_t actorIndex = 0;
         float originalActionValue = 0.0f;
+        float baseActionValue = 0.0f;
         int originalPriority = 0;
         int partyIndex = -1;
     };
@@ -2790,6 +3013,7 @@ void BattleManager::applyAllAlliesActionAdvance(float fraction) {
         candidates.push_back(ActionAdvanceCandidate{
             i,
             actor.currentActionValue,
+            actor.baseActionValue,
             actor.priority,
             actor.partyIndex
         });
@@ -2809,13 +3033,61 @@ void BattleManager::applyAllAlliesActionAdvance(float fraction) {
     constexpr int kActionAdvancePriorityBase = 50;
     for (size_t rank = 0; rank < candidates.size(); ++rank) {
         TurnActor& actor = turnState_.actors[candidates[rank].actorIndex];
-        actor.currentActionValue = std::max(0.0f, actor.currentActionValue * (1.0f - clampedFraction));
+        switch (mode) {
+            case ActionAdvanceMode::BaseActionValueDelta:
+                actor.currentActionValue = std::max(
+                    0.0f,
+                    actor.currentActionValue - (clampedFraction * std::max(0.0f, candidates[rank].baseActionValue))
+                );
+                break;
+            case ActionAdvanceMode::RemainingFraction:
+            default:
+                actor.currentActionValue = std::max(0.0f, actor.currentActionValue * (1.0f - clampedFraction));
+                break;
+        }
         if (std::fabs(actor.currentActionValue) <= kActionValueEpsilon) {
             actor.currentActionValue = 0.0f;
         }
         actor.priority = (actor.currentActionValue <= 0.0001f)
             ? (kActionAdvancePriorityBase + static_cast<int>(candidates.size() - rank))
             : 0;
+    }
+}
+
+void BattleManager::applyCharacterActionAdvance(int partyIndex, float fraction, ActionAdvanceMode mode) {
+    const float clampedFraction = std::clamp(fraction, 0.0f, 1.0f);
+    if (clampedFraction <= 0.0f ||
+        partyIndex < 0 ||
+        static_cast<size_t>(partyIndex) >= characters_.size() ||
+        !characters_[static_cast<size_t>(partyIndex)].isAlive()) {
+        return;
+    }
+
+    for (TurnActor& actor : turnState_.actors) {
+        if (actor.type != ParticipantType::Character ||
+            actor.isExtraTurn ||
+            actor.partyIndex != partyIndex) {
+            continue;
+        }
+
+        switch (mode) {
+            case ActionAdvanceMode::BaseActionValueDelta:
+                actor.currentActionValue = std::max(
+                    0.0f,
+                    actor.currentActionValue - (clampedFraction * std::max(0.0f, actor.baseActionValue))
+                );
+                break;
+            case ActionAdvanceMode::RemainingFraction:
+            default:
+                actor.currentActionValue = std::max(0.0f, actor.currentActionValue * (1.0f - clampedFraction));
+                break;
+        }
+
+        if (std::fabs(actor.currentActionValue) <= kActionValueEpsilon) {
+            actor.currentActionValue = 0.0f;
+        }
+        actor.priority = actor.currentActionValue <= 0.0001f ? 120 : 0;
+        return;
     }
 }
 
@@ -2948,12 +3220,16 @@ void BattleManager::syncCharacterTurnParticipation(int partyIndex) {
     }
 
     if (!shouldParticipate || hasPrimaryTurn) {
+        if (shouldParticipate) {
+            refreshTurnActorAssets(partyIndex);
+        }
         return;
     }
 
     turnState_.actors.push_back(
         makePrimaryCharacterTurnActor(character)
     );
+    refreshTurnActorAssets(partyIndex);
 }
 
 void BattleManager::syncAllCharacterTurnParticipation() {
@@ -3023,6 +3299,22 @@ int BattleManager::findCharacterPartyIndexByKey(const std::string& characterKey)
     return -1;
 }
 
+bool BattleManager::isSingerPartyMember(int partyIndex) const {
+    return partyIndex >= 0 &&
+        static_cast<size_t>(partyIndex) < characters_.size() &&
+        characters_[static_cast<size_t>(partyIndex)].definition().isSinger;
+}
+
+int BattleManager::getSingerCountInParty() const {
+    int singerCount = 0;
+    for (const BattleCharacter& character : characters_) {
+        if (character.definition().isSinger) {
+            ++singerCount;
+        }
+    }
+    return singerCount;
+}
+
 bool BattleManager::hasQueuedExtraTurn(int partyIndex, BattleAction action, bool autoExecute) const {
     for (const TurnActor& actor : turnState_.actors) {
         if (actor.type != ParticipantType::Character ||
@@ -3036,6 +3328,116 @@ bool BattleManager::hasQueuedExtraTurn(int partyIndex, BattleAction action, bool
         }
     }
     return false;
+}
+
+std::vector<int> BattleManager::collectSupportTargetPartyIndices(int sourcePartyIndex,
+                                                                 const AbilityDefinition& ability,
+                                                                 int requestedTargetPartyIndex) const {
+    std::vector<int> targets;
+    const auto appendIfValid = [this, &targets](int partyIndex) {
+        if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
+            return;
+        }
+        if (std::find(targets.begin(), targets.end(), partyIndex) == targets.end()) {
+            targets.push_back(partyIndex);
+        }
+    };
+
+    switch (ability.targetRule) {
+        case TargetRule::Self:
+            appendIfValid(sourcePartyIndex);
+            break;
+        case TargetRule::SingleAlly:
+            appendIfValid(resolveSupportTargetPartyIndex(ability.targetRule, requestedTargetPartyIndex));
+            break;
+        case TargetRule::AllAllies:
+            for (const BattleCharacter& character : characters_) {
+                appendIfValid(character.partyIndex());
+            }
+            break;
+        default:
+            break;
+    }
+
+    return targets;
+}
+
+bool BattleManager::isSailorVenusPartyIndex(int partyIndex) const {
+    return partyIndex >= 0 &&
+        partyIndex == sailorVenusState_.partyIndex &&
+        static_cast<size_t>(partyIndex) < characters_.size() &&
+        characters_[static_cast<size_t>(partyIndex)].definition().key == "sailorVenus";
+}
+
+bool BattleManager::isSailorVenusTransformed(int partyIndex) const {
+    return sailorVenusState_.transformed && isSailorVenusPartyIndex(partyIndex);
+}
+
+void BattleManager::activateSailorVenusTransformation(int partyIndex) {
+    if (!isSailorVenusPartyIndex(partyIndex) ||
+        static_cast<size_t>(partyIndex) >= characters_.size() ||
+        !characters_[static_cast<size_t>(partyIndex)].isAlive()) {
+        return;
+    }
+
+    sailorVenusState_.transformed = true;
+    sailorVenusState_.turnsRemaining = 3;
+    sailorVenusState_.spaceTally = 0;
+    sailorVenusState_.finisherQueued = false;
+
+    (void)setCharacterAbilityKit(partyIndex, "transformed");
+    refreshCharacterBuffBonuses();
+    refreshAllTurnActorSpeeds();
+    refreshTurnActorAssets(partyIndex);
+    applyCharacterActionAdvance(partyIndex, 1.0f, ActionAdvanceMode::RemainingFraction);
+}
+
+void BattleManager::revertSailorVenusTransformation(bool advanceNextAction) {
+    if (!sailorVenusState_.transformed || sailorVenusState_.partyIndex < 0) {
+        sailorVenusState_.spaceTally = 0;
+        sailorVenusState_.turnsRemaining = 0;
+        sailorVenusState_.finisherQueued = false;
+        return;
+    }
+
+    const int partyIndex = sailorVenusState_.partyIndex;
+    sailorVenusState_.transformed = false;
+    sailorVenusState_.turnsRemaining = 0;
+    sailorVenusState_.spaceTally = 0;
+    sailorVenusState_.finisherQueued = false;
+
+    clearCharacterAbilityKit(partyIndex);
+    refreshCharacterBuffBonuses();
+    refreshAllTurnActorSpeeds();
+    refreshTurnActorAssets(partyIndex);
+    if (advanceNextAction) {
+        applyCharacterActionAdvance(partyIndex, 1.0f, ActionAdvanceMode::RemainingFraction);
+    }
+}
+
+void BattleManager::consumeSailorVenusTurnAndQueueFinisherIfNeeded(int partyIndex) {
+    if (!isSailorVenusTransformed(partyIndex) || sailorVenusState_.turnsRemaining <= 0) {
+        return;
+    }
+
+    --sailorVenusState_.turnsRemaining;
+    if (sailorVenusState_.turnsRemaining > 0 || sailorVenusState_.finisherQueued || bossCurrentHp_ <= 0) {
+        return;
+    }
+
+    queueExtraTurnForCharacter(
+        partyIndex,
+        BattleAction::Skill,
+        true,
+        false,
+        "loveMeChain",
+        250
+    );
+    sailorVenusState_.finisherQueued = true;
+}
+
+int BattleManager::getSailorVenusSpaceTally() const {
+    return std::max(0, sailorVenusState_.spaceTally);
 }
 
 void BattleManager::applyBossDebuffCharges(int sourcePartyIndex,
@@ -3122,6 +3524,67 @@ void BattleManager::tryQueueJiafeiFollowUp(const BattleActionEvent& actionEvent)
     if (getBossDebuffCharges("MeiCiDuXiangZhuang") <= 0) {
         consumeJiafeiUltimateDebuff();
     }
+}
+
+void BattleManager::tryQueueZhouShenFollowUp(const BattleActionEvent& actionEvent) {
+    if (bossCurrentHp_ <= 0 ||
+        actionEvent.actorType != ParticipantType::Character ||
+        actionEvent.actorKey == "zhouShen" ||
+        (actionEvent.action != BattleAction::Skill && actionEvent.action != BattleAction::Ultimate) ||
+        !isSingerPartyMember(actionEvent.actorPartyIndex)) {
+        return;
+    }
+
+    const int zhouShenPartyIndex = findCharacterPartyIndexByKey("zhouShen");
+    if (zhouShenPartyIndex < 0 ||
+        static_cast<size_t>(zhouShenPartyIndex) >= characters_.size() ||
+        !characters_[static_cast<size_t>(zhouShenPartyIndex)].isAlive()) {
+        return;
+    }
+
+    queueExtraTurnForCharacter(
+        zhouShenPartyIndex,
+        BattleAction::Skill,
+        true,
+        true,
+        "followUp",
+        200
+    );
+}
+
+void BattleManager::tryQueueSailorVenusFollowUp(const BattleActionEvent& actionEvent) {
+    if (!isSailorVenusTransformed(sailorVenusState_.partyIndex) ||
+        bossCurrentHp_ <= 0 ||
+        actionEvent.actorType != ParticipantType::Character ||
+        actionEvent.actorPartyIndex < 0 ||
+        actionEvent.actorPartyIndex == sailorVenusState_.partyIndex ||
+        static_cast<size_t>(sailorVenusState_.partyIndex) >= characters_.size() ||
+        !characters_[static_cast<size_t>(sailorVenusState_.partyIndex)].isAlive()) {
+        return;
+    }
+
+    const AbilityDefinition* ability = getAbility(actionEvent.abilityId);
+    if (ability == nullptr ||
+        (ability->type != AbilityType::Heal &&
+         ability->type != AbilityType::Shield &&
+         ability->type != AbilityType::Buff)) {
+        return;
+    }
+
+    if (std::find(actionEvent.targetPartyIndices.begin(),
+                  actionEvent.targetPartyIndices.end(),
+                  sailorVenusState_.partyIndex) == actionEvent.targetPartyIndices.end()) {
+        return;
+    }
+
+    queueExtraTurnForCharacter(
+        sailorVenusState_.partyIndex,
+        BattleAction::Skill,
+        true,
+        false,
+        "crescentBeam",
+        225
+    );
 }
 
 } // namespace battle

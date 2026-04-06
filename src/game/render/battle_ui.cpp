@@ -229,7 +229,7 @@ void BattleHud::syncFromManager(const BattleManager& manager) {
         const CharacterDefinition& character = battleState.party[i];
         HudCharacterModel hudCharacter;
         hudCharacter.key = character.key;
-        hudCharacter.assetId = character.assets;
+        hudCharacter.assetId = manager.resolveCharacterAssetId(static_cast<int>(i));
         hudCharacter.title = character.title;
         hudCharacter.currentHp = manager.getCharacterCurrentHp(static_cast<int>(i));
         hudCharacter.maxHp = manager.getCharacterMaxHp(static_cast<int>(i));

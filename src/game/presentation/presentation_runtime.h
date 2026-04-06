@@ -16,6 +16,7 @@ struct PlaybackResult {
     float multiplier = 1.0f;
     std::string resultText;
     int correctToneCount = 0;
+    int scoreValue = 0;
     PresentationFeedbackSignal feedbackSignal{};
 };
 

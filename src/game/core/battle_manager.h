@@ -50,14 +50,17 @@ struct CharacterAbilityKitDefinition {
     std::string standardAbility;
     std::string skillAbility;
     std::string ultimate;
+    std::string assetId;
 };
 
 struct CharacterDefinition {
     std::string key;
     std::string title;
     std::string assets;
+    std::string voiceAssetId;
     std::string voiceSpeakerId;
     std::string characterClass;
+    bool isSinger = false;
     int spd = 0;
     int atk = 0;
     int hp = 0;
@@ -148,6 +151,11 @@ enum class SpecialDamageSource {
     StoredHealingTally
 };
 
+enum class ActionAdvanceMode {
+    RemainingFraction,
+    BaseActionValueDelta
+};
+
 struct AbilityDefinition {
     std::string id;
     std::string name;
@@ -161,8 +169,10 @@ struct AbilityDefinition {
     std::optional<float> amountPercentOfCasterMaxHp;
     int speedBuff = 0;
     int atkBuff = 0;   // ATK % buff applied to targets (negative = nerf)
+    int damageBuff = 0; // DMG % buff applied to outgoing damage (negative = nerf)
     int orbGain = 1;
     float actionAdvance = 0.0f;
+    ActionAdvanceMode actionAdvanceMode = ActionAdvanceMode::RemainingFraction;
     float selfHpCostPercentOfMax = 0.0f;
     float selfHpCostPercentIncreasePerUse = 0.0f;
     float selfHpCostPercentMax = 0.0f;
@@ -203,6 +213,7 @@ struct AbilityExecutionContext {
     int baseHeal = 0;
     float presentationMultiplier = 1.0f;
     float comboMultiplier = 1.0f;
+    float damageBuffMultiplier = 1.0f;
     int bossMaxHp = 1;
 };
 
@@ -343,6 +354,9 @@ public:
     int effectiveAtk() const;
     int atkBuffBonus() const;
     void setAtkBuffBonus(int percentBonus);
+    int damageBuffBonus() const;
+    float damageBuffMultiplier() const;
+    void setDamageBuffBonus(int percentBonus);
 
     // Shield support
     int getShield() const { return shield_; }
@@ -368,6 +382,7 @@ private:
     int shield_ = 0;
     int spdBuffBonus_ = 0;
     int atkBuffBonus_ = 0; // ATK buff/nerf in percent (e.g. 50 = +50%, -20 = -20%)
+    int damageBuffBonus_ = 0; // DMG buff/nerf in percent (e.g. 50 = +50%, -20 = -20%)
 };
 
 enum class BattleAction {
@@ -522,6 +537,8 @@ public:
     int getBossUltimateRequired() const;
     int getCharacterCurrentHp(int partyIndex) const;
     int getCharacterMaxHp(int partyIndex) const;
+    int getCharacterEffectiveAtk(int partyIndex) const;
+    float getCharacterDamageBuffMultiplier(int partyIndex) const;
     bool isCharacterAlive(int partyIndex) const;
     bool reviveCharacter(int partyIndex, int amount);
     ManualUltimateRequestResult previewManualUltimateTurnRequest(int partyIndex) const;
@@ -533,6 +550,10 @@ public:
     std::string resolveCharacterAbilityId(int partyIndex,
                                           BattleAction action,
                                           const std::string& turnAbilityKitOverride = {}) const;
+    std::string resolveCharacterAssetId(int partyIndex,
+                                        const std::string& turnAbilityKitOverride = {}) const;
+    std::string resolveCharacterVoiceAssetId(int partyIndex) const;
+    void addSailorVenusSpaceTally(int partyIndex, int amount);
     void addLuotianyiCorrectTones(int amount);
     int getLuotianyiCorrectTones() const;
     const BattleComboState& getComboState() const;
@@ -540,7 +561,8 @@ public:
     void applyPresentationHitDamage(bool isBossCaster,
                                     int perHitDamage,
                                     int hitEvents,
-                                    int targetPartyIndex = -1);
+                                    int targetPartyIndex = -1,
+                                    int sourcePartyIndex = -1);
     int applyPresentationHealing(bool isBossCaster,
                                  int perHitHeal,
                                  int hitEvents,
@@ -550,9 +572,11 @@ public:
                                  bool recordForTetoTally = true);
     int applyConvertedPlayerSpecialDamageToBoss(int rawAmount,
                                                 float abilityMultiplier,
-                                                bool markPresentationResolved = false);
+                                                bool markPresentationResolved = false,
+                                                int sourcePartyIndex = -1);
     int applyCurrentTeamShieldDamageToBoss(bool markPresentationResolved = false,
-                                           float abilityMultiplier = 1.0f);
+                                           float abilityMultiplier = 1.0f,
+                                           int sourcePartyIndex = -1);
     int getTetoHealingTally() const;
     int consumeTetoHealingTally();
     bool consumePresentationHitDamageApplied();
@@ -588,6 +612,7 @@ private:
         int targetPartyIndex = -1;
         int speedBuff = 0;
         int atkBuff = 0; // ATK % buff/nerf (signed)
+        int damageBuff = 0; // DMG % buff/nerf (signed)
     };
 
     struct ActiveBossDebuff {
@@ -611,6 +636,8 @@ private:
     void queueBossPhaseIntroTurn(int fromPhaseIndex, int toPhaseIndex);
     int firstLivingCharacterPartyIndex() const;
     int findCharacterPartyIndexByKey(const std::string& characterKey) const;
+    bool isSingerPartyMember(int partyIndex) const;
+    int getSingerCountInParty() const;
     bool hasQueuedExtraTurn(int partyIndex, BattleAction action, bool autoExecute) const;
     static int normalizeDamage(int value);
     const AbilityDefinition* getAbility(const std::string& abilityId) const;
@@ -620,6 +647,9 @@ private:
                                           BattleAction action,
                                           const std::string& activeKitId,
                                           const std::string& turnAbilityKitOverride) const;
+    std::string resolveCharacterAssetId(const CharacterDefinition& definition,
+                                        const std::string& activeKitId,
+                                        const std::string& turnAbilityKitOverride) const;
     bool canCharacterUseAction(int partyIndex,
                                BattleAction action,
                                const std::string& turnAbilityKitOverride = {}) const;
@@ -657,6 +687,8 @@ private:
     void applyJiafeiUltimateDebuff(int sourcePartyIndex, const AbilityDefinition& ability);
     void consumeJiafeiUltimateDebuff();
     void tryQueueJiafeiFollowUp(const BattleActionEvent& actionEvent);
+    void tryQueueZhouShenFollowUp(const BattleActionEvent& actionEvent);
+    void tryQueueSailorVenusFollowUp(const BattleActionEvent& actionEvent);
     void syncCharacterTurnParticipation(int partyIndex);
     void syncAllCharacterTurnParticipation();
     void syncCharacterUltimateTurn(int partyIndex);
@@ -668,8 +700,10 @@ private:
     void removeBossDebuffsFromDefeatedCharacters();
     void refreshCharacterBuffBonuses();
     void refreshTurnActorSpeed(int partyIndex);
+    void refreshTurnActorAssets(int partyIndex);
     void refreshAllTurnActorSpeeds();
-    void applyAllAlliesActionAdvance(float fraction);
+    void applyAllAlliesActionAdvance(float fraction, ActionAdvanceMode mode);
+    void applyCharacterActionAdvance(int partyIndex, float fraction, ActionAdvanceMode mode);
     void advanceBossActionByFraction(float fraction);
     void refreshComboState();
     void applyBossDebuffCharges(int sourcePartyIndex,
@@ -677,6 +711,15 @@ private:
                                 int charges);
     int getBossDebuffCharges(const std::string& abilityId) const;
     void consumeBossDebuffCharge(const std::string& abilityId);
+    std::vector<int> collectSupportTargetPartyIndices(int sourcePartyIndex,
+                                                      const AbilityDefinition& ability,
+                                                      int requestedTargetPartyIndex) const;
+    bool isSailorVenusPartyIndex(int partyIndex) const;
+    bool isSailorVenusTransformed(int partyIndex) const;
+    void activateSailorVenusTransformation(int partyIndex);
+    void revertSailorVenusTransformation(bool advanceNextAction);
+    void consumeSailorVenusTurnAndQueueFinisherIfNeeded(int partyIndex);
+    int getSailorVenusSpaceTally() const;
 
     BattleState state_;
     BattleDefinition battleDefinition_{};
@@ -707,6 +750,14 @@ private:
     int currentActionOutgoingDamage_ = 0;
     std::string pendingSplitAttackActorKey_;
     int tetoHealingTally_ = 0;
+
+    struct SailorVenusState {
+        int partyIndex = -1;
+        bool transformed = false;
+        int turnsRemaining = 0;
+        int spaceTally = 0;
+        bool finisherQueued = false;
+    } sailorVenusState_{};
 };
 
 } // namespace battle

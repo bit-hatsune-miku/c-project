@@ -2641,7 +2641,10 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
         detail::setElementText(document,
                                "unit-hp-text-" + index,
                                std::to_string(displayedHp) + " / " + std::to_string(maxHp));
-        detail::setPortraitDecorator(document, "unit-icon-" + index, character.assets, dependencies);
+        detail::setPortraitDecorator(document,
+                                     "unit-icon-" + index,
+                                     manager.resolveCharacterAssetId(static_cast<int>(i)),
+                                     dependencies);
         detail::setElementText(document,
                                "unit-ult-text-" + index,
                                std::to_string(displayedUltimate) + " / " + std::to_string(ultimateRequired));

@@ -154,6 +154,10 @@ public:
         // Use for narrative state updates, vn::update, etc.
         std::function<void(BattleManager&, float)> onPreUpdate;
 
+        // Called once per presentation playback frame while a blocking presentation is active.
+        // Use for host-side animation or audio systems that must keep updating during cut-ins.
+        std::function<void(float)> onPresentationFrameUpdate;
+
         // Called once per boss phase transition after manager state has been updated.
         std::function<void(const BossPhaseTransition&, BattleManager&)> onBossPhaseTransition;
 

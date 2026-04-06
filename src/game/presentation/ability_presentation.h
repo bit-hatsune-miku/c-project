@@ -37,6 +37,7 @@ struct InputWindow {
 enum class PresentationAudioCommandType {
     PlayOneShot,
     PlayOneShotAllowOverlap,
+    PlayVoiceOneShot,
     StartLoop,
     StopLoop,
     StopAllSfx,
@@ -95,6 +96,7 @@ public:
     virtual std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() { return {}; }
     virtual std::string getInputResultText() const { return {}; }
     virtual int getCorrectToneCount() const { return 0; }
+    virtual int getScoreValue() const { return 0; }
     virtual int consumeAbilityAudioCues() { return 0; }
     virtual int consumeHitEvents() { return 0; }
     virtual int getDamageLabelHitCount() const { return 1; }

@@ -168,7 +168,7 @@
       "bossKey": "zhouShenBoss",
       "storyScript": "ch0600",
       "victoryStoryScript": "ch0601",
-      "nextStoryScript": "finale",
+      "nextStoryScript": "ch0700",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
@@ -183,6 +183,31 @@
         "ari"
       ],
       "stageKey": "default_stage"
+    },
+    "sailorVenus": {
+      "id": 104,
+      "storyOrder": 575,
+      "name": "Sailor Venus",
+      "description": "The Sailor Scout of Love and Beauty has arrived to duel you!",
+      "bossKey": "sailorVenusBoss",
+      "storyScript": "ch0700",
+      "victoryStoryScript": "ch0701",
+      "nextStoryScript": "finale",
+      "selectorVisible": true,
+      "isLineupFixed": false,
+      "buffs": {
+        "hp": 16,
+        "atk": 5,
+        "spd": 3
+      },
+      "lineup": [
+        "miku",
+        "cupcakke",
+        "jiafei",
+        "lyoo",
+        "wechatalipay"
+      ],
+      "stageKey": "sailor_venus_stage"
     },
     "lyoo_plot_twist": {
       "id": 99,

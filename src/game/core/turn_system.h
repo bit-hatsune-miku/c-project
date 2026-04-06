@@ -17,6 +17,7 @@ void queueExtraTurnForCharacter(TurnState& turnState,
                                 BattleAction action = BattleAction::Ultimate,
                                 bool autoExecute = false,
                                 bool grantsUltimatePointOnAction = false,
+                                const std::string& assetId = {},
                                 const std::string& abilityKitOverride = {},
                                 int priority = 100);
 

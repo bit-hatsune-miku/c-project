@@ -193,7 +193,7 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
     for (size_t i = 0; i < battleState.party.size(); ++i) {
         WorldEntity character;
         character.key        = battleState.party[i].key;
-        character.assetName  = battleState.party[i].assets;
+        character.assetName  = manager_.resolveCharacterAssetId(static_cast<int>(i));
         character.isBoss     = false;
         character.partyIndex = static_cast<int>(i);
         character.worldX     = kDuelCharacterSlotX;
@@ -213,10 +213,11 @@ bool BattleSessionCore::initialize(SDL_Renderer* renderer,
     boss.fallbackColor = render::colorFromKey(boss.key, true);
     entities_.push_back(boss);
 
-    for (const CharacterDefinition& ch : battleState.party) {
-        if (textureByAsset_.find(ch.assets) == textureByAsset_.end()) {
-            const auto loaded = render::tryLoadCombatSpriteTexture(renderer, ch.assets);
-            textureByAsset_[ch.assets] = loaded.has_value() ? *loaded : nullptr;
+    for (size_t i = 0; i < battleState.party.size(); ++i) {
+        const std::string assetId = manager_.resolveCharacterAssetId(static_cast<int>(i));
+        if (textureByAsset_.find(assetId) == textureByAsset_.end()) {
+            const auto loaded = render::tryLoadCombatSpriteTexture(renderer, assetId);
+            textureByAsset_[assetId] = loaded.has_value() ? *loaded : nullptr;
         }
     }
     if (textureByAsset_.find(battleState.boss.assets) == textureByAsset_.end()) {
@@ -913,7 +914,6 @@ void BattleSessionCore::maybeStartUltimateTurnSplash(const flow::PreviewActorCon
         return;
     }
 
-    const CharacterDefinition& character = battleState.party[static_cast<size_t>(preview.partyIndex)];
     const std::string abilityId = manager_.resolveCharacterAbilityId(
         preview.partyIndex,
         preview.extraTurnAction,
@@ -926,7 +926,12 @@ void BattleSessionCore::maybeStartUltimateTurnSplash(const flow::PreviewActorCon
 
     SplashArtConfig cfg;
     cfg.abilityName = abilityDef != nullptr ? abilityDef->name : abilityId;
-    if (const auto texIt = textureByAsset_.find(character.assets); texIt != textureByAsset_.end()) {
+    const std::string assetId = manager_.resolveCharacterAssetId(preview.partyIndex, preview.abilityKitOverride);
+    if (renderer_ != nullptr && textureByAsset_.find(assetId) == textureByAsset_.end()) {
+        const auto loaded = render::tryLoadCombatSpriteTexture(renderer_, assetId);
+        textureByAsset_[assetId] = loaded.has_value() ? *loaded : nullptr;
+    }
+    if (const auto texIt = textureByAsset_.find(assetId); texIt != textureByAsset_.end()) {
         cfg.sprite = texIt->second;
     }
 
@@ -1017,6 +1022,35 @@ void BattleSessionCore::updateBossPhaseIntro(float deltaSeconds) {
  * @param actingPartyIndex Index of the party member who is acting, or -1 if none/not applicable.
  */
 void BattleSessionCore::updateSceneEntities(float deltaSeconds, bool bossActing, int actingPartyIndex) {
+    if (renderer_ != nullptr) {
+        const BattleState& battleState = manager_.getBattleState();
+        for (WorldEntity& entity : entities_) {
+            if (entity.isBoss ||
+                entity.partyIndex < 0 ||
+                static_cast<size_t>(entity.partyIndex) >= battleState.party.size()) {
+                continue;
+            }
+
+            const std::string assetId = manager_.resolveCharacterAssetId(entity.partyIndex);
+            if (!assetId.empty()) {
+                entity.assetName = assetId;
+                if (textureByAsset_.find(assetId) == textureByAsset_.end()) {
+                    const auto loaded = render::tryLoadCombatSpriteTexture(renderer_, assetId);
+                    textureByAsset_[assetId] = loaded.has_value() ? *loaded : nullptr;
+                }
+            }
+        }
+
+        for (const TurnActor& actor : manager_.getTurnState().actors) {
+            const std::string iconId = actor.assetId.empty() ? actor.key : actor.assetId;
+            const std::string iconKey = (actor.type == ParticipantType::Boss) ? "boss_" + iconId : iconId;
+            if (iconByAsset_.find(iconKey) == iconByAsset_.end()) {
+                const auto loaded = render::tryLoadCombatIconTexture(renderer_, iconId);
+                iconByAsset_[iconKey] = loaded.has_value() ? *loaded : nullptr;
+            }
+        }
+    }
+
     computeCharacterPositions(bossActing, actingPartyIndex);
     updateCharacterVisibilityTransitions(deltaSeconds);
 }
@@ -1160,6 +1194,13 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         if (commands.empty()) {
             return;
         }
+        if (context.presentationId == "sailor_venus_transformation" ||
+            context.presentationId == "sailor_venus_love_and_beauty_shock" ||
+            context.presentationId == "sailor_venus_love_and_beauty_shock_playable" ||
+            context.presentationId == "sailor_venus_crescent_beam" ||
+            context.presentationId == "sailor_venus_love_me_chain") {
+            manager_.markPresentationAbilityAudioPlayed();
+        }
         if (hooks_.onPresentationAudioCommands) {
             hooks_.onPresentationAudioCommands(context, commands);
         }
@@ -1226,14 +1267,16 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
                 specialDamage = manager_.applyConvertedPlayerSpecialDamageToBoss(
                     totalRequestedHealing,
                     abilityDef->multiplier,
-                    true
+                    true,
+                    context.casterIndex
                 );
             } else if (!context.isBoss &&
                        abilityDef->specialDamageSource == SpecialDamageSource::StoredHealingTally) {
                 specialDamage = manager_.applyConvertedPlayerSpecialDamageToBoss(
                     manager_.consumeTetoHealingTally(),
                     abilityDef->multiplier,
-                    true
+                    true,
+                    context.casterIndex
                 );
             }
 
@@ -1254,7 +1297,11 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         }
 
         if (ability::isTeamShieldBurstUltimate(*abilityDef)) {
-            const int totalDamage = manager_.applyCurrentTeamShieldDamageToBoss(true, abilityDef->multiplier);
+            const int totalDamage = manager_.applyCurrentTeamShieldDamageToBoss(
+                true,
+                abilityDef->multiplier,
+                context.casterIndex
+            );
             if (totalDamage > 0) {
                 if (hooks_.onPresentationHitAudio) {
                     hooks_.onPresentationHitAudio(context, hitEvents, manager_);
@@ -1271,24 +1318,28 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             return;
         }
 
-        int baseAtk = 0;
-        if (context.isBoss) {
-            baseAtk = manager_.getBossEffectiveAtk();
-        } else {
-            const BattleState& state = manager_.getBattleState();
-            if (context.casterIndex >= 0 &&
-                static_cast<size_t>(context.casterIndex) < state.party.size()) {
-                baseAtk = state.party[static_cast<size_t>(context.casterIndex)].atk;
-            }
-        }
+        const int baseAtk = context.isBoss
+            ? manager_.getBossEffectiveAtk()
+            : manager_.getCharacterEffectiveAtk(context.casterIndex);
 
         float hitDamageMultiplier = 1.0f;
         if (activePresentation_ != nullptr) {
             hitDamageMultiplier = std::max(0.0f, activePresentation_->consumeHitDamageMultiplier());
         }
 
+        const float damageBuffMultiplier = context.isBoss
+            ? 1.0f
+            : manager_.getCharacterDamageBuffMultiplier(context.casterIndex);
+        const float comboMultiplier = context.isBoss
+            ? 1.0f
+            : comboDamageMultiplier(manager_.getComboState().comboCount);
         float abilityMult = abilityDef->multiplier;
-        float totalDamageRaw = baseAtk * abilityMult * hitDamageMultiplier;
+        float totalDamageRaw =
+            static_cast<float>(baseAtk) *
+            abilityMult *
+            hitDamageMultiplier *
+            damageBuffMultiplier *
+            comboMultiplier;
         const int totalDamage = std::max(1, static_cast<int>(totalDamageRaw));
         const int perHitDamage = std::max(1, totalDamage / std::max(1, damageLabelHitCount));
         const int presentationTargetPartyIndex = context.isBoss ? context.targetIndex : -1;
@@ -1297,7 +1348,8 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             context.isBoss,
             perHitDamage,
             hitEvents,
-            presentationTargetPartyIndex
+            presentationTargetPartyIndex,
+            context.casterIndex
         );
         if (hooks_.onPresentationHitAudio) {
             hooks_.onPresentationHitAudio(context, hitEvents, manager_);
@@ -1318,6 +1370,10 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
             activePresentation_->shouldUseCenteredPartyLayout();
         const bool bossActingLayout = context.isBoss || useCenteredPartyLayout;
         const int actingPartyIndex = bossActingLayout ? -1 : context.casterIndex;
+
+        if (hooks_.onPresentationFrameUpdate) {
+            hooks_.onPresentationFrameUpdate(deltaSeconds);
+        }
 
         if (activePresentation_ != nullptr) {
             const std::vector<PresentationFeedbackEvent> feedbackEvents =
@@ -1392,6 +1448,9 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
         result.correctToneCount > 0) {
         manager_.addLuotianyiCorrectTones(result.correctToneCount);
     }
+    if (!context.isBoss && context.abilityId == "LoveAndBeautyShock") {
+        manager_.addSailorVenusSpaceTally(context.casterIndex, result.scoreValue);
+    }
 
     if (!consumedPresentationFeedback && result.feedbackSignal.valid()) {
         PresentationFeedbackEvent finalFeedback;
@@ -1412,10 +1471,10 @@ float BattleSessionCore::runPresentationInteraction(const PresentationContext& c
 std::string BattleSessionCore::resolvePresentationCasterAsset(const PresentationContext& context) const {
     const BattleState& battleState = manager_.getBattleState();
     if (context.isBoss) {
-        return battleState.boss.assets;
+        return battleState.boss.assets.empty() ? battleState.boss.key : battleState.boss.assets;
     }
     if (context.casterIndex >= 0 && static_cast<size_t>(context.casterIndex) < battleState.party.size()) {
-        return battleState.party[static_cast<size_t>(context.casterIndex)].assets;
+        return manager_.resolveCharacterVoiceAssetId(context.casterIndex);
     }
     return std::string();
 }

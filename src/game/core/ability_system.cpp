@@ -126,7 +126,8 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
                 context.baseDamage *
                 ability.multiplier *
                 context.presentationMultiplier *
-                context.comboMultiplier
+                context.comboMultiplier *
+                context.damageBuffMultiplier
             ));
             applyBossOffenseResult(context, finalDamage, bossCurrentHp);
             break;
@@ -194,7 +195,8 @@ void executeAbilityEffect(const AbilityExecutionContext& context,
                     context.baseDamage *
                     ability.multiplier *
                     context.presentationMultiplier *
-                    context.comboMultiplier
+                    context.comboMultiplier *
+                    context.damageBuffMultiplier
                 ));
                 applyBossOffenseResult(context, finalDamage, bossCurrentHp);
             }
