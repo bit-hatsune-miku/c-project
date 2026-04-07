@@ -548,6 +548,18 @@ std::string combatVoiceSpeakerKey(const battle::BossDefinition& boss) {
     return boss.key;
 }
 
+bool shouldUseUltimateVoiceClip(const battle::BattleActionEvent& event) {
+    return event.action == battle::BattleAction::Ultimate ||
+        (event.actorType == battle::ParticipantType::Character &&
+         event.actorKey == "zhouShen" &&
+         event.abilityId == "ZhouShenBigFishFollowUp");
+}
+
+bool shouldUseUltimateVoiceClip(const battle::PresentationContext& context) {
+    return context.isUltimate ||
+        (!context.isBoss && context.abilityId == "ZhouShenBigFishFollowUp");
+}
+
 std::string inferScriptSpeakerKey(const vn::ScriptEntry& entry, const battle::BattleState& battleState) {
     if (!entry.voiceSpeakerId.empty()) {
         return entry.voiceSpeakerId;
@@ -1374,7 +1386,17 @@ void consumeBattleActionEvents(HudFeedbackState& feedback,
                 : std::string());
         resolveBattleHintsFromActionEvent(feedback, event);
 
-        if (!event.abilityVoicesHandledDuringPresentation && event.action == battle::BattleAction::Skill) {
+        if (!event.abilityVoicesHandledDuringPresentation &&
+            event.action == battle::BattleAction::Skill &&
+            shouldUseUltimateVoiceClip(event)) {
+            if (const auto ultimateVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "ultimate");
+                ultimateVoice.has_value()) {
+                (void)gOneShotAudio.playWavOneShot(*ultimateVoice, voiceVolume);
+            } else if (const auto abilityVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "ability");
+                       abilityVoice.has_value()) {
+                (void)gOneShotAudio.playWavOneShot(*abilityVoice, voiceVolume);
+            }
+        } else if (!event.abilityVoicesHandledDuringPresentation && event.action == battle::BattleAction::Skill) {
             if (const auto abilityVoice = platform::path::resolveCombatVoicePath(actorVoiceKey, "ability");
                 abilityVoice.has_value()) {
                 (void)gOneShotAudio.playWavOneShot(*abilityVoice, voiceVolume);
@@ -3499,7 +3521,22 @@ private:
                     ? combatVoiceAssetId(battleState.party[static_cast<size_t>(event.actorPartyIndex)])
                     : std::string());
 
-            if (!event.abilityVoicesHandledDuringPresentation && event.action == battle::BattleAction::Skill) {
+            if (!event.abilityVoicesHandledDuringPresentation &&
+                event.action == battle::BattleAction::Skill &&
+                shouldUseUltimateVoiceClip(event)) {
+                if (!requestCombatVoiceClip(actorSpeakerKey,
+                                            actorAssetName,
+                                            game::audio::BattleVoiceKind::Ultimate,
+                                            voiceVolume,
+                                            {"ultimate", "ability"}) &&
+                    actorIsBoss) {
+                    (void)requestCombatVoiceClip(actorSpeakerKey,
+                                                 battleState.boss.key,
+                                                 game::audio::BattleVoiceKind::Ultimate,
+                                                 voiceVolume,
+                                                 {"ultimate", "ability"});
+                }
+            } else if (!event.abilityVoicesHandledDuringPresentation && event.action == battle::BattleAction::Skill) {
                 if (!requestCombatVoiceClip(actorSpeakerKey,
                                             actorAssetName,
                                             game::audio::BattleVoiceKind::Ability,
@@ -4048,7 +4085,7 @@ private:
                 clipName = (presentationAudioCueIndex_ == 1) ? "ability" : "ability2";
             } else if (casterAssetName == "cupcakke" && context.presentationId == "niagara_falls_ultimate") {
                 clipName = (presentationAudioCueIndex_ == 1) ? "ultimate" : "ability2";
-            } else if (context.isUltimate) {
+            } else if (shouldUseUltimateVoiceClip(context)) {
                 clipName = "ultimate";
             }
 

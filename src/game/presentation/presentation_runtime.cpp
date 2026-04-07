@@ -439,8 +439,17 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     if (stateRefs.activePresentation) {
         *stateRefs.activePresentation = presentation.get();
     }
+
+    const auto dispatchAbilityAudioCues = [&]() {
+        const int abilityAudioCues = presentation->consumeAbilityAudioCues();
+        if (abilityAudioCues > 0 && callbacks.onAbilityAudioCues) {
+            callbacks.onAbilityAudioCues(abilityAudioCues);
+        }
+    };
+
     if (!presentationStarted) {
         presentation->start();
+        dispatchAbilityAudioCues();
     }
     Uint64 lastCounter = SDL_GetPerformanceCounter();
 
@@ -496,12 +505,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
             callbacks.onHintCommands(hintCommands);
         }
 
-        const int abilityAudioCues = presentation->consumeAbilityAudioCues();
-        if (abilityAudioCues > 0) {
-            if (callbacks.onAbilityAudioCues) {
-                callbacks.onAbilityAudioCues(abilityAudioCues);
-            }
-        }
+        dispatchAbilityAudioCues();
 
         const int presentationHitEvents = presentation->consumeHitEvents();
         if (presentationHitEvents > 0) {

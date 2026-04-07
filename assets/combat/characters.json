@@ -408,6 +408,7 @@
         "isSinger": true,
         "title": "周深",
         "assets": "zhouShen",
+        "voiceAssetId": "zhoushen",
         "class": "Buffer",
         "spd": 190,
         "atk": 40,
