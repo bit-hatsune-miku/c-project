@@ -19,6 +19,7 @@ struct ScriptEntry {
     std::string text;
     EntryType type;
     std::string background;
+    bool clearBackground;
     std::string voice;
     std::string voiceSpeakerId;
     std::string bgm;
@@ -30,6 +31,9 @@ struct ScriptEntry {
     int iconFrameCount;
     float iconFps;
     bool autoAdvanceOnVoiceEnd;
+    std::string battleFocus;
+    std::string scriptedAction;
+    std::string bossTitleOverride;
     std::string battleKey;       // Preferred way to trigger combat from VN.
     int battleId;                // Legacy fallback; kept for compatibility.
     std::string battleWinScript; // Optional JSON script to load after winning the battle.
@@ -37,6 +41,7 @@ struct ScriptEntry {
 
     ScriptEntry()
         : type(EntryType::Dialogue)
+        , clearBackground(false)
         , bgm()
         , bgmVolume(-1.0f)
         , bgmStop(false)
@@ -44,6 +49,9 @@ struct ScriptEntry {
         , iconFrameCount(1)
         , iconFps(8.0f)
         , autoAdvanceOnVoiceEnd(false)
+        , battleFocus()
+        , scriptedAction()
+        , bossTitleOverride()
         , battleKey()
         , battleId(-1)
         , battleWinScript()

@@ -11,12 +11,14 @@
 #include "jiafei_ultimate_presentation.h"
 #include "lyoo_heal_presentation.h"
 #include "lyoo_boss_presentation.h"
+#include "lyoo_phase3_wipe_presentation.h"
 #include "lyoo_plot_twist_presentation.h"
 #include "luotianyi_boss_presentation.h"
 #include "luotianyi_skill_presentation.h"
 #include "luotianyi_ultimate_presentation.h"
 #include "miku_sing_presentation.h"
 #include "miku_diandong_presentation.h"
+#include "miku_phase3_finisher_presentation.h"
 #include "miku_self_corruption_presentation.h"
 #include "minako_strike_presentation.h"
 #include "huafei_boss_presentation.h"
@@ -298,6 +300,26 @@ void registerAllPresentations() {
         float targetWorldX, float targetWorldY, float targetWorldZ
     ) -> std::unique_ptr<AbilityPresentation> {
         return std::make_unique<LyooPlotTwistPresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("lyoo_phase3_wipe", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<LyooPhase3WipePresentation>(
+            casterWorldX, casterWorldY, casterWorldZ,
+            targetWorldX, targetWorldY, targetWorldZ
+        );
+    });
+
+    registry.registerPresentation("miku_phase3_finisher", [](
+        float casterWorldX, float casterWorldY, float casterWorldZ,
+        float targetWorldX, float targetWorldY, float targetWorldZ
+    ) -> std::unique_ptr<AbilityPresentation> {
+        return std::make_unique<MikuPhase3FinisherPresentation>(
             casterWorldX, casterWorldY, casterWorldZ,
             targetWorldX, targetWorldY, targetWorldZ
         );

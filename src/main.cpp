@@ -779,12 +779,16 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
     const std::string bgmPath = entry.bgm.empty() ? std::string{} : platform::path::resolvePath(entry.bgm);
     const std::string fontPath = entry.fontPath.empty() ? std::string{} : platform::path::resolvePath(entry.fontPath);
     const std::string backgroundRef = entry.background.empty()
-        ? effectiveStoryBackground(story, story.entryIndex)
+        ? (entry.clearBackground ? std::string{} : effectiveStoryBackground(story, story.entryIndex))
         : entry.background;
     const std::string backgroundPath = backgroundRef.empty()
         ? std::string{}
         : (vn::isHexColorString(backgroundRef) ? backgroundRef : platform::path::resolvePath(backgroundRef));
     const std::string accentColor = vn::isHexColorString(entry.color) ? entry.color : std::string{};
+
+    if (entry.clearBackground) {
+        vn::setBackground("");
+    }
 
     vn::showLine(
         entry.text,

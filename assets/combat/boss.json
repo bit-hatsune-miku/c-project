@@ -100,7 +100,24 @@
         "ultimatePoints": 6,
         "startingOrbs": 1,
         "bgm": "lyooPlotTwist",
-        "bgmVolume": 0.1
+        "bgmVolume": 0.1,
+        "phases": {
+            "phase1": {
+                "bgm": "lyooPlotTwist",
+                "bgmVolume": 0.1,
+                "atkBonusPercent": 0
+            },
+            "phase2": {
+                "bgm": "lyooPlotTwist",
+                "bgmVolume": 0.14,
+                "atkBonusPercent": 25
+            },
+            "phase3": {
+                "bgm": "lyooPlotTwist",
+                "bgmVolume": 0.18,
+                "atkBonusPercent": 50
+            }
+        }
     },
     "corruptedMiku": {
         "title": "Corrupted Hatsune Miku",

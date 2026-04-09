@@ -207,6 +207,9 @@ struct PresentationContext {
     std::vector<int> resolvedTargetIndices;
     bool isBoss = false;
     bool isUltimate = false;
+    bool suppressPrompt = false;
+    bool suppressHint = false;
+    bool suppressBossWarning = false;
     PresentationTuningProfile tuningProfile{};
 };
 
@@ -537,6 +540,7 @@ public:
     int getBossMaxHp() const;
     int getBossEffectiveAtk() const;
     int getBossPhaseIndex() const;
+    void setBossTitle(const std::string& title);
     std::optional<BossPhaseTransition> consumeBossPhaseTransition();
     std::string getCurrentBossBgm() const;
     float getCurrentBossBgmVolume() const;

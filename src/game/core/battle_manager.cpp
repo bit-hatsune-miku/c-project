@@ -529,6 +529,15 @@ int BattleManager::getBossPhaseIndex() const {
     return bossPhaseIndex_;
 }
 
+void BattleManager::setBossTitle(const std::string& title) {
+    state_.boss.title = title;
+    for (TurnActor& actor : turnState_.actors) {
+        if (actor.type == ParticipantType::Boss) {
+            actor.title = state_.boss.title;
+        }
+    }
+}
+
 /**
  * @brief Retrieves and clears any pending boss phase transition.
  *

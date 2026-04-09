@@ -232,6 +232,10 @@ void DemoNarrativeFlow::showDialogueLine(const DialogueLine& line) const {
     const std::string bgmPath = line.bgm.empty() ? std::string{} : platform::path::resolvePath(line.bgm);
     const std::string fontPath = line.fontPath.empty() ? std::string{} : platform::path::resolvePath(line.fontPath);
 
+    if (line.clearBackground) {
+        vn::setBackground("");
+    }
+
     vn::showLine(
         line.text,
         speakerName,

@@ -307,7 +307,10 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
     // ------------------------------------------------------------------
     // Boss warning / splash art intro (pre-presentation)
     // ------------------------------------------------------------------
-    if (context.isBoss && callbacks.setRenderOverlay && callbacks.clearRenderOverlay) {
+    if (context.isBoss &&
+        !context.suppressBossWarning &&
+        callbacks.setRenderOverlay &&
+        callbacks.clearRenderOverlay) {
         presentation->start();
         presentationStarted = true;
         if (stateRefs.activePresentation) {

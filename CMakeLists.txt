@@ -152,6 +152,8 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/miku_sing_presentation.h
     src/game/presentation/miku_diandong_presentation.cpp
     src/game/presentation/miku_diandong_presentation.h
+    src/game/presentation/miku_phase3_finisher_presentation.cpp
+    src/game/presentation/miku_phase3_finisher_presentation.h
     src/game/presentation/miku_self_corruption_presentation.cpp
     src/game/presentation/miku_self_corruption_presentation.h
     src/game/presentation/minako_strike_presentation.cpp
@@ -188,6 +190,8 @@ set(BATTLE_PRESENTATION_SOURCES
     src/game/presentation/jiafei_ultimate_presentation.h
     src/game/presentation/lyoo_boss_presentation.cpp
     src/game/presentation/lyoo_boss_presentation.h
+    src/game/presentation/lyoo_phase3_wipe_presentation.cpp
+    src/game/presentation/lyoo_phase3_wipe_presentation.h
     src/game/presentation/lyoo_plot_twist_presentation.cpp
     src/game/presentation/lyoo_plot_twist_presentation.h
     src/game/presentation/luotianyi_boss_presentation.cpp

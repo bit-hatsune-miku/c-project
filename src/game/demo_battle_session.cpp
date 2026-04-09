@@ -157,6 +157,10 @@ void showDialogueLine(const DialogueLine& line) {
     const std::string bgmPath = line.bgm.empty() ? std::string{} : resolvePath(line.bgm);
     const std::string fontPath = line.fontPath.empty() ? std::string{} : resolvePath(line.fontPath);
 
+    if (line.clearBackground) {
+        vn::setBackground("");
+    }
+
     vn::showLine(
         line.text,
         speakerName,
@@ -1779,6 +1783,10 @@ private:
         const std::string bgmPath = line.bgm.empty() ? std::string{} : platform::path::resolvePath(line.bgm);
         const std::string fontPath = line.fontPath.empty() ? std::string{} : platform::path::resolvePath(line.fontPath);
         const std::string speakerKey = inferScriptSpeakerKey(line, battleState);
+
+        if (line.clearBackground) {
+            vn::setBackground("");
+        }
 
         bool allowVoice = false;
         if (!voicePath.empty() && std::filesystem::exists(voicePath)) {

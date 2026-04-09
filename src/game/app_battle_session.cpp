@@ -238,6 +238,17 @@ struct CameraIntroAnimation {
     float goalFocal = 0.0f;
 };
 
+struct ScriptedBattleSequenceState {
+    bool enabled = false;
+    bool active = false;
+    bool showingLine = false;
+    bool runningScriptedAction = false;
+    bool phase3Triggered = false;
+    std::vector<vn::ScriptEntry> lines;
+    size_t currentLineIndex = 0;
+    std::string currentBattleFocus;
+};
+
 class CallbackEventListener final : public Rml::EventListener {
 public:
     explicit CallbackEventListener(std::function<void(Rml::Event&)> callback)
@@ -1850,7 +1861,7 @@ public:
         }
 
         tutorialEnabled_ = false;
-        narrativeEnabled_ = (battleDefinition_.type == "tutorial");
+        narrativeEnabled_ = usesDemoNarrativeFlow() || isLyooPlotTwistBattle();
         narrativeInitialized_ = false;
 
 #ifdef BATTLE_ENABLE_TTF
@@ -1911,13 +1922,22 @@ public:
                 vn::setVoiceVolume(settings_->voiceVolume);
                 vn::setTypewriterSpeed(settings_->textSpeed);
             }
-            narrative_.setDialogueLinePresenter([this](const vn::ScriptEntry& line) {
-                presentNarrativeLine(line);
-            });
-            if (!narrative_.initialize(true)) {
-                std::cerr << "[Battle] Failed to initialize battle narrative flow.\n";
-                shutdown();
-                return false;
+            if (usesDemoNarrativeFlow()) {
+                narrative_.setDialogueLinePresenter([this](const vn::ScriptEntry& line) {
+                    presentNarrativeLine(line);
+                });
+                if (!narrative_.initialize(true)) {
+                    std::cerr << "[Battle] Failed to initialize battle narrative flow.\n";
+                    shutdown();
+                    return false;
+                }
+            } else {
+                narrative_.setDialogueLinePresenter({});
+                if (!loadScriptedBattleSequence("assets/vn/json/finale_phase3.json", lyooPhase3Sequence_)) {
+                    std::cerr << "[Battle] Failed to load Lyoo phase 3 scripted sequence.\n";
+                    shutdown();
+                    return false;
+                }
             }
             narrativeInitialized_ = true;
         } else {
@@ -2144,6 +2164,7 @@ public:
         tutorialEnabled_ = false;
         narrativeEnabled_ = false;
         narrativeInitialized_ = false;
+        lyooPhase3Sequence_ = ScriptedBattleSequenceState{};
         tutorialOverlay_ = TutorialOverlayState{};
         tutorialLibrary_ = TutorialScriptLibrary{};
         hudFeedback_ = HudFeedbackState{};
@@ -2287,7 +2308,11 @@ public:
                     freeViewCameraDebugLog_.clear();
                 }
             } else if (event.key.keysym.sym == SDLK_SPACE && isDialogueInProgress()) {
-                narrative_.onDialogueSpacePressed();
+                if (usesDemoNarrativeFlow()) {
+                    narrative_.onDialogueSpacePressed();
+                } else {
+                    onLyooPhase3DialogueSpacePressed();
+                }
                 syncFinishedBattleVoiceState();
                 return;
             } else if (event.key.keysym.sym == SDLK_SPACE && tutorialOverlay_.step != TutorialStep::None) {
@@ -2358,6 +2383,7 @@ public:
                     }
 
                     const bool allowAutoTurns =
+                        !usesDemoNarrativeFlow() ||
                         !narrativeEnabled_ ||
                         !narrativeInitialized_ ||
                         narrative_.onPlayerTurnExecuted(turnExecution);
@@ -2445,23 +2471,30 @@ public:
         }
 
         while (const std::optional<battle::BossPhaseTransition> transition = manager_.consumeBossPhaseTransition()) {
-            startBossPhaseIntro(*transition);
-            startBossPhaseAutoActionIndicator(*transition, nowMs);
+            const bool suppressLyooPhasePresentation = isLyooPlotTwistBattle();
+            if (!suppressLyooPhasePresentation) {
+                startBossPhaseIntro(*transition);
+                startBossPhaseAutoActionIndicator(*transition, nowMs);
+            }
             battleBgmBaseVolume_ = std::clamp(manager_.getCurrentBossBgmVolume(), 0.0f, 1.0f);
             const std::string bgmName = manager_.getCurrentBossBgm();
-            if (bgmName.empty()) {
-                continue;
-            }
-            if (const auto bgmPath = platform::path::resolveCombatBgmPath(bgmName); bgmPath.has_value()) {
-                gBattleBgmController.requestTrack(*bgmPath, battleBgmBaseVolume_);
-            }
-            const battle::BattleState& battleState = manager_.getBattleState();
-            int phaseIndex = transition->toPhaseIndex;
-            if (phaseIndex >= 0 && phaseIndex < static_cast<int>(battleState.boss.phases.size())) {
-                const std::string& phaseVoice = battleState.boss.phases[phaseIndex].phaseChangeVoice;
-                if (!phaseVoice.empty()) {
-                    (void)playBossPhaseTransitionVoice(phaseVoice, currentVoiceVolume());
+            if (!bgmName.empty()) {
+                if (const auto bgmPath = platform::path::resolveCombatBgmPath(bgmName); bgmPath.has_value()) {
+                    gBattleBgmController.requestTrack(*bgmPath, battleBgmBaseVolume_);
                 }
+            }
+            if (!suppressLyooPhasePresentation) {
+                const battle::BattleState& battleState = manager_.getBattleState();
+                int phaseIndex = transition->toPhaseIndex;
+                if (phaseIndex >= 0 && phaseIndex < static_cast<int>(battleState.boss.phases.size())) {
+                    const std::string& phaseVoice = battleState.boss.phases[phaseIndex].phaseChangeVoice;
+                    if (!phaseVoice.empty()) {
+                        (void)playBossPhaseTransitionVoice(phaseVoice, currentVoiceVolume());
+                    }
+                }
+            }
+            if (isLyooPlotTwistBattle() && transition->toPhaseIndex == 2) {
+                startLyooPhase3Sequence();
             }
         }
 
@@ -2492,12 +2525,22 @@ public:
             syncNarrativeSettings();
             vn::update(deltaSeconds);
             syncFinishedBattleVoiceState();
-            narrative_.maybeStartBossDefeatedDialogue(manager_);
-            narrative_.handleAutomaticProgression(
-                manager_,
-                [this, nowMs](battle::BattleManager&) {
-                    return processNextAutomaticTurnWithIndicator(nowMs);
-                });
+            if (usesDemoNarrativeFlow()) {
+                narrative_.maybeStartBossDefeatedDialogue(manager_);
+                narrative_.handleAutomaticProgression(
+                    manager_,
+                    [this, nowMs](battle::BattleManager&) {
+                        return processNextAutomaticTurnWithIndicator(nowMs);
+                    });
+            } else if (!lyooPhase3Sequence_.active && !manager_.isBattleOver()) {
+                (void)processNextAutomaticTurnWithIndicator(nowMs);
+            }
+            if (!usesDemoNarrativeFlow() &&
+                lyooPhase3Sequence_.showingLine &&
+                vn::consumeAdvanceRequest()) {
+                advanceLyooPhase3SequenceLine();
+                syncFinishedBattleVoiceState();
+            }
         } else {
             (void)processNextAutomaticTurnWithIndicator(nowMs);
         }
@@ -2588,6 +2631,7 @@ public:
         const int actingPartyIndex =
             (!bossActing && preview.partyIndex >= 0) ? preview.partyIndex : -1;
         updateSceneEntities(deltaSeconds, bossActing, actingPartyIndex);
+        applyLyooPhase3BattleFocusCamera();
         maybeHandleIdleVoiceline(nowMs);
 
         refreshBattleInputPromptPreview(nowMs);
@@ -2764,7 +2808,7 @@ public:
         const bool hasPresentationOverlayPass =
             activeUltimateTurnSplash_ != nullptr ||
             static_cast<bool>(activeOverlay_) ||
-            isDialogueInProgress();
+            shouldRenderNarrativeOverlay();
         if (hasPresentationOverlayPass &&
             presentationOverlayRenderer_.renderer != nullptr &&
             presentationOverlayRenderer_.surface != nullptr) {
@@ -2781,7 +2825,7 @@ public:
             if (activeOverlay_) {
                 activeOverlay_(presentationOverlayRenderer_.renderer, sceneWidth(), sceneHeight());
             }
-            if (isDialogueInProgress()) {
+            if (shouldRenderNarrativeOverlay()) {
                 vn::render();
             }
 
@@ -3016,7 +3060,23 @@ private:
      * @return `true` if narrative support is enabled, initialized, and a dialogue is in progress; `false` otherwise.
      */
     bool isDialogueInProgress() const {
-        return narrativeEnabled_ && narrativeInitialized_ && narrative_.isDialogueInProgress();
+        if (!narrativeEnabled_ || !narrativeInitialized_) {
+            return false;
+        }
+        if (usesDemoNarrativeFlow()) {
+            return narrative_.isDialogueInProgress();
+        }
+        return lyooPhase3Sequence_.active;
+    }
+
+    bool shouldRenderNarrativeOverlay() const {
+        if (!narrativeEnabled_ || !narrativeInitialized_) {
+            return false;
+        }
+        if (usesDemoNarrativeFlow()) {
+            return narrative_.isDialogueInProgress();
+        }
+        return lyooPhase3Sequence_.active && lyooPhase3Sequence_.showingLine;
     }
 
     bool isBattleSpaceEnabled() const {
@@ -3026,7 +3086,10 @@ private:
         if (!narrativeInitialized_) {
             return false;
         }
-        return narrative_.isSpaceEnabledForBattle();
+        if (usesDemoNarrativeFlow()) {
+            return narrative_.isSpaceEnabledForBattle();
+        }
+        return !lyooPhase3Sequence_.active;
     }
 
     void syncNarrativeSettings() const {
@@ -3448,6 +3511,36 @@ private:
             currentVoiceVolume());
     }
 
+    void interruptActiveNarrativeVoicePlayback() {
+        syncFinishedBattleVoiceState();
+
+        if (!activeVnVoiceSpeakerKey_.empty()) {
+            const std::string speakerKey = activeVnVoiceSpeakerKey_;
+            voiceArbiter_.stopSpeaker(
+                speakerKey,
+                [this](const game::audio::BattleVoicePlayback& playback) {
+                    stopBattleVoicePlayback(playback);
+                });
+            activeVnVoiceSpeakerKey_.clear();
+            return;
+        }
+
+        if (vn::isVoicePlaying()) {
+            vn::stopVoicePlayback();
+        }
+    }
+
+    void logNarrativeVoiceIssue(const vn::ScriptEntry& line,
+                                const std::string& speakerKey,
+                                const std::string& voicePath,
+                                const char* reason) const {
+        std::cerr << "[BattleVN] " << reason
+                  << " speaker=\"" << vn::getDisplaySpeakerName(line) << "\""
+                  << " key=\"" << speakerKey << "\""
+                  << " voice=\"" << voicePath << "\""
+                  << " text=\"" << line.text << "\"\n";
+    }
+
     void presentNarrativeLine(const vn::ScriptEntry& line) {
         const std::string speakerName = vn::getDisplaySpeakerName(line);
         const std::string iconPath = line.icon.empty() ? std::string{} : platform::path::resolvePath(line.icon);
@@ -3458,6 +3551,12 @@ private:
         const std::string bgmPath = line.bgm.empty() ? std::string{} : platform::path::resolvePath(line.bgm);
         const std::string fontPath = line.fontPath.empty() ? std::string{} : platform::path::resolvePath(line.fontPath);
         const std::string speakerKey = resolveScriptVoiceSpeakerKey(line);
+
+        if (line.clearBackground) {
+            vn::setBackground("");
+        }
+
+        interruptActiveNarrativeVoicePlayback();
 
         bool allowVoice = false;
         if (!voicePath.empty() && std::filesystem::exists(voicePath)) {
@@ -3478,6 +3577,11 @@ private:
                         return 1;
                     }
                 });
+            if (!allowVoice) {
+                logNarrativeVoiceIssue(line, speakerKey, voicePath, "voice request denied");
+            }
+        } else if (!line.voice.empty()) {
+            logNarrativeVoiceIssue(line, speakerKey, voicePath, "voice asset missing");
         }
 
         vn::showLine(
@@ -3497,6 +3601,231 @@ private:
         );
 
         activeVnVoiceSpeakerKey_ = allowVoice ? speakerKey : std::string();
+        if (allowVoice && currentVoiceVolume() > 0.0f && !vn::isVoicePlaying()) {
+            logNarrativeVoiceIssue(line, speakerKey, voicePath, "voice failed to start");
+            activeVnVoiceSpeakerKey_.clear();
+        }
+    }
+
+    bool usesDemoNarrativeFlow() const {
+        return battleDefinition_.type == "tutorial";
+    }
+
+    bool isLyooPlotTwistBattle() const {
+        return battleDefinition_.key == "lyoo_plot_twist";
+    }
+
+    bool loadScriptedBattleSequence(const std::string& relativePath, ScriptedBattleSequenceState& sequence) {
+        sequence = ScriptedBattleSequenceState{};
+
+        vn::Script script;
+        if (!vn::loadScript(platform::path::resolvePath(relativePath), script)) {
+            return false;
+        }
+
+        sequence.enabled = !script.entries.empty();
+        sequence.lines = std::move(script.entries);
+        return sequence.enabled;
+    }
+
+    int findPartyIndexByKey(const std::string& characterKey) const {
+        const battle::BattleState& battleState = manager_.getBattleState();
+        for (size_t i = 0; i < battleState.party.size(); ++i) {
+            if (battleState.party[i].key == characterKey) {
+                return static_cast<int>(i);
+            }
+        }
+        return -1;
+    }
+
+    void reviveEntirePartyToFull() {
+        const battle::BattleState& battleState = manager_.getBattleState();
+        for (size_t i = 0; i < battleState.party.size(); ++i) {
+            const int partyIndex = static_cast<int>(i);
+            manager_.reviveCharacter(partyIndex, manager_.getCharacterMaxHp(partyIndex));
+        }
+    }
+
+    void finishLyooPhase3Sequence() {
+        lyooPhase3Sequence_.active = false;
+        lyooPhase3Sequence_.showingLine = false;
+        lyooPhase3Sequence_.runningScriptedAction = false;
+        lyooPhase3Sequence_.currentLineIndex = 0;
+        lyooPhase3Sequence_.currentBattleFocus.clear();
+        vn::reset();
+    }
+
+    bool isLyooPhase3PresentationOnlyEntry(const vn::ScriptEntry& line) const {
+        return !line.scriptedAction.empty() &&
+            line.text.empty() &&
+            line.speaker.empty() &&
+            line.voice.empty() &&
+            line.icon.empty() &&
+            line.background.empty();
+    }
+
+    void advanceLyooPhase3SequenceLine() {
+        if (!lyooPhase3Sequence_.active) {
+            return;
+        }
+
+        ++lyooPhase3Sequence_.currentLineIndex;
+        (void)presentNextLyooPhase3Entry();
+    }
+
+    void applyLyooPhase3ScriptedAction(const std::string& actionId) {
+        if (actionId == "lyoo_phase3_attack") {
+            battle::PresentationContext context;
+            context.abilityId = "IfICantHaveWingsThenIllJustLetTheSkyFall";
+            context.presentationId = "lyoo_phase3_wipe";
+            context.isBoss = true;
+            context.suppressPrompt = true;
+            context.suppressHint = true;
+            context.suppressBossWarning = true;
+            (void)runPresentationInteraction(context);
+            reviveEntirePartyToFull();
+            return;
+        }
+
+        if (actionId == "miku_phase3_finisher") {
+            const int mikuPartyIndex = std::max(0, findPartyIndexByKey("miku"));
+            battle::PresentationContext context;
+            context.abilityId = "DianDongPower";
+            if (const battle::AbilityDefinition* abilityDef = manager_.findAbilityDefinition(context.abilityId);
+                abilityDef != nullptr) {
+                context.abilityName = abilityDef->name;
+            }
+            context.presentationId = "miku_phase3_finisher";
+            context.casterIndex = mikuPartyIndex;
+            context.targetIndex = -1;
+            context.isUltimate = true;
+            context.suppressPrompt = true;
+            context.suppressHint = true;
+            (void)runPresentationInteraction(context);
+            (void)manager_.applyConvertedPlayerSpecialDamageToBoss(
+                std::max(1, manager_.getBossCurrentHp()),
+                6.0f,
+                true,
+                mikuPartyIndex
+            );
+        }
+    }
+
+    bool presentNextLyooPhase3Entry() {
+        while (lyooPhase3Sequence_.active &&
+               lyooPhase3Sequence_.currentLineIndex < lyooPhase3Sequence_.lines.size()) {
+            const vn::ScriptEntry& line =
+                lyooPhase3Sequence_.lines[lyooPhase3Sequence_.currentLineIndex];
+
+            if (!line.bossTitleOverride.empty()) {
+                manager_.setBossTitle(line.bossTitleOverride);
+            }
+            lyooPhase3Sequence_.currentBattleFocus = normalizeVoiceLookupToken(line.battleFocus);
+
+            if (isLyooPhase3PresentationOnlyEntry(line)) {
+                lyooPhase3Sequence_.showingLine = false;
+                lyooPhase3Sequence_.runningScriptedAction = true;
+                if (line.clearBackground) {
+                    vn::setBackground("");
+                }
+                applyLyooPhase3ScriptedAction(line.scriptedAction);
+                lyooPhase3Sequence_.runningScriptedAction = false;
+                ++lyooPhase3Sequence_.currentLineIndex;
+                continue;
+            }
+
+            lyooPhase3Sequence_.showingLine = true;
+            lyooPhase3Sequence_.runningScriptedAction = false;
+            presentNarrativeLine(line);
+            return true;
+        }
+
+        finishLyooPhase3Sequence();
+        return false;
+    }
+
+    void startLyooPhase3Sequence() {
+        if (!lyooPhase3Sequence_.enabled || lyooPhase3Sequence_.phase3Triggered) {
+            return;
+        }
+
+        lyooPhase3Sequence_.phase3Triggered = true;
+        lyooPhase3Sequence_.active = true;
+        lyooPhase3Sequence_.showingLine = false;
+        lyooPhase3Sequence_.runningScriptedAction = false;
+        lyooPhase3Sequence_.currentLineIndex = 0;
+        lyooPhase3Sequence_.currentBattleFocus.clear();
+        hudFeedback_.autoActionIndicator = battle::app::ui::AutoActionIndicatorState{};
+        clearBattleInputPrompt();
+        stopIdleVoicelinePlayback();
+        activeUltimateTurnSplash_.reset();
+        previewUltimateSplashPartyIndex_ = -1;
+        vn::reset();
+        (void)presentNextLyooPhase3Entry();
+    }
+
+    void onLyooPhase3DialogueSpacePressed() {
+        if (!lyooPhase3Sequence_.active || !lyooPhase3Sequence_.showingLine) {
+            return;
+        }
+
+        if (!vn::isLineFinished()) {
+            vn::onSpacePressed();
+            return;
+        }
+
+        advanceLyooPhase3SequenceLine();
+    }
+
+    void aimCameraAtTarget(battle::Camera3D& camera, float targetX, float targetY, float targetZ) const {
+        const float dx = targetX - camera.posX;
+        const float dy = targetY - camera.posY;
+        const float dz = targetZ - camera.posZ;
+        const float horizontal = std::sqrt((dx * dx) + (dy * dy));
+        camera.yawDegrees = std::atan2(-dx, dy) * 180.0f / kPi;
+        camera.pitchDegrees = std::atan2(dz, std::max(1.0f, horizontal)) * 180.0f / kPi;
+    }
+
+    void applyLyooPhase3BattleFocusCamera() {
+        if (!lyooPhase3Sequence_.active ||
+            !lyooPhase3Sequence_.showingLine ||
+            freeViewEnabled_ ||
+            presentationPlaybackActive_) {
+            return;
+        }
+
+        const std::string focus = lyooPhase3Sequence_.currentBattleFocus;
+        if (focus.empty() || focus == "none") {
+            return;
+        }
+
+        int entityIndex = -1;
+        if (focus == "boss") {
+            entityIndex = findBossEntityIndex(entities_);
+        } else if (focus == "miku") {
+            entityIndex = findEntityIndexByPartyIndex(entities_, findPartyIndexByKey("miku"));
+        }
+        if (entityIndex < 0 || static_cast<size_t>(entityIndex) >= entities_.size()) {
+            return;
+        }
+
+        const SceneEntity& entity = entities_[static_cast<size_t>(entityIndex)];
+        battle::Camera3D focusCamera = camera_;
+        if (focus == "boss") {
+            focusCamera.posX = entity.worldX + 42.0f;
+            focusCamera.posY = entity.worldY - 272.0f;
+            focusCamera.posZ = -198.0f;
+            focusCamera.focalLength = 46800.0f;
+            aimCameraAtTarget(focusCamera, entity.worldX + 4.0f, entity.worldY + 10.0f, entity.worldZ - 236.0f);
+        } else {
+            focusCamera.posX = entity.worldX - 156.0f;
+            focusCamera.posY = entity.worldY - 118.0f;
+            focusCamera.posZ = -128.0f;
+            focusCamera.focalLength = 45200.0f;
+            aimCameraAtTarget(focusCamera, entity.worldX + 8.0f, entity.worldY + 12.0f, entity.worldZ - 152.0f);
+        }
+
+        camera_ = focusCamera;
     }
 
     void consumeBattleActionEvents(Uint64 nowMs,
@@ -4333,8 +4662,14 @@ private:
         const battle::AbilityDefinition* abilityDef = manager_.findAbilityDefinition(context.abilityId);
         const Uint64 promptStartedMs = SDL_GetTicks64();
         beginPresentationDamageTracking(hudFeedback_);
-        showBattlePresentationPrompt(abilityDef, context.isBoss, promptStartedMs);
-        showPresentationHint(abilityDef, context.isBoss);
+        if (!context.suppressPrompt) {
+            showBattlePresentationPrompt(abilityDef, context.isBoss, promptStartedMs);
+        } else {
+            clearBattleInputPrompt();
+        }
+        if (!context.suppressHint) {
+            showPresentationHint(abilityDef, context.isBoss);
+        }
         syncHudDocument(promptStartedMs);
 
         updateSceneEntities(0.0f, context.isBoss, context.isBoss ? -1 : context.casterIndex);
@@ -6342,6 +6677,7 @@ private:
     battle::BattleManager manager_;
     battle::postbattle::Summary postBattleSummaryCache_{};
     battle::demo::DemoNarrativeFlow narrative_;
+    ScriptedBattleSequenceState lyooPhase3Sequence_;
     TutorialScriptLibrary tutorialLibrary_;
     HudFeedbackState hudFeedback_;
     HudAnimationState hudAnimationState_;

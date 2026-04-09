@@ -74,6 +74,7 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
             }
 
             entry.background = entryJson.value("background", "");
+            entry.clearBackground = entryJson.value("clearBackground", false);
             entry.voice = entryJson.value("voice", "");
             entry.voiceSpeakerId = entryJson.value("voiceSpeakerId", "");
             entry.bgm = entryJson.value("bgm", "");
@@ -91,6 +92,9 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
             entry.iconFrameCount = entryJson.value("iconFrameCount", 1);
             entry.iconFps = entryJson.value("iconFps", 8.0f);
             entry.autoAdvanceOnVoiceEnd = entryJson.value("autoAdvanceOnVoiceEnd", false);
+            entry.battleFocus = entryJson.value("battleFocus", "");
+            entry.scriptedAction = entryJson.value("scriptedAction", "");
+            entry.bossTitleOverride = entryJson.value("bossTitleOverride", "");
             entry.battleKey = entryJson.value("battleKey", "");
             entry.battleId = entryJson.value("battleId", -1);
             entry.battleWinScript = entryJson.value("battleWinScript", "");
