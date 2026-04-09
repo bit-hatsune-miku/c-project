@@ -38,6 +38,7 @@
 #include "audio/battle_voice_arbiter.h"
 #include "audio/battle_bgm_controller.h"
 #include "audio/bgm_player.h"
+#include "vn/vn_script_catalog.h"
 #include "core/ability_system.h"
 #include "core/battle_loader.h"
 #include "core/battle_manager.h"
@@ -1365,7 +1366,7 @@ void skipAllTutorials(TutorialOverlayState& tutorial, HudFeedbackState* feedback
 
 bool loadTutorialScriptLibrary(TutorialScriptLibrary& outLibrary) {
     vn::Script script;
-    if (!vn::loadScript(platform::path::resolvePath("assets/vn/json/demo.json"), script)) {
+    if (!vn::loadScript(vn::resolveScriptPath("demo"), script)) {
         return false;
     }
     if (script.entries.size() < 3) {
@@ -1933,7 +1934,7 @@ public:
                 }
             } else {
                 narrative_.setDialogueLinePresenter({});
-                if (!loadScriptedBattleSequence("assets/vn/json/finale_phase3.json", lyooPhase3Sequence_)) {
+                if (!loadScriptedBattleSequence("finale_phase3", lyooPhase3Sequence_)) {
                     std::cerr << "[Battle] Failed to load Lyoo phase 3 scripted sequence.\n";
                     shutdown();
                     return false;
@@ -3615,11 +3616,11 @@ private:
         return battleDefinition_.key == "lyoo_plot_twist";
     }
 
-    bool loadScriptedBattleSequence(const std::string& relativePath, ScriptedBattleSequenceState& sequence) {
+    bool loadScriptedBattleSequence(const std::string& scriptRef, ScriptedBattleSequenceState& sequence) {
         sequence = ScriptedBattleSequenceState{};
 
         vn::Script script;
-        if (!vn::loadScript(platform::path::resolvePath(relativePath), script)) {
+        if (!vn::loadScript(vn::resolveScriptPath(scriptRef), script)) {
             return false;
         }
 

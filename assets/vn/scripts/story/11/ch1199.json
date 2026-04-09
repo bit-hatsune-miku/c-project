@@ -1,0 +1,12 @@
+{
+  "chapter": 11,
+  "scriptId": "ch1199",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "speaker": "Disciple",
+      "text": "You endured the dark. The final trial is waiting.",
+      "type": "dialogue"
+    }
+  ]
+}

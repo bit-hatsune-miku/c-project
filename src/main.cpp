@@ -35,6 +35,7 @@
 #include "game/app_battle_session.h"
 #include "game/render/gl_function_loader.h"
 #include "game/save/save.h"
+#include "game/vn/vn_script_catalog.h"
 #include "game/vn/vn_system.h"
 #ifdef APP_ENABLE_RMLUI
 #include "graphics/front_ui_session.h"
@@ -43,9 +44,9 @@
 #include "platform/text_fallback.h"
 
 #ifdef VN_SCRIPT_PATH
-constexpr const char* kChapterScriptPath = VN_SCRIPT_PATH;
+constexpr const char* kInitialStoryScriptRef = VN_SCRIPT_PATH;
 #else
-constexpr const char* kChapterScriptPath = "assets/vn/json/ch0.json";
+constexpr const char* kInitialStoryScriptRef = "ch0001";
 #endif
 constexpr int kStartupWindowWidth = 1280;
 constexpr int kStartupWindowHeight = 720;
@@ -644,21 +645,9 @@ std::string effectiveStoryBackground(const StorySession& story, std::size_t entr
 }
 
 std::string storyScriptPathFromReference(const std::string& scriptRef) {
-    if (scriptRef.empty()) {
-        return resolvePath(kChapterScriptPath);
-    }
-
-    const bool hasDirectorySeparators =
-        scriptRef.find('/') != std::string::npos || scriptRef.find('\\') != std::string::npos;
-    if (hasDirectorySeparators) {
-        return resolvePath(scriptRef);
-    }
-
-    const bool hasJsonExtension =
-        scriptRef.size() >= 5 &&
-        scriptRef.substr(scriptRef.size() - 5) == ".json";
-    const std::string normalized = hasJsonExtension ? scriptRef : (scriptRef + ".json");
-    return resolvePath("assets/vn/json/" + normalized);
+    const std::string resolvedPath = vn::resolveScriptPath(
+        scriptRef.empty() ? std::string(kInitialStoryScriptRef) : scriptRef);
+    return resolvedPath.empty() ? resolvePath(scriptRef) : resolvedPath;
 }
 
 ScreenState resolveStoryEndReturnScreen(const vn::Script& script, ScreenState fallback) {
@@ -689,21 +678,13 @@ std::string resolvePendingStoryNextScript(const vn::Script& script) {
             return battleDefinition.victoryStoryScript == scriptId;
         });
     if (it == battleDefinitions.end()) {
-        const std::filesystem::path storyDirectory =
-            std::filesystem::path(platform::path::resolvePath("assets/vn/json"));
-        std::error_code directoryError;
-        if (!std::filesystem::exists(storyDirectory, directoryError)) {
-            return std::string();
-        }
-
-        for (const std::filesystem::directory_entry& entry :
-             std::filesystem::directory_iterator(storyDirectory, directoryError)) {
-            if (directoryError || !entry.is_regular_file() || entry.path().extension() != ".json") {
+        for (const vn::ScriptCatalogEntry& catalogEntry : vn::scriptCatalog()) {
+            if (catalogEntry.category == "battle") {
                 continue;
             }
 
             vn::Script candidateScript;
-            if (!vn::loadScript(entry.path().string(), candidateScript)) {
+            if (!vn::loadScript(vn::resolveScriptPath(catalogEntry.scriptId), candidateScript)) {
                 continue;
             }
 
@@ -843,7 +824,7 @@ bool ensureStoryLoaded(StorySession& story) {
         return true;
     }
 
-    return loadStoryScript(story, kChapterScriptPath);
+        return loadStoryScript(story, kInitialStoryScriptRef);
 }
 
 struct StoryModeCandidate {
@@ -925,6 +906,7 @@ std::vector<StoryModeCandidate> collectStoryModeCandidates() {
 save::SaveGame buildStorySaveGame(const AppState& state) {
     save::SaveGame saveGame;
     saveGame.chapter = save::chapterIdFromScript(state.story.script);
+    saveGame.scriptId = saveGame.chapter;
     saveGame.saveContext = saveContextForStoryFlow(state.storyFlowMode);
     saveGame.entryIndex = static_cast<int>(state.story.entryIndex);
     saveGame.label = save::generateLabel(state.story.script, state.story.entryIndex);
@@ -986,7 +968,8 @@ bool canSaveCurrentStoryState(const AppState& state, std::string& outReason) {
  */
 bool restoreStorySave(AppState& state, const save::SaveGame& saveGame) {
     vn::Script script;
-    const std::string scriptPath = resolvePath(save::chapterScriptPathFromId(saveGame.chapter));
+    const std::string scriptPath = save::chapterScriptPathFromId(
+        saveGame.scriptId.empty() ? saveGame.chapter : saveGame.scriptId);
     if (!vn::loadScript(scriptPath, script)) {
         return false;
     }

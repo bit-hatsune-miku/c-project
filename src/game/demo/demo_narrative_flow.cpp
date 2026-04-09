@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "../core/battle_turn_flow.h"
+#include "../vn/vn_script_catalog.h"
 #include "../vn/vn_system.h"
 #include "../../platform/path_resolution.h"
 
@@ -23,11 +24,11 @@ namespace battle::demo {
 bool DemoNarrativeFlow::initialize(bool deferIntroDialogue) {
     shutdown();
 
-    if (!loadDialogueLinesFromScript("assets/vn/json/demo.json", introDialogueLines_) ||
-        !loadDialogueLinesFromScript("assets/vn/json/demo_after_miku_first_skill.json", postMikuSkillDialogueLines_) ||
-        !loadDialogueLinesFromScript("assets/vn/json/demo_after_miku_first_ultimate.json", postMikuUltimateDialogueLines_) ||
-        !loadDialogueLinesFromScript("assets/vn/json/demo_after_lyoo_attack_post_miku_ultimate.json", postLyooAttackAfterMikuUltimateDialogueLines_) ||
-        !loadDialogueLinesFromScript("assets/vn/json/demo_boss_defeated.json", bossDefeatedDialogueLines_)) {
+    if (!loadDialogueLinesFromScript("demo", introDialogueLines_) ||
+        !loadDialogueLinesFromScript("demo_after_miku_first_skill", postMikuSkillDialogueLines_) ||
+        !loadDialogueLinesFromScript("demo_after_miku_first_ultimate", postMikuUltimateDialogueLines_) ||
+        !loadDialogueLinesFromScript("demo_after_lyoo_attack_post_miku_ultimate", postLyooAttackAfterMikuUltimateDialogueLines_) ||
+        !loadDialogueLinesFromScript("demo_boss_defeated", bossDefeatedDialogueLines_)) {
         shutdown();
         return false;
     }
@@ -202,11 +203,11 @@ void DemoNarrativeFlow::handleAutomaticProgression(BattleManager& manager,
     (void)runAutomaticProgression(manager);
 }
 
-bool DemoNarrativeFlow::loadDialogueLinesFromScript(const std::string& jsonRelativePath,
+bool DemoNarrativeFlow::loadDialogueLinesFromScript(const std::string& scriptRef,
                                                     std::vector<DialogueLine>& outLines) {
     vn::Script script;
-    if (!vn::loadScript(platform::path::resolvePath(jsonRelativePath), script)) {
-        std::cerr << "[Demo] Failed to load dialogue script: " << jsonRelativePath << "\n";
+    if (!vn::loadScript(vn::resolveScriptPath(scriptRef), script)) {
+        std::cerr << "[Demo] Failed to load dialogue script: " << scriptRef << "\n";
         return false;
     }
 

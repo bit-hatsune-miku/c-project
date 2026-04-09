@@ -85,6 +85,11 @@ bool loadScript(const std::string& jsonPath, Script& outScript);
 // For thoughts, returns "Speaker, thoughts:" format
 // For narration, returns empty string (narrator doesn't show name box)
 std::string getDisplaySpeakerName(const ScriptEntry& entry);
+std::string canonicalScriptId(const std::string& scriptRef);
+std::string canonicalScriptIdFromLegacyAlias(const std::string& legacyScriptRef);
+std::string resolveScriptPath(const std::string& scriptRef);
+std::string resolveLegacyScriptPath(const std::string& legacyScriptRef);
+std::string creditsDataPath();
 
 } // namespace vn
 

@@ -1,0 +1,72 @@
+{
+  "chapter": 0,
+  "scriptId": "demo_after_miku_first_ultimate",
+  "title": "Demo After Miku First Ultimate",
+  "entries": [
+    {
+      "speaker": "Cupcakke",
+      "text": "I can't believe you just crashed your Diandong on the enemy are YOU FUCKING INSANE, that shit is EXPENSIVE",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/demo/crash.wav",
+      "voiceSpeakerId": "cupcakke",
+      "fontPath": "",
+      "icon": "assets/combat/icons/cupcakke.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "At least I don’t flash my FUCKING ASS on the enemy to attack them",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/demo/flash.wav",
+      "voiceSpeakerId": "miku",
+      "fontPath": "",
+      "icon": "assets/combat/icons/miku.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "At least I ACTUALLY have an existing ass, you candy-ass whore can’t do shit bitch you not even the fart",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/demo/ihave.wav",
+      "voiceSpeakerId": "cupcakke",
+      "fontPath": "",
+      "icon": "assets/combat/icons/cupcakke.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "I don't need ass when I have a voice that can ACTUALLY sing and not “Gulp Gulp Bogainia Deal Dough Augh”",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/demo/dont.wav",
+      "voiceSpeakerId": "miku",
+      "fontPath": "",
+      "icon": "assets/combat/icons/miku.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "Ohh, you gagged me, bitch",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/demo/gagged.wav",
+      "voiceSpeakerId": "cupcakke",
+      "fontPath": "",
+      "icon": "assets/combat/icons/cupcakke.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    }
+  ]
+}

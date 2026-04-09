@@ -1,0 +1,13 @@
+{
+  "chapter": 11,
+  "scriptId": "ch1101",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "speaker": "Disciple",
+      "text": "When the light goes out, only your preparation remains.",
+      "type": "dialogue",
+      "battleKey": "disciple"
+    }
+  ]
+}

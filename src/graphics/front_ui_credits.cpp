@@ -13,11 +13,11 @@
 #include <RmlUi/Core/Event.h>
 
 #include "../platform/path_resolution.h"
+#include "../game/vn/vn_script_catalog.h"
 
 namespace graphics::frontui {
 namespace {
 
-constexpr const char* kCreditsJsonRelativePath = "assets/vn/json/credits.json";
 constexpr const char* kMainMenuLogoRelativePath = "assets/vn/backgrounds/General_Art/MainMenuTitle.png";
 constexpr float kReferenceWidth = 1280.0f;
 constexpr float kReferenceHeight = 720.0f;
@@ -314,7 +314,7 @@ bool CreditsDocumentController::bind(Rml::ElementDocument& document, const AppSt
     (void)state;
     document_ = &document;
     detachEventListeners(listeners_);
-    creditsLoaded_ = game::credits::loadCreditsData(platform::path::resolvePath(kCreditsJsonRelativePath), creditsData_);
+    creditsLoaded_ = game::credits::loadCreditsData(vn::creditsDataPath(), creditsData_);
     if (!creditsLoaded_) {
         creditsData_ = fallbackCreditsData();
     }

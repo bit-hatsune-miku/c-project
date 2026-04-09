@@ -38,6 +38,7 @@
 #include "game/render/battle_scene_renderer.h"
 #include "game/render/camera_3d.h"
 #include "game/render/free_view_camera_debug_log.h"
+#include "game/vn/vn_script_catalog.h"
 #include "game/render/gl_screen_blitter.h"
 #include "game/vn/vn_script.h"
 #include "game/audio/wav_one_shot.h"
@@ -330,7 +331,7 @@ void startTutorial(TutorialOverlayState& tutorial,
 
 bool loadTutorialScriptLibrary(TutorialScriptLibrary& outLibrary) {
     vn::Script script;
-    if (!vn::loadScript(platform::path::resolvePath("assets/vn/json/demo.json"), script)) {
+    if (!vn::loadScript(vn::resolveScriptPath("demo"), script)) {
         return false;
     }
     if (script.entries.size() < 3) {
@@ -825,7 +826,7 @@ int main(int argc, char** argv) {
     const battle::BattleState& state = manager.getBattleState();
     TutorialScriptLibrary tutorialLibrary;
     if (!loadTutorialScriptLibrary(tutorialLibrary)) {
-        std::cerr << "Failed to load tutorial script: assets/vn/json/demo.json\n";
+        std::cerr << "Failed to load tutorial script: demo\n";
         destroyNativeRenderers();
         Rml::Shutdown();
         RmlGL3::Shutdown();

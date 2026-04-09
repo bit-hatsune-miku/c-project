@@ -14,6 +14,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "../vn/vn_script_catalog.h"
+
 namespace save {
 namespace {
 
@@ -75,6 +77,13 @@ SaveGame normalizedSaveGame(SaveGame saveGame) {
     saveGame.version = SAVE_VERSION;
     if (saveGame.timestamp.empty()) {
         saveGame.timestamp = makeIsoUtcTimestamp();
+    }
+    const std::string storedScriptId =
+        !saveGame.scriptId.empty() ? vn::canonicalScriptId(saveGame.scriptId) : std::string();
+    const std::string legacyChapterId = vn::canonicalScriptIdFromLegacyAlias(saveGame.chapter);
+    saveGame.scriptId = !storedScriptId.empty() ? storedScriptId : legacyChapterId;
+    if (!saveGame.scriptId.empty()) {
+        saveGame.chapter = saveGame.scriptId;
     }
     saveGame.settings.musicVolume = std::clamp(saveGame.settings.musicVolume, 0, 100);
     saveGame.settings.voiceVolume = std::clamp(saveGame.settings.voiceVolume, 0, 100);
@@ -190,8 +199,8 @@ fs::path uniqueManualSavePath() {
     return fs::path();
 }
 
-std::map<std::string, std::string> chapterSceneMap(const std::string& chapterId) {
-    if (chapterId == "ch0") {
+std::map<std::string, std::string> chapterSceneMap(const vn::Script& script) {
+    if (script.scriptId == "ch0001" || script.scriptId == "ch0099") {
         return {
             {"assets/vn/backgrounds/ch0/0.jpg", "Concert Dream"},
             {"assets/vn/backgrounds/ch0/1.jpg", "Dorm Room"},
@@ -383,10 +392,7 @@ std::optional<SaveGame> load(const fs::path& path) {
         if (saveGame.chapter.empty() || saveGame.entryIndex < 0) {
             return std::nullopt;
         }
-        saveGame.settings.musicVolume = std::clamp(saveGame.settings.musicVolume, 0, 100);
-        saveGame.settings.voiceVolume = std::clamp(saveGame.settings.voiceVolume, 0, 100);
-        saveGame.settings.textSpeed = std::max(1, saveGame.settings.textSpeed);
-        return saveGame;
+        return normalizedSaveGame(std::move(saveGame));
     } catch (const json::exception&) {
         return std::nullopt;
     }
@@ -604,27 +610,19 @@ std::string formatTimestampForDisplay(const std::string& isoTimestamp) {
 
 std::string chapterIdFromScript(const vn::Script& script) {
     if (!script.scriptId.empty()) {
-        return script.scriptId;
+        return vn::canonicalScriptId(script.scriptId);
     }
-    return "ch" + std::to_string(std::max(0, script.chapter));
+    return vn::canonicalScriptId("ch" + std::to_string(std::max(0, script.chapter)));
 }
 
 std::string chapterScriptPathFromId(const std::string& chapterId) {
-    std::string normalized = chapterId;
-    normalized.erase(
-        std::remove_if(normalized.begin(), normalized.end(), [](unsigned char c) {
-            return !(std::isalnum(c) || c == '_' || c == '-');
-        }),
-        normalized.end()
-    );
-    return "assets/vn/json/" + normalized + ".json";
+    return vn::resolveScriptPath(chapterId);
 }
 
 std::string generateLabel(const vn::Script& script, std::size_t entryIndex) {
-    const std::string chapterId = chapterIdFromScript(script);
     const std::string chapterTitle = script.title.empty() ? ("Chapter " + std::to_string(std::max(0, script.chapter))) : script.title;
     const std::string background = currentSceneBackground(script, entryIndex);
-    const std::map<std::string, std::string> scenes = chapterSceneMap(chapterId);
+    const std::map<std::string, std::string> scenes = chapterSceneMap(script);
 
     const auto sceneIt = scenes.find(background);
     if (sceneIt != scenes.end()) {

@@ -1,0 +1,20 @@
+{
+  "chapter": 0,
+  "scriptId": "demo_boss_defeated",
+  "title": "Demo Boss Defeated",
+  "entries": [
+    {
+      "speaker": "Miku",
+      "text": "Yatta!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/demo/yatta.wav",
+      "voiceSpeakerId": "miku",
+      "fontPath": "",
+      "icon": "assets/combat/icons/miku.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    }
+  ]
+}

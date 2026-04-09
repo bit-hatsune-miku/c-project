@@ -1,0 +1,140 @@
+{
+  "chapter": 2,
+  "title": "WeChat Alipay Victory",
+  "scriptId": "ch0299",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "speaker": "Miku",
+      "text": "I... I’ve never been so stressed by a loading circle in my life. Every time I hit a note, my balance went down!",
+      "type": "dialogue",
+      "background": "assets/vn/backgrounds/ch3/1.png",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Alipay-Jie",
+      "text": "That’s because you were singing in 4K. That data usage was insane, sweetie.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "WeChat-Jie",
+      "text": "Relax. You actually have decent stage presence. Your voice is marketable, even if your bank account is a horror movie.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "You guys aren't going to delete my account?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Alipay-Jie",
+      "text": "Of course not. We’re businesswomen. If you ever need to sponsor a concert or set up a business for your idol growth, we’re here for you.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "WeChat-Jie",
+      "text": "We can set up your official shop, handle your merch transactions. We want to see you succeed... so we can take our 3% transaction fee for purchases over 200 RMB when you use a foreign card because you’re an international student.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "I.. I think I understand now. Being an idol isn't just about the music. It's about the infrastructure.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Alipay-Jie",
+      "text": "Good girl. Now, scan this code to pay for the stage cleanup.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Wait, I still don't have any money!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "WeChat-Jie",
+      "text": "Don't worry, we’ll just give you a negative balance~",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Fine... let me just... beep…..",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    }
+  ]
+}

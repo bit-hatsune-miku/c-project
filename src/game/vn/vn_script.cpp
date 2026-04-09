@@ -1,4 +1,5 @@
 #include "vn_script.h"
+#include "vn_script_catalog.h"
 
 #include <filesystem>
 #include <fstream>
@@ -23,6 +24,10 @@ std::string defaultIconForCh0Speaker(const std::string& speaker) {
     return std::string();
 }
 
+bool usesTutorialDefaults(const std::string& scriptId) {
+    return scriptId == "ch0001" || scriptId == "ch0099";
+}
+
 } // namespace
 
 bool loadScript(const std::string& jsonPath, Script& outScript) {
@@ -43,9 +48,9 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
     try {
         outScript.chapter = j.value("chapter", 0);
         outScript.title = j.value("title", "");
-        outScript.scriptId = j.value("scriptId", "");
+        outScript.scriptId = canonicalScriptId(j.value("scriptId", ""));
         if (outScript.scriptId.empty()) {
-            outScript.scriptId = std::filesystem::path(jsonPath).stem().string();
+            outScript.scriptId = canonicalScriptId(std::filesystem::path(jsonPath).filename().string());
         }
         outScript.endReturnScreen = j.value("endReturnScreen", "");
         outScript.credits = j.value("credits", false);
@@ -97,13 +102,13 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
             entry.bossTitleOverride = entryJson.value("bossTitleOverride", "");
             entry.battleKey = entryJson.value("battleKey", "");
             entry.battleId = entryJson.value("battleId", -1);
-            entry.battleWinScript = entryJson.value("battleWinScript", "");
-            entry.battleLoseScript = entryJson.value("battleLoseScript", "");
+            entry.battleWinScript = canonicalScriptId(entryJson.value("battleWinScript", ""));
+            entry.battleLoseScript = canonicalScriptId(entryJson.value("battleLoseScript", ""));
 
-            // Chapter 0 data defaults requested by design:
+            // Tutorial data defaults requested by design:
             // - Miku/Cupcakke use combat icons
             // - Lyoo uses VN icon frame 0
-            if (entry.icon.empty() && jsonPath.find("ch0.json") != std::string::npos) {
+            if (entry.icon.empty() && usesTutorialDefaults(outScript.scriptId)) {
                 const std::string fallbackIcon = defaultIconForCh0Speaker(entry.speaker);
                 if (!fallbackIcon.empty()) {
                     entry.icon = fallbackIcon;

@@ -1,0 +1,46 @@
+{
+  "chapter": 0,
+  "scriptId": "demo_after_lyoo_attack_post_miku_ultimate",
+  "title": "Demo After Lyoo Attack Post Miku Ultimate",
+  "entries": [
+    {
+      "speaker": "Cupcakke",
+      "text": "Augh!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/combat/voices/cupcakke/hit.wav",
+      "voiceSpeakerId": "cupcakke",
+      "fontPath": "",
+      "icon": "assets/combat/icons/cupcakke.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Can you STOP fucking moaning for a second",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/demo/stop.wav",
+      "voiceSpeakerId": "miku",
+      "fontPath": "",
+      "icon": "assets/combat/icons/miku.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Cupcakke",
+      "text": "Bitch I need heals",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/vn/voices/demo/bitch.wav",
+      "voiceSpeakerId": "cupcakke",
+      "fontPath": "",
+      "icon": "assets/combat/icons/cupcakke.png",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    }
+  ]
+}

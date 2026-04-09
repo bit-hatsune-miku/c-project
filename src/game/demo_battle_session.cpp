@@ -18,6 +18,7 @@
 #include "render/battle_ui.h"
 #include "render/camera_3d.h"
 #include "core/easing.h"
+#include "vn/vn_script_catalog.h"
 #include "vn/vn_script.h"
 #include "vn/vn_system.h"
 
@@ -324,10 +325,10 @@ std::optional<SDL_Texture*> tryLoadIcon(SDL_Renderer* renderer, const std::strin
 #endif
 }
 
-bool loadDialogueLinesFromScript(const std::string& jsonRelativePath, std::vector<DialogueLine>& outLines) {
+bool loadDialogueLinesFromScript(const std::string& scriptRef, std::vector<DialogueLine>& outLines) {
     vn::Script script;
-    if (!vn::loadScript(resolvePath(jsonRelativePath), script)) {
-        std::cerr << "[Demo] Failed to load dialogue script: " << jsonRelativePath << "\n";
+    if (!vn::loadScript(vn::resolveScriptPath(scriptRef), script)) {
+        std::cerr << "[Demo] Failed to load dialogue script: " << scriptRef << "\n";
         return false;
     }
 
@@ -410,11 +411,11 @@ public:
         floorTileTexture = createFloorTileTexture(renderer);
         applyGoalCamera(camera);
 
-        if (!loadDialogueLinesFromScript("assets/vn/json/demo.json", introDialogueLines) ||
-            !loadDialogueLinesFromScript("assets/vn/json/demo_after_miku_first_skill.json", postMikuSkillDialogueLines) ||
-            !loadDialogueLinesFromScript("assets/vn/json/demo_after_miku_first_ultimate.json", postMikuUltimateDialogueLines) ||
-            !loadDialogueLinesFromScript("assets/vn/json/demo_after_lyoo_attack_post_miku_ultimate.json", postLyooAttackAfterMikuUltimateDialogueLines) ||
-            !loadDialogueLinesFromScript("assets/vn/json/demo_boss_defeated.json", bossDefeatedDialogueLines)) {
+        if (!loadDialogueLinesFromScript("demo", introDialogueLines) ||
+            !loadDialogueLinesFromScript("demo_after_miku_first_skill", postMikuSkillDialogueLines) ||
+            !loadDialogueLinesFromScript("demo_after_miku_first_ultimate", postMikuUltimateDialogueLines) ||
+            !loadDialogueLinesFromScript("demo_after_lyoo_attack_post_miku_ultimate", postLyooAttackAfterMikuUltimateDialogueLines) ||
+            !loadDialogueLinesFromScript("demo_boss_defeated", bossDefeatedDialogueLines)) {
             shutdown();
             return false;
         }

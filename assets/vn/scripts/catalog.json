@@ -1,0 +1,202 @@
+{
+  "scripts": [
+    {
+      "id": "ch0001",
+      "path": "assets/vn/scripts/story/00/ch0001.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0"]
+    },
+    {
+      "id": "ch0099",
+      "path": "assets/vn/scripts/story/00/ch0099.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0001"]
+    },
+    {
+      "id": "ch0101",
+      "path": "assets/vn/scripts/story/01/ch0101.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0200"]
+    },
+    {
+      "id": "ch0199",
+      "path": "assets/vn/scripts/story/01/ch0199.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0201"]
+    },
+    {
+      "id": "ch0201",
+      "path": "assets/vn/scripts/story/02/ch0201.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0300"]
+    },
+    {
+      "id": "ch0299",
+      "path": "assets/vn/scripts/story/02/ch0299.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0301"]
+    },
+    {
+      "id": "ch0301",
+      "path": "assets/vn/scripts/story/03/ch0301.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0302"]
+    },
+    {
+      "id": "ch0399",
+      "path": "assets/vn/scripts/story/03/ch0399.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0303"]
+    },
+    {
+      "id": "ch0401",
+      "path": "assets/vn/scripts/story/04/ch0401.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0400"]
+    },
+    {
+      "id": "ch0499",
+      "path": "assets/vn/scripts/story/04/ch0499.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0401"]
+    },
+    {
+      "id": "ch0501",
+      "path": "assets/vn/scripts/story/05/ch0501.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0500"]
+    },
+    {
+      "id": "ch0599",
+      "path": "assets/vn/scripts/story/05/ch0599.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0501"]
+    },
+    {
+      "id": "ch0601",
+      "path": "assets/vn/scripts/story/06/ch0601.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0600"]
+    },
+    {
+      "id": "ch0699",
+      "path": "assets/vn/scripts/story/06/ch0699.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0601"]
+    },
+    {
+      "id": "ch0701",
+      "path": "assets/vn/scripts/story/07/ch0701.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0700"]
+    },
+    {
+      "id": "ch0799",
+      "path": "assets/vn/scripts/story/07/ch0799.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0701"]
+    },
+    {
+      "id": "ch0801",
+      "path": "assets/vn/scripts/story/08/ch0801.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0702"]
+    },
+    {
+      "id": "ch0899",
+      "path": "assets/vn/scripts/story/08/ch0899.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0703"]
+    },
+    {
+      "id": "ch0901",
+      "path": "assets/vn/scripts/story/09/ch0901.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0704"]
+    },
+    {
+      "id": "ch0999",
+      "path": "assets/vn/scripts/story/09/ch0999.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0705"]
+    },
+    {
+      "id": "ch1001",
+      "path": "assets/vn/scripts/story/10/ch1001.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0706"]
+    },
+    {
+      "id": "ch1099",
+      "path": "assets/vn/scripts/story/10/ch1099.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0707"]
+    },
+    {
+      "id": "ch1101",
+      "path": "assets/vn/scripts/story/11/ch1101.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0708"]
+    },
+    {
+      "id": "ch1199",
+      "path": "assets/vn/scripts/story/11/ch1199.json",
+      "category": "campaign",
+      "legacyAliases": ["ch0709"]
+    },
+    {
+      "id": "finale",
+      "path": "assets/vn/scripts/special/finale/finale.json",
+      "category": "special",
+      "legacyAliases": []
+    },
+    {
+      "id": "finale01",
+      "path": "assets/vn/scripts/special/finale/finale01.json",
+      "category": "special",
+      "legacyAliases": []
+    },
+    {
+      "id": "finale02",
+      "path": "assets/vn/scripts/special/finale/finale02.json",
+      "category": "special",
+      "legacyAliases": []
+    },
+    {
+      "id": "demo",
+      "path": "assets/vn/scripts/battle/demo/demo.json",
+      "category": "battle",
+      "legacyAliases": []
+    },
+    {
+      "id": "demo_after_miku_first_skill",
+      "path": "assets/vn/scripts/battle/demo/demo_after_miku_first_skill.json",
+      "category": "battle",
+      "legacyAliases": []
+    },
+    {
+      "id": "demo_after_miku_first_ultimate",
+      "path": "assets/vn/scripts/battle/demo/demo_after_miku_first_ultimate.json",
+      "category": "battle",
+      "legacyAliases": []
+    },
+    {
+      "id": "demo_after_lyoo_attack_post_miku_ultimate",
+      "path": "assets/vn/scripts/battle/demo/demo_after_lyoo_attack_post_miku_ultimate.json",
+      "category": "battle",
+      "legacyAliases": []
+    },
+    {
+      "id": "demo_boss_defeated",
+      "path": "assets/vn/scripts/battle/demo/demo_boss_defeated.json",
+      "category": "battle",
+      "legacyAliases": []
+    },
+    {
+      "id": "finale_phase3",
+      "path": "assets/vn/scripts/battle/finale/finale_phase3.json",
+      "category": "battle",
+      "legacyAliases": []
+    }
+  ]
+}

@@ -83,6 +83,8 @@ set(MAIN_APP_SOURCES
     src/game/credits/credits_data.cpp
     src/game/credits/credits_data.h
     src/game/vn/vn_system.cpp
+    src/game/vn/vn_script_catalog.cpp
+    src/game/vn/vn_script_catalog.h
     src/game/vn/vn_script.cpp
     src/game/save/save.cpp
 )
@@ -274,6 +276,7 @@ set(HEADERS
     src/Settings/settings.h
     src/window.h
     src/game/vn/vn_system.h
+    src/game/vn/vn_script_catalog.h
     src/game/vn/vn_script.h
     src/game/save/save.h
 )
@@ -307,7 +310,7 @@ add_executable(finale
 )
 
 target_compile_definitions(finale PRIVATE
-    VN_SCRIPT_PATH="assets/vn/json/finale.json"
+    VN_SCRIPT_PATH="finale"
     VN_AUTO_START_STORY=1
 )
 
@@ -320,7 +323,7 @@ add_executable(ch0
 )
 
 target_compile_definitions(ch0 PRIVATE
-    VN_SCRIPT_PATH="assets/vn/json/ch0.json"
+    VN_SCRIPT_PATH="ch0001"
     VN_AUTO_START_STORY=1
 )
 
@@ -333,6 +336,8 @@ add_executable(demo
     ${BATTLE_PRESENTATION_SOURCES}
     src/game/vn/vn_system.cpp
     src/game/vn/vn_system.h
+    src/game/vn/vn_script_catalog.cpp
+    src/game/vn/vn_script_catalog.h
     src/game/vn/vn_script.cpp
     src/game/vn/vn_script.h
 )
@@ -346,6 +351,8 @@ add_executable(demo_jiafei
     ${BATTLE_PRESENTATION_SOURCES}
     src/game/vn/vn_system.cpp
     src/game/vn/vn_system.h
+    src/game/vn/vn_script_catalog.cpp
+    src/game/vn/vn_script_catalog.h
     src/game/vn/vn_script.cpp
     src/game/vn/vn_script.h
 )
@@ -361,6 +368,8 @@ add_executable(demo_lyoo_plot_twist
     ${BATTLE_PRESENTATION_SOURCES}
     src/game/vn/vn_system.cpp
     src/game/vn/vn_system.h
+    src/game/vn/vn_script_catalog.cpp
+    src/game/vn/vn_script_catalog.h
     src/game/vn/vn_script.cpp
     src/game/vn/vn_script.h
 )
@@ -376,6 +385,8 @@ add_executable(demo_wechatalipay
     ${BATTLE_PRESENTATION_SOURCES}
     src/game/vn/vn_system.cpp
     src/game/vn/vn_system.h
+    src/game/vn/vn_script_catalog.cpp
+    src/game/vn/vn_script_catalog.h
     src/game/vn/vn_script.cpp
     src/game/vn/vn_script.h
 )
@@ -391,6 +402,8 @@ add_executable(demo_ari
     ${BATTLE_PRESENTATION_SOURCES}
     src/game/vn/vn_system.cpp
     src/game/vn/vn_system.h
+    src/game/vn/vn_script_catalog.cpp
+    src/game/vn/vn_script_catalog.h
     src/game/vn/vn_script.cpp
     src/game/vn/vn_script.h
 )
@@ -406,6 +419,8 @@ add_executable(demo_luotianyi
     ${BATTLE_PRESENTATION_SOURCES}
     src/game/vn/vn_system.cpp
     src/game/vn/vn_system.h
+    src/game/vn/vn_script_catalog.cpp
+    src/game/vn/vn_script_catalog.h
     src/game/vn/vn_script.cpp
     src/game/vn/vn_script.h
 )
@@ -439,6 +454,8 @@ if (ENABLE_RMLUI)
         src/game/audio/battle_bgm_controller.h
         src/game/vn/vn_system.cpp
         src/game/vn/vn_system.h
+        src/game/vn/vn_script_catalog.cpp
+        src/game/vn/vn_script_catalog.h
         src/game/vn/vn_script.cpp
         src/game/demo/demo_narrative_flow.cpp
         src/game/demo/demo_narrative_flow.h
@@ -467,6 +484,8 @@ if (ENABLE_RMLUI)
         src/game/boss_selector_session.cpp
         src/game/boss_selector_session.h
         src/game/save/save.cpp
+        src/game/vn/vn_script_catalog.cpp
+        src/game/vn/vn_script_catalog.h
         src/game/core/battle_loader.cpp
         src/game/core/battle_loader.h
         src/game/core/battle_manager.h
@@ -501,6 +520,8 @@ if (ENABLE_RMLUI)
         src/graphics/rmlui_sdl_gl_renderer.cpp
         src/graphics/rmlui_sdl_gl_renderer.h
         src/game/save/save.cpp
+        src/game/vn/vn_script_catalog.cpp
+        src/game/vn/vn_script_catalog.h
         src/game/core/battle_loader.cpp
         src/game/core/battle_loader.h
         src/game/core/battle_manager.h

@@ -1,0 +1,142 @@
+{
+  "chapter": 4,
+  "title": "Ari Intro",
+  "scriptId": "ch0401",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "speaker": "Miku",
+      "text": "Okay, I wonder who the next idol could be….",
+      "type": "dialogue",
+      "background": "assets/vn/backgrounds/ch4/1.png",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Ariana Grande",
+      "text": "I see it, I like it, I want it, I got it",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Wait… is that Ariana Grande? Why is she competing in an underground college battle in China?! She’s literally a global superstar!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "CupcakKe",
+      "text": "Looks like the competition just got a lot more expensive.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Or maybe the developer is just an arianator.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "CupcakKe",
+      "text": "Shhh…. Don’t break the fourth wall.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Ariana Grande",
+      "text": "Thank u, next. You're cute, but I'm a girl with a whole lot of baggage. This crown? It’s mine. God is a woman, and today, she’s wearing a ponytail.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Excuse me? I’ve spent my whole semester studying uhh…. Calculus? Okay that’s not related but you can’t just walk in here and act like you own the place!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Ariana Grande",
+      "text": "Focus on me. If you want to win, you have to prove you’re not just a glitch in the system.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Ariana Grande",
+      "text": "You think you’re ready? I’m switchin' the positions for you. Get on stage, and sing, until your last breath!",
+      "type": "dialogue",
+      "background": "assets/vn/backgrounds/ch4/1.png",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
+      "battleKey": "ari_boss_demo"
+    },
+    {
+      "speaker": "Miku",
+      "text": "Fine! Let’s see if you can handle a digital diva!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
+      "battleKey": "ari_boss_demo"
+    }
+  ]
+}
