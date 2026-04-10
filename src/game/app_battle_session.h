@@ -37,6 +37,7 @@ enum class BattleOutcome {
  * @param window The Window the session will render into and receive input from.
  * @param settings Game settings that influence session behavior.
  * @param battleKey Identifier of the battle scenario to run.
+ * @param flowMode Launch context for the battle; used for story/practice-specific setup.
  * @param progression Player progression state to apply to the battle.
  * @param initialPartyLineup Optional explicit party lineup; if not provided the session will use the default lineup.
  * @param resultPresentation Configuration that controls how defeat results are presented and handled.
@@ -113,6 +114,7 @@ public:
     bool initialize(Window& window,
                     GameSettings& settings,
                     const std::string& battleKey,
+                    BattleFlowMode flowMode,
                     const PlayerProgression& progression,
                     std::optional<std::vector<std::string>> initialPartyLineup = std::nullopt,
                     BattleResultPresentationConfig resultPresentation = {});

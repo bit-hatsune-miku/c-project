@@ -49,7 +49,7 @@ struct SequenceSpec {
 const SequenceSpec& sequenceSpecFor(SailorVenusBossPresentation::Variant variant) {
     static const SequenceSpec kBossParry{
         "loveAndBeautyShock",
-        "assets/combat/voices/sailorVenus/loveandbeautyshock.wav",
+        "assets/combat/voices/sailorVenus/loveandbeautyshock.opus",
         223,
         9.045333f,
         true,
@@ -57,7 +57,7 @@ const SequenceSpec& sequenceSpecFor(SailorVenusBossPresentation::Variant variant
     };
     static const SequenceSpec kLoveAndBeautyShock{
         "loveAndBeautyShock",
-        "assets/combat/voices/sailorVenus/loveandbeautyshock.wav",
+        "assets/combat/voices/sailorVenus/loveandbeautyshock.opus",
         223,
         9.045333f,
         true,
@@ -65,7 +65,7 @@ const SequenceSpec& sequenceSpecFor(SailorVenusBossPresentation::Variant variant
     };
     static const SequenceSpec kTransformation{
         "transformation",
-        "assets/combat/voices/sailorVenus/transformation.wav",
+        "assets/combat/voices/sailorVenus/transformation.opus",
         738,
         24.633500f,
         false,
@@ -73,7 +73,7 @@ const SequenceSpec& sequenceSpecFor(SailorVenusBossPresentation::Variant variant
     };
     static const SequenceSpec kCrescentBeam{
         "crescentBeam",
-        "assets/combat/voices/sailorVenus/crescentBeam.wav",
+        "assets/combat/voices/sailorVenus/crescentBeam.opus",
         179,
         6.058667f,
         false,
@@ -81,7 +81,7 @@ const SequenceSpec& sequenceSpecFor(SailorVenusBossPresentation::Variant variant
     };
     static const SequenceSpec kLoveMeChain{
         "loveMeChain",
-        "assets/combat/voices/sailorVenus/loveMeChain.wav",
+        "assets/combat/voices/sailorVenus/loveMeChain.opus",
         230,
         9.633500f,
         false,
@@ -117,7 +117,8 @@ std::string resolveFramePath(SailorVenusBossPresentation::Variant variant, int f
 }
 
 std::string resolveVoicePath(SailorVenusBossPresentation::Variant variant) {
-    return platform::path::resolvePath(sequenceSpecFor(variant).voicePath);
+    return platform::path::resolveAudioPath(sequenceSpecFor(variant).voicePath)
+        .value_or(platform::path::resolvePath(sequenceSpecFor(variant).voicePath));
 }
 
 float clampRatio(float value) {

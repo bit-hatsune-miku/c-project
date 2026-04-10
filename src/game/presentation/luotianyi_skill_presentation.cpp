@@ -64,10 +64,10 @@ SDL_FRect centeredRect(float centerX, float centerY, float width, float height) 
 
 std::string tonePathForValue(int tone) {
     switch (tone) {
-        case 1: return std::string(kToneVoiceDirectory) + "first.wav";
-        case 2: return std::string(kToneVoiceDirectory) + "second.wav";
-        case 3: return std::string(kToneVoiceDirectory) + "third.wav";
-        case 4: return std::string(kToneVoiceDirectory) + "fourth.wav";
+        case 1: return std::string(kToneVoiceDirectory) + "first.opus";
+        case 2: return std::string(kToneVoiceDirectory) + "second.opus";
+        case 3: return std::string(kToneVoiceDirectory) + "third.opus";
+        case 4: return std::string(kToneVoiceDirectory) + "fourth.opus";
         default: return {};
     }
 }
@@ -390,7 +390,7 @@ void LuotianyiSkillPresentation::finalizeInput() {
     const bool allCorrect = (correctCount_ == 4);
     queueAudioCommand(
         PresentationAudioCommandType::PlayOneShot,
-        std::string(kToneVoiceDirectory) + (allCorrect ? "correct.wav" : "false.wav"),
+        std::string(kToneVoiceDirectory) + (allCorrect ? "correct.opus" : "false.opus"),
         1.0f
     );
 

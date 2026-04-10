@@ -83,6 +83,7 @@ struct BattleSpecialRules {
     bool autoRevivePartyOnBossDamage = false;
     bool revivePartyToFull = false;
     bool bossSelfKnockoutIsDefeat = false;
+    int practiceBossHpFloor = 0;
 };
 
 struct BattleDefinition {

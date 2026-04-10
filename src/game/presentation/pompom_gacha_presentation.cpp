@@ -36,7 +36,8 @@ std::string resolveFramePath(int frameNumber) {
 }
 
 std::string resolveVoicePath() {
-    return platform::path::resolvePath("assets/combat/voices/pompom/ability.wav");
+    return platform::path::resolveAudioPath("assets/combat/voices/pompom/ability.opus")
+        .value_or(platform::path::resolvePath("assets/combat/voices/pompom/ability.opus"));
 }
 
 std::string resolveStarPath() {

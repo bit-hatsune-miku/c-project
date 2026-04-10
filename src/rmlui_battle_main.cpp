@@ -33,7 +33,7 @@ int main(int argc, char** argv) {
     };
 
     battle::app::Session session;
-    if (!session.initialize(window, settings, battleKey, progression, fallbackLineup)) {
+    if (!session.initialize(window, settings, battleKey, BattleFlowMode::Direct, progression, fallbackLineup)) {
         std::cerr << "Failed to initialize battle session for battle key '" << battleKey << "'\n";
         session.shutdown();
         return 1;

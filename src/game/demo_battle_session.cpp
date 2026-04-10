@@ -154,8 +154,12 @@ void showDialogueLine(const DialogueLine& line) {
     const std::string backgroundPath = line.background.empty()
         ? std::string{}
         : (vn::isHexColorString(line.background) ? line.background : resolvePath(line.background));
-    const std::string voicePath = line.voice.empty() ? std::string{} : resolvePath(line.voice);
-    const std::string bgmPath = line.bgm.empty() ? std::string{} : resolvePath(line.bgm);
+    const std::string voicePath = line.voice.empty()
+        ? std::string{}
+        : platform::path::resolveAudioPath(line.voice).value_or(resolvePath(line.voice));
+    const std::string bgmPath = line.bgm.empty()
+        ? std::string{}
+        : platform::path::resolveAudioPath(line.bgm).value_or(resolvePath(line.bgm));
     const std::string fontPath = line.fontPath.empty() ? std::string{} : resolvePath(line.fontPath);
 
     if (line.clearBackground) {
@@ -1265,8 +1269,8 @@ bool playBossHitVoice(const BattleState& battleState, float volume, int repeatCo
 
 std::optional<std::string> resolveBossHitVoicePath(const BattleState& battleState) {
     if (!battleState.boss.voiceHit.empty()) {
-        const std::string resolved = platform::path::resolvePath(battleState.boss.voiceHit);
-        if (std::filesystem::exists(resolved)) {
+        if (const std::optional<std::string> resolved = platform::path::resolveAudioPath(battleState.boss.voiceHit);
+            resolved.has_value()) {
             return resolved;
         }
     }
@@ -1673,15 +1677,15 @@ private:
         if (path.empty()) {
             return false;
         }
-        const std::string resolved = platform::path::resolvePath(path);
-        if (!std::filesystem::exists(resolved)) {
+        const std::optional<std::string> resolved = platform::path::resolveAudioPath(path);
+        if (!resolved.has_value()) {
             return false;
         }
         return requestBattleVoice(
             speakerKey,
             kind,
             game::audio::BattleVoiceChannel::OneShot,
-            resolved,
+            *resolved,
             volume);
     }
 
@@ -1780,8 +1784,12 @@ private:
         const std::string backgroundPath = line.background.empty()
             ? std::string{}
             : (vn::isHexColorString(line.background) ? line.background : platform::path::resolvePath(line.background));
-        const std::string voicePath = line.voice.empty() ? std::string{} : platform::path::resolvePath(line.voice);
-        const std::string bgmPath = line.bgm.empty() ? std::string{} : platform::path::resolvePath(line.bgm);
+        const std::string voicePath = line.voice.empty()
+            ? std::string{}
+            : platform::path::resolveAudioPath(line.voice).value_or(platform::path::resolvePath(line.voice));
+        const std::string bgmPath = line.bgm.empty()
+            ? std::string{}
+            : platform::path::resolveAudioPath(line.bgm).value_or(platform::path::resolvePath(line.bgm));
         const std::string fontPath = line.fontPath.empty() ? std::string{} : platform::path::resolvePath(line.fontPath);
         const std::string speakerKey = inferScriptSpeakerKey(line, battleState);
 

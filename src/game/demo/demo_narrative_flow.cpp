@@ -229,8 +229,12 @@ void DemoNarrativeFlow::showDialogueLine(const DialogueLine& line) const {
     const std::string backgroundPath = line.background.empty()
         ? std::string{}
         : (vn::isHexColorString(line.background) ? line.background : platform::path::resolvePath(line.background));
-    const std::string voicePath = line.voice.empty() ? std::string{} : platform::path::resolvePath(line.voice);
-    const std::string bgmPath = line.bgm.empty() ? std::string{} : platform::path::resolvePath(line.bgm);
+    const std::string voicePath = line.voice.empty()
+        ? std::string{}
+        : platform::path::resolveAudioPath(line.voice).value_or(platform::path::resolvePath(line.voice));
+    const std::string bgmPath = line.bgm.empty()
+        ? std::string{}
+        : platform::path::resolveAudioPath(line.bgm).value_or(platform::path::resolvePath(line.bgm));
     const std::string fontPath = line.fontPath.empty() ? std::string{} : platform::path::resolvePath(line.fontPath);
 
     if (line.clearBackground) {

@@ -28,7 +28,7 @@ constexpr float kSettleStartSeconds = kWhiteHoldStartSeconds + kWhiteHoldDuratio
 constexpr float kTotalDurationSeconds = kSettleStartSeconds + kSettleDurationSeconds;
 
 constexpr char kMikuTexturePath[] = "assets/combat/presentations/special/mikumikubeam.png";
-constexpr char kFinisherVoicePath[] = "assets/combat/voices/miku/phase3_finisher/1.wav";
+constexpr char kFinisherVoicePath[] = "assets/combat/voices/miku/phase3_finisher/1.opus";
 constexpr float kPi = 3.14159265359f;
 constexpr float kMinimumDepth = 1.0f;
 constexpr float kMikuWorldHeightUnits = 250.0f;

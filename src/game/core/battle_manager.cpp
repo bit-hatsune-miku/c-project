@@ -381,6 +381,9 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     if (!loader::loadBossDefinition(battleDefinition_.bossKey, state_.boss)) {
         return false;
     }
+    if (battleDefinition_.specialRules.practiceBossHpFloor > 0) {
+        state_.boss.hp = std::max(state_.boss.hp, battleDefinition_.specialRules.practiceBossHpFloor);
+    }
 
     state_.party.reserve(characterKeys.size());
     for (const std::string& key : characterKeys) {

@@ -1,6 +1,10 @@
 #include "vn_script.h"
 #include "vn_script_catalog.h"
 
+#include "../../platform/path_resolution.h"
+
+#include <array>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -11,21 +15,132 @@ using json = nlohmann::json;
 namespace vn {
 namespace {
 
-std::string defaultIconForCh0Speaker(const std::string& speaker) {
-    if (speaker == "Miku") {
-        return "assets/combat/icons/miku.png";
+struct SpeakerCombatIconAlias {
+    const char* speakerKey = "";
+    const char* assetId = "";
+};
+
+struct SpeakerDirectIconAlias {
+    const char* speakerKey = "";
+    const char* relativePath = "";
+};
+
+std::string trimAsciiCopy(std::string value) {
+    auto isAsciiSpace = [](unsigned char ch) {
+        return std::isspace(ch) != 0;
+    };
+
+    while (!value.empty() && isAsciiSpace(static_cast<unsigned char>(value.front()))) {
+        value.erase(value.begin());
     }
-    if (speaker == "Cupcakke") {
-        return "assets/combat/icons/cupcakke.png";
+    while (!value.empty() && isAsciiSpace(static_cast<unsigned char>(value.back()))) {
+        value.pop_back();
     }
-    if (speaker == "Lyoo") {
-        return "assets/vn/icons/lyoo/0.png";
-    }
-    return std::string();
+    return value;
 }
 
-bool usesTutorialDefaults(const std::string& scriptId) {
-    return scriptId == "ch0001" || scriptId == "ch0099";
+std::string normalizedSpeakerKey(const std::string& value) {
+    std::string normalized;
+    normalized.reserve(value.size());
+
+    bool pendingSpace = false;
+    for (unsigned char ch : value) {
+        if (std::isspace(ch) != 0) {
+            pendingSpace = !normalized.empty();
+            continue;
+        }
+
+        if (pendingSpace) {
+            normalized.push_back(' ');
+            pendingSpace = false;
+        }
+        normalized.push_back(static_cast<char>(std::tolower(ch)));
+    }
+
+    return normalized;
+}
+
+std::string existingRelativePath(const std::string& relativePath) {
+    if (relativePath.empty()) {
+        return {};
+    }
+
+    const std::string resolved = platform::path::resolvePath(relativePath);
+    if (std::filesystem::exists(resolved)) {
+        return relativePath;
+    }
+
+    return {};
+}
+
+std::string combatIconPathForAsset(const std::string& assetId) {
+    const std::string trimmed = trimAsciiCopy(assetId);
+    if (trimmed.empty()) {
+        return {};
+    }
+
+    const std::array<const char*, 2> extensions = {".png", ".webp"};
+    for (const char* extension : extensions) {
+        const std::string relativePath = "assets/combat/icons/" + trimmed + extension;
+        if (const std::string existingPath = existingRelativePath(relativePath); !existingPath.empty()) {
+            return existingPath;
+        }
+    }
+
+    return {};
+}
+
+std::string defaultIconForDialogueEntry(const ScriptEntry& entry) {
+    if (entry.type != EntryType::Dialogue) {
+        return {};
+    }
+
+    const std::string speakerKey = normalizedSpeakerKey(entry.speaker);
+
+    constexpr std::array<SpeakerDirectIconAlias, 5> kDirectAliases = {{
+        {"lyoo", "assets/vn/icons/lyoo/0.png"},
+        {"adult lyoo", "assets/vn/icons/lyoo/0.png"},
+        {"adult", "assets/vn/icons/lyoo/0.png"},
+        {"baby lyoo", "assets/vn/icons/lyoo/baby.png"},
+        {"baby", "assets/vn/icons/lyoo/baby.png"},
+    }};
+    for (const SpeakerDirectIconAlias& alias : kDirectAliases) {
+        if (speakerKey == alias.speakerKey) {
+            return existingRelativePath(alias.relativePath);
+        }
+    }
+
+    constexpr std::array<SpeakerCombatIconAlias, 12> kCombatAliases = {{
+        {"miku", "miku"},
+        {"hatsune miku", "miku"},
+        {"cupcakke", "cupcakke"},
+        {"jiafei", "jiafei"},
+        {"luo tianyi", "luotianyi"},
+        {"teto", "teto"},
+        {"ariana grande", "ari"},
+        {"wechat-jie", "wechatalipay"},
+        {"alipay-jie", "wechatalipay"},
+        {"zhou shen", "zhouShen"},
+        {"zhao laoshi", "randy"},
+        {"sailor venus", "sailorVenus"},
+    }};
+    for (const SpeakerCombatIconAlias& alias : kCombatAliases) {
+        if (speakerKey == alias.speakerKey) {
+            return combatIconPathForAsset(alias.assetId);
+        }
+    }
+
+    if (speakerKey == "pompom") {
+        return combatIconPathForAsset("pompom");
+    }
+    if (speakerKey == "huafei") {
+        return combatIconPathForAsset("huafei");
+    }
+    if (speakerKey == "disciple") {
+        return combatIconPathForAsset("disciple");
+    }
+
+    return combatIconPathForAsset(entry.voiceSpeakerId);
 }
 
 } // namespace
@@ -105,11 +220,8 @@ bool loadScript(const std::string& jsonPath, Script& outScript) {
             entry.battleWinScript = canonicalScriptId(entryJson.value("battleWinScript", ""));
             entry.battleLoseScript = canonicalScriptId(entryJson.value("battleLoseScript", ""));
 
-            // Tutorial data defaults requested by design:
-            // - Miku/Cupcakke use combat icons
-            // - Lyoo uses VN icon frame 0
-            if (entry.icon.empty() && usesTutorialDefaults(outScript.scriptId)) {
-                const std::string fallbackIcon = defaultIconForCh0Speaker(entry.speaker);
+            if (entry.icon.empty()) {
+                const std::string fallbackIcon = defaultIconForDialogueEntry(entry);
                 if (!fallbackIcon.empty()) {
                     entry.icon = fallbackIcon;
                 }

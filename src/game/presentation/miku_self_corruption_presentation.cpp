@@ -44,15 +44,14 @@ std::string resolvePresentationFramePath(const char* name) {
 
 std::string resolveCheerVoicePath(const std::string& assetName) {
     const std::array<const char*, 2> candidates{
-        "special.wav",
-        "ability.wav"
+        "special.opus",
+        "ability.opus"
     };
     for (const char* fileName : candidates) {
-        const std::string path =
-            platform::path::resolvePath("assets/combat/voices/" + assetName + "/" + fileName);
-        std::error_code error;
-        if (!path.empty() && std::filesystem::exists(std::filesystem::path(path), error) && !error) {
-            return path;
+        if (const std::optional<std::string> path =
+                platform::path::resolveAudioPath("assets/combat/voices/" + assetName + "/" + fileName);
+            path.has_value()) {
+            return *path;
         }
     }
     return {};
@@ -122,7 +121,7 @@ void MikuSelfCorruptionPresentation::update(float deltaTime) {
         corruptionShotAudioTriggered_ = true;
         queueAudioCommand(
             PresentationAudioCommandType::PlayOneShot,
-            "assets/combat/voices/mikuBoss/ability.wav",
+            "assets/combat/voices/mikuBoss/ability.opus",
             1.0f);
     }
 

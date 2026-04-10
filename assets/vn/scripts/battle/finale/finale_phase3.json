@@ -8,7 +8,7 @@
       "voiceSpeakerId": "miku",
       "text": "I know now!",
       "type": "dialogue",
-      "voice": "assets/vn/voices/finale_phase3/1.wav",
+      "voice": "assets/vn/voices/finale_phase3/1.opus",
       "icon": "assets/combat/icons/miku.png",
       "battleFocus": "miku"
     },
@@ -17,7 +17,7 @@
       "voiceSpeakerId": "miku",
       "text": "Hey you bitch!",
       "type": "dialogue",
-      "voice": "assets/vn/voices/finale_phase3/2.wav",
+      "voice": "assets/vn/voices/finale_phase3/2.opus",
       "icon": "assets/combat/icons/miku.png",
       "battleFocus": "miku"
     },
@@ -27,7 +27,7 @@
       "text": "All this time you were talking to me... you actually weren't talking to me were you?",
       "type": "dialogue",
       "background": "assets/combat/presentations/special/1.png",
-      "voice": "assets/vn/voices/finale_phase3/3.wav",
+      "voice": "assets/vn/voices/finale_phase3/3.opus",
       "icon": "assets/combat/icons/miku.png",
       "battleFocus": "miku"
     },
@@ -45,7 +45,7 @@
       "text": "You were talking to him, weren't you?",
       "type": "dialogue",
       "background": "assets/combat/presentations/special/2.png",
-      "voice": "assets/vn/voices/finale_phase3/4.wav",
+      "voice": "assets/vn/voices/finale_phase3/4.opus",
       "icon": "assets/combat/icons/miku.png",
       "battleFocus": "miku"
     },
@@ -54,7 +54,7 @@
       "voiceSpeakerId": "miku",
       "text": "The dreaming child you left behind.",
       "type": "dialogue",
-      "voice": "assets/vn/voices/finale_phase3/5.wav",
+      "voice": "assets/vn/voices/finale_phase3/5.opus",
       "icon": "assets/combat/icons/miku.png",
       "battleFocus": "miku"
     },
@@ -64,7 +64,7 @@
       "text": "I have a question for you.",
       "type": "dialogue",
       "clearBackground": true,
-      "voice": "assets/vn/voices/finale_phase3/6.wav",
+      "voice": "assets/vn/voices/finale_phase3/6.opus",
       "icon": "assets/combat/icons/miku.png",
       "battleFocus": "miku"
     },
@@ -73,7 +73,7 @@
       "voiceSpeakerId": "miku",
       "text": "Why does water keep flowing in the river of broken dreams?",
       "type": "dialogue",
-      "voice": "assets/vn/voices/finale_phase3/7.wav",
+      "voice": "assets/vn/voices/finale_phase3/7.opus",
       "icon": "assets/combat/icons/miku.png",
       "battleFocus": "miku"
     },
@@ -82,7 +82,7 @@
       "voiceSpeakerId": "miku",
       "text": "Because no matter how you try to bottle them inside, dreams NEVER FADE AWAY!",
       "type": "dialogue",
-      "voice": "assets/vn/voices/finale_phase3/8.wav",
+      "voice": "assets/vn/voices/finale_phase3/8.opus",
       "icon": "assets/combat/icons/miku.png",
       "battleFocus": "miku"
     },
@@ -91,7 +91,7 @@
       "voiceSpeakerId": "lyooPlotTwist",
       "text": "SHUT UP!! SHUT UP SHUT UP SHUT UP",
       "type": "dialogue",
-      "voice": "assets/vn/voices/finale_phase3/9.wav",
+      "voice": "assets/vn/voices/finale_phase3/9.opus",
       "icon": "assets/combat/icons/lyoo.png",
       "battleFocus": "boss",
       "bossTitleOverride": "La Riviere aux Reves brisee"
@@ -101,7 +101,7 @@
       "voiceSpeakerId": "lyooPlotTwist",
       "text": "WHAT GIVES YOU THE RIGHT TO HAVE A DREAM? THERE IS NO SUCH THING AS DREAM IN THIS MUNDANE WORLD",
       "type": "dialogue",
-      "voice": "assets/vn/voices/finale_phase3/10.wav",
+      "voice": "assets/vn/voices/finale_phase3/10.opus",
       "icon": "assets/combat/icons/lyoo.png",
       "battleFocus": "boss"
     },
@@ -110,7 +110,7 @@
       "voiceSpeakerId": "lyooPlotTwist",
       "text": "IF I COULDN'T MAKE MY DREAMS COME TRUE, I'LL MAKE SURE THAT NO ONE, NOBODY NOT A SINGLE PERSON DOES",
       "type": "dialogue",
-      "voice": "assets/vn/voices/finale_phase3/11.wav",
+      "voice": "assets/vn/voices/finale_phase3/11.opus",
       "icon": "assets/combat/icons/lyoo.png",
       "battleFocus": "boss"
     },
@@ -120,7 +120,7 @@
       "text": "AND THAT INCLUDES....",
       "type": "dialogue",
       "background": "assets/combat/presentations/special/1.png",
-      "voice": "assets/vn/voices/finale_phase3/12.wav",
+      "voice": "assets/vn/voices/finale_phase3/12.opus",
       "icon": "assets/combat/icons/lyoo.png",
       "battleFocus": "boss"
     },
@@ -130,7 +130,7 @@
       "text": "THAT INCLUDES YOU!",
       "type": "dialogue",
       "background": "assets/combat/presentations/special/2.png",
-      "voice": "assets/vn/voices/finale_phase3/13.wav",
+      "voice": "assets/vn/voices/finale_phase3/13.opus",
       "icon": "assets/combat/icons/lyoo.png",
       "battleFocus": "boss"
     },
@@ -144,7 +144,7 @@
       "voiceSpeakerId": "miku",
       "text": "He's vulnerable, now!",
       "type": "dialogue",
-      "voice": "assets/vn/voices/finale_phase3/17.wav",
+      "voice": "assets/vn/voices/finale_phase3/17.opus",
       "autoAdvanceOnVoiceEnd": true,
       "icon": "assets/combat/icons/miku.png",
       "battleFocus": "miku"

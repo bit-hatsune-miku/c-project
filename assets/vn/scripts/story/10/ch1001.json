@@ -4,10 +4,10 @@
   "endReturnScreen": "selector",
   "entries": [
     {
-      "speaker": "Zhao Laoshi",
-      "text": "Class is not over. Submit your assignment before the deadline.",
+      "speaker": "Zhou Shen",
+      "text": "Prepare to face the Big Fish!",
       "type": "dialogue",
-      "battleKey": "randy"
+      "battleKey": "zhoushen_boss_demo"
     }
   ]
 }

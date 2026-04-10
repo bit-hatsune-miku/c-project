@@ -479,6 +479,8 @@ bool fillBattleDefinitionFromJson(const std::string& battleKey,
             specialRulesJson.value("revivePartyToFull", false);
         battle.specialRules.bossSelfKnockoutIsDefeat =
             specialRulesJson.value("bossSelfKnockoutIsDefeat", false);
+        battle.specialRules.practiceBossHpFloor =
+            std::max(0, specialRulesJson.value("practiceBossHpFloor", 0));
     }
     battle.partySize = resolveBattlePartySize(battleJson, battle);
 

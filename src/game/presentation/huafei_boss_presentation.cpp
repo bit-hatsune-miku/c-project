@@ -27,7 +27,7 @@ constexpr float kFakeIconCenterXRatio = 0.28f;
 constexpr float kFakeIconCenterYRatio = 0.50f;
 
 std::string resolveVoicePath(const char* relativePath) {
-    return platform::path::resolvePath(relativePath);
+    return platform::path::resolveAudioPath(relativePath).value_or(platform::path::resolvePath(relativePath));
 }
 
 std::string resolveFramePath(HuafeiBossPresentation::Sequence sequence, int frameNumber) {
@@ -105,7 +105,7 @@ void HuafeiBossPresentation::start() {
     inputWindow_.active = true;
     pendingAudioCommands_.push_back(PresentationAudioCommand{
         PresentationAudioCommandType::PlayVoiceOneShot,
-        resolveVoicePath("assets/combat/voices/huafeiBoss/hostage.wav"),
+        resolveVoicePath("assets/combat/voices/huafeiBoss/hostage.opus"),
         1.0f
     });
 }
@@ -125,7 +125,7 @@ void HuafeiBossPresentation::update(float deltaTime) {
                 failureHitReady_ = false;
                 pendingAudioCommands_.push_back(PresentationAudioCommand{
                     PresentationAudioCommandType::PlayVoiceOneShot,
-                    resolveVoicePath("assets/combat/voices/huafeiBoss/scream.wav"),
+                    resolveVoicePath("assets/combat/voices/huafeiBoss/scream.opus"),
                     1.0f
                 });
             }

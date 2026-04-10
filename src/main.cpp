@@ -756,8 +756,12 @@ void applyCurrentEntry(const StorySession& story, const GameSettings& settings) 
 
     const auto& entry = story.script.entries[story.entryIndex];
     const std::string iconPath = entry.icon.empty() ? std::string{} : platform::path::resolvePath(entry.icon);
-    const std::string voicePath = entry.voice.empty() ? std::string{} : platform::path::resolvePath(entry.voice);
-    const std::string bgmPath = entry.bgm.empty() ? std::string{} : platform::path::resolvePath(entry.bgm);
+    const std::string voicePath = entry.voice.empty()
+        ? std::string{}
+        : platform::path::resolveAudioPath(entry.voice).value_or(platform::path::resolvePath(entry.voice));
+    const std::string bgmPath = entry.bgm.empty()
+        ? std::string{}
+        : platform::path::resolveAudioPath(entry.bgm).value_or(platform::path::resolvePath(entry.bgm));
     const std::string fontPath = entry.fontPath.empty() ? std::string{} : platform::path::resolvePath(entry.fontPath);
     const std::string backgroundRef = entry.background.empty()
         ? (entry.clearBackground ? std::string{} : effectiveStoryBackground(story, story.entryIndex))
@@ -2622,7 +2626,7 @@ int main(int argc, char** argv) {
                 resultPresentation.defeatAction = battle::app::BattleDefeatResultAction::Return;
             }
             state.pendingBattlePartyLineup.clear();
-            if (!battleSession->initialize(window, state.settings, battleKey, state.progression,
+            if (!battleSession->initialize(window, state.settings, battleKey, state.pendingBattleFlowMode, state.progression,
                                            std::move(initialPartyLineup), resultPresentation)) {
                 battleSession.reset();
                 state.screen = ScreenState::MainMenu;

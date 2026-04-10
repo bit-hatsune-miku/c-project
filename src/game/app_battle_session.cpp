@@ -440,8 +440,8 @@ void stopPresentationAudioPlayback(bool resumeBgm = false) {
 
 std::optional<std::string> resolveBossHitVoicePath(const battle::BattleState& battleState) {
     if (!battleState.boss.voiceHit.empty()) {
-        const std::string resolved = platform::path::resolvePath(battleState.boss.voiceHit);
-        if (std::filesystem::exists(resolved)) {
+        if (const std::optional<std::string> resolved = platform::path::resolveAudioPath(battleState.boss.voiceHit);
+            resolved.has_value()) {
             return resolved;
         }
     }
@@ -1741,6 +1741,8 @@ public:
      * @param hostWindow Native window and GL context provider used for rendering and input.
      * @param settings Live game settings used to initialize audio and UI parameters; may be null in some tests.
      * @param battleKey Key identifying which battle definition to load; when empty a default tutorial key is used.
+     * @param flowMode Launch context for the battle. Campaign story battles keep authored boss HP while
+     * practice and replay flows may apply battle-specific HP floors.
      * @param progression Player progression data used to resolve available characters, unlocked content, and lineup defaults.
      * @param initialPartyLineup Optional explicit party lineup to use instead of deriving one from progression and the battle definition.
      * @param resultPresentation Configuration that controls end-of-battle result overlay presentation behavior.
@@ -1749,6 +1751,7 @@ public:
     bool initialize(Window& hostWindow,
                     GameSettings& settings,
                     const std::string& battleKey,
+                    BattleFlowMode flowMode,
                     const battle::PlayerProgression& progression,
                     std::optional<std::vector<std::string>> initialPartyLineup,
                     BattleResultPresentationConfig resultPresentation) {
@@ -1842,6 +1845,9 @@ public:
             std::cerr << "[Battle] Failed to resolve battle definition: " << resolvedBattleKey << "\n";
             shutdown();
             return false;
+        }
+        if (flowMode == BattleFlowMode::CampaignStory) {
+            battleDefinition_.specialRules.practiceBossHpFloor = 0;
         }
         if (!battle::render::loadStageDefinition(battleDefinition_.stageKey, stageDefinition_)) {
             std::cerr << "[Battle] Failed to resolve stage definition, using built-in fallback.\n";
@@ -3406,15 +3412,15 @@ private:
         if (path.empty()) {
             return false;
         }
-        const std::string resolved = platform::path::resolvePath(path);
-        if (!std::filesystem::exists(resolved)) {
+        const std::optional<std::string> resolved = platform::path::resolveAudioPath(path);
+        if (!resolved.has_value()) {
             return false;
         }
         return requestBattleVoice(
             speakerKey,
             kind,
             game::audio::BattleVoiceChannel::OneShot,
-            resolved,
+            *resolved,
             volume,
             startedHandle);
     }
@@ -3548,8 +3554,12 @@ private:
         const std::string backgroundPath = line.background.empty()
             ? std::string{}
             : (vn::isHexColorString(line.background) ? line.background : platform::path::resolvePath(line.background));
-        const std::string voicePath = line.voice.empty() ? std::string{} : platform::path::resolvePath(line.voice);
-        const std::string bgmPath = line.bgm.empty() ? std::string{} : platform::path::resolvePath(line.bgm);
+        const std::string voicePath = line.voice.empty()
+            ? std::string{}
+            : platform::path::resolveAudioPath(line.voice).value_or(platform::path::resolvePath(line.voice));
+        const std::string bgmPath = line.bgm.empty()
+            ? std::string{}
+            : platform::path::resolveAudioPath(line.bgm).value_or(platform::path::resolvePath(line.bgm));
         const std::string fontPath = line.fontPath.empty() ? std::string{} : platform::path::resolvePath(line.fontPath);
         const std::string speakerKey = resolveScriptVoiceSpeakerKey(line);
 
@@ -6766,6 +6776,7 @@ Session::~Session() = default;
  * @param window The application window and GL context to use for rendering.
  * @param settings User-adjustable game settings (audio volumes, text speed, display mode, etc.).
  * @param battleKey Key identifying the battle definition to load.
+ * @param flowMode Launch context for the battle.
  * @param progression Player progression state used to seed enemy/boss scaling and unlocks.
  * @param initialPartyLineup Optional explicit party lineup; when present it overrides the battle's default lineup.
  * @param resultPresentation Configuration controlling the post-battle result overlay presentation.
@@ -6774,6 +6785,7 @@ Session::~Session() = default;
 bool Session::initialize(Window& window,
                          GameSettings& settings,
                          const std::string& battleKey,
+                         BattleFlowMode flowMode,
                          const battle::PlayerProgression& progression,
                          std::optional<std::vector<std::string>> initialPartyLineup,
                          BattleResultPresentationConfig resultPresentation) {
@@ -6781,6 +6793,7 @@ bool Session::initialize(Window& window,
         window,
         settings,
         battleKey,
+        flowMode,
         progression,
         std::move(initialPartyLineup),
         resultPresentation);

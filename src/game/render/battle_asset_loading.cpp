@@ -13,6 +13,62 @@
 
 namespace battle::render {
 
+namespace {
+
+#ifdef BATTLE_ENABLE_IMAGE
+constexpr int kIconCropOpaqueStartThreshold = 40;
+constexpr int kIconCropOpaqueTopPadding = 12;
+
+int firstOpaqueRow(SDL_Surface* surface) {
+    if (surface == nullptr || surface->pixels == nullptr) {
+        return -1;
+    }
+
+    const bool mustLock = SDL_MUSTLOCK(surface) != 0;
+    if (mustLock && SDL_LockSurface(surface) != 0) {
+        return -1;
+    }
+
+    const auto* pixels = static_cast<const Uint8*>(surface->pixels);
+    for (int y = 0; y < surface->h; ++y) {
+        const Uint8* row = pixels + (y * surface->pitch);
+        for (int x = 0; x < surface->w; ++x) {
+            if (row[(x * 4) + 3] != 0) {
+                if (mustLock) {
+                    SDL_UnlockSurface(surface);
+                }
+                return y;
+            }
+        }
+    }
+
+    if (mustLock) {
+        SDL_UnlockSurface(surface);
+    }
+    return -1;
+}
+
+SDL_Rect alphaAwareSquareCropRect(SDL_Surface* source) {
+    const int side = std::max(1, std::min(source->w, source->h));
+    const int maxCropY = std::max(0, source->h - side);
+    int cropY = 0;
+
+    const int opaqueRow = firstOpaqueRow(source);
+    if (opaqueRow >= kIconCropOpaqueStartThreshold) {
+        cropY = std::clamp(opaqueRow - kIconCropOpaqueTopPadding, 0, maxCropY);
+    }
+
+    return SDL_Rect{
+        std::max(0, (source->w - side) / 2),
+        cropY,
+        side,
+        side
+    };
+}
+#endif
+
+} // namespace
+
 SDL_Color colorFromKey(const std::string& key, bool boss) {
     unsigned hash = 2166136261u;
     for (char c : key) {
@@ -108,9 +164,18 @@ std::optional<SDL_Texture*> tryLoadCombatIconTexture(SDL_Renderer* renderer, con
             continue;
         }
 
-        SDL_Surface* source = IMG_Load(resolvedPath.c_str());
-        if (source == nullptr) {
+        SDL_Surface* loaded = IMG_Load(resolvedPath.c_str());
+        if (loaded == nullptr) {
             continue;
+        }
+
+        SDL_Surface* source = SDL_ConvertSurfaceFormat(loaded, SDL_PIXELFORMAT_RGBA32, 0);
+        if (source == nullptr) {
+            source = loaded;
+            loaded = nullptr;
+        } else {
+            SDL_FreeSurface(loaded);
+            loaded = nullptr;
         }
 
         const int side = std::max(1, std::min(source->w, source->h));
@@ -121,12 +186,7 @@ std::optional<SDL_Texture*> tryLoadCombatIconTexture(SDL_Renderer* renderer, con
         }
 
         SDL_FillRect(cropped, nullptr, SDL_MapRGBA(cropped->format, 0, 0, 0, 0));
-        const SDL_Rect srcRect{
-            std::max(0, (source->w - side) / 2),
-            0,
-            side,
-            side
-        };
+        const SDL_Rect srcRect = alphaAwareSquareCropRect(source);
         SDL_BlitSurface(source, &srcRect, cropped, nullptr);
         SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, cropped);
         SDL_FreeSurface(cropped);

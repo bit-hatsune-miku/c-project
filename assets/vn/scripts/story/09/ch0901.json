@@ -4,10 +4,10 @@
   "endReturnScreen": "selector",
   "entries": [
     {
-      "speaker": "Huafei",
-      "text": "RongMoMo, hold them still. Let's see if they can break free.",
+      "speaker": "Sailor Venus",
+      "text": "Agent of Love and Beauty! I will punish you!",
       "type": "dialogue",
-      "battleKey": "huafei"
+      "battleKey": "sailorVenus"
     }
   ]
 }

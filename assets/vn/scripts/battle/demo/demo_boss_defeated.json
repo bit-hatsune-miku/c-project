@@ -8,7 +8,7 @@
       "text": "Yatta!",
       "type": "dialogue",
       "background": "",
-      "voice": "assets/vn/voices/demo/yatta.wav",
+      "voice": "assets/vn/voices/demo/yatta.opus",
       "voiceSpeakerId": "miku",
       "fontPath": "",
       "icon": "assets/combat/icons/miku.png",

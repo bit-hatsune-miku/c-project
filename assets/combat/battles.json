@@ -70,9 +70,9 @@
       "name": "Fight between Roommates",
       "description": "It's time to settle the score between you and your roommate",
       "bossKey": "tetoBoss",
-      "storyScript": "ch0301",
-      "victoryStoryScript": "ch0399",
-      "nextStoryScript": "ch0401",
+      "storyScript": "ch0201",
+      "victoryStoryScript": "ch0299",
+      "nextStoryScript": "ch0301",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
@@ -94,9 +94,9 @@
       "name": "Scan To Pay",
       "description": "WeChat and AliPay are trying to take your money",
       "bossKey": "wechatalipayBoss",
-      "storyScript": "ch0201",
-      "victoryStoryScript": "ch0299",
-      "nextStoryScript": "ch0301",
+      "storyScript": "ch0301",
+      "victoryStoryScript": "ch0399",
+      "nextStoryScript": "ch0401",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
@@ -162,19 +162,22 @@
     },
     "zhoushen_boss_demo": {
       "id": 103,
-      "storyOrder": 550,
+      "storyOrder": 590,
       "name": "Big Fish",
       "description": "The magnificent voice that split the seas.",
       "bossKey": "zhouShenBoss",
-      "storyScript": "ch0601",
-      "victoryStoryScript": "ch0699",
-      "nextStoryScript": "ch0701",
+      "storyScript": "ch1001",
+      "victoryStoryScript": "ch1099",
+      "nextStoryScript": "ch1101",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
         "hp": 14,
         "atk": 4,
         "spd": 2
+      },
+      "specialRules": {
+        "practiceBossHpFloor": 6100
       },
       "lineup": [
         "miku",
@@ -186,19 +189,22 @@
     },
     "sailorVenus": {
       "id": 104,
-      "storyOrder": 575,
+      "storyOrder": 580,
       "name": "Sailor Venus",
       "description": "The Sailor Scout of Love and Beauty has arrived to duel you!",
       "bossKey": "sailorVenusBoss",
-      "storyScript": "ch0701",
-      "victoryStoryScript": "ch0799",
-      "nextStoryScript": "ch0801",
+      "storyScript": "ch0901",
+      "victoryStoryScript": "ch0999",
+      "nextStoryScript": "ch1001",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
         "hp": 16,
         "atk": 5,
         "spd": 3
+      },
+      "specialRules": {
+        "practiceBossHpFloor": 6100
       },
       "lineup": [
         "miku",
@@ -211,13 +217,13 @@
     },
     "pompom": {
       "id": 105,
-      "storyOrder": 590,
+      "storyOrder": 550,
       "name": "PomPom",
       "description": "The conductor bars the way. Stay on schedule or get flattened.",
       "bossKey": "pompomBoss",
-      "storyScript": "ch0801",
-      "victoryStoryScript": "ch0899",
-      "nextStoryScript": "ch0901",
+      "storyScript": "ch0601",
+      "victoryStoryScript": "ch0699",
+      "nextStoryScript": "ch0701",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
@@ -236,13 +242,13 @@
     },
     "huafei": {
       "id": 106,
-      "storyOrder": 595,
+      "storyOrder": 560,
       "name": "Huafei",
       "description": "Huafei sends RongMoMo to seize one of your allies and crush the escape attempt.",
       "bossKey": "huafeiBoss",
-      "storyScript": "ch0901",
-      "victoryStoryScript": "ch0999",
-      "nextStoryScript": "ch1001",
+      "storyScript": "ch0701",
+      "victoryStoryScript": "ch0799",
+      "nextStoryScript": "ch0801",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
@@ -261,19 +267,22 @@
     },
     "randy": {
       "id": 107,
-      "storyOrder": 598,
+      "storyOrder": 570,
       "name": "Submit Before Deadline",
       "description": "Zhao Laoshi demands your assignment. Type fast enough to survive the deduction.",
       "bossKey": "randyBoss",
-      "storyScript": "ch1001",
-      "victoryStoryScript": "ch1099",
-      "nextStoryScript": "ch1101",
+      "storyScript": "ch0801",
+      "victoryStoryScript": "ch0899",
+      "nextStoryScript": "ch0901",
       "selectorVisible": true,
       "isLineupFixed": false,
       "buffs": {
         "hp": 20,
         "atk": 6,
         "spd": 3
+      },
+      "specialRules": {
+        "practiceBossHpFloor": 6100
       },
       "lineup": [
         "miku",
@@ -299,6 +308,9 @@
         "hp": 22,
         "atk": 6,
         "spd": 4
+      },
+      "specialRules": {
+        "practiceBossHpFloor": 6100
       },
       "lineup": [
         "miku",
