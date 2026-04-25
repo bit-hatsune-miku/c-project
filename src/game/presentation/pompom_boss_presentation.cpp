@@ -74,6 +74,8 @@ void PomPomBossPresentation::start() {
     pendingHitDamageMultipliers_.clear();
     damageMultiplier_ = kBaseDamageMultiplier;
     landedHitCount_ = 0;
+    runnerCenterScreenX_ = -1.0f;
+    lastScreenWidth_ = 0;
 }
 
 void PomPomBossPresentation::setTuningProfile(const PresentationTuningProfile& profile) {
@@ -131,7 +133,17 @@ void PomPomBossPresentation::update(float deltaTime) {
             const float progressDelta = speed / 1420.0f;
             it->progress += progressDelta;
 
-            if (!it->resolved && it->progress >= judgementProgress_) {
+            float judgementProgress = judgementProgress_;
+            if (lastScreenWidth_ > 0 && runnerCenterScreenX_ >= 0.0f) {
+                judgementProgress = std::clamp(
+                    (static_cast<float>(lastScreenWidth_) + kObstacleDrawWidth * 0.5f - runnerCenterScreenX_) /
+                        (static_cast<float>(lastScreenWidth_) + static_cast<float>(kObstacleDrawWidth)),
+                    0.05f,
+                    0.98f
+                );
+            }
+
+            if (!it->resolved && it->progress >= judgementProgress) {
                 resolveObstacleJudgement(*it);
             }
 
@@ -189,6 +201,8 @@ void PomPomBossPresentation::render(SDL_Renderer* renderer, int screenW, int scr
     const float groundY = std::min(static_cast<float>(screenH) - 120.0f, targetFeet.y + 18.0f);
     const float runnerCenterX = targetFeet.x;
     const float runnerTopY = groundY - runnerDrawHeight - jumpOffsetPixels_;
+    runnerCenterScreenX_ = runnerCenterX;
+    lastScreenWidth_ = screenW;
 
     SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
     SDL_SetRenderDrawColor(renderer, 245, 245, 245, 210);

@@ -58,7 +58,7 @@ void AriBossPresentation::start() {
     phaseElapsed_ = 0.0f;
     currentWaitDuration_ = 0.0f;
     attackInputCaptured_ = false;
-    attackReactionSeconds_ = 0.0f;
+    attackReactionOffsetSeconds_ = 0.0f;
     attackFeedbackQueued_ = false;
     resolvedHitDamageMultipliers_.clear();
     pendingHitDamageMultipliers_.clear();
@@ -83,11 +83,11 @@ void AriBossPresentation::update(float deltaTime) {
 
         const float hitDamageMultiplier = damageMultiplierForReaction(
             attackInputCaptured_,
-            attackReactionSeconds_
+            attackReactionOffsetSeconds_
         );
         if (!attackFeedbackQueued_) {
             attackFeedbackQueued_ = true;
-            pendingFeedbackEvents_.push_back(buildAttackFeedbackEvent(attackInputCaptured_, attackReactionSeconds_));
+            pendingFeedbackEvents_.push_back(buildAttackFeedbackEvent(attackInputCaptured_, attackReactionOffsetSeconds_));
         }
         resolvedHitDamageMultipliers_.push_back(hitDamageMultiplier);
         pendingHitDamageMultipliers_.push_back(hitDamageMultiplier);
@@ -146,9 +146,9 @@ void AriBossPresentation::onSpacePressed() {
     }
 
     attackInputCaptured_ = true;
-    attackReactionSeconds_ = phaseElapsed_;
+    attackReactionOffsetSeconds_ = phaseElapsed_ - reactionCueSeconds_;
     attackFeedbackQueued_ = true;
-    pendingFeedbackEvents_.push_back(buildAttackFeedbackEvent(true, attackReactionSeconds_));
+    pendingFeedbackEvents_.push_back(buildAttackFeedbackEvent(true, attackReactionOffsetSeconds_));
 }
 
 void AriBossPresentation::setTuningProfile(const PresentationTuningProfile& profile) {
@@ -161,11 +161,14 @@ void AriBossPresentation::setTuningProfile(const PresentationTuningProfile& prof
     if (const auto it = profile.floatParams.find("waitDurationMaxSeconds"); it != profile.floatParams.end()) {
         waitDurationMaxSeconds_ = std::max(waitDurationMinSeconds_, it->second);
     }
-    if (const auto it = profile.floatParams.find("perfectReactionWindowSeconds"); it != profile.floatParams.end()) {
-        perfectReactionWindowSeconds_ = std::max(0.01f, it->second);
+    if (const auto it = profile.floatParams.find("reactionCueSeconds"); it != profile.floatParams.end()) {
+        reactionCueSeconds_ = std::clamp(it->second, 0.0f, kAttackDurationSeconds);
     }
-    if (const auto it = profile.floatParams.find("lateReactionStartSeconds"); it != profile.floatParams.end()) {
-        lateReactionStartSeconds_ = std::max(perfectReactionWindowSeconds_ + 0.01f, it->second);
+    if (const auto it = profile.floatParams.find("perfectWindowSeconds"); it != profile.floatParams.end()) {
+        perfectWindowSeconds_ = std::max(0.01f, it->second);
+    }
+    if (const auto it = profile.floatParams.find("maxReactionOffsetSeconds"); it != profile.floatParams.end()) {
+        maxReactionOffsetSeconds_ = std::max(perfectWindowSeconds_ + 0.01f, it->second);
     }
 }
 
@@ -366,7 +369,7 @@ void AriBossPresentation::beginAttack() {
     phaseElapsed_ = 0.0f;
     currentWaitDuration_ = 0.0f;
     attackInputCaptured_ = false;
-    attackReactionSeconds_ = 0.0f;
+    attackReactionOffsetSeconds_ = 0.0f;
     attackFeedbackQueued_ = false;
     ++pendingAbilityAudioCues_;
 }
@@ -387,28 +390,29 @@ float AriBossPresentation::averageDamageMultiplier() const {
     return total / static_cast<float>(resolvedHitDamageMultipliers_.size());
 }
 
-float AriBossPresentation::damageMultiplierForReaction(bool pressed, float reactionSeconds) const {
+float AriBossPresentation::damageMultiplierForReaction(bool pressed, float reactionOffsetSeconds) const {
     if (!pressed) {
         return 1.0f;
     }
 
-    if (reactionSeconds <= perfectReactionWindowSeconds_) {
+    const float absoluteOffset = std::abs(reactionOffsetSeconds);
+    if (absoluteOffset <= perfectWindowSeconds_) {
         return kPerfectDamageMultiplier;
     }
 
-    if (reactionSeconds >= lateReactionStartSeconds_) {
+    if (absoluteOffset >= maxReactionOffsetSeconds_) {
         return 1.0f;
     }
 
     const float t = easing::clamp01(
-        (reactionSeconds - perfectReactionWindowSeconds_) /
-        std::max(0.001f, lateReactionStartSeconds_ - perfectReactionWindowSeconds_)
+        (absoluteOffset - perfectWindowSeconds_) /
+        std::max(0.001f, maxReactionOffsetSeconds_ - perfectWindowSeconds_)
     );
     return easing::lerp(kPerfectDamageMultiplier, 1.0f, easing::easeInCubic(t));
 }
 
-PresentationFeedbackEvent AriBossPresentation::buildAttackFeedbackEvent(bool pressed, float reactionSeconds) const {
-    const float multiplier = damageMultiplierForReaction(pressed, reactionSeconds);
+PresentationFeedbackEvent AriBossPresentation::buildAttackFeedbackEvent(bool pressed, float reactionOffsetSeconds) const {
+    const float multiplier = damageMultiplierForReaction(pressed, reactionOffsetSeconds);
     const float normalized = std::clamp(
         (1.0f - multiplier) / (1.0f - kPerfectDamageMultiplier),
         0.0f,

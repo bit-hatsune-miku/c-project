@@ -50,7 +50,8 @@ enum class TutorialStep {
     None,
     Standard,
     Skill,
-    Ultimate
+    Ultimate,
+    Custom
 };
 
 enum class BattleHintFamily {
@@ -186,6 +187,7 @@ struct TutorialOverlayState {
     vn::ScriptEntry entry;
     Uint64 startedMs = 0;
     bool audioPlayed = false;
+    bool manualDismissAllowed = false;
     bool standardShown = false;
     bool skillShown = false;
     bool ultimateShown = false;
@@ -380,6 +382,11 @@ struct BattleInputPromptState {
     std::string primaryLabel = "SPACE";
     std::vector<std::string> followUpKeys;
     Uint64 startedMs = 0;
+};
+
+struct UltimateGuideOverlayState {
+    bool active = false;
+    int targetPartyIndex = -1;
 };
 
 inline bool battleInputPromptHasPrimary(const BattleInputPromptState& prompt) {

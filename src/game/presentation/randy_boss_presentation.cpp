@@ -310,6 +310,10 @@ bool RandyBossPresentation::shouldRenderAboveHud() const {
     return false;
 }
 
+PresentationFeedbackSignal RandyBossPresentation::getFeedbackSignal() const {
+    return PresentationFeedbackSignal::graded(completionRatio());
+}
+
 float RandyBossPresentation::consumeHitDamageMultiplier() {
     return failureDamageMultiplier();
 }

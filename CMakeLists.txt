@@ -94,6 +94,8 @@ set(BATTLE_CORE_SOURCES
     src/game/core/battle_manager.h
     src/game/core/battle_loader.cpp
     src/game/core/battle_loader.h
+    src/game/core/tutorial_scenarios.cpp
+    src/game/core/tutorial_scenarios.h
     src/game/core/turn_system.cpp
     src/game/core/turn_system.h
     src/game/core/ability_system.cpp

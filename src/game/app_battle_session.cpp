@@ -44,6 +44,7 @@
 #include "core/battle_manager.h"
 #include "core/battle_turn_flow.h"
 #include "core/easing.h"
+#include "core/tutorial_scenarios.h"
 #include "presentation/ability_presentation.h"
 #include "presentation/presentation_runtime.h"
 #include "presentation/splash_art_animation.h"
@@ -249,6 +250,263 @@ struct ScriptedBattleSequenceState {
     size_t currentLineIndex = 0;
     std::string currentBattleFocus;
 };
+
+struct TutorialPromptLibrary {
+    std::unordered_map<std::string, vn::ScriptEntry> entries;
+    bool loaded = false;
+};
+
+struct TutorialPlaybackMetrics {
+    int feedbackEventCount = 0;
+    int okayOrBetterCount = 0;
+    int goodOrBetterCount = 0;
+    int perfectCount = 0;
+    int correctToneCount = 0;
+    int scoreValue = 0;
+    bool finalJudgementValid = false;
+    battle::CombatJudgement finalJudgement = battle::CombatJudgement::Flop;
+    std::string resultText;
+};
+
+enum class ScriptedTutorialStepKind {
+    Dialogue,
+    Presentation,
+    FinishLiveBattle,
+    FinishSession
+};
+
+enum class ScriptedTutorialActionKind {
+    CharacterSkill,
+    CharacterUltimate,
+    BossSkill
+};
+
+enum class ScriptedTutorialMode {
+    None,
+    LyooOpening,
+    UnlockDrill,
+    BossPreview
+};
+
+struct ScriptedTutorialPresentationStep {
+    ScriptedTutorialActionKind actionKind = ScriptedTutorialActionKind::CharacterSkill;
+    std::string actorKey;
+    std::string promptKey;
+    std::string failurePromptKey;
+    std::string abilityKitId;
+    std::string targetCharacterKey;
+    std::optional<battle::AbilityTutorialDefinition> tutorialOverride;
+    std::optional<int> presentationValue;
+    std::vector<int> resolvedRolls;
+    std::vector<int> resolvedTargetIndices;
+    std::optional<int> bossPhaseIndex;
+    bool suppressBossWarning = true;
+    battle::TutorialScenarioBattleStatePatch preState;
+    battle::TutorialScenarioBattleStatePatch postState;
+};
+
+struct ScriptedTutorialStep {
+    ScriptedTutorialStepKind kind = ScriptedTutorialStepKind::Dialogue;
+    std::string promptKey;
+    ScriptedTutorialPresentationStep presentation;
+};
+
+struct ScriptedTutorialState {
+    ScriptedTutorialMode mode = ScriptedTutorialMode::None;
+    bool active = false;
+    bool completed = false;
+    std::string completionKey;
+    std::string focusCharacterKey;
+    std::string pendingRetryPromptKey;
+    std::vector<ScriptedTutorialStep> steps;
+    std::size_t stepIndex = 0;
+    battle::BattleManager openingBattleSnapshot;
+    bool hasOpeningBattleSnapshot = false;
+};
+
+bool tutorialScenarioPatchHasData(const battle::TutorialScenarioBattleStatePatch& patch) {
+    return !patch.party.empty() ||
+        patch.bossHp.has_value() ||
+        patch.bossHpPercent.has_value() ||
+        patch.bossPhaseIndex.has_value() ||
+        patch.luotianyiCorrectTones.has_value() ||
+        patch.tetoHealingTally.has_value() ||
+        patch.sailorVenusTransformed.has_value() ||
+        patch.sailorVenusTurnsRemaining.has_value() ||
+        patch.sailorVenusSpaceTally.has_value() ||
+        patch.sailorVenusFinisherQueued.has_value();
+}
+
+enum class BattleNarrativePromptKind {
+    None,
+    ScriptedTutorial,
+    LiveUltimateGuide,
+    TutorialBanter
+};
+
+struct BattleNarrativePromptState {
+    BattleNarrativePromptKind kind = BattleNarrativePromptKind::None;
+    bool active = false;
+    std::vector<vn::ScriptEntry> entries;
+    std::size_t lineIndex = 0;
+};
+
+struct LiveUltimateGuideState {
+    bool enabled = false;
+    bool completedMiku = false;
+    bool completedCupcakke = false;
+    int activePartyIndex = -1;
+    std::string activeCharacterKey;
+};
+
+struct LyooTutorialBanterState {
+    bool enabled = false;
+    bool shownPostMikuSkill = false;
+    bool shownPostMikuUltimate = false;
+    bool shownPostLyooAttackAfterMikuUltimate = false;
+    bool pendingPostLyooAttackAfterMikuUltimate = false;
+    std::vector<vn::ScriptEntry> postMikuSkillLines;
+    std::vector<vn::ScriptEntry> postMikuUltimateLines;
+    std::vector<vn::ScriptEntry> postLyooAttackAfterMikuUltimateLines;
+};
+
+bool parseTutorialPromptEntry(const nlohmann::json& entryJson, vn::ScriptEntry& outEntry) {
+    if (!entryJson.is_object()) {
+        return false;
+    }
+
+    outEntry = vn::ScriptEntry{};
+    outEntry.speaker = entryJson.value("speaker", std::string{});
+    outEntry.text = entryJson.value("text", std::string{});
+    outEntry.icon = entryJson.value("icon", std::string{});
+    outEntry.voice = entryJson.value("voice", std::string{});
+    outEntry.voiceSpeakerId = entryJson.value("voiceSpeakerId", std::string{});
+    outEntry.iconFrameCount = std::max(1, entryJson.value("iconFrameCount", 1));
+    outEntry.iconFps = entryJson.value("iconFps", 8.0f);
+    outEntry.autoAdvanceOnVoiceEnd = entryJson.value("autoAdvanceOnVoiceEnd", false);
+    return !outEntry.text.empty();
+}
+
+bool loadTutorialPromptLibrary(TutorialPromptLibrary& outLibrary) {
+    outLibrary = TutorialPromptLibrary{};
+
+    nlohmann::json root;
+    if (!battle::loader::readJsonRoot(
+            battle::loader::resolveAssetPath("assets/combat/tutorials.json"),
+            root,
+            "tutorial prompts")) {
+        return false;
+    }
+
+    const auto entriesIt = root.find("entries");
+    if (entriesIt == root.end() || !entriesIt->is_object()) {
+        return false;
+    }
+
+    for (auto it = entriesIt->begin(); it != entriesIt->end(); ++it) {
+        vn::ScriptEntry entry;
+        if (!parseTutorialPromptEntry(it.value(), entry)) {
+            continue;
+        }
+        outLibrary.entries[it.key()] = std::move(entry);
+    }
+
+    outLibrary.loaded = !outLibrary.entries.empty();
+    return outLibrary.loaded;
+}
+
+std::vector<vn::ScriptEntry> loadNarrativeSequenceEntries(const std::string& scriptRef,
+                                                          std::size_t startIndex = 0,
+                                                          std::optional<std::size_t> maxCount = std::nullopt) {
+    vn::Script script;
+    if (!vn::loadScript(vn::resolveScriptPath(scriptRef), script)) {
+        return {};
+    }
+
+    if (startIndex >= script.entries.size()) {
+        return {};
+    }
+
+    const std::size_t endIndex = maxCount.has_value()
+        ? std::min(script.entries.size(), startIndex + *maxCount)
+        : script.entries.size();
+    return std::vector<vn::ScriptEntry>(
+        script.entries.begin() + static_cast<std::ptrdiff_t>(startIndex),
+        script.entries.begin() + static_cast<std::ptrdiff_t>(endIndex));
+}
+
+std::string replaceTutorialPlaceholders(std::string value,
+                                        const std::unordered_map<std::string, std::string>& replacements) {
+    for (const auto& [key, replacement] : replacements) {
+        const std::string token = "{" + key + "}";
+        std::size_t offset = 0;
+        while ((offset = value.find(token, offset)) != std::string::npos) {
+            value.replace(offset, token.size(), replacement);
+            offset += replacement.size();
+        }
+    }
+    return value;
+}
+
+vn::ScriptEntry formatTutorialPromptEntry(const vn::ScriptEntry& baseEntry,
+                                          const std::unordered_map<std::string, std::string>& replacements) {
+    vn::ScriptEntry entry = baseEntry;
+    entry.speaker = replaceTutorialPlaceholders(entry.speaker, replacements);
+    entry.text = replaceTutorialPlaceholders(entry.text, replacements);
+    return entry;
+}
+
+bool isCombatJudgementAtLeast(battle::CombatJudgement actual, battle::CombatJudgement minimum) {
+    const auto rank = [](battle::CombatJudgement judgement) {
+        switch (judgement) {
+            case battle::CombatJudgement::Perfect:
+                return 3;
+            case battle::CombatJudgement::Good:
+                return 2;
+            case battle::CombatJudgement::Okay:
+                return 1;
+            case battle::CombatJudgement::Flop:
+            default:
+                return 0;
+        }
+    };
+    return rank(actual) >= rank(minimum);
+}
+
+int tutorialJudgementCountAtLeast(const TutorialPlaybackMetrics& metrics, battle::CombatJudgement minimum) {
+    switch (minimum) {
+        case battle::CombatJudgement::Perfect:
+            return metrics.perfectCount;
+        case battle::CombatJudgement::Good:
+            return metrics.goodOrBetterCount;
+        case battle::CombatJudgement::Okay:
+            return metrics.okayOrBetterCount;
+        case battle::CombatJudgement::Flop:
+        default:
+            return metrics.feedbackEventCount;
+    }
+}
+
+bool tutorialRequirementPassed(const battle::AbilityTutorialDefinition& tutorial,
+                               const TutorialPlaybackMetrics& metrics) {
+    switch (tutorial.requirementKind) {
+        case battle::TutorialRequirementKind::ObserveOnly:
+        case battle::TutorialRequirementKind::None:
+            return true;
+        case battle::TutorialRequirementKind::FeedbackEventCount:
+            return metrics.feedbackEventCount >= tutorial.minimumValue;
+        case battle::TutorialRequirementKind::JudgementCount:
+            return tutorialJudgementCountAtLeast(metrics, tutorial.minimumJudgement) >= tutorial.minimumValue;
+        case battle::TutorialRequirementKind::CorrectToneCount:
+            return metrics.correctToneCount >= tutorial.minimumValue;
+        case battle::TutorialRequirementKind::ScoreValue:
+            return metrics.scoreValue >= tutorial.minimumValue;
+        case battle::TutorialRequirementKind::FinalJudgement:
+            return metrics.finalJudgementValid &&
+                isCombatJudgementAtLeast(metrics.finalJudgement, tutorial.minimumJudgement);
+    }
+    return true;
+}
 
 class CallbackEventListener final : public Rml::EventListener {
 public:
@@ -1317,11 +1575,13 @@ battle::app::ui::BattleHudDocumentDependencies makeBattleHudDocumentDependencies
 void startTutorial(TutorialOverlayState& tutorial,
                    TutorialStep step,
                    const vn::ScriptEntry& entry,
-                   Uint64 nowMs) {
+                   Uint64 nowMs,
+                   bool manualDismissAllowed = true) {
     tutorial.step = step;
     tutorial.entry = entry;
     tutorial.startedMs = nowMs;
     tutorial.audioPlayed = false;
+    tutorial.manualDismissAllowed = manualDismissAllowed;
 }
 
 void dismissTutorialOverlay(TutorialOverlayState& tutorial) {
@@ -1329,6 +1589,7 @@ void dismissTutorialOverlay(TutorialOverlayState& tutorial) {
     tutorial.entry = vn::ScriptEntry{};
     tutorial.startedMs = 0;
     tutorial.audioPlayed = false;
+    tutorial.manualDismissAllowed = false;
 }
 
 void completeTutorialStep(TutorialOverlayState& tutorial, HudFeedbackState* feedback = nullptr) {
@@ -1343,6 +1604,7 @@ void completeTutorialStep(TutorialOverlayState& tutorial, HudFeedbackState* feed
         case TutorialStep::Ultimate:
             tutorial.ultimateShown = true;
             break;
+        case TutorialStep::Custom:
         case TutorialStep::None:
         default:
             break;
@@ -1759,6 +2021,7 @@ public:
 
         windowHost_ = &hostWindow;
         settings_ = &settings;
+        flowMode_ = flowMode;
         resultPresentationConfig_ = resultPresentation;
         window_ = hostWindow.getNativeWindow();
         glContext_ = hostWindow.getGlContext();
@@ -1846,7 +2109,33 @@ public:
             shutdown();
             return false;
         }
+        scriptedTutorialScenario_.reset();
+        if (flowMode == BattleFlowMode::UnlockCharacterDrill) {
+            const std::string focusCharacterKey =
+                initialPartyLineup.has_value() && !initialPartyLineup->empty()
+                    ? initialPartyLineup->front()
+                    : std::string();
+            battle::TutorialScenarioDefinition scenario;
+            if (!focusCharacterKey.empty() &&
+                battle::tutorial::loadUnlockDrillScenario(focusCharacterKey, scenario)) {
+                scriptedTutorialScenario_ = std::move(scenario);
+            }
+        } else if (flowMode == BattleFlowMode::BossPreview) {
+            battle::TutorialScenarioDefinition scenario;
+            if (battle::tutorial::loadBossPreviewScenario(battleDefinition_.key, scenario)) {
+                scriptedTutorialScenario_ = std::move(scenario);
+            }
+        }
+        if (scriptedTutorialScenario_.has_value() &&
+            !scriptedTutorialScenario_->stageKey.empty()) {
+            battleDefinition_.stageKey = scriptedTutorialScenario_->stageKey;
+        } else if (flowMode == BattleFlowMode::UnlockCharacterDrill ||
+                   flowMode == BattleFlowMode::BossPreview) {
+            battleDefinition_.stageKey = "preview_test_stage";
+        }
         if (flowMode == BattleFlowMode::CampaignStory) {
+            battleDefinition_.specialRules.practiceBossHpFloor = 0;
+        } else if (flowMode == BattleFlowMode::BossPreview) {
             battleDefinition_.specialRules.practiceBossHpFloor = 0;
         }
         if (!battle::render::loadStageDefinition(battleDefinition_.stageKey, stageDefinition_)) {
@@ -1868,8 +2157,14 @@ public:
         }
 
         tutorialEnabled_ = false;
-        narrativeEnabled_ = usesDemoNarrativeFlow() || isLyooPlotTwistBattle();
+        narrativeEnabled_ = isLyooPlotTwistBattle() || isLyooTutorialBattle();
         narrativeInitialized_ = false;
+        if (!loadTutorialPromptLibrary(tutorialPromptLibrary_)) {
+            std::cerr << "[Battle] Failed to load tutorial prompt library.\n";
+            shutdown();
+            return false;
+        }
+        initializeLyooTutorialBanter();
 
 #ifdef BATTLE_ENABLE_TTF
         if (!narrativeEnabled_ && TTF_WasInit() == 0) {
@@ -1938,13 +2233,15 @@ public:
                     shutdown();
                     return false;
                 }
-            } else {
+            } else if (isLyooPlotTwistBattle()) {
                 narrative_.setDialogueLinePresenter({});
                 if (!loadScriptedBattleSequence("finale_phase3", lyooPhase3Sequence_)) {
                     std::cerr << "[Battle] Failed to load Lyoo phase 3 scripted sequence.\n";
                     shutdown();
                     return false;
                 }
+            } else {
+                narrative_.setDialogueLinePresenter({});
             }
             narrativeInitialized_ = true;
         } else {
@@ -1952,6 +2249,9 @@ public:
         }
 
         initializeWorldEntities();
+        if (scriptedTutorialScenario_.has_value()) {
+            applyTutorialScenarioStatePatch(scriptedTutorialScenario_->initialState);
+        }
         const battle::flow::PreviewActorContext preview = battle::flow::inspectPreviewActor(manager_);
         const bool bossActing = !(preview.valid && preview.type == battle::ParticipantType::Character);
         const int actingPartyIndex =
@@ -1966,12 +2266,19 @@ public:
         activeOverlay_ = nullptr;
         resultOverlay_ = BattleResultOverlayState{};
         vsIntroOverlay_ = BattleVsIntroOverlayState{};
-        vsIntroOverlay_.pendingStart = true;
-        vsIntroOverlay_.leftName = "HATSUNE MIKU";
-        vsIntroOverlay_.rightName = uppercase(
-            !state.boss.title.empty() ? state.boss.title : state.boss.key);
-        vsIntroOverlay_.leftAsset = "miku";
-        vsIntroOverlay_.rightAsset = state.boss.assets.empty() ? state.boss.key : state.boss.assets;
+        if (shouldUseBattleVsIntro()) {
+            vsIntroOverlay_.pendingStart = true;
+            vsIntroOverlay_.leftName = "HATSUNE MIKU";
+            vsIntroOverlay_.rightName = uppercase(
+                !state.boss.title.empty() ? state.boss.title : state.boss.key);
+            vsIntroOverlay_.leftAsset = "miku";
+            vsIntroOverlay_.rightAsset = state.boss.assets.empty() ? state.boss.key : state.boss.assets;
+        } else if (!initialBattleBgmPath_.empty()) {
+            gBattleBgmController.playWithFadeIn(
+                initialBattleBgmPath_,
+                battleBgmBaseVolume_,
+                kBattleVsIntroBgmFadeInSeconds);
+        }
 
         renderInterface_->SetViewport(drawableWidth_, drawableHeight_);
         context_ = Rml::CreateContext("battle-app", Rml::Vector2i(windowWidth_, windowHeight_));
@@ -2087,6 +2394,7 @@ public:
         camera_.screenCenterY = sceneHeight() / 2;
         cameraStaging_.reset(camera_);
         syncHudDocument(SDL_GetTicks64());
+        initializeScriptedTutorial(progression);
 
         initialized_ = true;
         return true;
@@ -2172,8 +2480,14 @@ public:
         narrativeEnabled_ = false;
         narrativeInitialized_ = false;
         lyooPhase3Sequence_ = ScriptedBattleSequenceState{};
+        battleNarrativePrompt_ = BattleNarrativePromptState{};
         tutorialOverlay_ = TutorialOverlayState{};
         tutorialLibrary_ = TutorialScriptLibrary{};
+        tutorialPromptLibrary_ = TutorialPromptLibrary{};
+        scriptedTutorial_ = ScriptedTutorialState{};
+        scriptedTutorialScenario_.reset();
+        liveUltimateGuide_ = LiveUltimateGuideState{};
+        lastTutorialPlaybackMetrics_ = TutorialPlaybackMetrics{};
         hudFeedback_ = HudFeedbackState{};
         hudAnimationState_ = HudAnimationState{};
         battleInputPrompt_ = BattleInputPromptState{};
@@ -2210,6 +2524,8 @@ public:
         timingWorldMs_ = 0.0;
         timingCompatibilityMs_ = 0.0;
         timingUiMs_ = 0.0;
+        flowMode_ = BattleFlowMode::Direct;
+        completedTutorialKey_.clear();
     }
 
     /**
@@ -2288,9 +2604,58 @@ public:
             return;
         }
 
+        if (scriptedTutorial_.active) {
+            if (event.type != SDL_KEYDOWN) {
+                return;
+            }
+
+            const Uint64 nowMs = SDL_GetTicks64();
+            if (event.key.keysym.sym == SDLK_ESCAPE) {
+                showPauseBlockedHint();
+                return;
+            }
+
+            if (event.key.keysym.sym == SDLK_SPACE && isBattleNarrativePromptActive()) {
+                onBattleNarrativePromptSpacePressed(nowMs);
+            } else if (event.key.keysym.sym == SDLK_SPACE &&
+                tutorialOverlay_.step != TutorialStep::None) {
+                const float textSpeed = settings_ != nullptr ? settings_->textSpeed : kNarrationCharsPerSecond;
+                const std::string revealed = revealNarrationText(
+                    tutorialOverlay_.entry.text,
+                    tutorialOverlay_.startedMs,
+                    nowMs,
+                    textSpeed
+                );
+                if (revealed.size() < tutorialOverlay_.entry.text.size()) {
+                    tutorialOverlay_.startedMs = 0;
+                } else {
+                    if (tutorialVoiceHandle_.has_value()) {
+                        gOneShotAudio.stopPlayback(*tutorialVoiceHandle_);
+                        tutorialVoiceHandle_.reset();
+                    }
+                    const bool dismissedScriptedPrompt =
+                        tutorialOverlay_.step == TutorialStep::Custom;
+                    completeTutorialStep(tutorialOverlay_, &hudFeedback_);
+                    if (dismissedScriptedPrompt) {
+                        onScriptedTutorialPromptDismissed(nowMs);
+                    }
+                }
+            } else if (event.key.keysym.sym == SDLK_BACKSPACE &&
+                       tutorialOverlay_.step != TutorialStep::None &&
+                       tutorialOverlay_.manualDismissAllowed) {
+                if (tutorialVoiceHandle_.has_value()) {
+                    gOneShotAudio.stopPlayback(*tutorialVoiceHandle_);
+                    tutorialVoiceHandle_.reset();
+                }
+                skipAllTutorials(tutorialOverlay_, &hudFeedback_);
+            }
+            return;
+        }
+
         if (event.type == SDL_KEYDOWN &&
             event.key.keysym.sym == SDLK_ESCAPE &&
-            (isDialogueInProgress() || tutorialOverlay_.step != TutorialStep::None)) {
+            (isDialogueInProgress() || tutorialOverlay_.step != TutorialStep::None ||
+             liveUltimateGuide_.activePartyIndex >= 0)) {
             showPauseBlockedHint();
             return;
         }
@@ -2315,7 +2680,9 @@ public:
                     freeViewCameraDebugLog_.clear();
                 }
             } else if (event.key.keysym.sym == SDLK_SPACE && isDialogueInProgress()) {
-                if (usesDemoNarrativeFlow()) {
+                if (isBattleNarrativePromptActive()) {
+                    onBattleNarrativePromptSpacePressed(nowMs);
+                } else if (usesDemoNarrativeFlow()) {
                     narrative_.onDialogueSpacePressed();
                 } else {
                     onLyooPhase3DialogueSpacePressed();
@@ -2337,16 +2704,31 @@ public:
                         gOneShotAudio.stopPlayback(*tutorialVoiceHandle_);
                         tutorialVoiceHandle_.reset();
                     }
+                    const bool dismissedScriptedPrompt =
+                        scriptedTutorial_.active && tutorialOverlay_.step == TutorialStep::Custom;
                     completeTutorialStep(tutorialOverlay_, &hudFeedback_);
+                    if (dismissedScriptedPrompt) {
+                        onScriptedTutorialPromptDismissed(nowMs);
+                    }
                 }
                 return;
-            } else if (event.key.keysym.sym == SDLK_BACKSPACE && tutorialOverlay_.step != TutorialStep::None) {
+            } else if (event.key.keysym.sym == SDLK_BACKSPACE &&
+                       tutorialOverlay_.step != TutorialStep::None &&
+                       tutorialOverlay_.manualDismissAllowed) {
                 if (tutorialVoiceHandle_.has_value()) {
                     gOneShotAudio.stopPlayback(*tutorialVoiceHandle_);
                     tutorialVoiceHandle_.reset();
                 }
                 skipAllTutorials(tutorialOverlay_, &hudFeedback_);
             } else if (event.key.keysym.sym == SDLK_BACKSPACE && dismissNewestManualBattleHint(hudFeedback_)) {
+                return;
+            } else if (liveUltimateGuide_.activePartyIndex >= 0) {
+                if (handleManualUltimateHotkey(
+                        event.key.keysym.sym,
+                        nowMs,
+                        static_cast<SDL_Keymod>(event.key.keysym.mod))) {
+                    return;
+                }
                 return;
             } else if (rhythmChallenge_.active) {
                 if (handleManualUltimateHotkey(
@@ -2525,9 +2907,20 @@ public:
             return;
         }
 
+        if (scriptedTutorial_.active) {
+            updateScriptedTutorial(nowMs);
+        }
+
         primePreviewAutoActionIndicator(nowMs);
 
-        if (narrativeEnabled_ && narrativeInitialized_) {
+        if (scriptedTutorial_.active) {
+            if (narrativeEnabled_ && narrativeInitialized_) {
+                vn::setPaused(false);
+                syncNarrativeSettings();
+                vn::update(deltaSeconds);
+                syncFinishedBattleVoiceState();
+            }
+        } else if (narrativeEnabled_ && narrativeInitialized_) {
             vn::setPaused(false);
             syncNarrativeSettings();
             vn::update(deltaSeconds);
@@ -2539,7 +2932,9 @@ public:
                     [this, nowMs](battle::BattleManager&) {
                         return processNextAutomaticTurnWithIndicator(nowMs);
                     });
-            } else if (!lyooPhase3Sequence_.active && !manager_.isBattleOver()) {
+            } else if (!lyooPhase3Sequence_.active &&
+                       !isBattleNarrativePromptActive() &&
+                       !manager_.isBattleOver()) {
                 (void)processNextAutomaticTurnWithIndicator(nowMs);
             }
             if (!usesDemoNarrativeFlow() &&
@@ -2555,8 +2950,10 @@ public:
         consumeBattleActionEvents(nowMs, &cameraStaging_);
         feedback_.syncFromManager(manager_, presentationPlaybackActive_);
         feedback_.update(deltaSeconds);
+        maybeExpireLiveUltimateGuide();
         maybeStartTutorial(nowMs);
-        if (tutorialEnabled_ && tutorialOverlay_.step != TutorialStep::None &&
+        maybeStartLiveUltimateGuide();
+        if (tutorialOverlay_.step != TutorialStep::None &&
             !tutorialOverlay_.audioPlayed && !tutorialOverlay_.entry.voice.empty()) {
             const std::string speakerKey = resolveScriptVoiceSpeakerKey(tutorialOverlay_.entry);
             std::optional<game::audio::WavOneShotPlayer::PlaybackHandle> startedHandle;
@@ -2579,7 +2976,12 @@ public:
         const bool dialogueActive = isDialogueInProgress();
         int previewActorIndex = manager_.getPreviewNextActorIndex();
         const battle::flow::PreviewActorContext preview = battle::flow::inspectPreviewActor(manager_);
-        maybeStartUltimateTurnSplash(preview, dialogueActive || tutorialOverlay_.step != TutorialStep::None);
+        maybeStartUltimateTurnSplash(
+            preview,
+            dialogueActive ||
+                liveUltimateGuide_.activePartyIndex >= 0 ||
+                tutorialOverlay_.step != TutorialStep::None ||
+                scriptedTutorial_.active);
         if (activeUltimateTurnSplash_ != nullptr) {
             activeUltimateTurnSplash_->update(deltaSeconds);
             if (activeUltimateTurnSplash_->isComplete()) {
@@ -2611,7 +3013,10 @@ public:
         cameraStaging_.notifyTurnPreview(
             manager_.getTurnState(),
             previewActorIndex,
-            dialogueActive || tutorialOverlay_.step != TutorialStep::None,
+            dialogueActive ||
+                liveUltimateGuide_.activePartyIndex >= 0 ||
+                tutorialOverlay_.step != TutorialStep::None ||
+                scriptedTutorial_.active,
             freeViewEnabled_,
             camera_);
 
@@ -2647,6 +3052,7 @@ public:
 
         if (manager_.isBattleOver() && !dialogueActive && !presentationPlaybackActive_ &&
             tutorialOverlay_.step == TutorialStep::None &&
+            liveUltimateGuide_.activePartyIndex < 0 &&
             !rhythmChallenge_.active && activeUltimateTurnSplash_ == nullptr &&
             isBossDeathFadeComplete() && !isBattleFinishBlocked()) {
             enterBattleResultOverlay(outcome(), nowMs);
@@ -2884,6 +3290,10 @@ public:
         return activePartyLineup_;
     }
 
+    const std::string& completedTutorialKey() const {
+        return completedTutorialKey_;
+    }
+
     /**
      * @brief Builds a post-battle summary populated from the battle manager's telemetry.
      *
@@ -3070,6 +3480,9 @@ private:
         if (!narrativeEnabled_ || !narrativeInitialized_) {
             return false;
         }
+        if (isBattleNarrativePromptActive()) {
+            return true;
+        }
         if (usesDemoNarrativeFlow()) {
             return narrative_.isDialogueInProgress();
         }
@@ -3080,6 +3493,9 @@ private:
         if (!narrativeEnabled_ || !narrativeInitialized_) {
             return false;
         }
+        if (isBattleNarrativePromptActive()) {
+            return true;
+        }
         if (usesDemoNarrativeFlow()) {
             return narrative_.isDialogueInProgress();
         }
@@ -3087,6 +3503,9 @@ private:
     }
 
     bool isBattleSpaceEnabled() const {
+        if (liveUltimateGuide_.activePartyIndex >= 0) {
+            return false;
+        }
         if (!narrativeEnabled_) {
             return true;
         }
@@ -3618,12 +4037,74 @@ private:
         }
     }
 
-    bool usesDemoNarrativeFlow() const {
-        return battleDefinition_.type == "tutorial";
+    bool usesDemoNarrativeFlow() const { return false; }
+
+    bool shouldUseBattleVsIntro() const {
+        return flowMode_ != BattleFlowMode::UnlockCharacterDrill &&
+               flowMode_ != BattleFlowMode::BossPreview;
+    }
+
+    bool isLyooTutorialBattle() const {
+        return battleDefinition_.key == "tutorial_vs_lyoo";
+    }
+
+    void initializeLyooTutorialBanter() {
+        lyooTutorialBanter_ = LyooTutorialBanterState{};
+        if (!isLyooTutorialBattle()) {
+            return;
+        }
+
+        lyooTutorialBanter_.enabled = true;
+        lyooTutorialBanter_.postMikuSkillLines =
+            loadNarrativeSequenceEntries("demo_after_miku_first_skill", 0, 3);
+        lyooTutorialBanter_.postMikuUltimateLines =
+            loadNarrativeSequenceEntries("demo_after_miku_first_ultimate");
+        lyooTutorialBanter_.postLyooAttackAfterMikuUltimateLines =
+            loadNarrativeSequenceEntries("demo_after_lyoo_attack_post_miku_ultimate");
+    }
+
+    bool startLyooTutorialBanterSequence(const std::vector<vn::ScriptEntry>& entries) {
+        if (!lyooTutorialBanter_.enabled || entries.empty()) {
+            return false;
+        }
+        startBattleNarrativeSequence(entries, BattleNarrativePromptKind::TutorialBanter);
+        return true;
+    }
+
+    bool maybeStartLyooTutorialMikuSkillBanter() {
+        if (!lyooTutorialBanter_.enabled || lyooTutorialBanter_.shownPostMikuSkill) {
+            return false;
+        }
+        lyooTutorialBanter_.shownPostMikuSkill = true;
+        return startLyooTutorialBanterSequence(lyooTutorialBanter_.postMikuSkillLines);
+    }
+
+    bool maybeStartLyooTutorialMikuUltimateBanter() {
+        if (!lyooTutorialBanter_.enabled || lyooTutorialBanter_.shownPostMikuUltimate) {
+            return false;
+        }
+        lyooTutorialBanter_.shownPostMikuUltimate = true;
+        lyooTutorialBanter_.pendingPostLyooAttackAfterMikuUltimate = true;
+        return startLyooTutorialBanterSequence(lyooTutorialBanter_.postMikuUltimateLines);
+    }
+
+    bool maybeStartLyooTutorialPostLyooAttackBanter() {
+        if (!lyooTutorialBanter_.enabled ||
+            !lyooTutorialBanter_.pendingPostLyooAttackAfterMikuUltimate ||
+            lyooTutorialBanter_.shownPostLyooAttackAfterMikuUltimate) {
+            return false;
+        }
+        lyooTutorialBanter_.shownPostLyooAttackAfterMikuUltimate = true;
+        lyooTutorialBanter_.pendingPostLyooAttackAfterMikuUltimate = false;
+        return startLyooTutorialBanterSequence(lyooTutorialBanter_.postLyooAttackAfterMikuUltimateLines);
     }
 
     bool isLyooPlotTwistBattle() const {
         return battleDefinition_.key == "lyoo_plot_twist";
+    }
+
+    bool isBattleNarrativePromptActive() const {
+        return battleNarrativePrompt_.active;
     }
 
     bool loadScriptedBattleSequence(const std::string& scriptRef, ScriptedBattleSequenceState& sequence) {
@@ -3647,6 +4128,876 @@ private:
             }
         }
         return -1;
+    }
+
+    std::string scriptedTutorialCompletionKey() const {
+        if (flowMode_ == BattleFlowMode::UnlockCharacterDrill) {
+            return scriptedTutorial_.focusCharacterKey.empty()
+                ? std::string()
+                : "unlock_drill_" + scriptedTutorial_.focusCharacterKey;
+        }
+        if (flowMode_ == BattleFlowMode::BossPreview) {
+            return battleDefinition_.key.empty()
+                ? std::string()
+                : "boss_preview_" + battleDefinition_.key;
+        }
+        if (isLyooTutorialBattle()) {
+            return "story_tutorial_lyoo_opening";
+        }
+        return std::string();
+    }
+
+    std::unordered_map<std::string, std::string> buildScriptedTutorialReplacements(
+        const std::string& actorKey = std::string(),
+        const std::string& abilityKitId = std::string()) const {
+        std::unordered_map<std::string, std::string> replacements;
+        const battle::BattleState& battleState = manager_.getBattleState();
+
+        const std::string focusKey = actorKey.empty() ? scriptedTutorial_.focusCharacterKey : actorKey;
+        const int partyIndex = focusKey.empty() ? -1 : findPartyIndexByKey(focusKey);
+        if (partyIndex >= 0 && static_cast<size_t>(partyIndex) < battleState.party.size()) {
+            const battle::CharacterDefinition& character = battleState.party[static_cast<size_t>(partyIndex)];
+            replacements["character"] = character.title;
+            replacements["character_key"] = character.key;
+            replacements["manual_ultimate_hotkey"] = ui::detail::manualUltimateHotkeyBadgeLabel(
+                static_cast<std::size_t>(partyIndex));
+
+            const std::string skillId =
+                manager_.resolveCharacterAbilityId(partyIndex, battle::BattleAction::Skill, abilityKitId);
+            if (const battle::AbilityDefinition* skillDef = manager_.findAbilityDefinition(skillId);
+                skillDef != nullptr) {
+                replacements["skill_name"] = skillDef->name;
+                replacements["skill_description"] = skillDef->description;
+                replacements["skill_input"] = skillDef->instructionHint;
+            }
+
+            const std::string ultimateId =
+                manager_.resolveCharacterAbilityId(partyIndex, battle::BattleAction::Ultimate, abilityKitId);
+            if (const battle::AbilityDefinition* ultimateDef = manager_.findAbilityDefinition(ultimateId);
+                ultimateDef != nullptr) {
+                replacements["ultimate_name"] = ultimateDef->name;
+                replacements["ultimate_description"] = ultimateDef->description;
+                replacements["ultimate_input"] = ultimateDef->instructionHint;
+            }
+        }
+
+        replacements["boss"] = battleState.boss.title;
+        const std::string bossAbilityId =
+            !battleState.boss.skillAbility.empty() ? battleState.boss.skillAbility : battleState.boss.ability;
+        if (const battle::AbilityDefinition* bossAbilityDef = manager_.findAbilityDefinition(bossAbilityId);
+            bossAbilityDef != nullptr) {
+            replacements["boss_skill_name"] = bossAbilityDef->name;
+            replacements["boss_skill_description"] = bossAbilityDef->description;
+            replacements["boss_input"] = bossAbilityDef->instructionHint;
+        }
+
+        return replacements;
+    }
+
+    std::optional<vn::ScriptEntry> resolveScriptedTutorialPrompt(const std::string& promptKey,
+                                                                 const std::string& actorKey = std::string(),
+                                                                 const std::string& abilityKitId = std::string()) const {
+        if (promptKey.empty()) {
+            return std::nullopt;
+        }
+        const auto it = tutorialPromptLibrary_.entries.find(promptKey);
+        if (it == tutorialPromptLibrary_.entries.end()) {
+            return std::nullopt;
+        }
+        return formatTutorialPromptEntry(
+            it->second,
+            buildScriptedTutorialReplacements(actorKey, abilityKitId)
+        );
+    }
+
+    void applyTutorialScenarioStatePatch(const battle::TutorialScenarioBattleStatePatch& patch) {
+        if (!tutorialScenarioPatchHasData(patch)) {
+            return;
+        }
+
+        int bossPhaseIndex = patch.bossPhaseIndex.value_or(manager_.getBossPhaseIndex());
+        int bossHp = patch.bossHp.value_or(manager_.getBossCurrentHp());
+        if (patch.bossHpPercent.has_value()) {
+            bossHp = std::max(0, static_cast<int>(std::lround(
+                static_cast<float>(manager_.getBossMaxHp()) *
+                (static_cast<float>(std::clamp(*patch.bossHpPercent, 0, 100)) / 100.0f)
+            )));
+        }
+        manager_.setBossTutorialState(bossHp, bossPhaseIndex);
+
+        if (patch.luotianyiCorrectTones.has_value()) {
+            manager_.setLuotianyiCorrectTonesForTutorial(*patch.luotianyiCorrectTones);
+        }
+        if (patch.tetoHealingTally.has_value()) {
+            manager_.setTetoHealingTallyForTutorial(*patch.tetoHealingTally);
+        }
+        if (patch.sailorVenusTransformed.has_value() ||
+            patch.sailorVenusTurnsRemaining.has_value() ||
+            patch.sailorVenusSpaceTally.has_value() ||
+            patch.sailorVenusFinisherQueued.has_value()) {
+            manager_.setSailorVenusTutorialState(
+                patch.sailorVenusTransformed.value_or(false),
+                patch.sailorVenusTurnsRemaining.value_or(0),
+                patch.sailorVenusSpaceTally.value_or(0),
+                patch.sailorVenusFinisherQueued.value_or(false)
+            );
+        }
+
+        for (const battle::TutorialScenarioPartyMemberState& memberState : patch.party) {
+            const int partyIndex = findPartyIndexByKey(memberState.characterKey);
+            if (partyIndex < 0) {
+                continue;
+            }
+
+            int hp = manager_.getCharacterCurrentHp(partyIndex);
+            if (memberState.hpPercent.has_value()) {
+                hp = std::max(0, static_cast<int>(std::lround(
+                    static_cast<float>(manager_.getCharacterMaxHp(partyIndex)) *
+                    (static_cast<float>(std::clamp(*memberState.hpPercent, 0, 100)) / 100.0f)
+                )));
+            }
+            if (memberState.hp.has_value()) {
+                hp = *memberState.hp;
+            }
+            if (memberState.alive.has_value()) {
+                if (!*memberState.alive) {
+                    hp = 0;
+                } else if (hp <= 0) {
+                    hp = 1;
+                }
+            }
+
+            const int shield = memberState.shield.value_or(manager_.getCharacterShield(partyIndex));
+            const int ultimateCharge =
+                memberState.ultimateCharge.value_or(manager_.getCharacterUltimateCharge(partyIndex));
+            (void)manager_.setCharacterTutorialVitals(partyIndex, hp, shield, ultimateCharge);
+
+            if (memberState.speedBuff.has_value() ||
+                memberState.atkBuff.has_value() ||
+                memberState.damageBuff.has_value()) {
+                (void)manager_.setCharacterTutorialBuffBonuses(
+                    partyIndex,
+                    memberState.speedBuff.value_or(0),
+                    memberState.atkBuff.value_or(0),
+                    memberState.damageBuff.value_or(0)
+                );
+            }
+
+            if (!memberState.abilityKitId.empty()) {
+                (void)manager_.setCharacterAbilityKit(partyIndex, memberState.abilityKitId);
+            }
+        }
+
+        feedback_.syncFromManager(manager_, presentationPlaybackActive_);
+        syncHudFeedbackState(hudFeedback_, manager_);
+        resetHudAnimationState(hudAnimationState_, manager_);
+        updateSceneEntities(0.0f, false, -1);
+        syncHudDocument(SDL_GetTicks64());
+    }
+
+    std::vector<ScriptedTutorialStep> buildScenarioTutorialSteps(
+        const battle::TutorialScenarioDefinition& scenario) const {
+        auto convertActionKind = [](battle::TutorialScenarioActionKind actionKind) {
+            switch (actionKind) {
+                case battle::TutorialScenarioActionKind::CharacterUltimate:
+                    return ScriptedTutorialActionKind::CharacterUltimate;
+                case battle::TutorialScenarioActionKind::BossSkill:
+                    return ScriptedTutorialActionKind::BossSkill;
+                case battle::TutorialScenarioActionKind::CharacterSkill:
+                default:
+                    return ScriptedTutorialActionKind::CharacterSkill;
+            }
+        };
+
+        std::vector<ScriptedTutorialStep> steps;
+        steps.reserve(scenario.steps.size() * 2 + 1);
+        for (const battle::TutorialScenarioStep& scenarioStep : scenario.steps) {
+            if (!scenarioStep.promptKey.empty()) {
+                ScriptedTutorialStep dialogueStep;
+                dialogueStep.kind = ScriptedTutorialStepKind::Dialogue;
+                dialogueStep.promptKey = scenarioStep.promptKey;
+                dialogueStep.presentation.actorKey = scenarioStep.actorKey;
+                dialogueStep.presentation.abilityKitId = scenarioStep.abilityKitId;
+                steps.push_back(std::move(dialogueStep));
+            }
+
+            if (!scenarioStep.actionKind.has_value()) {
+                continue;
+            }
+
+            ScriptedTutorialStep presentationStep;
+            presentationStep.kind = ScriptedTutorialStepKind::Presentation;
+            presentationStep.presentation.actionKind = convertActionKind(*scenarioStep.actionKind);
+            presentationStep.presentation.actorKey = scenarioStep.actorKey;
+            presentationStep.presentation.failurePromptKey = scenarioStep.failurePromptKey;
+            presentationStep.presentation.abilityKitId = scenarioStep.abilityKitId;
+            presentationStep.presentation.targetCharacterKey = scenarioStep.targetCharacterKey;
+            presentationStep.presentation.tutorialOverride = scenarioStep.tutorialOverride;
+            presentationStep.presentation.presentationValue = scenarioStep.presentationValue;
+            presentationStep.presentation.resolvedRolls = scenarioStep.resolvedRolls;
+            presentationStep.presentation.resolvedTargetIndices = scenarioStep.resolvedTargetIndices;
+            presentationStep.presentation.bossPhaseIndex = scenarioStep.bossPhaseIndex;
+            presentationStep.presentation.suppressBossWarning = scenarioStep.suppressBossWarning;
+            presentationStep.presentation.preState = scenarioStep.preState;
+            presentationStep.presentation.postState = scenarioStep.postState;
+            steps.push_back(std::move(presentationStep));
+        }
+
+        ScriptedTutorialStep finishStep;
+        finishStep.kind = flowMode_ == BattleFlowMode::UnlockCharacterDrill
+            ? ScriptedTutorialStepKind::FinishSession
+            : ScriptedTutorialStepKind::FinishSession;
+        steps.push_back(std::move(finishStep));
+        return steps;
+    }
+
+    std::vector<ScriptedTutorialStep> buildLyooOpeningTutorialSteps() const {
+        return {
+            {ScriptedTutorialStepKind::Dialogue, "lyoo_intro_1", {}},
+            {ScriptedTutorialStepKind::Dialogue, "lyoo_intro_2", {}},
+            {ScriptedTutorialStepKind::Dialogue, "miku_intro_1", {}},
+            {ScriptedTutorialStepKind::Dialogue, "lyoo_intro_3", {}},
+            {ScriptedTutorialStepKind::Dialogue, "miku_intro_2", {}},
+            {ScriptedTutorialStepKind::Presentation, {}, {
+                ScriptedTutorialActionKind::CharacterSkill,
+                "miku",
+                {},
+                "lyoo_miku_retry"
+            }},
+            {ScriptedTutorialStepKind::Dialogue, "lyoo_cupcakke_intro", {
+                ScriptedTutorialActionKind::CharacterSkill,
+                "cupcakke",
+                {},
+                {}
+            }},
+            {ScriptedTutorialStepKind::Presentation, {}, {
+                ScriptedTutorialActionKind::CharacterSkill,
+                "cupcakke",
+                {},
+                "lyoo_cupcakke_retry"
+            }},
+            {ScriptedTutorialStepKind::Dialogue, "lyoo_boss_intro", {}},
+            {ScriptedTutorialStepKind::Presentation, {}, {
+                ScriptedTutorialActionKind::BossSkill,
+                {},
+                {},
+                "lyoo_boss_retry"
+            }},
+            {ScriptedTutorialStepKind::Dialogue, "lyoo_outro", {}},
+            {ScriptedTutorialStepKind::FinishLiveBattle, {}, {}}
+        };
+    }
+
+    std::vector<ScriptedTutorialStep> buildUnlockDrillSteps() const {
+        if (scriptedTutorialScenario_.has_value()) {
+            return buildScenarioTutorialSteps(*scriptedTutorialScenario_);
+        }
+
+        std::vector<ScriptedTutorialStep> steps{
+            {ScriptedTutorialStepKind::Dialogue, "coach_unlock_intro", {}},
+            {ScriptedTutorialStepKind::Dialogue, "coach_skill_intro", {}},
+            {ScriptedTutorialStepKind::Presentation, {}, {
+                ScriptedTutorialActionKind::CharacterSkill,
+                scriptedTutorial_.focusCharacterKey,
+                {},
+                "coach_skill_retry"
+            }},
+            {ScriptedTutorialStepKind::Dialogue, "coach_ultimate_intro", {}},
+            {ScriptedTutorialStepKind::Presentation, {}, {
+                ScriptedTutorialActionKind::CharacterUltimate,
+                scriptedTutorial_.focusCharacterKey,
+                {},
+                {}
+            }},
+        };
+
+        const battle::BattleState& battleState = manager_.getBattleState();
+        const int focusPartyIndex = findPartyIndexByKey(scriptedTutorial_.focusCharacterKey);
+        if (focusPartyIndex >= 0 && static_cast<size_t>(focusPartyIndex) < battleState.party.size()) {
+            const battle::CharacterDefinition& character =
+                battleState.party[static_cast<size_t>(focusPartyIndex)];
+            if (const auto transformedIt = character.abilityKits.find("transformed");
+                transformedIt != character.abilityKits.end() &&
+                !transformedIt->second.skillAbility.empty()) {
+                steps.push_back({ScriptedTutorialStepKind::Dialogue, "coach_shifted_skill_intro", {
+                    ScriptedTutorialActionKind::CharacterSkill,
+                    scriptedTutorial_.focusCharacterKey,
+                    {},
+                    {},
+                    "transformed"
+                }});
+                steps.push_back({ScriptedTutorialStepKind::Presentation, {}, {
+                    ScriptedTutorialActionKind::CharacterSkill,
+                    scriptedTutorial_.focusCharacterKey,
+                    {},
+                    "coach_skill_retry",
+                    "transformed"
+                }});
+            }
+        }
+
+        steps.insert(steps.end(), {
+            {ScriptedTutorialStepKind::Dialogue, "coach_complete", {}},
+            {ScriptedTutorialStepKind::FinishSession, {}, {}}
+        });
+        return steps;
+    }
+
+    std::vector<ScriptedTutorialStep> buildBossPreviewSteps() const {
+        if (scriptedTutorialScenario_.has_value()) {
+            return buildScenarioTutorialSteps(*scriptedTutorialScenario_);
+        }
+
+        return {
+            {ScriptedTutorialStepKind::Dialogue, "coach_boss_intro", {}},
+            {ScriptedTutorialStepKind::Presentation, {}, {
+                ScriptedTutorialActionKind::BossSkill,
+                {},
+                {},
+                "coach_boss_retry"
+            }},
+            {ScriptedTutorialStepKind::Dialogue, "coach_boss_complete", {}},
+            {ScriptedTutorialStepKind::FinishSession, {}, {}}
+        };
+    }
+
+    void presentCurrentBattleNarrativePromptLine() {
+        if (!battleNarrativePrompt_.active ||
+            battleNarrativePrompt_.lineIndex >= battleNarrativePrompt_.entries.size()) {
+            return;
+        }
+        presentNarrativeLine(
+            battleNarrativePrompt_.entries[static_cast<std::size_t>(battleNarrativePrompt_.lineIndex)]);
+    }
+
+    void startBattleNarrativeSequence(const std::vector<vn::ScriptEntry>& entries,
+                                      BattleNarrativePromptKind kind) {
+        if (!narrativeEnabled_ || !narrativeInitialized_) {
+            return;
+        }
+        if (entries.empty()) {
+            return;
+        }
+        battleNarrativePrompt_.kind = kind;
+        battleNarrativePrompt_.active = true;
+        battleNarrativePrompt_.entries = entries;
+        battleNarrativePrompt_.lineIndex = 0;
+        presentCurrentBattleNarrativePromptLine();
+    }
+
+    void startBattleNarrativePrompt(const vn::ScriptEntry& entry, BattleNarrativePromptKind kind) {
+        startBattleNarrativeSequence({entry}, kind);
+    }
+
+    void finishBattleNarrativePrompt(Uint64 nowMs) {
+        if (!battleNarrativePrompt_.active) {
+            return;
+        }
+
+        const BattleNarrativePromptKind kind = battleNarrativePrompt_.kind;
+        battleNarrativePrompt_ = BattleNarrativePromptState{};
+        vn::reset();
+
+        if (kind == BattleNarrativePromptKind::ScriptedTutorial) {
+            onScriptedTutorialPromptDismissed(nowMs);
+        }
+    }
+
+    void onBattleNarrativePromptSpacePressed(Uint64 nowMs) {
+        if (!battleNarrativePrompt_.active) {
+            return;
+        }
+
+        if (!vn::isLineFinished()) {
+            vn::onSpacePressed();
+            return;
+        }
+
+        ++battleNarrativePrompt_.lineIndex;
+        if (battleNarrativePrompt_.lineIndex < battleNarrativePrompt_.entries.size()) {
+            presentCurrentBattleNarrativePromptLine();
+            return;
+        }
+
+        finishBattleNarrativePrompt(nowMs);
+    }
+
+    void resetTutorialPlaybackMetrics() {
+        lastTutorialPlaybackMetrics_ = TutorialPlaybackMetrics{};
+    }
+
+    void recordTutorialFeedbackEvent(const battle::PresentationFeedbackEvent& feedbackEvent) {
+        if (!feedbackEvent.valid()) {
+            return;
+        }
+
+        ++lastTutorialPlaybackMetrics_.feedbackEventCount;
+        const battle::CombatJudgement judgement = battle::classifyCombatJudgement(feedbackEvent.signal);
+        if (isCombatJudgementAtLeast(judgement, battle::CombatJudgement::Okay)) {
+            ++lastTutorialPlaybackMetrics_.okayOrBetterCount;
+        }
+        if (isCombatJudgementAtLeast(judgement, battle::CombatJudgement::Good)) {
+            ++lastTutorialPlaybackMetrics_.goodOrBetterCount;
+        }
+        if (judgement == battle::CombatJudgement::Perfect) {
+            ++lastTutorialPlaybackMetrics_.perfectCount;
+        }
+    }
+
+    void restoreTutorialManagerSnapshot(const battle::BattleManager& snapshot, Uint64 nowMs) {
+        manager_ = snapshot;
+        manager_.clearRecentActionEvents();
+        hudFeedback_ = HudFeedbackState{};
+        hudAnimationState_ = HudAnimationState{};
+        rhythmChallenge_ = RhythmChallengeState{};
+        bufferedManualUltimatePartyIndices_.clear();
+        activeUltimateTurnSplash_.reset();
+        previewUltimateSplashPartyIndex_ = -1;
+        battleNarrativePrompt_ = BattleNarrativePromptState{};
+        tutorialOverlay_ = TutorialOverlayState{};
+        clearLiveUltimateGuide();
+        clearBattleInputPrompt();
+        vn::reset();
+
+        const battle::flow::PreviewActorContext preview = battle::flow::inspectPreviewActor(manager_);
+        const bool bossActing = !(preview.valid && preview.type == battle::ParticipantType::Character);
+        const int actingPartyIndex =
+            (!bossActing && preview.partyIndex >= 0) ? preview.partyIndex : -1;
+        updateSceneEntities(0.0f, bossActing, actingPartyIndex);
+        feedback_.reset(manager_);
+        syncHudFeedbackState(hudFeedback_, manager_);
+        resetHudAnimationState(hudAnimationState_, manager_);
+        finishPresentationDamageTracking(hudFeedback_, nowMs);
+        cameraStaging_.snapToGoalCamera(camera_);
+        syncHudDocument(nowMs);
+    }
+
+    const battle::AbilityDefinition* resolveScriptedTutorialAbility(
+        const ScriptedTutorialPresentationStep& step,
+        battle::PresentationContext& outContext) const {
+        outContext = battle::PresentationContext{};
+        outContext.suppressBossWarning = step.suppressBossWarning;
+
+        if (step.actionKind == ScriptedTutorialActionKind::BossSkill) {
+            const battle::BattleState& battleState = manager_.getBattleState();
+            const std::string abilityId =
+                !battleState.boss.skillAbility.empty() ? battleState.boss.skillAbility : battleState.boss.ability;
+            const battle::AbilityDefinition* abilityDef = manager_.findAbilityDefinition(abilityId);
+            if (abilityDef == nullptr) {
+                return nullptr;
+            }
+
+            outContext.abilityId = abilityDef->id;
+            outContext.abilityName = abilityDef->name;
+            outContext.presentationId = abilityDef->presentationId;
+            outContext.interactionType = abilityDef->interactionType;
+            outContext.isBoss = true;
+            outContext.targetIndex = !step.targetCharacterKey.empty()
+                ? findPartyIndexByKey(step.targetCharacterKey)
+                : std::max(0, manager_.getPreviewNextActorIndex());
+            if (step.presentationValue.has_value()) {
+                outContext.presentationValue = *step.presentationValue;
+            } else if (abilityDef->tutorial.presentationValue.has_value()) {
+                outContext.presentationValue = *abilityDef->tutorial.presentationValue;
+            }
+            outContext.resolvedRolls = !step.resolvedRolls.empty()
+                ? step.resolvedRolls
+                : abilityDef->tutorial.resolvedRolls;
+            outContext.resolvedTargetIndices = !step.resolvedTargetIndices.empty()
+                ? step.resolvedTargetIndices
+                : abilityDef->tutorial.resolvedTargetIndices;
+            const int bossPhaseIndex = step.bossPhaseIndex.value_or(0);
+            if (battleState.boss.hasPhaseData &&
+                bossPhaseIndex >= 0 &&
+                static_cast<size_t>(bossPhaseIndex) < battleState.boss.phases.size()) {
+                outContext.tuningProfile = battleState.boss.phases[static_cast<size_t>(bossPhaseIndex)].tuningProfile;
+            }
+            return abilityDef;
+        }
+
+        const std::string actorKey = step.actorKey.empty() ? scriptedTutorial_.focusCharacterKey : step.actorKey;
+        const int partyIndex = findPartyIndexByKey(actorKey);
+        if (partyIndex < 0) {
+            return nullptr;
+        }
+
+        const battle::BattleAction action =
+            step.actionKind == ScriptedTutorialActionKind::CharacterUltimate
+                ? battle::BattleAction::Ultimate
+                : battle::BattleAction::Skill;
+        const std::string abilityId = manager_.resolveCharacterAbilityId(
+            partyIndex,
+            action,
+            step.abilityKitId
+        );
+        const battle::AbilityDefinition* abilityDef = manager_.findAbilityDefinition(abilityId);
+        if (abilityDef == nullptr) {
+            return nullptr;
+        }
+
+        outContext.abilityId = abilityDef->id;
+        outContext.abilityName = abilityDef->name;
+        outContext.presentationId = abilityDef->presentationId;
+        outContext.interactionType = abilityDef->interactionType;
+        outContext.casterIndex = partyIndex;
+        outContext.targetIndex = !step.targetCharacterKey.empty()
+            ? findPartyIndexByKey(step.targetCharacterKey)
+            : -1;
+        outContext.isUltimate = action == battle::BattleAction::Ultimate;
+        if (step.presentationValue.has_value()) {
+            outContext.presentationValue = *step.presentationValue;
+        } else if (abilityDef->tutorial.presentationValue.has_value()) {
+            outContext.presentationValue = *abilityDef->tutorial.presentationValue;
+        }
+        outContext.resolvedRolls = !step.resolvedRolls.empty()
+            ? step.resolvedRolls
+            : abilityDef->tutorial.resolvedRolls;
+        outContext.resolvedTargetIndices = !step.resolvedTargetIndices.empty()
+            ? step.resolvedTargetIndices
+            : abilityDef->tutorial.resolvedTargetIndices;
+        return abilityDef;
+    }
+
+    void showScriptedTutorialPrompt(const std::string& promptKey,
+                                    Uint64 nowMs,
+                                    const std::string& actorKey = std::string(),
+                                    const std::string& abilityKitId = std::string()) {
+        if (const std::optional<vn::ScriptEntry> entry =
+                resolveScriptedTutorialPrompt(promptKey, actorKey, abilityKitId);
+            entry.has_value()) {
+            if (scriptedTutorial_.mode == ScriptedTutorialMode::LyooOpening) {
+                startBattleNarrativePrompt(*entry, BattleNarrativePromptKind::ScriptedTutorial);
+            } else {
+                startTutorial(tutorialOverlay_, TutorialStep::Custom, *entry, nowMs, false);
+                showTutorialHint(nowMs);
+            }
+        }
+    }
+
+    void initializeScriptedTutorial(const battle::PlayerProgression& progression) {
+        scriptedTutorial_ = ScriptedTutorialState{};
+        completedTutorialKey_.clear();
+
+        if (flowMode_ == BattleFlowMode::UnlockCharacterDrill) {
+            const battle::BattleState& battleState = manager_.getBattleState();
+            if (battleState.party.empty()) {
+                return;
+            }
+
+            scriptedTutorial_.mode = ScriptedTutorialMode::UnlockDrill;
+            scriptedTutorial_.active = true;
+            scriptedTutorial_.focusCharacterKey = battleState.party.front().key;
+            scriptedTutorial_.completionKey = scriptedTutorialCompletionKey();
+            scriptedTutorial_.steps = buildUnlockDrillSteps();
+
+            if (battle::hasCompletedTutorial(progression, scriptedTutorial_.completionKey)) {
+                completedTutorialKey_ = scriptedTutorial_.completionKey;
+                manager_.setForcedOutcome(battle::BattleResolvedOutcome::Victory);
+                scriptedTutorial_.active = false;
+                finished_ = true;
+            }
+            return;
+        }
+
+        if (flowMode_ == BattleFlowMode::BossPreview) {
+            scriptedTutorial_.mode = ScriptedTutorialMode::BossPreview;
+            scriptedTutorial_.active = true;
+            scriptedTutorial_.completionKey = scriptedTutorialCompletionKey();
+            scriptedTutorial_.steps = buildBossPreviewSteps();
+
+            if (battle::hasCompletedTutorial(progression, scriptedTutorial_.completionKey)) {
+                completedTutorialKey_ = scriptedTutorial_.completionKey;
+                manager_.setForcedOutcome(battle::BattleResolvedOutcome::Victory);
+                scriptedTutorial_.active = false;
+                finished_ = true;
+            }
+            return;
+        }
+
+        if (!isLyooTutorialBattle()) {
+            return;
+        }
+
+        scriptedTutorial_.completionKey = scriptedTutorialCompletionKey();
+        if (battle::hasCompletedTutorial(progression, scriptedTutorial_.completionKey)) {
+            return;
+        }
+
+        scriptedTutorial_.mode = ScriptedTutorialMode::LyooOpening;
+        scriptedTutorial_.active = true;
+        scriptedTutorial_.focusCharacterKey = "miku";
+        scriptedTutorial_.steps = buildLyooOpeningTutorialSteps();
+        scriptedTutorial_.openingBattleSnapshot = manager_;
+        scriptedTutorial_.hasOpeningBattleSnapshot = true;
+        liveUltimateGuide_.enabled = false;
+    }
+
+    void finishScriptedTutorialSequence(Uint64 nowMs) {
+        completedTutorialKey_ = scriptedTutorial_.completionKey;
+        scriptedTutorial_.completed = true;
+
+        if (scriptedTutorial_.mode == ScriptedTutorialMode::LyooOpening &&
+            scriptedTutorial_.hasOpeningBattleSnapshot) {
+            restoreTutorialManagerSnapshot(scriptedTutorial_.openingBattleSnapshot, nowMs);
+            liveUltimateGuide_.enabled = true;
+            liveUltimateGuide_.completedMiku = false;
+            liveUltimateGuide_.completedCupcakke = false;
+            liveUltimateGuide_.activePartyIndex = -1;
+            liveUltimateGuide_.activeCharacterKey.clear();
+            scriptedTutorial_ = ScriptedTutorialState{};
+            return;
+        }
+
+        scriptedTutorial_.active = false;
+        manager_.setForcedOutcome(battle::BattleResolvedOutcome::Victory);
+        finished_ = true;
+    }
+
+    void onScriptedTutorialPromptDismissed(Uint64 nowMs) {
+        if (!scriptedTutorial_.active) {
+            return;
+        }
+
+        if (!scriptedTutorial_.pendingRetryPromptKey.empty()) {
+            scriptedTutorial_.pendingRetryPromptKey.clear();
+            return;
+        }
+
+        if (scriptedTutorial_.stepIndex < scriptedTutorial_.steps.size() &&
+            scriptedTutorial_.steps[scriptedTutorial_.stepIndex].kind == ScriptedTutorialStepKind::Dialogue) {
+            ++scriptedTutorial_.stepIndex;
+        }
+
+        if (scriptedTutorial_.stepIndex < scriptedTutorial_.steps.size() &&
+            scriptedTutorial_.steps[scriptedTutorial_.stepIndex].kind == ScriptedTutorialStepKind::FinishLiveBattle) {
+            finishScriptedTutorialSequence(nowMs);
+        } else if (scriptedTutorial_.stepIndex < scriptedTutorial_.steps.size() &&
+                   scriptedTutorial_.steps[scriptedTutorial_.stepIndex].kind == ScriptedTutorialStepKind::FinishSession) {
+            finishScriptedTutorialSequence(nowMs);
+        }
+    }
+
+    void runScriptedTutorialPresentationStep(const ScriptedTutorialPresentationStep& step, Uint64 nowMs) {
+        const battle::BattleManager snapshot = manager_;
+        const std::string actorKey = step.actorKey.empty() ? scriptedTutorial_.focusCharacterKey : step.actorKey;
+        const int partyIndex = step.actionKind == ScriptedTutorialActionKind::BossSkill
+            ? -1
+            : findPartyIndexByKey(actorKey);
+
+        battle::PresentationContext context;
+        const battle::AbilityDefinition* abilityDef = resolveScriptedTutorialAbility(step, context);
+        if (abilityDef == nullptr || context.presentationId.empty()) {
+            ++scriptedTutorial_.stepIndex;
+            return;
+        }
+        const int targetPartyIndex = context.targetIndex;
+
+        if (tutorialScenarioPatchHasData(step.preState)) {
+            applyTutorialScenarioStatePatch(step.preState);
+        }
+        if (partyIndex >= 0 && !step.abilityKitId.empty()) {
+            (void)manager_.setCharacterAbilityKit(partyIndex, step.abilityKitId);
+        }
+        resetTutorialPlaybackMetrics();
+        const float presentationMultiplier = runPresentationInteraction(context);
+        const bool primaryEffectApplied =
+            manager_.consumePresentationHitDamageApplied() ||
+            manager_.consumePresentationHealingApplied();
+
+        if (scriptedTutorial_.mode == ScriptedTutorialMode::LyooOpening) {
+            restoreTutorialManagerSnapshot(snapshot, nowMs);
+        } else {
+            battle::TutorialResolvedAction resolvedAction;
+            resolvedAction.isBossCaster = step.actionKind == ScriptedTutorialActionKind::BossSkill;
+            resolvedAction.action = step.actionKind == ScriptedTutorialActionKind::CharacterUltimate
+                ? battle::BattleAction::Ultimate
+                : battle::BattleAction::Skill;
+            resolvedAction.casterPartyIndex = partyIndex;
+            resolvedAction.targetPartyIndex = targetPartyIndex;
+            resolvedAction.abilityKitId = step.abilityKitId;
+            resolvedAction.presentationMultiplier = std::max(0.0f, presentationMultiplier);
+            resolvedAction.primaryEffectApplied = primaryEffectApplied;
+            resolvedAction.resolvedRolls = context.resolvedRolls;
+            resolvedAction.resolvedTargetIndices = context.resolvedTargetIndices;
+            (void)manager_.applyResolvedTutorialAction(resolvedAction);
+            if (tutorialScenarioPatchHasData(step.postState)) {
+                applyTutorialScenarioStatePatch(step.postState);
+            } else {
+                feedback_.syncFromManager(manager_, presentationPlaybackActive_);
+                syncHudFeedbackState(hudFeedback_, manager_);
+                resetHudAnimationState(hudAnimationState_, manager_);
+                updateSceneEntities(0.0f, false, -1);
+                syncHudDocument(nowMs);
+            }
+        }
+
+        const battle::AbilityTutorialDefinition& requirement =
+            step.tutorialOverride.has_value() ? *step.tutorialOverride : abilityDef->tutorial;
+        if (tutorialRequirementPassed(requirement, lastTutorialPlaybackMetrics_)) {
+            ++scriptedTutorial_.stepIndex;
+            bool startedFollowUpSequence = false;
+            if (scriptedTutorial_.mode == ScriptedTutorialMode::LyooOpening &&
+                step.actionKind == ScriptedTutorialActionKind::CharacterSkill &&
+                actorKey == "miku") {
+                startedFollowUpSequence = maybeStartLyooTutorialMikuSkillBanter();
+            }
+            if (scriptedTutorial_.stepIndex < scriptedTutorial_.steps.size()) {
+                const ScriptedTutorialStepKind nextKind = scriptedTutorial_.steps[scriptedTutorial_.stepIndex].kind;
+                if (!startedFollowUpSequence &&
+                    (nextKind == ScriptedTutorialStepKind::FinishLiveBattle ||
+                     nextKind == ScriptedTutorialStepKind::FinishSession)) {
+                    finishScriptedTutorialSequence(nowMs);
+                }
+            } else if (!startedFollowUpSequence) {
+                finishScriptedTutorialSequence(nowMs);
+            }
+            return;
+        }
+
+        if (!step.failurePromptKey.empty()) {
+            scriptedTutorial_.pendingRetryPromptKey = step.failurePromptKey;
+            showScriptedTutorialPrompt(step.failurePromptKey, nowMs, step.actorKey, step.abilityKitId);
+        }
+    }
+
+    void updateScriptedTutorial(Uint64 nowMs) {
+        if (!scriptedTutorial_.active ||
+            isBattleNarrativePromptActive() ||
+            tutorialOverlay_.step != TutorialStep::None ||
+            presentationPlaybackActive_ ||
+            activeUltimateTurnSplash_ != nullptr ||
+            resultOverlay_.active ||
+            paused_ ||
+            isBattleVsIntroBlocking() ||
+            combatBeginAnimation_.isActive()) {
+            return;
+        }
+
+        if (scriptedTutorial_.stepIndex >= scriptedTutorial_.steps.size()) {
+            finishScriptedTutorialSequence(nowMs);
+            return;
+        }
+
+        const ScriptedTutorialStep& step = scriptedTutorial_.steps[scriptedTutorial_.stepIndex];
+        switch (step.kind) {
+            case ScriptedTutorialStepKind::Dialogue:
+                showScriptedTutorialPrompt(
+                    step.promptKey,
+                    nowMs,
+                    step.presentation.actorKey,
+                    step.presentation.abilityKitId
+                );
+                break;
+            case ScriptedTutorialStepKind::Presentation:
+                runScriptedTutorialPresentationStep(step.presentation, nowMs);
+                break;
+            case ScriptedTutorialStepKind::FinishLiveBattle:
+            case ScriptedTutorialStepKind::FinishSession:
+                finishScriptedTutorialSequence(nowMs);
+                break;
+        }
+    }
+
+    bool liveUltimateGuideCompletedForKey(const std::string& characterKey) const {
+        if (characterKey == "miku") {
+            return liveUltimateGuide_.completedMiku;
+        }
+        if (characterKey == "cupcakke") {
+            return liveUltimateGuide_.completedCupcakke;
+        }
+        return true;
+    }
+
+    void markLiveUltimateGuideCompleteForKey(const std::string& characterKey) {
+        if (characterKey == "miku") {
+            liveUltimateGuide_.completedMiku = true;
+        } else if (characterKey == "cupcakke") {
+            liveUltimateGuide_.completedCupcakke = true;
+        }
+    }
+
+    void clearLiveUltimateGuide() {
+        liveUltimateGuide_.activePartyIndex = -1;
+        liveUltimateGuide_.activeCharacterKey.clear();
+    }
+
+    void startLiveUltimateGuide(int partyIndex) {
+        const battle::BattleState& battleState = manager_.getBattleState();
+        if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= battleState.party.size()) {
+            return;
+        }
+
+        const battle::CharacterDefinition& character = battleState.party[static_cast<size_t>(partyIndex)];
+        if (liveUltimateGuideCompletedForKey(character.key)) {
+            return;
+        }
+
+        liveUltimateGuide_.activePartyIndex = partyIndex;
+        liveUltimateGuide_.activeCharacterKey = character.key;
+
+        if (const std::optional<vn::ScriptEntry> entry =
+                resolveScriptedTutorialPrompt("lyoo_ultimate_ready", character.key);
+            entry.has_value()) {
+            startBattleNarrativePrompt(*entry, BattleNarrativePromptKind::LiveUltimateGuide);
+        }
+    }
+
+    void maybeStartLiveUltimateGuide() {
+        if (!liveUltimateGuide_.enabled ||
+            liveUltimateGuide_.activePartyIndex >= 0 ||
+            isBattleNarrativePromptActive() ||
+            scriptedTutorial_.active ||
+            tutorialOverlay_.step != TutorialStep::None ||
+            presentationPlaybackActive_ ||
+            activeUltimateTurnSplash_ != nullptr ||
+            resultOverlay_.active ||
+            paused_ ||
+            isBattleVsIntroBlocking() ||
+            combatBeginAnimation_.isActive() ||
+            manager_.isBattleOver()) {
+            return;
+        }
+
+        for (const char* characterKey : {"miku", "cupcakke"}) {
+            if (liveUltimateGuideCompletedForKey(characterKey)) {
+                continue;
+            }
+
+            const int partyIndex = findPartyIndexByKey(characterKey);
+            if (partyIndex < 0) {
+                continue;
+            }
+            if (manager_.previewManualUltimateTurnRequest(partyIndex) !=
+                battle::ManualUltimateRequestResult::Queued) {
+                continue;
+            }
+
+            startLiveUltimateGuide(partyIndex);
+            return;
+        }
+    }
+
+    void maybeExpireLiveUltimateGuide() {
+        if (liveUltimateGuide_.activePartyIndex < 0 || manager_.isBattleOver()) {
+            clearLiveUltimateGuide();
+            return;
+        }
+
+        const battle::ManualUltimateRequestResult result =
+            manager_.previewManualUltimateTurnRequest(liveUltimateGuide_.activePartyIndex);
+        if (result == battle::ManualUltimateRequestResult::Unavailable ||
+            liveUltimateGuideCompletedForKey(liveUltimateGuide_.activeCharacterKey)) {
+            clearLiveUltimateGuide();
+        }
+    }
+
+    void completeLiveUltimateGuide() {
+        if (liveUltimateGuide_.activePartyIndex < 0 || liveUltimateGuide_.activeCharacterKey.empty()) {
+            return;
+        }
+
+        markLiveUltimateGuideCompleteForKey(liveUltimateGuide_.activeCharacterKey);
+        clearLiveUltimateGuide();
     }
 
     void reviveEntirePartyToFull() {
@@ -3843,9 +5194,23 @@ private:
                                    battle::render::BattleCameraStaging* cameraStaging = nullptr) {
         const battle::BattleState& battleState = manager_.getBattleState();
         const float voiceVolume = currentVoiceVolume();
+        bool sawMikuUltimate = false;
+        bool sawBossActionAfterMikuUltimate = false;
         for (const battle::BattleActionEvent& event : manager_.getRecentActionEvents()) {
             if (cameraStaging != nullptr && event.actorType == battle::ParticipantType::Boss) {
                 cameraStaging->queueCharacterTurnIntro();
+            }
+
+            if (lyooTutorialBanter_.enabled &&
+                event.actorType == battle::ParticipantType::Character &&
+                event.actorKey == "miku" &&
+                event.action == battle::BattleAction::Ultimate) {
+                sawMikuUltimate = true;
+            }
+            if (lyooTutorialBanter_.enabled &&
+                lyooTutorialBanter_.pendingPostLyooAttackAfterMikuUltimate &&
+                event.actorType == battle::ParticipantType::Boss) {
+                sawBossActionAfterMikuUltimate = true;
             }
 
             resolveBattleHintsFromActionEvent(hudFeedback_, event);
@@ -3989,6 +5354,17 @@ private:
             }
         }
 
+        if (!isBattleNarrativePromptActive() &&
+            !scriptedTutorial_.active &&
+            liveUltimateGuide_.activePartyIndex < 0 &&
+            !manager_.isBattleOver()) {
+            if (sawMikuUltimate) {
+                (void)maybeStartLyooTutorialMikuUltimateBanter();
+            } else if (sawBossActionAfterMikuUltimate) {
+                (void)maybeStartLyooTutorialPostLyooAttackBanter();
+            }
+        }
+
         manager_.clearRecentActionEvents();
     }
 
@@ -4010,16 +5386,17 @@ private:
     }
 
     std::string tutorialHintSourceTag() const {
-        switch (tutorialOverlay_.step) {
-            case TutorialStep::Standard:
-                return "BASIC ACTION";
-            case TutorialStep::Skill:
-                return "SKILL ACTION";
-            case TutorialStep::Ultimate:
-                return "ULTIMATE ACTION";
-            case TutorialStep::None:
-            default:
-                return "COMBAT GUIDE";
+    switch (tutorialOverlay_.step) {
+        case TutorialStep::Standard:
+            return "BASIC ACTION";
+        case TutorialStep::Skill:
+            return "SKILL ACTION";
+        case TutorialStep::Ultimate:
+            return "ULTIMATE ACTION";
+        case TutorialStep::Custom:
+        case TutorialStep::None:
+        default:
+            return "COMBAT GUIDE";
         }
     }
 
@@ -4235,6 +5612,10 @@ private:
         if (presentationPlaybackActive_ ||
             paused_ ||
             resultOverlay_.active ||
+            scriptedTutorial_.active ||
+            isBattleNarrativePromptActive() ||
+            liveUltimateGuide_.activePartyIndex >= 0 ||
+            tutorialOverlay_.step != TutorialStep::None ||
             isBattleVsIntroBlocking() ||
             bossPhaseIntro_.active ||
             combatBeginAnimation_.isActive() ||
@@ -4259,8 +5640,8 @@ private:
         request.sourceTag = tutorialHintSourceTag();
         request.badgeText = "GUIDE";
         request.message = tutorialOverlay_.entry.text;
-        request.dismissLabel = "BACKSPACE SKIP";
-        request.manualDismissAllowed = true;
+        request.dismissLabel = tutorialOverlay_.manualDismissAllowed ? "BACKSPACE SKIP" : "";
+        request.manualDismissAllowed = tutorialOverlay_.manualDismissAllowed;
         request.resolveRule.kind = BattleHintResolveKind::TutorialStepComplete;
         request.resolveRule.tutorialStep = tutorialOverlay_.step;
         enqueueBattleHint(std::move(request));
@@ -5058,6 +6439,7 @@ private:
                 const std::vector<battle::PresentationFeedbackEvent> feedbackEvents =
                     activePresentation_->consumeFeedbackEvents();
                 for (const battle::PresentationFeedbackEvent& feedbackEvent : feedbackEvents) {
+                    recordTutorialFeedbackEvent(feedbackEvent);
                     applyPresentationFeedbackEvent(context, abilityDef, feedbackEvent);
                     consumedPresentationFeedback = true;
                 }
@@ -5156,10 +6538,19 @@ private:
         if (context.presentationId == "boss_attack_lyoo_plot_twist") {
             stopPresentationAudioPlayback(true);
         }
+        lastTutorialPlaybackMetrics_.correctToneCount = result.correctToneCount;
+        lastTutorialPlaybackMetrics_.scoreValue = result.scoreValue;
+        lastTutorialPlaybackMetrics_.resultText = result.resultText;
+        lastTutorialPlaybackMetrics_.finalJudgementValid = result.feedbackSignal.valid();
+        if (lastTutorialPlaybackMetrics_.finalJudgementValid) {
+            lastTutorialPlaybackMetrics_.finalJudgement =
+                battle::classifyCombatJudgement(result.feedbackSignal);
+        }
         if (!consumedPresentationFeedback && result.feedbackSignal.valid()) {
             battle::PresentationFeedbackEvent finalFeedback;
             finalFeedback.signal = result.feedbackSignal;
             finalFeedback.multiplier = result.multiplier;
+            recordTutorialFeedbackEvent(finalFeedback);
             applyPresentationFeedbackEvent(context, abilityDef, finalFeedback);
             std::cout << "[Battle] Applied presentation feedback signal (mode=" << (int)result.feedbackSignal.mode << ")\n";
         } else {
@@ -5350,6 +6741,9 @@ private:
                                                  vsIntroOverlay_,
                                                  tutorialOverlay_,
                                                  battleInputPrompt_,
+                                                 battle::app::ui::UltimateGuideOverlayState{
+                                                     liveUltimateGuide_.activePartyIndex >= 0,
+                                                     liveUltimateGuide_.activePartyIndex},
                                                  rhythmChallenge_,
                                                  paused_,
                                                  pauseOverlayMode_,
@@ -6404,6 +7798,22 @@ private:
             return false;
         }
 
+        if (liveUltimateGuide_.activePartyIndex >= 0) {
+            if (partyIndex != liveUltimateGuide_.activePartyIndex ||
+                isDialogueInProgress() ||
+                manager_.isBattleOver()) {
+                return true;
+            }
+
+            const battle::ManualUltimateRequestResult result =
+                manager_.requestManualUltimateTurn(partyIndex);
+            handleManualUltimateRequestResult(partyIndex, result, nowMs, false);
+            if (result == battle::ManualUltimateRequestResult::Queued) {
+                completeLiveUltimateGuide();
+            }
+            return true;
+        }
+
         if (freeViewEnabled_ ||
             tutorialOverlay_.step != TutorialStep::None ||
             !isBattleSpaceEnabled() ||
@@ -6611,6 +8021,7 @@ private:
         }
 
         if (tutorialOverlay_.step != TutorialStep::None ||
+            liveUltimateGuide_.activePartyIndex >= 0 ||
             isDialogueInProgress() ||
             presentationPlaybackActive_ ||
             activeUltimateTurnSplash_ != nullptr ||
@@ -6690,6 +8101,13 @@ private:
     battle::demo::DemoNarrativeFlow narrative_;
     ScriptedBattleSequenceState lyooPhase3Sequence_;
     TutorialScriptLibrary tutorialLibrary_;
+    TutorialPromptLibrary tutorialPromptLibrary_;
+    ScriptedTutorialState scriptedTutorial_;
+    std::optional<battle::TutorialScenarioDefinition> scriptedTutorialScenario_;
+    BattleNarrativePromptState battleNarrativePrompt_;
+    LiveUltimateGuideState liveUltimateGuide_;
+    LyooTutorialBanterState lyooTutorialBanter_;
+    TutorialPlaybackMetrics lastTutorialPlaybackMetrics_{};
     HudFeedbackState hudFeedback_;
     HudAnimationState hudAnimationState_;
     BattleResultOverlayState resultOverlay_;
@@ -6737,6 +8155,8 @@ private:
     bool tutorialEnabled_ = false;
     bool narrativeEnabled_ = false;
     bool narrativeInitialized_ = false;
+    BattleFlowMode flowMode_ = BattleFlowMode::Direct;
+    std::string completedTutorialKey_;
     bool presentationPlaybackActive_ = false;
     bool presentationCasterIsBoss_ = false;
     int presentationCasterPartyIndex_ = -1;
@@ -6838,6 +8258,7 @@ BattleOutcome Session::outcome() const { return impl_->outcome(); }
  * @return const std::vector<std::string>& A reference to the active party lineup vector, ordered by slot; may be empty.
  */
 const std::vector<std::string>& Session::currentPartyLineup() const { return impl_->currentPartyLineup(); }
+const std::string& Session::completedTutorialKey() const { return impl_->completedTutorialKey(); }
 /**
  * @brief Retrieve the post-battle summary for the completed session.
  *

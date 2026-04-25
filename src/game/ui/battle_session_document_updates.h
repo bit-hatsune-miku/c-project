@@ -274,6 +274,10 @@ inline bool useCompactPartyRackLayout(const battle::BattleDefinition& battleDefi
     return battleDefinition.key == "miku_plot_twist" && partyCount > 4;
 }
 
+inline bool shouldShowManualUltimateHotkeyBadges(const battle::BattleDefinition& battleDefinition) {
+    return battleDefinition.key == "miku_plot_twist";
+}
+
 inline std::string manualUltimateHotkeyBadgeLabel(std::size_t partyIndex) {
     const std::size_t oneBasedIndex = partyIndex + 1;
     if (oneBasedIndex <= 9) {
@@ -294,7 +298,8 @@ inline std::string manualUltimateHotkeyBadgeLabel(std::size_t partyIndex) {
 }
 
 inline std::string buildPartyRackMarkup(std::size_t partyCount,
-                                        bool compactLayout) {
+                                        bool compactLayout,
+                                        bool showHotkeyBadges) {
     std::ostringstream markup;
     constexpr int kCardLeftStepDp = 198;
     constexpr int kCompactColumns = 5;
@@ -316,6 +321,9 @@ inline std::string buildPartyRackMarkup(std::size_t partyCount,
             leftDp = column * kCompactCardLeftStepDp;
             bottomDp = (compactRows - 1 - row) * kCompactCardBottomStepDp;
             cardClass += " unit-card--compact";
+        }
+        if (showHotkeyBadges) {
+            cardClass += " unit-card--show-hotkey";
         }
         markup
             << "<div class=\"" << cardClass << "\" id=\"unit-card-" << displayIndex
@@ -344,6 +352,7 @@ inline std::string buildPartyRackMarkup(std::size_t partyCount,
             << "<div class=\"status-badge-lane status-badge-lane--unit\" id=\"unit-status-badges-" << displayIndex << "\"></div>"
             << "</div>"
             << "</div>"
+            << "<div class=\"unit-guide-dim\" id=\"unit-guide-dim-" << displayIndex << "\"></div>"
             << "<div class=\"unit-hit-flash\" id=\"unit-hit-flash-" << displayIndex << "\"></div>"
             << "</div>";
     }
@@ -466,10 +475,12 @@ inline void ensurePartyRackDocument(Rml::ElementDocument* document,
     }
 
     const bool compactLayout = useCompactPartyRackLayout(battleDefinition, partyCount);
+    const bool showHotkeyBadges = shouldShowManualUltimateHotkeyBadges(battleDefinition);
     const std::string layoutKey =
-        std::to_string(partyCount) + ":" + (compactLayout ? "compact" : "default");
+        std::to_string(partyCount) + ":" + (compactLayout ? "compact" : "default") +
+        ":" + (showHotkeyBadges ? "hotkeys" : "plain");
     if (partyRack->GetAttribute<std::string>("data-layout-key", "") != layoutKey) {
-        partyRack->SetInnerRML(buildPartyRackMarkup(partyCount, compactLayout));
+        partyRack->SetInnerRML(buildPartyRackMarkup(partyCount, compactLayout, showHotkeyBadges));
         partyRack->SetAttribute("data-layout-key", layoutKey);
     }
 
@@ -2582,6 +2593,7 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
                                     const BattleVsIntroOverlayState& vsIntroOverlay,
                                     const TutorialOverlayState& tutorial,
                                     const BattleInputPromptState& inputPrompt,
+                                    const UltimateGuideOverlayState& ultimateGuide,
                                     const RhythmChallengeState& rhythm,
                                     bool paused,
                                     PauseOverlayMode pauseOverlayMode,
@@ -2781,8 +2793,14 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
                 "ult-ready",
                 currentHp > 0 && ultimateCharge >= ultimateRequired
             );
+            card->SetClass(
+                "ultimate-guide-target",
+                ultimateGuide.active && ultimateGuide.targetPartyIndex == static_cast<int>(i));
         }
     }
+
+    detail::setElementClass(document, "hud-root", "ultimate-guide-active", ultimateGuide.active);
+    detail::setElementDisplay(document, "battle-ultimate-guide-dim", ultimateGuide.active);
 
     detail::updateHintDocument(document, feedback);
     detail::updateBattleInputPromptDocument(document, inputPrompt, nowMs);
@@ -2793,6 +2811,8 @@ inline void updateBattleHudDocument(Rml::ElementDocument* document,
         detail::setElementDisplay(document, "battle-hint-lane", false);
         detail::setElementDisplay(document, "battle-input-prompt", false);
         detail::setElementClass(document, "battle-input-prompt", "visible", false);
+        detail::setElementDisplay(document, "battle-ultimate-guide-dim", false);
+        detail::setElementClass(document, "hud-root", "ultimate-guide-active", false);
     }
 
     detail::setElementClass(document, "battle-pause", "visible", paused);

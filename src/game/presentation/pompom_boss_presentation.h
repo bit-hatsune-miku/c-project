@@ -99,6 +99,8 @@ private:
     SDL_Texture* obstacleTexture_ = nullptr;
     SDL_Texture* targetSpriteTexture_ = nullptr;
     bool texturesLoaded_ = false;
+    float runnerCenterScreenX_ = -1.0f;
+    int lastScreenWidth_ = 0;
 };
 
 } // namespace battle

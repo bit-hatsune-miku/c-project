@@ -267,6 +267,10 @@ void BattleCharacter::consumeUltimate() {
     ultimateCharge_ = 0;
 }
 
+void BattleCharacter::setUltimateCharge(int amount) {
+    ultimateCharge_ = std::clamp(amount, 0, std::max(1, definition_.ultimatePoints));
+}
+
 int BattleCharacter::effectiveSpd() const {
     return std::max(1, definition_.spd + spdBuffBonus_);
 }
@@ -850,6 +854,334 @@ int BattleManager::getLuotianyiCorrectTones() const {
     return std::max(0, luotianyiCorrectTones_);
 }
 
+bool BattleManager::setCharacterTutorialVitals(int partyIndex,
+                                               int hp,
+                                               int shield,
+                                               int ultimateCharge) {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
+        return false;
+    }
+
+    BattleCharacter& character = characters_[static_cast<size_t>(partyIndex)];
+    character.setHp(hp);
+    character.setShield(shield);
+    character.setUltimateCharge(ultimateCharge);
+    syncCharacterTurnParticipation(partyIndex);
+    syncCharacterUltimateTurn(partyIndex);
+    removeBuffsFromDefeatedCharacters();
+    return true;
+}
+
+bool BattleManager::setCharacterTutorialBuffBonuses(int partyIndex,
+                                                    int speedBuff,
+                                                    int atkBuff,
+                                                    int damageBuff) {
+    if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= characters_.size()) {
+        return false;
+    }
+
+    BattleCharacter& character = characters_[static_cast<size_t>(partyIndex)];
+    character.setSpdBuffBonus(speedBuff);
+    character.setAtkBuffBonus(atkBuff);
+    character.setDamageBuffBonus(damageBuff);
+    refreshTurnActorSpeed(partyIndex);
+    return true;
+}
+
+void BattleManager::setBossTutorialState(int currentHp, int phaseIndex) {
+    const int clampedPhaseIndex = std::clamp(
+        phaseIndex,
+        0,
+        static_cast<int>(state_.boss.phases.size()) - 1
+    );
+    bossPhaseIndex_ = state_.boss.hasPhaseData ? clampedPhaseIndex : 0;
+    bossAtkBuffBonus_ = currentBossPhaseDefinition().atkBonusPercent;
+    bossCurrentHp_ = std::clamp(currentHp, 0, std::max(1, state_.boss.hp));
+}
+
+void BattleManager::setLuotianyiCorrectTonesForTutorial(int amount) {
+    luotianyiCorrectTones_ = std::max(0, amount);
+}
+
+void BattleManager::setTetoHealingTallyForTutorial(int amount) {
+    tetoHealingTally_ = std::max(0, amount);
+}
+
+void BattleManager::setSailorVenusTutorialState(bool transformed,
+                                                int turnsRemaining,
+                                                int spaceTally,
+                                                bool finisherQueued) {
+    if (sailorVenusState_.partyIndex < 0 ||
+        static_cast<size_t>(sailorVenusState_.partyIndex) >= characters_.size()) {
+        return;
+    }
+
+    sailorVenusState_.transformed = transformed;
+    sailorVenusState_.turnsRemaining = std::max(0, turnsRemaining);
+    sailorVenusState_.spaceTally = std::max(0, spaceTally);
+    sailorVenusState_.finisherQueued = finisherQueued;
+
+    if (transformed) {
+        (void)setCharacterAbilityKit(sailorVenusState_.partyIndex, "transformed");
+    } else {
+        clearCharacterAbilityKit(sailorVenusState_.partyIndex);
+    }
+    refreshCharacterBuffBonuses();
+    refreshAllTurnActorSpeeds();
+    refreshTurnActorAssets(sailorVenusState_.partyIndex);
+}
+
+bool BattleManager::applyResolvedTutorialAction(const TutorialResolvedAction& action) {
+    presentationHitDamageApplied_ = false;
+    presentationHealingApplied_ = false;
+
+    currentActionOutgoingDamage_ = 0;
+
+    if (action.isBossCaster) {
+        const std::string abilityId = getBossNormalAbilityId(state_.boss);
+        const AbilityDefinition* abilityDef = getAbility(abilityId);
+        if (abilityDef == nullptr) {
+            return false;
+        }
+
+        BattleActionEvent actionEvent;
+        actionEvent.actorType = ParticipantType::Boss;
+        actionEvent.actorKey = state_.boss.key;
+        actionEvent.actorTitle = state_.boss.title;
+        actionEvent.actorPartyIndex = -1;
+        actionEvent.action = action.action;
+        actionEvent.abilityId = abilityDef->id;
+        actionEvent.abilityName = abilityDef->name;
+        actionEvent.interactionType = abilityDef->interactionType;
+        actionEvent.bossHpBefore = bossCurrentHp_;
+        actionEvent.bossHpAfter = bossCurrentHp_;
+
+        std::vector<int> partyHpBefore;
+        std::vector<int> partyShieldBefore;
+        partyHpBefore.reserve(characters_.size());
+        partyShieldBefore.reserve(characters_.size());
+        for (const BattleCharacter& character : characters_) {
+            partyHpBefore.push_back(character.hp());
+            partyShieldBefore.push_back(character.getShield());
+        }
+
+        if (!action.primaryEffectApplied) {
+            if (abilityDef->targetRule == TargetRule::AllEnemies) {
+                for (const BattleCharacter& character : characters_) {
+                    if (!character.isAlive()) {
+                        continue;
+                    }
+                    actionEvent.targetPartyIndices.push_back(character.partyIndex());
+                    actionEvent.targetHpBefore.push_back(character.hp());
+                    actionEvent.targetShieldBefore.push_back(character.getShield());
+                }
+            } else if (action.targetPartyIndex >= 0 &&
+                       static_cast<size_t>(action.targetPartyIndex) < characters_.size() &&
+                       characters_[static_cast<size_t>(action.targetPartyIndex)].isAlive()) {
+                const BattleCharacter& target = characters_[static_cast<size_t>(action.targetPartyIndex)];
+                actionEvent.targetPartyIndices.push_back(target.partyIndex());
+                actionEvent.targetHpBefore.push_back(target.hp());
+                actionEvent.targetShieldBefore.push_back(target.getShield());
+            }
+
+            AbilityExecutionContext execContext;
+            execContext.ability = abilityDef;
+            execContext.isBossCaster = true;
+            execContext.targetPartyIndex = action.targetPartyIndex;
+            execContext.baseDamage = getBossEffectiveAtk();
+            execContext.presentationMultiplier = action.presentationMultiplier;
+            execContext.comboMultiplier = 1.0f;
+            execContext.damageBuffMultiplier = 1.0f;
+            execContext.bossMaxHp = state_.boss.hp;
+            executeAbilityEffect(execContext);
+        }
+
+        std::vector<int> recordedTargets = action.resolvedTargetIndices;
+        if (recordedTargets.empty() && action.targetPartyIndex >= 0) {
+            recordedTargets.push_back(action.targetPartyIndex);
+        }
+        if (recordedTargets.empty() && abilityDef->targetRule == TargetRule::AllEnemies) {
+            for (const BattleCharacter& character : characters_) {
+                if (character.isAlive() || partyHpBefore[static_cast<size_t>(character.partyIndex())] > 0) {
+                    recordedTargets.push_back(character.partyIndex());
+                }
+            }
+        }
+        if (recordedTargets.empty()) {
+            const int targetIndex = firstLivingCharacterPartyIndex();
+            if (targetIndex >= 0) {
+                recordedTargets.push_back(targetIndex);
+            }
+        }
+
+        std::sort(recordedTargets.begin(), recordedTargets.end());
+        recordedTargets.erase(std::unique(recordedTargets.begin(), recordedTargets.end()), recordedTargets.end());
+        for (int targetPartyIndex : recordedTargets) {
+            if (targetPartyIndex < 0 || static_cast<size_t>(targetPartyIndex) >= characters_.size()) {
+                continue;
+            }
+            if (std::find(actionEvent.targetPartyIndices.begin(),
+                          actionEvent.targetPartyIndices.end(),
+                          targetPartyIndex) == actionEvent.targetPartyIndices.end()) {
+                actionEvent.targetPartyIndices.push_back(targetPartyIndex);
+                actionEvent.targetHpBefore.push_back(partyHpBefore[static_cast<size_t>(targetPartyIndex)]);
+                actionEvent.targetShieldBefore.push_back(partyShieldBefore[static_cast<size_t>(targetPartyIndex)]);
+            }
+            actionEvent.targetHpAfter.push_back(characters_[static_cast<size_t>(targetPartyIndex)].hp());
+            actionEvent.targetShieldAfter.push_back(characters_[static_cast<size_t>(targetPartyIndex)].getShield());
+        }
+
+        reviveDefeatedPartyMembersIfNeeded();
+        applyBossAbilitySelfCost(*abilityDef);
+        removeBuffsFromDefeatedCharacters();
+        tickBossDebuffsForBossTurnEnd();
+        actionEvent.bossHpAfter = bossCurrentHp_;
+        recentActionEvents_.push_back(std::move(actionEvent));
+        currentActionOutgoingDamage_ = 0;
+        return true;
+    }
+
+    if (action.casterPartyIndex < 0 || static_cast<size_t>(action.casterPartyIndex) >= characters_.size()) {
+        return false;
+    }
+
+    BattleCharacter& character = characters_[static_cast<size_t>(action.casterPartyIndex)];
+    if (!character.isAlive()) {
+        return false;
+    }
+
+    const std::string abilityId = resolveCharacterAbilityId(
+        action.casterPartyIndex,
+        action.action,
+        action.abilityKitId
+    );
+    const AbilityDefinition* abilityDef = getAbility(abilityId);
+    if (abilityDef == nullptr) {
+        return false;
+    }
+
+    if (action.action != BattleAction::Ultimate) {
+        grantUltimatePointForAction(character, abilityDef, true);
+    }
+
+    BattleActionEvent actionEvent;
+    actionEvent.actorType = ParticipantType::Character;
+    actionEvent.actorKey = character.definition().key;
+    actionEvent.actorTitle = character.definition().title;
+    actionEvent.actorPartyIndex = character.partyIndex();
+    actionEvent.action = action.action;
+    actionEvent.abilityId = abilityDef->id;
+    actionEvent.abilityName = abilityDef->name;
+    actionEvent.interactionType = abilityDef->interactionType;
+    actionEvent.bossHpBefore = bossCurrentHp_;
+    actionEvent.bossHpAfter = bossCurrentHp_;
+
+    const std::vector<int> supportTargetPartyIndices = collectSupportTargetPartyIndices(
+        character.partyIndex(),
+        *abilityDef,
+        action.targetPartyIndex
+    );
+    std::vector<int> supportHpBefore(characters_.size(), 0);
+    std::vector<int> supportShieldBefore(characters_.size(), 0);
+    if (!supportTargetPartyIndices.empty()) {
+        for (int targetPartyIndex : supportTargetPartyIndices) {
+            if (targetPartyIndex < 0 || static_cast<size_t>(targetPartyIndex) >= characters_.size()) {
+                continue;
+            }
+            supportHpBefore[static_cast<size_t>(targetPartyIndex)] =
+                characters_[static_cast<size_t>(targetPartyIndex)].hp();
+            supportShieldBefore[static_cast<size_t>(targetPartyIndex)] =
+                characters_[static_cast<size_t>(targetPartyIndex)].getShield();
+        }
+    }
+
+    if (!action.primaryEffectApplied) {
+        AbilityExecutionContext execContext;
+        execContext.ability = abilityDef;
+        execContext.casterPartyIndex = character.partyIndex();
+        execContext.targetPartyIndex = action.targetPartyIndex;
+        execContext.isBossCaster = false;
+        execContext.playerDamageHealsBoss = playerDamageHealsBoss();
+        execContext.baseDamage = character.effectiveAtk();
+        execContext.baseHeal = abilityDef->flatHeal;
+        execContext.presentationMultiplier = action.presentationMultiplier;
+        execContext.comboMultiplier = comboDamageMultiplier(comboState_.comboCount);
+        execContext.damageBuffMultiplier = character.damageBuffMultiplier();
+        execContext.bossMaxHp = state_.boss.hp;
+        executeAbilityEffect(execContext);
+    }
+
+    actionEvent.bossHpAfter = bossCurrentHp_;
+    actionEvent.totalOutgoingDamage = currentActionOutgoingDamage_;
+    currentActionOutgoingDamage_ = 0;
+
+    for (int targetPartyIndex : supportTargetPartyIndices) {
+        if (targetPartyIndex < 0 || static_cast<size_t>(targetPartyIndex) >= characters_.size()) {
+            continue;
+        }
+        actionEvent.targetPartyIndices.push_back(targetPartyIndex);
+        actionEvent.targetHpBefore.push_back(supportHpBefore[static_cast<size_t>(targetPartyIndex)]);
+        actionEvent.targetHpAfter.push_back(characters_[static_cast<size_t>(targetPartyIndex)].hp());
+        actionEvent.targetShieldBefore.push_back(supportShieldBefore[static_cast<size_t>(targetPartyIndex)]);
+        actionEvent.targetShieldAfter.push_back(characters_[static_cast<size_t>(targetPartyIndex)].getShield());
+    }
+
+    if (abilityDef->id == "MeiCiDuXiangZhuang" && bossCurrentHp_ > 0) {
+        applyJiafeiUltimateDebuff(character.partyIndex(), *abilityDef);
+    }
+
+    if (abilityDef->speedBuff != 0 || abilityDef->atkBuff != 0 || abilityDef->damageBuff != 0) {
+        applyPartyBuffFromAbility(character.partyIndex(), *abilityDef, action.presentationMultiplier);
+    }
+    if (abilityDef->actionAdvance > 0.0f) {
+        applyAllAlliesActionAdvance(abilityDef->actionAdvance, abilityDef->actionAdvanceMode);
+    }
+
+    if (abilityDef->id == "VenusTransformation") {
+        activateSailorVenusTransformation(character.partyIndex());
+    } else if (abilityDef->id == "LoveAndBeautyShock") {
+        consumeSailorVenusTurnAndQueueFinisherIfNeeded(character.partyIndex());
+    } else if (abilityDef->id == "VenusLoveMeChain") {
+        revertSailorVenusTransformation(true);
+    } else if (abilityDef->id == "PomPomTenPull" || abilityDef->id == "PomPomTwentyPull") {
+        applyPomPomPullBuffs(character.partyIndex(), action.resolvedRolls);
+        if (abilityDef->id == "PomPomTwentyPull") {
+            grantPomPomUltimateTeamOrbs(character.partyIndex());
+        }
+    } else if (abilityDef->id == "ImperialFavor") {
+        grantHuafeiUltimateTeamOrbs(character.partyIndex());
+    } else if (abilityDef->id == "CQuiz" && bossCurrentHp_ > 0) {
+        if (action.presentationMultiplier >= 0.3f) {
+            applyBossTimedModifier(
+                character.partyIndex(),
+                *abilityDef,
+                0,
+                static_cast<int>(std::lround(action.presentationMultiplier * 100.0f)),
+                1
+            );
+        } else {
+            applyBossTimedModifier(character.partyIndex(), *abilityDef, 30, 0, 1);
+        }
+    } else if (bossCurrentHp_ > 0 &&
+               (abilityDef->bossAtkBuff != 0 || abilityDef->bossDamageTakenBuff != 0)) {
+        applyBossTimedModifier(
+            character.partyIndex(),
+            *abilityDef,
+            abilityDef->bossAtkBuff,
+            abilityDef->bossDamageTakenBuff,
+            abilityDef->bossTurnDuration
+        );
+    }
+
+    syncCharacterTurnParticipation(character.partyIndex());
+    syncCharacterUltimateTurn(character.partyIndex());
+    tryQueueJiafeiFollowUp(actionEvent);
+    tryQueueZhouShenFollowUp(actionEvent);
+    tryQueueSailorVenusFollowUp(actionEvent);
+    recentActionEvents_.push_back(std::move(actionEvent));
+    return true;
+}
+
 /**
  * @brief Retrieves the current combo tracking state for the battle.
  *
@@ -931,6 +1263,14 @@ BattleResolvedOutcome BattleManager::computeDerivedOutcome() const {
 
 BattleResolvedOutcome BattleManager::outcome() const {
     return computeDerivedOutcome();
+}
+
+void BattleManager::setForcedOutcome(BattleResolvedOutcome outcome) {
+    forcedOutcome_ = outcome;
+}
+
+void BattleManager::clearForcedOutcome() {
+    forcedOutcome_.reset();
 }
 
 /**

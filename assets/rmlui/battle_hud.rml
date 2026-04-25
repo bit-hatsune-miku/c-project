@@ -196,6 +196,8 @@
             </div>
         </div>
 
+        <div class="battle-ultimate-guide-dim" id="battle-ultimate-guide-dim"></div>
+
         <div id="safe-stage">
             <div class="battle-combo" id="battle-combo">
                 <div class="battle-combo-count" id="battle-combo-count">0</div>

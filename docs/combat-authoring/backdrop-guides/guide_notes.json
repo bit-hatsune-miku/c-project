@@ -1,0 +1,130 @@
+{
+  "reference_scene": {
+    "screen_size": [
+      1280,
+      720
+    ],
+    "camera": {
+      "posX": -405.0,
+      "posY": 45.0,
+      "posZ": -175.0,
+      "pitchDegrees": 5.0,
+      "yawDegrees": 4.0,
+      "focalLength": 50000.0
+    },
+    "transition_band_px": 48.0
+  },
+  "floor_metrics": {
+    "normal_cut_y_at_1280x720": 347.6993,
+    "tiny_cut_range_y_at_1280x720": [
+      387.6121,
+      395.2667
+    ],
+    "tiny_cut_average_y_at_1280x720": 390.6408,
+    "size_zero_floor_stage_keys": [
+      "scan_to_pay_stage",
+      "terrain_stage",
+      "twilight_stage",
+      "whistle_note_stage",
+      "wildflower_stage"
+    ],
+    "transition_band_norm": 0.066667
+  },
+  "screen": {
+    "template_size": [
+      1920,
+      1080
+    ],
+    "normal_cut_y": 521.55,
+    "transition_top_y": 449.55,
+    "tiny_cut_range_y": [
+      581.42,
+      592.9
+    ]
+  },
+  "parallax": {
+    "template_size": [
+      2560,
+      1440
+    ],
+    "parallax_strength": [
+      0.18,
+      0.12
+    ],
+    "visible_uv_window": {
+      "u0": 0.091883,
+      "u1": 0.896388,
+      "v0": 0.076426,
+      "v1": 0.928505
+    },
+    "normal_cut_y": 702.59,
+    "transition_top_y": 620.79,
+    "tiny_cut_range_y": [
+      770.61,
+      783.65
+    ],
+    "visible_frame_pixels": {
+      "left": 235.22,
+      "top": 110.05,
+      "right": 2294.75,
+      "bottom": 1337.05,
+      "height": 1226.99
+    }
+  },
+  "panorama": {
+    "template_size": [
+      2048,
+      1024
+    ],
+    "crop_window": {
+      "u0": 0.344441,
+      "u1": 0.633337,
+      "v0": 0.329145,
+      "v1": 0.72641
+    },
+    "normal_cut_v": 0.520991,
+    "transition_top_v": 0.494506,
+    "tiny_cut_v_range": [
+      0.543013,
+      0.547236
+    ]
+  },
+  "skybox": {
+    "front": {
+      "output_path": "skybox_front.png",
+      "segment_count": 1,
+      "transition_segment_count": 1,
+      "diagnostic_segment_count": 1
+    },
+    "back": {
+      "output_path": "skybox_back.png",
+      "segment_count": 0,
+      "transition_segment_count": 0,
+      "diagnostic_segment_count": 0
+    },
+    "left": {
+      "output_path": "skybox_left.png",
+      "segment_count": 1,
+      "transition_segment_count": 1,
+      "diagnostic_segment_count": 1
+    },
+    "right": {
+      "output_path": "skybox_right.png",
+      "segment_count": 1,
+      "transition_segment_count": 1,
+      "diagnostic_segment_count": 1
+    },
+    "top": {
+      "output_path": "skybox_top.png",
+      "segment_count": 0,
+      "transition_segment_count": 0,
+      "diagnostic_segment_count": 0
+    },
+    "bottom": {
+      "output_path": "skybox_bottom.png",
+      "segment_count": 0,
+      "transition_segment_count": 0,
+      "diagnostic_segment_count": 0
+    }
+  }
+}

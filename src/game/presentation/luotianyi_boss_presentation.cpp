@@ -319,6 +319,10 @@ int LuotianyiBossPresentation::consumeHitEvents() {
     return 1;
 }
 
+int LuotianyiBossPresentation::getCorrectToneCount() const {
+    return std::max(0, correctCount_);
+}
+
 int LuotianyiBossPresentation::getDamageLabelHitCount() const {
     return 1;
 }

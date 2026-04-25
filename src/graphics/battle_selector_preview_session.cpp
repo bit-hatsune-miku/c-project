@@ -496,7 +496,12 @@ bool BattleSelectorPreviewSession::loadEntries() {
                     const json& abilitiesJson = bossJson.at("abilities");
                     const auto skillIt = abilitiesJson.find("skill");
                     if (skillIt != abilitiesJson.end() && skillIt->is_object()) {
-                        entry.instructionHint = skillIt->value("instructionHint", entry.instructionHint);
+                        const std::string description = skillIt->value("description", std::string{});
+                        if (!description.empty()) {
+                            entry.instructionHint = description;
+                        } else {
+                            entry.instructionHint = skillIt->value("instructionHint", entry.instructionHint);
+                        }
                     }
                 }
             }

@@ -1,940 +1,1034 @@
 {
-    "lyooBoss": {
-        "title": "Host | Lyoo",
-        "assets": "lyooBoss",
-        "voiceHit": "assets/combat/voices/lyoo/hit.opus",
-        "spd": 100,
-        "atk": 5,
-        "hp": 500,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "MoonSpiralHeartAttack",
-        "ability": "MoonSpiralHeartAttack",
-        "ultimate": "MoonSpiralHeartAttack",
-        "abilities": {
-            "skill": {
-                "id": "MoonSpiralHeartAttack",
-                "name": "Moon Spiral Heart Attack!",
-                "instructionHint": "Press SPACE as each pulse reaches the party to parry and reduce damage.",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.0,
-                "interactionType": "parry",
-                "presentationId": "boss_attack_lyoo",
-                "inputPromptType": "space"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "phases": {
-            "phase1": {
-                "bgm": "lyooBoss",
-                "bgmVolume": 0.1,
-                "atkBonusPercent": 0,
-                "presentation": {
-                    "intParams": {
-                        "pulseCount": 2
-                    },
-                    "floatParams": {
-                        "zoomDurationSeconds": 1.55,
-                        "pulseTravelSeconds": 1,
-                        "parryToleranceSeconds": 0.50
-                    }
-                }
-            },
-            "phase2": {
-                "bgm": "lyooBoss2",
-                "bgmVolume": 0.3,
-                "atkBonusPercent": 40,
-                "presentation": {
-                    "intParams": {
-                        "pulseCount": 3
-                    },
-                    "floatParams": {
-                        "zoomDurationSeconds": 1.4,
-                        "pulseTravelSeconds": 0.9,
-                        "parryToleranceSeconds": 0.42
-                    }
-                }
-            },
-            "phase3": {
-                "bgm": "lyooBoss3",
-                "bgmVolume": 0.3,
-                "atkBonusPercent": 80,
-                "presentation": {
-                    "intParams": {
-                        "pulseCount": 4
-                    },
-                    "floatParams": {
-                        "zoomDurationSeconds": 1.25,
-                        "pulseTravelSeconds": 0.8,
-                        "parryToleranceSeconds": 0.36
-                    }
-                }
-            }
+  "lyooBoss": {
+    "title": "Host | Lyoo",
+    "assets": "lyooBoss",
+    "voiceHit": "assets/combat/voices/lyoo/hit.opus",
+    "spd": 100,
+    "atk": 5,
+    "hp": 500,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "MoonSpiralHeartAttack",
+    "ability": "MoonSpiralHeartAttack",
+    "ultimate": "MoonSpiralHeartAttack",
+    "abilities": {
+      "skill": {
+        "id": "MoonSpiralHeartAttack",
+        "name": "Moon Spiral Heart Attack!",
+        "instructionHint": "Press SPACE as each pulse reaches the party to parry and reduce damage.",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.0,
+        "interactionType": "parry",
+        "presentationId": "boss_attack_lyoo",
+        "inputPromptType": "space",
+        "description": "Parry each heart pulse with SPACE to cut the team-wide damage. Later phases add more pulses and tighten the timing.",
+        "tutorial": {
+          "requirement": "final_judgement",
+          "minimumJudgement": "okay"
         }
+      }
     },
-    "lyooPlotTwist": {
-        "title": "断川 | CaiNiao Reinforcement Learning Assistant",
-        "assets": "lyooPlotTwist",
-        "voiceHit": "assets/combat/voices/lyooPlotTwist/hit.opus",
-        "spd": 90,
-        "atk": 50,
-        "hp": 1000,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "IfICantHaveWingsThenIllJustLetTheSkyFall",
-        "ability": "IfICantHaveWingsThenIllJustLetTheSkyFall",
-        "ultimate": "IfICantHaveWingsThenIllJustLetTheSkyFall",
-        "abilities": {
-            "skill": {
-                "id": "IfICantHaveWingsThenIllJustLetTheSkyFall",
-                "name": "If I can't have wings, then I'll just let the sky fall",
-                "instructionHint": "Lyoo is able to one-shot characters. It is recommended to pair a shielder AND a healer.",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.25,
-                "interactionType": "none",
-                "presentationId": "boss_attack_lyoo_plot_twist",
-                "inputPromptType": "none"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "phases": {
+      "phase1": {
+        "bgm": "lyooBoss",
+        "bgmVolume": 0.1,
+        "atkBonusPercent": 0,
+        "presentation": {
+          "intParams": {
+            "pulseCount": 2
+          },
+          "floatParams": {
+            "zoomDurationSeconds": 1.55,
+            "pulseTravelSeconds": 1,
+            "parryToleranceSeconds": 0.50
+          }
+        }
+      },
+      "phase2": {
+        "bgm": "lyooBoss2",
+        "bgmVolume": 0.3,
+        "atkBonusPercent": 40,
+        "presentation": {
+          "intParams": {
+            "pulseCount": 3
+          },
+          "floatParams": {
+            "zoomDurationSeconds": 1.4,
+            "pulseTravelSeconds": 0.9,
+            "parryToleranceSeconds": 0.42
+          }
+        }
+      },
+      "phase3": {
+        "bgm": "lyooBoss3",
+        "bgmVolume": 0.3,
+        "atkBonusPercent": 80,
+        "presentation": {
+          "intParams": {
+            "pulseCount": 4
+          },
+          "floatParams": {
+            "zoomDurationSeconds": 1.25,
+            "pulseTravelSeconds": 0.8,
+            "parryToleranceSeconds": 0.36
+          }
+        }
+      }
+    }
+  },
+  "lyooPlotTwist": {
+    "title": "断川 | CaiNiao Reinforcement Learning Assistant",
+    "assets": "lyooPlotTwist",
+    "voiceHit": "assets/combat/voices/lyooPlotTwist/hit.opus",
+    "spd": 90,
+    "atk": 50,
+    "hp": 1000,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "IfICantHaveWingsThenIllJustLetTheSkyFall",
+    "ability": "IfICantHaveWingsThenIllJustLetTheSkyFall",
+    "ultimate": "IfICantHaveWingsThenIllJustLetTheSkyFall",
+    "abilities": {
+      "skill": {
+        "id": "IfICantHaveWingsThenIllJustLetTheSkyFall",
+        "name": "If I can't have wings, then I'll just let the sky fall",
+        "instructionHint": "Lyoo is able to one-shot characters. It is recommended to pair a shielder AND a healer.",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.25,
+        "interactionType": "none",
+        "presentationId": "boss_attack_lyoo_plot_twist",
+        "inputPromptType": "none",
+        "description": "Placeholder late-game all-target nuke for the Lyoo plot twist fight. This encounter is scheduled for a later rework.",
+        "tutorial": {
+          "requirement": "observe_only"
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "lyooPlotTwist",
+    "bgmVolume": 0.1,
+    "phases": {
+      "phase1": {
         "bgm": "lyooPlotTwist",
         "bgmVolume": 0.1,
-        "phases": {
-            "phase1": {
-                "bgm": "lyooPlotTwist",
-                "bgmVolume": 0.1,
-                "atkBonusPercent": 0
-            },
-            "phase2": {
-                "bgm": "lyooPlotTwist",
-                "bgmVolume": 0.14,
-                "atkBonusPercent": 25
-            },
-            "phase3": {
-                "bgm": "lyooPlotTwist",
-                "bgmVolume": 0.18,
-                "atkBonusPercent": 50
-            }
-        }
-    },
-    "corruptedMiku": {
-        "title": "Corrupted Hatsune Miku",
-        "assets": "mikuBoss",
-        "voiceHit": "assets/combat/voices/miku/hit.opus",
-        "spd": 500,
-        "atk": 25,
-        "hp": 1000,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "SelfCorruption",
-        "ability": "SelfCorruption",
-        "ultimate": "SelfCorruption",
-        "abilities": {
-            "skill": {
-                "id": "SelfCorruption",
-                "name": "Self Corruption",
-                "instructionHint": "Miku is trying to destroy herself to prevent the AI infection. Your attacks will heal her, restore her HP to keep her alive!",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.8,
-                "selfHpCostPercentOfMax": 19.0,
-                "selfHpCostPercentIncreasePerUse": 7.0,
-                "selfHpCostPercentMax": 100.0,
-                "interactionType": "none",
-                "presentationId": "self_corruption",
-                "inputPromptType": "none"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "bgm": "mikuBoss",
-        "bgmVolume": 0.4
-    },
-    "jiafeiBoss": {
-        "title": "Jiafei",
-        "assets": "jiafei",
-        "voiceHit": "assets/combat/voices/jiafei/hit.opus",
-        "spd": 185,
-        "atk": 85,
-        "hp": 650,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "AestheticWarning",
-        "ability": "AestheticWarning",
-        "ultimate": "AestheticWarning",
-        "abilities": {
-            "skill": {
-                "id": "AestheticWarning",
-                "name": "Aesthetic Warning",
-                "instructionHint": "Press LEFT or RIGHT to dodge each wave in that screen direction.",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.2,
-                "interactionType": "parry",
-                "presentationId": "aesthetic_warning",
-                "inputPromptType": "leftRight"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "phases": {
-            "phase1": {
-                "bgm": "jiafeiBoss3",
-                "bgmVolume": 0.4,
-                "atkBonusPercent": 0,
-                "presentation": {
-                    "intParams": {
-                        "totalWaves": 8,
-                        "patternMode": 0
-                    },
-                    "floatParams": {
-                        "waveDurationSeconds": 1.35,
-                        "dodgeTravelSeconds": 0.11,
-                        "dodgeReturnSeconds": 0.06
-                    }
-                }
-            },
-            "phase2": {
-                "atkBonusPercent": 10,
-                "bgm": "jiafeiBoss2",
-                "bgmVolume": 0.4,
-                "presentation": {
-                    "intParams": {
-                        "totalWaves": 13,
-                        "patternMode": 1
-                    },
-                    "floatParams": {
-                        "waveDurationSeconds": 1.00,
-                        "dodgeTravelSeconds": 0.095,
-                        "dodgeReturnSeconds": 0.055
-                    }
-                }
-            },
-            "phase3": {
-                "bgm": "jiafeiBoss1",
-                "bgmVolume": 0.4,
-                "atkBonusPercent": 20,
-                "presentation": {
-                    "intParams": {
-                        "totalWaves": 17,
-                        "patternMode": 2
-                    },
-                    "floatParams": {
-                        "waveDurationSeconds": 0.82,
-                        "dodgeTravelSeconds": 0.08,
-                        "dodgeReturnSeconds": 0.05
-                    }
-                }
-            }
-        }
-    },
-    "luotianyiBoss": {
-        "title": "洛天依",
-        "assets": "luotianyi",
-        "voiceHit": "assets/combat/voices/luotianyi/hit.opus",
-        "spd": 150,
-        "atk": 16,
-        "hp": 1600,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "YinLong",
-        "ability": "YinLong",
-        "ultimate": "YinLong",
-        "abilities": {
-            "skill": {
-                "id": "YinLong",
-                "name": "听力考试，现在开始",
-                "instructionHint": "Listen to the 4 tones, then press 1 2 3 4 in the same order within 5 seconds.",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1,
-                "interactionType": "none",
-                "presentationId": "yin_long",
-                "inputPromptType": "custom",
-                "inputPromptKeys": [
-                    "1",
-                    "2",
-                    "3",
-                    "4"
-                ]
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "bgm": "sunquantianxia",
-        "bgmVolume": 0.2,
-        "phases": {
-            "phase1": {
-                "atkBonusPercent": 0,
-                "presentation": {
-                    "intParams": {
-                        "exactDuplicatePair": 0
-                    },
-                    "floatParams": {
-                        "toneIntervalSeconds": 0.90,
-                        "answerDurationSeconds": 7.0,
-                        "postSequenceDelaySeconds": 0.60
-                    }
-                }
-            },
-            "phase2": {
-                "atkBonusPercent": 15,
-                "presentation": {
-                    "intParams": {
-                        "exactDuplicatePair": 0
-                    },
-                    "floatParams": {
-                        "toneIntervalSeconds": 0.60,
-                        "answerDurationSeconds": 5.0,
-                        "postSequenceDelaySeconds": 0.35
-                    }
-                }
-            },
-            "phase3": {
-                "atkBonusPercent": 30,
-                "presentation": {
-                    "intParams": {
-                        "exactDuplicatePair": 1
-                    },
-                    "floatParams": {
-                        "toneIntervalSeconds": 0.35,
-                        "answerDurationSeconds": 3.5,
-                        "postSequenceDelaySeconds": 0.20
-                    }
-                }
-            }
-        }
-    },
-    "wechatalipayBoss": {
-        "title": "微信姐 & 支付宝姐",
-        "assets": "wechatalipay",
-        "voiceHit": "assets/combat/voices/wechatalipay/hit.opus",
-        "spd": 200,
-        "atk": 17,
-        "hp": 1050,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "QRCodeAttack",
-        "ability": "QRCodeAttack",
-        "ultimate": "QRCodeAttack",
-        "abilities": {
-            "skill": {
-                "id": "QRCodeAttack",
-                "name": "QR Code Attack",
-                "instructionHint": "Use ARROW KEYS to move the phone and keep its center cursor away from the QR code.",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.3,
-                "interactionType": "parry",
-                "presentationId": "qr_code_attack",
-                "inputPromptType": "arrows"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "phases": {
-            "phase1": {
-                "atkBonusPercent": 0,
-                "bgm": "weizhi",
-                "bgmVolume": 0.3,
-                "presentation": {
-                    "intParams": {
-                        "initialSpawnCount": 1
-                    },
-                    "floatParams": {
-                        "survivalDurationSeconds": 4.5,
-                        "freezeDurationSeconds": 2.0,
-                        "qrRespawnIntervalSeconds": 1.90,
-                        "qrChaseSpeedPixels": 240.0,
-                        "qrScanWidthRatio": 0.32,
-                        "qrScanHeightRatio": 0.32
-                    }
-                }
-            },
-            "phase2": {
-                "atkBonusPercent": 10,
-                "presentation": {
-                    "intParams": {
-                        "initialSpawnCount": 2
-                    },
-                    "floatParams": {
-                        "survivalDurationSeconds": 6.0,
-                        "freezeDurationSeconds": 2.0,
-                        "qrRespawnIntervalSeconds": 1.20,
-                        "qrChaseSpeedPixels": 300.0,
-                        "qrScanWidthRatio": 0.32,
-                        "qrScanHeightRatio": 0.32
-                    }
-                }
-            },
-            "phase3": {
-                "atkBonusPercent": 20,
-                "presentation": {
-                    "intParams": {
-                        "initialSpawnCount": 2
-                    },
-                    "floatParams": {
-                        "survivalDurationSeconds": 7.5,
-                        "freezeDurationSeconds": 2.0,
-                        "qrRespawnIntervalSeconds": 0.90,
-                        "qrChaseSpeedPixels": 350.0,
-                        "qrScanWidthRatio": 0.32,
-                        "qrScanHeightRatio": 0.32
-                    }
-                }
-            }
-        }
-    },
-    "ariBoss": {
-        "title": "Ariana Grande",
-        "assets": "ari",
-        "voiceHit": "assets/combat/voices/ari/hit.opus",
-        "spd": 250,
-        "atk": 34,
-        "hp": 1300,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "WhistleNote",
-        "ability": "WhistleNote",
-        "ultimate": "WhistleNote",
-        "abilities": {
-            "skill": {
-                "id": "WhistleNote",
-                "name": "Whistle Note",
-                "instructionHint": "Press SPACE right after each attack starts to reduce damage.",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.25,
-                "interactionType": "parry",
-                "presentationId": "whistle_note",
-                "inputPromptType": "space"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "bgm": "ari",
-        "bgmVolume": 0.4,
-        "phases": {
-            "phase1": {
-                "atkBonusPercent": 0,
-                "presentation": {
-                    "intParams": {
-                        "attackCount": 3
-                    },
-                    "floatParams": {
-                        "waitDurationMinSeconds": 1.0,
-                        "waitDurationMaxSeconds": 2.5,
-                        "perfectReactionWindowSeconds": 0.12,
-                        "lateReactionStartSeconds": 0.40
-                    }
-                }
-            },
-            "phase2": {
-                "atkBonusPercent": 15,
-                "presentation": {
-                    "intParams": {
-                        "attackCount": 5
-                    },
-                    "floatParams": {
-                        "waitDurationMinSeconds": 0.70,
-                        "waitDurationMaxSeconds": 1.80,
-                        "perfectReactionWindowSeconds": 0.10,
-                        "lateReactionStartSeconds": 0.32
-                    }
-                }
-            },
-            "phase3": {
-                "atkBonusPercent": 30,
-                "presentation": {
-                    "intParams": {
-                        "attackCount": 7
-                    },
-                    "floatParams": {
-                        "waitDurationMinSeconds": 0.50,
-                        "waitDurationMaxSeconds": 1.30,
-                        "perfectReactionWindowSeconds": 0.085,
-                        "lateReactionStartSeconds": 0.26
-                    }
-                }
-            }
-        }
-    },
-    "sansBoss": {
-        "title": "Sans",
-        "assets": "sans",
-        "voiceHit": "",
-        "spd": 240,
-        "atk": 28,
-        "hp": 360,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "KRAttack",
-        "ability": "KRAttack",
-        "ultimate": "KRAttack",
-        "abilities": {
-            "skill": {
-                "id": "KRAttack",
-                "name": "KR Attack",
-                "type": "attack",
-                "targetRule": "single_enemy",
-                "multiplier": 1.1,
-                "interactionType": "none",
-                "presentationId": "kr_attack"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "bgm": "MEGALOVANIA",
-        "bgmVolume": 0.4
-    },
-    "kaguyaBoss": {
-        "title": "Kaguya",
-        "assets": "kaguya",
-        "voiceHit": "",
-        "spd": 190,
-        "atk": 48,
-        "hp": 560,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "MoonBeam",
-        "ability": "MoonBeam",
-        "ultimate": "MoonBeam",
-        "abilities": {
-            "skill": {
-                "id": "MoonBeam",
-                "name": "Moon beam",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.9,
-                "interactionType": "parry",
-                "presentationId": "moon_beam"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "bgm": "私は、わたしの事が好き",
-        "bgmVolume": 0.4
-    },
-    "tetoBoss": {
-        "title": "Kasane Teto",
-        "assets": "tetoBoss",
-        "voiceHit": "assets/combat/voices/teto/hit.opus",
-        "spd": 145,
-        "atk": 10,
-        "hp": 850,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "BaguetteEat",
-        "ability": "BaguetteEat",
-        "ultimate": "BaguetteEat",
-        "abilities": {
-            "skill": {
-                "id": "BaguetteEat",
-                "name": "Baguette Eat",
-                "instructionHint": "Press UP or DOWN to move between lanes and dodge baguettes",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.9,
-                "interactionType": "parry",
-                "presentationId": "teto_baguette_attack",
-                "inputPromptType": "upDown"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "bgm": "tetoBoss",
-        "bgmVolume": 0.4,
-        "phases": {
-            "phase1": {
-                "atkBonusPercent": 0,
-                "presentation": {
-                    "floatParams": {
-                        "survivalDurationSeconds": 5.0,
-                        "baseBaguetteSpeed": 500.0,
-                        "baseSpawnInterval": 0.8
-                    }
-                }
-            },
-            "phase2": {
-                "atkBonusPercent": 15,
-                "presentation": {
-                    "floatParams": {
-                        "survivalDurationSeconds": 8.0,
-                        "baseBaguetteSpeed": 700.0,
-                        "baseSpawnInterval": 0.5
-                    }
-                }
-            },
-            "phase3": {
-                "atkBonusPercent": 30,
-                "presentation": {
-                    "floatParams": {
-                        "survivalDurationSeconds": 12.0,
-                        "baseBaguetteSpeed": 900.0,
-                        "baseSpawnInterval": 0.35
-                    }
-                }
-            }
-        }
-    },
-    "pompomBoss": {
-        "title": "PomPom",
-        "assets": "pompomBoss",
-        "spd": 150,
-        "atk": 12,
-        "hp": 2100,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "PomPomDash",
-        "ability": "PomPomDash",
-        "ultimate": "PomPomDash",
-        "abilities": {
-            "skill": {
-                "id": "PomPomDash",
-                "name": "PomPom Dash",
-                "instructionHint": "Press SPACE to jump over incoming PomPoms.",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.9,
-                "interactionType": "parry",
-                "presentationId": "pompom_dino_attack",
-                "inputPromptType": "space"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "bgm": "tetoBoss",
-        "bgmVolume": 0.4,
-        "phases": {
-            "phase1": {
-                "atkBonusPercent": 0,
-                "presentation": {
-                    "floatParams": {
-                        "survivalDurationSeconds": 6.0,
-                        "baseObstacleSpeed": 550.0,
-                        "baseSpawnInterval": 0.78,
-                        "judgementProgress": 0.64,
-                        "okayClearancePixels": 28.0,
-                        "goodClearancePixels": 46.0,
-                        "perfectClearancePixels": 62.0
-                    }
-                }
-            },
-            "phase2": {
-                "atkBonusPercent": 15,
-                "presentation": {
-                    "floatParams": {
-                        "survivalDurationSeconds": 9.0,
-                        "baseObstacleSpeed": 800.0,
-                        "baseSpawnInterval": 0.56,
-                        "judgementProgress": 0.645,
-                        "okayClearancePixels": 32.0,
-                        "goodClearancePixels": 52.0,
-                        "perfectClearancePixels": 68.0
-                    }
-                }
-            },
-            "phase3": {
-                "atkBonusPercent": 30,
-                "presentation": {
-                    "floatParams": {
-                        "survivalDurationSeconds": 13.5,
-                        "baseObstacleSpeed": 1100.0,
-                        "baseSpawnInterval": 0.40,
-                        "judgementProgress": 0.65,
-                        "okayClearancePixels": 36.0,
-                        "goodClearancePixels": 58.0,
-                        "perfectClearancePixels": 74.0
-                    }
-                }
-            }
-        }
-    },
-    "huafeiBoss": {
-        "title": "Huafei",
-        "assets": "huafei",
-        "spd": 155,
-        "atk": 16,
-        "hp": 2600,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "RongMoMoGrab",
-        "ability": "RongMoMoGrab",
-        "ultimate": "RongMoMoGrab",
-        "abilities": {
-            "skill": {
-                "id": "RongMoMoGrab",
-                "name": "RongMoMo Grab",
-                "instructionHint": "Spam your keyboard to escape RongMoMo's grap!",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.8,
-                "interactionType": "rhythm",
-                "presentationId": "huafei_hostage_grab",
-                "inputPromptType": "wild"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "bgm": "tetoBoss",
-        "bgmVolume": 0.4,
-        "phases": {
-            "phase1": {
-                "atkBonusPercent": 0,
-                "presentation": {
-                    "intParams": {
-                        "spamQuota": 40
-                    }
-                }
-            },
-            "phase2": {
-                "atkBonusPercent": 15,
-                "presentation": {
-                    "intParams": {
-                        "spamQuota": 60
-                    }
-                }
-            },
-            "phase3": {
-                "atkBonusPercent": 30,
-                "presentation": {
-                    "intParams": {
-                        "spamQuota": 92
-                    }
-                }
-            }
-        }
-    },
-    "randyBoss": {
-        "title": "Zhao Laoshi",
-        "assets": "randy",
-        "spd": 160,
-        "atk": 17,
-        "hp": 3200,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "AssignmentDeadline",
-        "ability": "AssignmentDeadline",
-        "ultimate": "AssignmentDeadline",
-        "abilities": {
-            "skill": {
-                "id": "AssignmentDeadline",
-                "name": "Assignment Deadline",
-                "instructionHint": "Submit your assignment before the deadline!",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.8,
-                "interactionType": "rhythm",
-                "presentationId": "randy_assignment",
-                "inputPromptType": "none"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "bgm": "tetoBoss",
-        "bgmVolume": 0.4,
-        "phases": {
-            "phase1": {
-                "atkBonusPercent": 0,
-                "presentation": {
-                    "intParams": {
-                        "spamQuota": 36
-                    },
-                    "floatParams": {
-                        "inputDurationSeconds": 7.0
-                    }
-                }
-            },
-            "phase2": {
-                "atkBonusPercent": 15,
-                "presentation": {
-                    "intParams": {
-                        "spamQuota": 58
-                    },
-                    "floatParams": {
-                        "inputDurationSeconds": 7.0
-                    }
-                }
-            },
-            "phase3": {
-                "atkBonusPercent": 30,
-                "presentation": {
-                    "intParams": {
-                        "spamQuota": 88
-                    },
-                    "floatParams": {
-                        "inputDurationSeconds": 7.0
-                    }
-                }
-            }
-        }
-    },
-    "discipleBoss": {
-        "title": "Disciple",
-        "assets": "discipleBoss",
-        "spd": 158,
-        "atk": 18,
-        "hp": 7000,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "DiscipleNightAssault",
-        "ability": "DiscipleNightAssault",
-        "ultimate": "DiscipleNightAssault",
-        "abilities": {
-            "skill": {
-                "id": "DiscipleNightAssault",
-                "name": "Night Assault",
-                "instructionHint": "Survive the blackout barrage.",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 0.6,
-                "interactionType": "none",
-                "presentationId": "disciple_blackout_barrage",
-                "inputPromptType": "none"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "bgm": "tetoBoss",
-        "bgmVolume": 0.4,
-        "phases": {
-            "phase1": {
-                "presentation": {
-                    "intParams": {
-                        "hitCount": 3
-                    }
-                }
-            },
-            "phase2": {
-                "atkBonusPercent": 15,
-                "presentation": {
-                    "intParams": {
-                        "hitCount": 5
-                    }
-                }
-            },
-            "phase3": {
-                "atkBonusPercent": 30,
-                "presentation": {
-                    "intParams": {
-                        "hitCount": 7
-                    }
-                }
-            }
-        }
-    },
-    "sailorVenusBoss": {
-        "title": "Sailor Venus",
-        "assets": "sailorVenusBoss",
-        "voiceHit": "assets/combat/voices/sailorVenus/hit.opus",
-        "spd": 145,
-        "atk": 24,
-        "hp": 4200,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "SailorVenusBossLoveAndBeautyShock",
-        "ability": "SailorVenusBossLoveAndBeautyShock",
-        "ultimate": "SailorVenusBossLoveAndBeautyShock",
-        "abilities": {
-            "skill": {
-                "id": "SailorVenusBossLoveAndBeautyShock",
-                "name": "Love and Beauty Shock",
-                "instructionHint": "Spam SPACE to reduce incoming damage. Phase quotas are 24 / 36 / 48 presses.",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 1.15,
-                "interactionType": "parry",
-                "presentationId": "sailor_venus_love_and_beauty_shock",
-                "inputPromptType": "spamSpace"
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "phases": {
-            "phase1": {
-                "presentation": {
-                    "intParams": {
-                        "spamQuota": 24
-                    }
-                }
-            },
-            "phase2": {
-                "presentation": {
-                    "intParams": {
-                        "spamQuota": 36
-                    }
-                }
-            },
-            "phase3": {
-                "presentation": {
-                    "intParams": {
-                        "spamQuota": 48
-                    }
-                }
-            }
-        }
-    },
-    "zhouShenBoss": {
-        "title": "周深",
-        "assets": "zhouShen",
-        "voiceSpeakerId": "zhouShenBoss",
-        "voiceHit": "",
-        "spd": 160,
-        "atk": 50,
-        "hp": 5200,
-        "standardAbility": "BossStandardAttack",
-        "skillAbility": "BigFish",
-        "ability": "BigFish",
-        "ultimate": "BigFish",
-        "abilities": {
-            "skill": {
-                "id": "BigFish",
-                "name": "世界全都火掉的高首",
-                "instructionHint": "Sing correctly to reduce DMG Taken! D/F/J/K",
-                "type": "attack",
-                "targetRule": "all_enemies",
-                "multiplier": 3.0,
-                "interactionType": "rhythm",
-                "presentationId": "boss_attack_zhoushen",
-                "inputPromptType": "custom",
-                "inputPromptKeys": [
-                    "D",
-                    "F",
-                    "J",
-                    "K"
-                ]
-            }
-        },
-        "ultimatePoints": 6,
-        "startingOrbs": 1,
-        "bgm": "zhoushenBoss",
-        "bgmVolume": 0.4,
-        "phases": {
-            "phase1": {
-                "presentation": {
-                    "floatParams": {
-                        "speed": 10,
-                        "freq": 1.8,
-                        "dur": 5.0
-                    },
-                    "intParams": {
-                        "multi": 0
-                    }
-                }
-            },
-            "phase2": {
-                "presentation": {
-                    "floatParams": {
-                        "speed": 15,
-                        "freq": 5,
-                        "dur": 8.0
-                    },
-                    "intParams": {
-                        "multi": 0
-                    }
-                }
-            },
-            "phase3": {
-                "presentation": {
-                    "floatParams": {
-                        "speed": 30,
-                        "freq": 9,
-                        "dur": 12.0
-                    },
-                    "intParams": {
-                        "multi": 1
-                    }
-                }
-            }
-        }
+        "atkBonusPercent": 0
+      },
+      "phase2": {
+        "bgm": "lyooPlotTwist",
+        "bgmVolume": 0.14,
+        "atkBonusPercent": 25
+      },
+      "phase3": {
+        "bgm": "lyooPlotTwist",
+        "bgmVolume": 0.18,
+        "atkBonusPercent": 50
+      }
     }
+  },
+  "corruptedMiku": {
+    "title": "Corrupted Hatsune Miku",
+    "assets": "mikuBoss",
+    "voiceHit": "assets/combat/voices/miku/hit.opus",
+    "spd": 500,
+    "atk": 25,
+    "hp": 1000,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "SelfCorruption",
+    "ability": "SelfCorruption",
+    "ultimate": "SelfCorruption",
+    "abilities": {
+      "skill": {
+        "id": "SelfCorruption",
+        "name": "Self Corruption",
+        "instructionHint": "Miku is trying to destroy herself to prevent the AI infection. Your attacks will heal her, restore her HP to keep her alive!",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.8,
+        "selfHpCostPercentOfMax": 19.0,
+        "selfHpCostPercentIncreasePerUse": 7.0,
+        "selfHpCostPercentMax": 100.0,
+        "interactionType": "none",
+        "presentationId": "self_corruption",
+        "inputPromptType": "none",
+        "description": "Corruption wave that damages the party while Miku sacrifices more of her own HP each time she uses it. The objective is survival, not burst damage.",
+        "tutorial": {
+          "requirement": "observe_only"
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "mikuBoss",
+    "bgmVolume": 0.4
+  },
+  "jiafeiBoss": {
+    "title": "Jiafei",
+    "assets": "jiafei",
+    "voiceHit": "assets/combat/voices/jiafei/hit.opus",
+    "spd": 185,
+    "atk": 85,
+    "hp": 650,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "AestheticWarning",
+    "ability": "AestheticWarning",
+    "ultimate": "AestheticWarning",
+    "abilities": {
+      "skill": {
+        "id": "AestheticWarning",
+        "name": "Aesthetic Warning",
+        "instructionHint": "Press LEFT or RIGHT to dodge each wave in that screen direction.",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.2,
+        "interactionType": "parry",
+        "presentationId": "aesthetic_warning",
+        "inputPromptType": "leftRight",
+        "description": "Lane-dodge barrage. Read the wave direction and tap LEFT or RIGHT to evade each hit before the full-screen pressure ramps up.",
+        "tutorial": {
+          "requirement": "final_judgement",
+          "minimumJudgement": "okay"
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "phases": {
+      "phase1": {
+        "bgm": "jiafeiBoss3",
+        "bgmVolume": 0.4,
+        "atkBonusPercent": 0,
+        "presentation": {
+          "intParams": {
+            "totalWaves": 8,
+            "patternMode": 0
+          },
+          "floatParams": {
+            "waveDurationSeconds": 1.35,
+            "dodgeTravelSeconds": 0.11,
+            "dodgeReturnSeconds": 0.06
+          }
+        }
+      },
+      "phase2": {
+        "atkBonusPercent": 10,
+        "bgm": "jiafeiBoss2",
+        "bgmVolume": 0.4,
+        "presentation": {
+          "intParams": {
+            "totalWaves": 13,
+            "patternMode": 1
+          },
+          "floatParams": {
+            "waveDurationSeconds": 1.00,
+            "dodgeTravelSeconds": 0.095,
+            "dodgeReturnSeconds": 0.055
+          }
+        }
+      },
+      "phase3": {
+        "bgm": "jiafeiBoss1",
+        "bgmVolume": 0.4,
+        "atkBonusPercent": 20,
+        "presentation": {
+          "intParams": {
+            "totalWaves": 17,
+            "patternMode": 2
+          },
+          "floatParams": {
+            "waveDurationSeconds": 0.82,
+            "dodgeTravelSeconds": 0.08,
+            "dodgeReturnSeconds": 0.05
+          }
+        }
+      }
+    }
+  },
+  "luotianyiBoss": {
+    "title": "洛天依",
+    "assets": "luotianyi",
+    "voiceHit": "assets/combat/voices/luotianyi/hit.opus",
+    "spd": 150,
+    "atk": 16,
+    "hp": 1600,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "YinLong",
+    "ability": "YinLong",
+    "ultimate": "YinLong",
+    "abilities": {
+      "skill": {
+        "id": "YinLong",
+        "name": "听力考试，现在开始",
+        "instructionHint": "Listen to the 4 tones, then press 1 2 3 4 in the same order within 5 seconds.",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1,
+        "interactionType": "none",
+        "presentationId": "yin_long",
+        "inputPromptType": "custom",
+        "inputPromptKeys": [
+          "1",
+          "2",
+          "3",
+          "4"
+        ],
+        "description": "Tone-memory attack. Listen to the sequence, then input the four tones in order before the answer window closes to reduce the damage taken.",
+        "tutorial": {
+          "requirement": "correct_tone_count",
+          "minimumValue": 2
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "sunquantianxia",
+    "bgmVolume": 0.2,
+    "phases": {
+      "phase1": {
+        "atkBonusPercent": 0,
+        "presentation": {
+          "intParams": {
+            "exactDuplicatePair": 0
+          },
+          "floatParams": {
+            "toneIntervalSeconds": 0.90,
+            "answerDurationSeconds": 7.0,
+            "postSequenceDelaySeconds": 0.60
+          }
+        }
+      },
+      "phase2": {
+        "atkBonusPercent": 15,
+        "presentation": {
+          "intParams": {
+            "exactDuplicatePair": 0
+          },
+          "floatParams": {
+            "toneIntervalSeconds": 0.60,
+            "answerDurationSeconds": 5.0,
+            "postSequenceDelaySeconds": 0.35
+          }
+        }
+      },
+      "phase3": {
+        "atkBonusPercent": 30,
+        "presentation": {
+          "intParams": {
+            "exactDuplicatePair": 1
+          },
+          "floatParams": {
+            "toneIntervalSeconds": 0.35,
+            "answerDurationSeconds": 3.5,
+            "postSequenceDelaySeconds": 0.20
+          }
+        }
+      }
+    }
+  },
+  "wechatalipayBoss": {
+    "title": "微信姐 & 支付宝姐",
+    "assets": "wechatalipay",
+    "voiceHit": "assets/combat/voices/wechatalipay/hit.opus",
+    "spd": 200,
+    "atk": 17,
+    "hp": 1050,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "QRCodeAttack",
+    "ability": "QRCodeAttack",
+    "ultimate": "QRCodeAttack",
+    "abilities": {
+      "skill": {
+        "id": "QRCodeAttack",
+        "name": "QR Code Attack",
+        "instructionHint": "Use ARROW KEYS to move the phone and keep its center cursor away from the QR code.",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.3,
+        "interactionType": "parry",
+        "presentationId": "qr_code_attack",
+        "inputPromptType": "arrows",
+        "description": "Survival dodge pattern. Keep the phone cursor away from the QR code with the ARROW KEYS until the timer expires.",
+        "tutorial": {
+          "requirement": "final_judgement",
+          "minimumJudgement": "okay"
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "phases": {
+      "phase1": {
+        "atkBonusPercent": 0,
+        "bgm": "weizhi",
+        "bgmVolume": 0.3,
+        "presentation": {
+          "intParams": {
+            "initialSpawnCount": 1
+          },
+          "floatParams": {
+            "survivalDurationSeconds": 4.5,
+            "freezeDurationSeconds": 2.0,
+            "qrRespawnIntervalSeconds": 1.90,
+            "qrChaseSpeedPixels": 240.0,
+            "qrScanWidthRatio": 0.32,
+            "qrScanHeightRatio": 0.32
+          }
+        }
+      },
+      "phase2": {
+        "atkBonusPercent": 10,
+        "presentation": {
+          "intParams": {
+            "initialSpawnCount": 2
+          },
+          "floatParams": {
+            "survivalDurationSeconds": 6.0,
+            "freezeDurationSeconds": 2.0,
+            "qrRespawnIntervalSeconds": 1.20,
+            "qrChaseSpeedPixels": 300.0,
+            "qrScanWidthRatio": 0.32,
+            "qrScanHeightRatio": 0.32
+          }
+        }
+      },
+      "phase3": {
+        "atkBonusPercent": 20,
+        "presentation": {
+          "intParams": {
+            "initialSpawnCount": 2
+          },
+          "floatParams": {
+            "survivalDurationSeconds": 7.5,
+            "freezeDurationSeconds": 2.0,
+            "qrRespawnIntervalSeconds": 0.90,
+            "qrChaseSpeedPixels": 350.0,
+            "qrScanWidthRatio": 0.32,
+            "qrScanHeightRatio": 0.32
+          }
+        }
+      }
+    }
+  },
+  "ariBoss": {
+    "title": "Ariana Grande",
+    "assets": "ari",
+    "voiceHit": "assets/combat/voices/ari/hit.opus",
+    "spd": 250,
+    "atk": 34,
+    "hp": 1300,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "WhistleNote",
+    "ability": "WhistleNote",
+    "ultimate": "WhistleNote",
+    "abilities": {
+      "skill": {
+        "id": "WhistleNote",
+        "name": "Whistle Note",
+        "instructionHint": "Press SPACE in sync with each whistle impact to reduce damage.",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.25,
+        "interactionType": "parry",
+        "presentationId": "whistle_note",
+        "inputPromptType": "space",
+        "description": "Reaction parry. Press SPACE in sync with each whistle impact to shave down the team-wide hit.",
+        "tutorial": {
+          "requirement": "final_judgement",
+          "minimumJudgement": "okay"
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "ari",
+    "bgmVolume": 0.4,
+    "phases": {
+      "phase1": {
+        "atkBonusPercent": 0,
+        "presentation": {
+          "intParams": {
+            "attackCount": 3
+          },
+          "floatParams": {
+            "waitDurationMinSeconds": 1.0,
+            "waitDurationMaxSeconds": 2.5,
+            "reactionCueSeconds": 0.46,
+            "perfectWindowSeconds": 0.10,
+            "maxReactionOffsetSeconds": 0.24
+          }
+        }
+      },
+      "phase2": {
+        "atkBonusPercent": 15,
+        "presentation": {
+          "intParams": {
+            "attackCount": 5
+          },
+          "floatParams": {
+            "waitDurationMinSeconds": 0.70,
+            "waitDurationMaxSeconds": 1.80,
+            "reactionCueSeconds": 0.44,
+            "perfectWindowSeconds": 0.085,
+            "maxReactionOffsetSeconds": 0.20
+          }
+        }
+      },
+      "phase3": {
+        "atkBonusPercent": 30,
+        "presentation": {
+          "intParams": {
+            "attackCount": 7
+          },
+          "floatParams": {
+            "waitDurationMinSeconds": 0.50,
+            "waitDurationMaxSeconds": 1.30,
+            "reactionCueSeconds": 0.42,
+            "perfectWindowSeconds": 0.07,
+            "maxReactionOffsetSeconds": 0.17
+          }
+        }
+      }
+    }
+  },
+  "sansBoss": {
+    "title": "Sans",
+    "assets": "sans",
+    "voiceHit": "",
+    "spd": 240,
+    "atk": 28,
+    "hp": 360,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "KRAttack",
+    "ability": "KRAttack",
+    "ultimate": "KRAttack",
+    "abilities": {
+      "skill": {
+        "id": "KRAttack",
+        "name": "KR Attack",
+        "type": "attack",
+        "targetRule": "single_enemy",
+        "multiplier": 1.1,
+        "interactionType": "none",
+        "presentationId": "kr_attack",
+        "instructionHint": "No active counter. Brace for the hit and manage the follow-up turn order.",
+        "description": "Single-target KR strike with no direct minigame counter. The answer here is prep, HP management, and turn control.",
+        "tutorial": {
+          "requirement": "observe_only"
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "MEGALOVANIA",
+    "bgmVolume": 0.4
+  },
+  "kaguyaBoss": {
+    "title": "Kaguya",
+    "assets": "kaguya",
+    "voiceHit": "",
+    "spd": 190,
+    "atk": 48,
+    "hp": 560,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "MoonBeam",
+    "ability": "MoonBeam",
+    "ultimate": "MoonBeam",
+    "abilities": {
+      "skill": {
+        "id": "MoonBeam",
+        "name": "Moon beam",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.7,
+        "interactionType": "parry",
+        "presentationId": "moon_beam",
+        "instructionHint": "Parry the moon-beam sequence to soften the team-wide blast.",
+        "description": "Area parry attack that fires a moon-beam barrage at the whole team.",
+        "tutorial": {
+          "requirement": "final_judgement",
+          "minimumJudgement": "okay"
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "私は、わたしの事が好き",
+    "bgmVolume": 0.4
+  },
+  "tetoBoss": {
+    "title": "Kasane Teto",
+    "assets": "tetoBoss",
+    "voiceHit": "assets/combat/voices/teto/hit.opus",
+    "spd": 145,
+    "atk": 10,
+    "hp": 850,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "BaguetteEat",
+    "ability": "BaguetteEat",
+    "ultimate": "BaguetteEat",
+    "abilities": {
+      "skill": {
+        "id": "BaguetteEat",
+        "name": "Baguette Eat",
+        "instructionHint": "Press UP or DOWN to move between lanes and dodge baguettes",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.7,
+        "interactionType": "parry",
+        "presentationId": "teto_baguette_attack",
+        "inputPromptType": "upDown",
+        "description": "Lane-survival attack. Swap between lanes with UP or DOWN and keep dodging baguettes until the barrage ends.",
+        "tutorial": {
+          "requirement": "feedback_event_count",
+          "minimumValue": 3
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "tetoBoss",
+    "bgmVolume": 0.4,
+    "phases": {
+      "phase1": {
+        "atkBonusPercent": 0,
+        "presentation": {
+          "floatParams": {
+            "survivalDurationSeconds": 5.0,
+            "baseBaguetteSpeed": 460.0,
+            "baseSpawnInterval": 0.9
+          }
+        }
+      },
+      "phase2": {
+        "atkBonusPercent": 8,
+        "presentation": {
+          "floatParams": {
+            "survivalDurationSeconds": 6.8,
+            "baseBaguetteSpeed": 610.0,
+            "baseSpawnInterval": 0.64
+          }
+        }
+      },
+      "phase3": {
+        "atkBonusPercent": 15,
+        "presentation": {
+          "floatParams": {
+            "survivalDurationSeconds": 8.8,
+            "baseBaguetteSpeed": 700.0,
+            "baseSpawnInterval": 0.52
+          }
+        }
+      }
+    }
+  },
+  "pompomBoss": {
+    "title": "PomPom",
+    "assets": "pompomBoss",
+    "spd": 150,
+    "atk": 12,
+    "hp": 2100,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "PomPomDash",
+    "ability": "PomPomDash",
+    "ultimate": "PomPomDash",
+    "abilities": {
+      "skill": {
+        "id": "PomPomDash",
+        "name": "PomPom Dash",
+        "instructionHint": "Press SPACE to jump over incoming PomPoms.",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.7,
+        "interactionType": "parry",
+        "presentationId": "pompom_dino_attack",
+        "inputPromptType": "space",
+        "description": "Endless-runner style attack. Jump with SPACE to clear incoming PomPoms and avoid stacking more damage.",
+        "tutorial": {
+          "requirement": "feedback_event_count",
+          "minimumValue": 2
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "tetoBoss",
+    "bgmVolume": 0.4,
+    "phases": {
+      "phase1": {
+        "atkBonusPercent": 0,
+        "presentation": {
+          "floatParams": {
+            "survivalDurationSeconds": 6.0,
+            "baseObstacleSpeed": 550.0,
+            "baseSpawnInterval": 0.78,
+            "judgementProgress": 0.64,
+            "okayClearancePixels": 28.0,
+            "goodClearancePixels": 46.0,
+            "perfectClearancePixels": 62.0
+          }
+        }
+      },
+      "phase2": {
+        "atkBonusPercent": 10,
+        "presentation": {
+          "floatParams": {
+            "survivalDurationSeconds": 8.5,
+            "baseObstacleSpeed": 720.0,
+            "baseSpawnInterval": 0.64,
+            "judgementProgress": 0.635,
+            "okayClearancePixels": 30.0,
+            "goodClearancePixels": 50.0,
+            "perfectClearancePixels": 66.0
+          }
+        }
+      },
+      "phase3": {
+        "atkBonusPercent": 18,
+        "presentation": {
+          "floatParams": {
+            "survivalDurationSeconds": 10.5,
+            "baseObstacleSpeed": 860.0,
+            "baseSpawnInterval": 0.56,
+            "judgementProgress": 0.62,
+            "okayClearancePixels": 30.0,
+            "goodClearancePixels": 48.0,
+            "perfectClearancePixels": 64.0
+          }
+        }
+      }
+    }
+  },
+  "huafeiBoss": {
+    "title": "Huafei",
+    "assets": "huafei",
+    "spd": 155,
+    "atk": 16,
+    "hp": 2600,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "RongMoMoGrab",
+    "ability": "RongMoMoGrab",
+    "ultimate": "RongMoMoGrab",
+    "abilities": {
+      "skill": {
+        "id": "RongMoMoGrab",
+        "name": "RongMoMo Grab",
+        "instructionHint": "Spam different keys to break free from RongMoMo's grab.",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.8,
+        "interactionType": "rhythm",
+        "presentationId": "huafei_hostage_grab",
+        "inputPromptType": "wild",
+        "description": "Hostage grab. Mash varied keys fast enough to break the quota and escape before the damage lands.",
+        "tutorial": {
+          "requirement": "feedback_event_count",
+          "minimumValue": 8
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "tetoBoss",
+    "bgmVolume": 0.4,
+    "phases": {
+      "phase1": {
+        "atkBonusPercent": 0,
+        "presentation": {
+          "intParams": {
+            "spamQuota": 34,
+            "recentKeyWindow": 5
+          },
+          "floatParams": {
+            "minValidSpacingSeconds": 0.08
+          }
+        }
+      },
+      "phase2": {
+        "atkBonusPercent": 15,
+        "presentation": {
+          "intParams": {
+            "spamQuota": 50,
+            "recentKeyWindow": 6
+          },
+          "floatParams": {
+            "minValidSpacingSeconds": 0.09
+          }
+        }
+      },
+      "phase3": {
+        "atkBonusPercent": 30,
+        "presentation": {
+          "intParams": {
+            "spamQuota": 68,
+            "recentKeyWindow": 6
+          },
+          "floatParams": {
+            "minValidSpacingSeconds": 0.10
+          }
+        }
+      }
+    }
+  },
+  "randyBoss": {
+    "title": "Zhao Laoshi",
+    "assets": "randy",
+    "spd": 160,
+    "atk": 17,
+    "hp": 3200,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "AssignmentDeadline",
+    "ability": "AssignmentDeadline",
+    "ultimate": "AssignmentDeadline",
+    "abilities": {
+      "skill": {
+        "id": "AssignmentDeadline",
+        "name": "Assignment Deadline",
+        "instructionHint": "Submit your assignment before the deadline!",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.8,
+        "interactionType": "rhythm",
+        "presentationId": "randy_assignment",
+        "inputPromptType": "none",
+        "description": "Typing deadline attack. Fill the quota before time runs out to cut the incoming damage down.",
+        "tutorial": {
+          "requirement": "final_judgement",
+          "minimumJudgement": "okay"
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "tetoBoss",
+    "bgmVolume": 0.4,
+    "phases": {
+      "phase1": {
+        "atkBonusPercent": 0,
+        "presentation": {
+          "intParams": {
+            "spamQuota": 36
+          },
+          "floatParams": {
+            "inputDurationSeconds": 7.0
+          }
+        }
+      },
+      "phase2": {
+        "atkBonusPercent": 15,
+        "presentation": {
+          "intParams": {
+            "spamQuota": 58
+          },
+          "floatParams": {
+            "inputDurationSeconds": 7.0
+          }
+        }
+      },
+      "phase3": {
+        "atkBonusPercent": 30,
+        "presentation": {
+          "intParams": {
+            "spamQuota": 88
+          },
+          "floatParams": {
+            "inputDurationSeconds": 7.0
+          }
+        }
+      }
+    }
+  },
+  "discipleBoss": {
+    "title": "Disciple",
+    "assets": "discipleBoss",
+    "spd": 158,
+    "atk": 18,
+    "hp": 7000,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "DiscipleNightAssault",
+    "ability": "DiscipleNightAssault",
+    "ultimate": "DiscipleNightAssault",
+    "abilities": {
+      "skill": {
+        "id": "DiscipleNightAssault",
+        "name": "Night Assault",
+        "instructionHint": "Survive the blackout barrage.",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 0.6,
+        "interactionType": "none",
+        "presentationId": "disciple_blackout_barrage",
+        "inputPromptType": "none",
+        "description": "Blackout barrage with no direct counter minigame. The real answer is mitigation, healing, and surviving the hidden hits.",
+        "tutorial": {
+          "requirement": "observe_only"
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "tetoBoss",
+    "bgmVolume": 0.4,
+    "phases": {
+      "phase1": {
+        "presentation": {
+          "intParams": {
+            "hitCount": 3
+          }
+        }
+      },
+      "phase2": {
+        "atkBonusPercent": 15,
+        "presentation": {
+          "intParams": {
+            "hitCount": 5
+          }
+        }
+      },
+      "phase3": {
+        "atkBonusPercent": 30,
+        "presentation": {
+          "intParams": {
+            "hitCount": 7
+          }
+        }
+      }
+    }
+  },
+  "sailorVenusBoss": {
+    "title": "Sailor Venus",
+    "assets": "sailorVenusBoss",
+    "voiceHit": "assets/combat/voices/sailorVenus/hit.opus",
+    "spd": 145,
+    "atk": 24,
+    "hp": 4200,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "SailorVenusBossLoveAndBeautyShock",
+    "ability": "SailorVenusBossLoveAndBeautyShock",
+    "ultimate": "SailorVenusBossLoveAndBeautyShock",
+    "abilities": {
+      "skill": {
+        "id": "SailorVenusBossLoveAndBeautyShock",
+        "name": "Love and Beauty Shock",
+        "instructionHint": "Spam SPACE to reduce incoming damage. Phase quotas are 24 / 36 / 48 presses.",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 1.15,
+        "interactionType": "parry",
+        "presentationId": "sailor_venus_love_and_beauty_shock",
+        "inputPromptType": "spamSpace",
+        "description": "Beam struggle. Mash SPACE to push back Love and Beauty Shock and reduce the damage before higher phase quotas arrive.",
+        "tutorial": {
+          "requirement": "final_judgement",
+          "minimumJudgement": "okay"
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "phases": {
+      "phase1": {
+        "presentation": {
+          "intParams": {
+            "spamQuota": 24
+          }
+        }
+      },
+      "phase2": {
+        "presentation": {
+          "intParams": {
+            "spamQuota": 36
+          }
+        }
+      },
+      "phase3": {
+        "presentation": {
+          "intParams": {
+            "spamQuota": 48
+          }
+        }
+      }
+    }
+  },
+  "zhouShenBoss": {
+    "title": "周深",
+    "assets": "zhouShen",
+    "voiceSpeakerId": "zhouShenBoss",
+    "voiceHit": "",
+    "spd": 160,
+    "atk": 50,
+    "hp": 5200,
+    "standardAbility": "BossStandardAttack",
+    "skillAbility": "BigFish",
+    "ability": "BigFish",
+    "ultimate": "BigFish",
+    "abilities": {
+      "skill": {
+        "id": "BigFish",
+        "name": "世界全都火掉的高首",
+        "instructionHint": "Follow the note stream with D / F / J / K to reduce the incoming damage.",
+        "type": "attack",
+        "targetRule": "all_enemies",
+        "multiplier": 3.0,
+        "interactionType": "rhythm",
+        "presentationId": "boss_attack_zhoushen",
+        "inputPromptType": "custom",
+        "inputPromptKeys": [
+          "D",
+          "F",
+          "J",
+          "K"
+        ],
+        "description": "High-speed rhythm attack. Match the note stream cleanly to reduce how hard the ocean wave crashes into the party.",
+        "tutorial": {
+          "requirement": "judgement_count",
+          "minimumJudgement": "okay",
+          "minimumValue": 3
+        }
+      }
+    },
+    "ultimatePoints": 6,
+    "startingOrbs": 1,
+    "bgm": "zhoushenBoss",
+    "bgmVolume": 0.4,
+    "phases": {
+      "phase1": {
+        "presentation": {
+          "floatParams": {
+            "speed": 10,
+            "freq": 1.8,
+            "dur": 5.0
+          },
+          "intParams": {
+            "multi": 0
+          }
+        }
+      },
+      "phase2": {
+        "presentation": {
+          "floatParams": {
+            "speed": 15,
+            "freq": 5,
+            "dur": 8.0
+          },
+          "intParams": {
+            "multi": 0
+          }
+        }
+      },
+      "phase3": {
+        "presentation": {
+          "floatParams": {
+            "speed": 30,
+            "freq": 9,
+            "dur": 12.0
+          },
+          "intParams": {
+            "multi": 1
+          }
+        }
+      }
+    }
+  }
 }

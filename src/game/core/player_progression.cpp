@@ -293,6 +293,12 @@ bool hasClearedBattle(const PlayerProgression& progression, const std::string& b
                      battleKey) != progression.clearedBattleKeys.end();
 }
 
+bool hasCompletedTutorial(const PlayerProgression& progression, const std::string& tutorialKey) {
+    return std::find(progression.completedTutorialKeys.begin(),
+                     progression.completedTutorialKeys.end(),
+                     tutorialKey) != progression.completedTutorialKeys.end();
+}
+
 /**
  * @brief Compute the total flat stat bonuses for a character from stored stage buff allocations.
  *
@@ -394,6 +400,33 @@ void replaceStageBuffAllocation(PlayerProgression& progression,
     }
 }
 
+void markCompletedTutorial(PlayerProgression& progression, const std::string& tutorialKey) {
+    if (tutorialKey.empty() || hasCompletedTutorial(progression, tutorialKey)) {
+        return;
+    }
+    progression.completedTutorialKeys.push_back(tutorialKey);
+}
+
+std::string resolveUnlockCharacterKeyForBattle(const std::string& battleKey) {
+    if (battleKey.empty()) {
+        return std::string();
+    }
+
+    BattleDefinition battle;
+    if (!loader::loadBattleDefinition(battleKey, battle)) {
+        return std::string();
+    }
+
+    std::vector<CharacterDefinition> allCharacterDefinitions;
+    if (!loader::loadAllCharacterDefinitions(allCharacterDefinitions)) {
+        return std::string();
+    }
+
+    const auto charactersByKey = characterDefinitionsByKey(allCharacterDefinitions);
+    const auto characterKeyByAssetMap = characterKeyByAsset(allCharacterDefinitions);
+    return resolveUnlockableCharacterKey(battle.bossKey, charactersByKey, characterKeyByAssetMap);
+}
+
 /**
  * @brief Sanitizes a list of character keys by removing duplicates and ensuring validity.
  *
@@ -473,6 +506,7 @@ void normalizePlayerProgression(PlayerProgression& progression, ProgressionFallb
         progression.unlockedCharacterKeys = sanitizeCharacterKeyList(progression.unlockedCharacterKeys);
         progression.currentPartyLineup = sanitizeCharacterKeyList(progression.currentPartyLineup);
         progression.clearedBattleKeys = uniqueKeySequence(progression.clearedBattleKeys);
+        progression.completedTutorialKeys = uniqueKeySequence(progression.completedTutorialKeys);
         return;
     }
 
@@ -547,6 +581,7 @@ void normalizePlayerProgression(PlayerProgression& progression, ProgressionFallb
     progression.unlockedCharacterKeys = std::move(unlocked);
     progression.currentPartyLineup = std::move(lineup);
     progression.clearedBattleKeys = uniqueKeySequence(progression.clearedBattleKeys);
+    progression.completedTutorialKeys = uniqueKeySequence(progression.completedTutorialKeys);
     progression.stageBuffAssignments =
         normalizeStageBuffAssignments(progression.stageBuffAssignments, validKeys);
 }

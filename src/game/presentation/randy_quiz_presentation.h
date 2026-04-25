@@ -20,8 +20,10 @@ public:
     void render(SDL_Renderer* renderer, int screenW, int screenH, const Camera3D& camera) override;
     bool isComplete() const override;
     bool onKeyPressed(SDL_Keycode key) override;
+    void setTuningProfile(const PresentationTuningProfile& profile) override;
 
     float getInputMultiplier() const override;
+    PresentationFeedbackSignal getFeedbackSignal() const override;
     std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     std::vector<PresentationHintCommand> consumeHintCommands() override;
     bool shouldRenderAboveHud() const override;
@@ -44,7 +46,7 @@ private:
     void finalizeAnswer(int chosenIndex);
     float currentSuccessMultiplier() const;
 
-    float answerWindowSeconds_ = 3.0f;
+    float answerWindowSeconds_ = 6.0f;
     float promptElapsed_ = 0.0f;
     float resultElapsed_ = 0.0f;
     float responseTimeSeconds_ = 0.0f;

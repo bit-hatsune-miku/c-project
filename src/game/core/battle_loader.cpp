@@ -61,6 +61,41 @@ ActionAdvanceMode parseActionAdvanceMode(const std::string& mode) {
     return ActionAdvanceMode::RemainingFraction;
 }
 
+TutorialRequirementKind parseTutorialRequirementKind(const std::string& value) {
+    if (value == "observe_only") {
+        return TutorialRequirementKind::ObserveOnly;
+    }
+    if (value == "feedback_event_count") {
+        return TutorialRequirementKind::FeedbackEventCount;
+    }
+    if (value == "judgement_count") {
+        return TutorialRequirementKind::JudgementCount;
+    }
+    if (value == "correct_tone_count") {
+        return TutorialRequirementKind::CorrectToneCount;
+    }
+    if (value == "score_value") {
+        return TutorialRequirementKind::ScoreValue;
+    }
+    if (value == "final_judgement") {
+        return TutorialRequirementKind::FinalJudgement;
+    }
+    return TutorialRequirementKind::None;
+}
+
+CombatJudgement parseCombatJudgementFloor(const std::string& value) {
+    if (value == "perfect") {
+        return CombatJudgement::Perfect;
+    }
+    if (value == "good") {
+        return CombatJudgement::Good;
+    }
+    if (value == "okay" || value == "ok") {
+        return CombatJudgement::Okay;
+    }
+    return CombatJudgement::Okay;
+}
+
 std::string getUnitAbilityReferenceId(const json& unitJson, const char* slotName) {
     if (!unitJson.is_object() || slotName == nullptr) {
         return {};
@@ -805,6 +840,7 @@ bool parseAbilityDefinition(const json& abilityJson,
     outAbility.name = abilityJson.value("name", abilityId);
     outAbility.statusName = abilityJson.value("statusName", "");
     outAbility.instructionHint = abilityJson.value("instructionHint", "");
+    outAbility.description = abilityJson.value("description", "");
     outAbility.multiplier = abilityJson.value("multiplier", 1.0f);
     outAbility.flatHeal = abilityJson.value("flatHeal", 0);
     outAbility.baseShield = abilityJson.value("baseShield", 0);
@@ -840,6 +876,37 @@ bool parseAbilityDefinition(const json& abilityJson,
         for (const json& keyValue : *keysIt) {
             if (keyValue.is_string()) {
                 outAbility.inputPromptKeys.push_back(keyValue.get<std::string>());
+            }
+        }
+    }
+
+    if (const auto tutorialIt = abilityJson.find("tutorial");
+        tutorialIt != abilityJson.end() && tutorialIt->is_object()) {
+        outAbility.tutorial.requirementKind = parseTutorialRequirementKind(
+            tutorialIt->value("requirement", "")
+        );
+        outAbility.tutorial.minimumJudgement = parseCombatJudgementFloor(
+            tutorialIt->value("minimumJudgement", "okay")
+        );
+        outAbility.tutorial.minimumValue = std::max(0, tutorialIt->value("minimumValue", 0));
+        if (const auto presentationValueIt = tutorialIt->find("presentationValue");
+            presentationValueIt != tutorialIt->end() && presentationValueIt->is_number_integer()) {
+            outAbility.tutorial.presentationValue = presentationValueIt->get<int>();
+        }
+        if (const auto rollsIt = tutorialIt->find("resolvedRolls");
+            rollsIt != tutorialIt->end() && rollsIt->is_array()) {
+            for (const json& rollValue : *rollsIt) {
+                if (rollValue.is_number_integer()) {
+                    outAbility.tutorial.resolvedRolls.push_back(rollValue.get<int>());
+                }
+            }
+        }
+        if (const auto targetsIt = tutorialIt->find("resolvedTargetIndices");
+            targetsIt != tutorialIt->end() && targetsIt->is_array()) {
+            for (const json& indexValue : *targetsIt) {
+                if (indexValue.is_number_integer()) {
+                    outAbility.tutorial.resolvedTargetIndices.push_back(indexValue.get<int>());
+                }
             }
         }
     }

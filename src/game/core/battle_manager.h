@@ -158,11 +158,32 @@ enum class ActionAdvanceMode {
     BaseActionValueDelta
 };
 
+enum class TutorialRequirementKind {
+    None,
+    ObserveOnly,
+    FeedbackEventCount,
+    JudgementCount,
+    CorrectToneCount,
+    ScoreValue,
+    FinalJudgement
+};
+
+struct AbilityTutorialDefinition {
+    TutorialRequirementKind requirementKind = TutorialRequirementKind::None;
+    CombatJudgement minimumJudgement = CombatJudgement::Okay;
+    int minimumValue = 0;
+    std::optional<int> presentationValue;
+    std::vector<int> resolvedRolls;
+    std::vector<int> resolvedTargetIndices;
+};
+
 struct AbilityDefinition {
     std::string id;
     std::string name;
     std::string statusName;
     std::string instructionHint;
+    std::string description;
+    AbilityTutorialDefinition tutorial;
     AbilityType type = AbilityType::Attack;
     TargetRule targetRule = TargetRule::SingleEnemy;
     float multiplier = 1.0f;
@@ -359,6 +380,7 @@ public:
     bool canUseUltimate() const;
     void consumeUltimatePoint(int amount = 1);
     void consumeUltimate();
+    void setUltimateCharge(int amount);
     int effectiveSpd() const;
     int spdBuffBonus() const;
     void setSpdBuffBonus(int amount);
@@ -376,6 +398,12 @@ public:
             shield_ += amount;
             std::cout << "[Shield] " << definition_.key << " gained " << amount << " shield (now " << shield_ << ")\n";
         }
+    }
+    void setShield(int amount) {
+        shield_ = std::max(0, amount);
+    }
+    void setHp(int amount) {
+        hp_ = std::clamp(amount, 0, definition_.hp);
     }
     void reduceShield(int amount) {
         int before = shield_;
@@ -508,6 +536,18 @@ struct BattleStatusBadge {
     int value = 0;
 };
 
+struct TutorialResolvedAction {
+    bool isBossCaster = false;
+    BattleAction action = BattleAction::Skill;
+    int casterPartyIndex = -1;
+    int targetPartyIndex = -1;
+    std::string abilityKitId;
+    float presentationMultiplier = 1.0f;
+    bool primaryEffectApplied = false;
+    std::vector<int> resolvedRolls;
+    std::vector<int> resolvedTargetIndices;
+};
+
 /**
  * Retrieve the current shield value for the party member at the given index.
  * @param partyIndex 0-based index of the party member.
@@ -568,6 +608,22 @@ public:
     void addSailorVenusSpaceTally(int partyIndex, int amount);
     void addLuotianyiCorrectTones(int amount);
     int getLuotianyiCorrectTones() const;
+    bool setCharacterTutorialVitals(int partyIndex,
+                                    int hp,
+                                    int shield,
+                                    int ultimateCharge);
+    bool setCharacterTutorialBuffBonuses(int partyIndex,
+                                         int speedBuff,
+                                         int atkBuff,
+                                         int damageBuff);
+    void setBossTutorialState(int currentHp, int phaseIndex);
+    void setLuotianyiCorrectTonesForTutorial(int amount);
+    void setTetoHealingTallyForTutorial(int amount);
+    void setSailorVenusTutorialState(bool transformed,
+                                     int turnsRemaining,
+                                     int spaceTally,
+                                     bool finisherQueued);
+    bool applyResolvedTutorialAction(const TutorialResolvedAction& action);
     const BattleComboState& getComboState() const;
     ComboResolution applyPresentationFeedback(bool isBossCaster, const PresentationFeedbackEvent& feedback);
     void applyPresentationHitDamage(bool isBossCaster,
@@ -614,6 +670,8 @@ public:
     bool processAutomaticTurns();
     bool isBattleOver() const;
     BattleResolvedOutcome outcome() const;
+    void setForcedOutcome(BattleResolvedOutcome outcome);
+    void clearForcedOutcome();
     bool playerDamageHealsBoss() const;
     const BattleTelemetry& getBattleTelemetry() const;
 

@@ -33,6 +33,7 @@ public:
     void applyCameraState(Camera3D& camera) const override;
     bool shouldRenderAboveHud() const override;
 
+    PresentationFeedbackSignal getFeedbackSignal() const override;
     float consumeHitDamageMultiplier() override;
     std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     int consumeHitEvents() override;

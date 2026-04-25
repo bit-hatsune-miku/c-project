@@ -508,3 +508,24 @@ You can point any battle at one of those keys to test the mode quickly.
 ## Current Limitation
 
 The stage system is shared by the SDL runtime and the main GL battle scene path, but presentation-specific native GL effects still have their own custom rendering layers on top.
+
+## Floor Cut Guides
+
+If you are authoring real photos or panoramic backdrops, the main problem is usually not the backdrop mode itself. It is the handoff between the backdrop image and the separately rendered battle floor.
+
+To generate Photoshop-ready templates for that handoff:
+
+```bash
+python3 scripts/generate_floor_cut_guides.py
+```
+
+Outputs are written to `docs/combat-authoring/backdrop-guides/`.
+
+How to read them:
+
+- red = the in-game floor is already covering the backdrop there
+- amber = blend the photo ground through this band so the floor handoff looks intentional
+- magenta = current size-0 floor diagnostic range from the repo
+- white rectangle = the actual in-game crop for `parallax` and `panorama`
+
+Those guides are usually more useful for stage photo work than a generic horizon line, because they show the real cut where decoration starts getting sliced by the floor.

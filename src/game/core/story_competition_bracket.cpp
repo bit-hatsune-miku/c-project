@@ -82,13 +82,13 @@ std::string resolveUiSpritePath(const std::string& assetName) {
 }
 
 /**
- * @brief Return the first non-empty instruction hint found among a boss's abilities.
+ * @brief Return the first non-empty preview description found among a boss's abilities.
  *
  * Checks the boss's `skillAbility`, `ability`, then `ultimate` (in that order) and returns
- * the first non-empty `instructionHint` found in a successfully loaded ability definition.
+ * the first non-empty `description`, falling back to `instructionHint` when needed.
  *
- * @param boss Boss definition to inspect for ability instruction hints.
- * @return std::string The first non-empty instruction hint from the boss's abilities, or
+ * @param boss Boss definition to inspect for ability preview text.
+ * @return std::string The first non-empty preview description from the boss's abilities, or
  * "No special interaction hint is available for this round." if none are available.
  */
 std::string resolveInstructionHint(const BossDefinition& boss) {
@@ -97,7 +97,13 @@ std::string resolveInstructionHint(const BossDefinition& boss) {
         if (abilityId->empty()) {
             continue;
         }
-        if (loader::loadAbilityDefinition(*abilityId, ability) && !ability.instructionHint.empty()) {
+        if (!loader::loadAbilityDefinition(*abilityId, ability)) {
+            continue;
+        }
+        if (!ability.description.empty()) {
+            return ability.description;
+        }
+        if (!ability.instructionHint.empty()) {
             return ability.instructionHint;
         }
     }

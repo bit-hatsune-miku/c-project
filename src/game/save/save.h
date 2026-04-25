@@ -324,6 +324,7 @@ inline void to_json(nlohmann::json& jsonValue, const SaveGame& saveGame) {
         {"unlockedCharacterKeys", saveGame.progression.unlockedCharacterKeys},
         {"currentPartyLineup", saveGame.progression.currentPartyLineup},
         {"clearedBattleKeys", saveGame.progression.clearedBattleKeys},
+        {"completedTutorialKeys", saveGame.progression.completedTutorialKeys},
         {"stageBuffAssignments", saveGame.progression.stageBuffAssignments}
     };
 }
@@ -348,6 +349,8 @@ inline void from_json(const nlohmann::json& jsonValue, SaveGame& saveGame) {
             progressionIt->value("currentPartyLineup", std::vector<std::string>{});
         saveGame.progression.clearedBattleKeys =
             progressionIt->value("clearedBattleKeys", std::vector<std::string>{});
+        saveGame.progression.completedTutorialKeys =
+            progressionIt->value("completedTutorialKeys", std::vector<std::string>{});
         saveGame.progression.stageBuffAssignments =
             progressionIt->value("stageBuffAssignments", battle::StageBuffAssignments{});
         saveGame.hasProgressionData = true;

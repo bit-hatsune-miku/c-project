@@ -72,6 +72,31 @@
         "focalLength": 53500.0
       }
     },
+    "preview_test_stage": {
+      "floor": {
+        "centerX": -300.0,
+        "centerY": 1150.0,
+        "width": 2800.0,
+        "depth": 3200.0,
+        "tileSize": 200.0,
+        "baseColor": "#2E313C",
+        "accentColor": "#343845"
+      },
+      "backdrop": {
+        "mode": "screen",
+        "gradientTopColor": "#181C28",
+        "gradientBottomColor": "#05070B"
+      },
+      "props": [],
+      "camera": {
+        "posX": -425.0,
+        "posY": 72.0,
+        "posZ": -150.0,
+        "pitchDegrees": 6.5,
+        "yawDegrees": 3.4,
+        "focalLength": 53500.0
+      }
+    },
     "debug_panorama_stage": {
       "floor": {
         "centerX": -300.0,

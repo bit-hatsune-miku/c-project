@@ -807,14 +807,19 @@ private:
                 if (bossIt != bossRoot.end() && bossIt->is_object()) {
                     const json& bossJson = *bossIt;
                     if (bossJson.contains("abilities") && bossJson.at("abilities").is_object()) {
-                        const json& abilitiesJson = bossJson.at("abilities");
-                        const auto skillIt = abilitiesJson.find("skill");
-                        if (skillIt != abilitiesJson.end() && skillIt->is_object()) {
+                    const json& abilitiesJson = bossJson.at("abilities");
+                    const auto skillIt = abilitiesJson.find("skill");
+                    if (skillIt != abilitiesJson.end() && skillIt->is_object()) {
+                        const std::string description = skillIt->value("description", std::string{});
+                        if (!description.empty()) {
+                            entry.instructionHint = description;
+                        } else {
                             entry.instructionHint =
                                 skillIt->value("instructionHint", entry.instructionHint);
                         }
                     }
                 }
+            }
             }
 
             entries_.push_back(std::move(entry));

@@ -14,6 +14,21 @@ body {
     height: 100%;
 }
 
+.battle-ultimate-guide-dim {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(5, 8, 16, 178);
+    z-index: 20;
+}
+
+#hud-root.ultimate-guide-active .battle-ultimate-guide-dim {
+    display: block;
+}
+
 #hud-root.vs-intro-blocking #hud-edge-layer,
 #hud-root.vs-intro-blocking .battle-combo,
 #hud-root.vs-intro-blocking .battle-total-damage,
@@ -670,6 +685,10 @@ body {
     height: 146dp;
 }
 
+#hud-root.ultimate-guide-active .party-rack {
+    z-index: 24;
+}
+
 .unit-card {
     position: absolute;
     bottom: 0;
@@ -725,6 +744,10 @@ body {
     padding: 0dp 5dp;
     font-size: 8dp;
     line-height: 16dp;
+}
+
+.unit-card--show-hotkey .unit-hotkey-badge {
+    display: block;
 }
 
 .unit-ult {
@@ -837,6 +860,35 @@ body {
     z-index: 3;
     background-color: transparent;
     image-color: #ffffff;
+}
+
+.unit-guide-dim {
+    display: none;
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(6, 10, 18, 170);
+    border-radius: 22dp;
+    z-index: 6;
+}
+
+#hud-root.ultimate-guide-active .unit-guide-dim {
+    display: block;
+}
+
+#hud-root.ultimate-guide-active .unit-card.ultimate-guide-target .unit-guide-dim {
+    background-color: rgba(6, 10, 18, 136);
+}
+
+#hud-root.ultimate-guide-active .unit-card.ultimate-guide-target .unit-ult,
+#hud-root.ultimate-guide-active .unit-card.ultimate-guide-target .unit-hotkey-badge {
+    z-index: 9;
+}
+
+#hud-root.ultimate-guide-active .unit-card.ultimate-guide-target .unit-ult {
+    box-shadow: 0 14dp 24dp rgba(0, 0, 0, 18), 0 0 44dp rgba(255, 219, 128, 28);
 }
 
 .unit-card--compact .unit-icon {

@@ -79,9 +79,12 @@ private:
     Phase phase_ = Phase::Opening;
     int focusedPartyIndex_ = -1;
     int quota_ = 40;
+    int recentKeyWindow_ = 5;
     int validPressCount_ = 0;
+    float minValidSpacingSeconds_ = 0.08f;
     float openingElapsed_ = 0.0f;
     float failureElapsed_ = 0.0f;
+    float lastAcceptedPressTimeSeconds_ = -1000.0f;
     bool failureHitReady_ = false;
     bool hitDispatched_ = false;
     std::deque<SDL_Keycode> recentKeys_;

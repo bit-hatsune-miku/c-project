@@ -160,7 +160,13 @@ std::string resolveBossDescription(const BossDefinition& bossDefinition,
         if (abilityId->empty()) {
             continue;
         }
-        if (loader::loadAbilityDefinition(*abilityId, bossAbility) && !bossAbility.instructionHint.empty()) {
+        if (!loader::loadAbilityDefinition(*abilityId, bossAbility)) {
+            continue;
+        }
+        if (!bossAbility.description.empty()) {
+            return bossAbility.description;
+        }
+        if (!bossAbility.instructionHint.empty()) {
             return bossAbility.instructionHint;
         }
     }

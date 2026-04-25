@@ -1,0 +1,335 @@
+{
+  "unlockDrills": {
+    "lyoo": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["lyoo", "miku", "cupcakke"],
+      "initialState": {
+        "party": [
+          {"characterKey": "lyoo", "ultimateCharge": 3},
+          {"characterKey": "miku", "hpPercent": 25, "ultimateCharge": 1},
+          {"characterKey": "cupcakke", "hp": 0, "alive": false, "ultimateCharge": 2}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "lyoo"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "lyoo", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "lyoo"},
+        {"promptKey": "coach_complete", "actorKey": "lyoo"}
+      ]
+    },
+    "jiafei": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["jiafei", "cupcakke"],
+      "initialState": {
+        "party": [
+          {"characterKey": "jiafei", "ultimateCharge": 2},
+          {"characterKey": "cupcakke", "ultimateCharge": 2}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "jiafei"},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "jiafei"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "cupcakke", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "jiafei", "abilityKitId": "followUp"},
+        {"promptKey": "coach_complete", "actorKey": "jiafei"}
+      ]
+    },
+    "teto": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["teto", "lyoo", "cupcakke"],
+      "initialState": {
+        "party": [
+          {"characterKey": "teto", "ultimateCharge": 3},
+          {"characterKey": "lyoo", "hpPercent": 28, "ultimateCharge": 1},
+          {"characterKey": "cupcakke", "hpPercent": 20, "ultimateCharge": 2}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "teto"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "teto", "targetCharacterKey": "lyoo", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "lyoo", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "teto"},
+        {"promptKey": "coach_complete", "actorKey": "teto"}
+      ]
+    },
+    "wechatalipay": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["wechatalipay", "miku", "cupcakke"],
+      "initialState": {
+        "party": [
+          {"characterKey": "wechatalipay", "ultimateCharge": 4},
+          {"characterKey": "miku", "hpPercent": 24, "ultimateCharge": 1},
+          {"characterKey": "cupcakke", "hpPercent": 28, "ultimateCharge": 1}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "wechatalipay"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "wechatalipay", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "wechatalipay"},
+        {"promptKey": "coach_complete", "actorKey": "wechatalipay"}
+      ]
+    },
+    "ari": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["ari", "miku", "cupcakke"],
+      "initialState": {
+        "party": [
+          {"characterKey": "ari", "ultimateCharge": 5},
+          {"characterKey": "miku", "ultimateCharge": 1},
+          {"characterKey": "cupcakke", "ultimateCharge": 1}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "ari"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "ari"},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "ari"},
+        {"promptKey": "coach_complete", "actorKey": "ari"}
+      ]
+    },
+    "luotianyi": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["luotianyi", "miku", "cupcakke"],
+      "initialState": {
+        "party": [
+          {"characterKey": "luotianyi", "ultimateCharge": 3},
+          {"characterKey": "miku", "ultimateCharge": 1},
+          {"characterKey": "cupcakke", "ultimateCharge": 1}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "luotianyi"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "luotianyi", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "miku", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "luotianyi"},
+        {"promptKey": "coach_complete", "actorKey": "luotianyi"}
+      ]
+    },
+    "pompom": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["pompom", "miku", "cupcakke", "lyoo"],
+      "initialState": {
+        "party": [
+          {"characterKey": "pompom", "ultimateCharge": 3},
+          {"characterKey": "miku", "ultimateCharge": 0},
+          {"characterKey": "cupcakke", "ultimateCharge": 0},
+          {"characterKey": "lyoo", "ultimateCharge": 0}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "pompom"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "pompom"},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "pompom"},
+        {"promptKey": "coach_complete", "actorKey": "pompom"}
+      ]
+    },
+    "huafei": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["huafei", "miku", "cupcakke", "lyoo"],
+      "initialState": {
+        "party": [
+          {"characterKey": "huafei", "ultimateCharge": 2},
+          {"characterKey": "miku", "hpPercent": 34, "ultimateCharge": 0},
+          {"characterKey": "cupcakke", "hpPercent": 30, "ultimateCharge": 0},
+          {"characterKey": "lyoo", "hpPercent": 38, "ultimateCharge": 0}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "huafei"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "huafei"},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "huafei"},
+        {"promptKey": "coach_complete", "actorKey": "huafei"}
+      ]
+    },
+    "randy": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["randy", "miku"],
+      "initialState": {
+        "party": [
+          {"characterKey": "randy", "ultimateCharge": 2},
+          {"characterKey": "miku", "ultimateCharge": 1}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "randy"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "randy", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "randy"},
+        {"promptKey": "coach_complete", "actorKey": "randy"}
+      ]
+    },
+    "sailorVenus": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["sailorVenus", "huafei", "ari", "lyoo"],
+      "initialState": {
+        "party": [
+          {"characterKey": "sailorVenus", "ultimateCharge": 2},
+          {"characterKey": "huafei", "ultimateCharge": 1},
+          {"characterKey": "ari", "ultimateCharge": 1},
+          {"characterKey": "lyoo", "ultimateCharge": 1}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "sailorVenus"},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "sailorVenus"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "huafei"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "sailorVenus", "abilityKitId": "crescentBeam"},
+        {"promptKey": "coach_shifted_skill_intro", "action": "character_skill", "actorKey": "sailorVenus", "abilityKitId": "transformed", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_shifted_skill_intro", "action": "character_skill", "actorKey": "sailorVenus", "abilityKitId": "loveMeChain"},
+        {"promptKey": "coach_complete", "actorKey": "sailorVenus"}
+      ]
+    },
+    "zhouShen": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["zhouShen", "miku", "luotianyi", "ari"],
+      "initialState": {
+        "party": [
+          {"characterKey": "zhouShen", "ultimateCharge": 6},
+          {"characterKey": "miku", "ultimateCharge": 1},
+          {"characterKey": "luotianyi", "ultimateCharge": 1},
+          {"characterKey": "ari", "ultimateCharge": 1}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "zhouShen"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "zhouShen", "presentationValue": 4},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "miku", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "zhouShen", "abilityKitId": "followUp", "presentationValue": 4},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "zhouShen", "presentationValue": 4},
+        {"promptKey": "coach_complete", "actorKey": "zhouShen"}
+      ]
+    },
+    "disciple": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["disciple", "miku"],
+      "initialState": {
+        "party": [
+          {"characterKey": "disciple", "ultimateCharge": 2},
+          {"characterKey": "miku", "ultimateCharge": 1}
+        ]
+      },
+      "steps": [
+        {"promptKey": "coach_unlock_intro", "actorKey": "disciple"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "disciple"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "miku", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_ultimate_intro", "action": "character_ultimate", "actorKey": "disciple"},
+        {"promptKey": "coach_skill_intro", "action": "character_skill", "actorKey": "miku", "failurePromptKey": "coach_skill_retry"},
+        {"promptKey": "coach_complete", "actorKey": "disciple"}
+      ]
+    }
+  },
+  "bossPreviews": {
+    "wild_scent_flowers": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["miku", "cupcakke", "lyoo"],
+      "steps": [
+        {"promptKey": "coach_boss_intro"},
+        {"action": "boss_skill", "failurePromptKey": "coach_boss_retry", "bossPhaseIndex": 0, "targetCharacterKey": "miku", "suppressBossWarning": false},
+        {"promptKey": "coach_boss_complete"}
+      ]
+    },
+    "roomateConflicts": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["miku", "cupcakke", "jiafei"],
+      "steps": [
+        {"promptKey": "coach_boss_intro"},
+        {"action": "boss_skill", "failurePromptKey": "coach_boss_retry", "bossPhaseIndex": 0, "targetCharacterKey": "miku", "suppressBossWarning": false},
+        {"promptKey": "coach_boss_complete"}
+      ]
+    },
+    "scan_to_pay": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["miku", "cupcakke", "jiafei", "lyoo"],
+      "steps": [
+        {"promptKey": "coach_boss_intro"},
+        {"action": "boss_skill", "failurePromptKey": "coach_boss_retry", "bossPhaseIndex": 0, "suppressBossWarning": false},
+        {"promptKey": "coach_boss_complete"}
+      ]
+    },
+    "ari_boss_demo": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["miku", "cupcakke", "jiafei", "lyoo"],
+      "steps": [
+        {"promptKey": "coach_boss_intro"},
+        {"action": "boss_skill", "failurePromptKey": "coach_boss_retry", "bossPhaseIndex": 0, "suppressBossWarning": false},
+        {"promptKey": "coach_boss_complete"}
+      ]
+    },
+    "luotianyi_boss_demo": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["miku", "cupcakke", "jiafei", "lyoo"],
+      "steps": [
+        {"promptKey": "coach_boss_intro"},
+        {
+          "action": "boss_skill",
+          "failurePromptKey": "coach_boss_retry",
+          "bossPhaseIndex": 0,
+          "suppressBossWarning": false,
+          "requirement": {
+            "requirement": "correct_tone_count",
+            "minimumValue": 2
+          }
+        },
+        {"promptKey": "coach_boss_complete"}
+      ]
+    },
+    "huafei": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["miku", "cupcakke", "jiafei", "lyoo"],
+      "steps": [
+        {"promptKey": "coach_boss_intro"},
+        {"action": "boss_skill", "failurePromptKey": "coach_boss_retry", "bossPhaseIndex": 0, "targetCharacterKey": "miku", "suppressBossWarning": false},
+        {"promptKey": "coach_boss_complete"}
+      ]
+    },
+    "randy": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["miku", "cupcakke", "jiafei", "lyoo"],
+      "steps": [
+        {"promptKey": "coach_boss_intro"},
+        {"action": "boss_skill", "failurePromptKey": "coach_boss_retry", "bossPhaseIndex": 0, "suppressBossWarning": false},
+        {"promptKey": "coach_boss_complete"}
+      ]
+    },
+    "pompom": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["miku", "cupcakke", "jiafei", "lyoo"],
+      "steps": [
+        {"promptKey": "coach_boss_intro"},
+        {"action": "boss_skill", "failurePromptKey": "coach_boss_retry", "bossPhaseIndex": 0, "targetCharacterKey": "miku", "suppressBossWarning": false},
+        {"promptKey": "coach_boss_complete"}
+      ]
+    },
+    "sailorVenus": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["miku", "cupcakke", "huafei", "lyoo"],
+      "steps": [
+        {"promptKey": "coach_boss_intro"},
+        {"action": "boss_skill", "failurePromptKey": "coach_boss_retry", "bossPhaseIndex": 0, "suppressBossWarning": false},
+        {"promptKey": "coach_boss_complete"}
+      ]
+    },
+    "zhoushen_boss_demo": {
+      "stageKey": "preview_test_stage",
+      "lineup": ["zhouShen", "miku", "luotianyi", "ari"],
+      "steps": [
+        {"promptKey": "coach_boss_intro"},
+        {"action": "boss_skill", "failurePromptKey": "coach_boss_retry", "bossPhaseIndex": 0, "suppressBossWarning": false},
+        {"promptKey": "coach_boss_complete"}
+      ]
+    },
+    "disciple": {
+      "enabled": false,
+      "stageKey": "preview_test_stage",
+      "lineup": []
+    },
+    "lyoo_plot_twist": {
+      "enabled": false,
+      "stageKey": "preview_test_stage",
+      "lineup": []
+    },
+    "miku_plot_twist": {
+      "enabled": false,
+      "stageKey": "preview_test_stage",
+      "lineup": []
+    }
+  }
+}

@@ -22,6 +22,7 @@ struct PlayerProgression {
     std::vector<std::string> unlockedCharacterKeys;
     std::vector<std::string> currentPartyLineup;
     std::vector<std::string> clearedBattleKeys;
+    std::vector<std::string> completedTutorialKeys;
     StageBuffAssignments stageBuffAssignments;
 };
 
@@ -88,6 +89,7 @@ bool loadAllCharacterKeys(std::vector<std::string>& outCharacterKeys);
 std::vector<std::string> sanitizeCharacterKeyList(const std::vector<std::string>& keys);
 bool hasUnlockedCharacter(const PlayerProgression& progression, const std::string& characterKey);
 bool hasClearedBattle(const PlayerProgression& progression, const std::string& battleKey);
+bool hasCompletedTutorial(const PlayerProgression& progression, const std::string& tutorialKey);
 FlatStatBonuses characterFlatStatBonuses(const PlayerProgression& progression,
                                          const std::string& characterKey,
                                          const std::string& excludedBattleKey = std::string());
@@ -97,6 +99,8 @@ void applyCharacterProgressionBonuses(CharacterDefinition& character,
 void replaceStageBuffAllocation(PlayerProgression& progression,
                                 const std::string& battleKey,
                                 const StageBuffAllocation& allocation);
+void markCompletedTutorial(PlayerProgression& progression, const std::string& tutorialKey);
+std::string resolveUnlockCharacterKeyForBattle(const std::string& battleKey);
 void normalizePlayerProgression(PlayerProgression& progression,
                                 ProgressionFallbackPolicy fallbackPolicy = ProgressionFallbackPolicy::StarterRoster);
 

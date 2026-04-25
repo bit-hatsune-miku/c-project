@@ -98,6 +98,7 @@ json progressionJson(const battle::PlayerProgression& progression) {
         {"unlockedCharacterKeys", progression.unlockedCharacterKeys},
         {"currentPartyLineup", progression.currentPartyLineup},
         {"clearedBattleKeys", progression.clearedBattleKeys},
+        {"completedTutorialKeys", progression.completedTutorialKeys},
         {"stageBuffAssignments", progression.stageBuffAssignments}
     };
 }
@@ -119,6 +120,8 @@ bool parseProfileProgression(const json& root, battle::PlayerProgression& outPro
         progressionIt->value("currentPartyLineup", std::vector<std::string>{});
     outProgression.clearedBattleKeys =
         progressionIt->value("clearedBattleKeys", std::vector<std::string>{});
+    outProgression.completedTutorialKeys =
+        progressionIt->value("completedTutorialKeys", std::vector<std::string>{});
     outProgression.stageBuffAssignments =
         progressionIt->value("stageBuffAssignments", battle::StageBuffAssignments{});
     return true;

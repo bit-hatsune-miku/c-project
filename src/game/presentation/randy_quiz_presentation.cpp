@@ -136,8 +136,22 @@ bool RandyQuizPresentation::onKeyPressed(SDL_Keycode key) {
     return true;
 }
 
+void RandyQuizPresentation::setTuningProfile(const PresentationTuningProfile& profile) {
+    if (const auto it = profile.floatParams.find("answerWindowSeconds"); it != profile.floatParams.end()) {
+        answerWindowSeconds_ = std::max(1.5f, it->second);
+    }
+    totalDuration_ = answerWindowSeconds_ + kResultHoldSeconds;
+}
+
 float RandyQuizPresentation::getInputMultiplier() const {
     return successMultiplier_;
+}
+
+PresentationFeedbackSignal RandyQuizPresentation::getFeedbackSignal() const {
+    if (phase_ == Phase::Prompt) {
+        return {};
+    }
+    return PresentationFeedbackSignal::binary(answeredCorrectly_);
 }
 
 std::vector<PresentationFeedbackEvent> RandyQuizPresentation::consumeFeedbackEvents() {

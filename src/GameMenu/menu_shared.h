@@ -48,7 +48,9 @@ enum class StoryFlowMode {
 enum class BattleFlowMode {
     Direct,
     CampaignStory,
-    PracticeReplayStory
+    PracticeReplayStory,
+    UnlockCharacterDrill,
+    BossPreview
 };
 
 inline constexpr const char* kMainMenuBackgroundArtPath = "assets/vn/backgrounds/General_Art/mainmenu art.png";

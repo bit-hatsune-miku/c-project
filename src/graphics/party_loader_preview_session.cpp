@@ -584,7 +584,14 @@ bool PartyLoaderPreviewSession::loadPreviewData() {
         if (abilityId->empty()) {
             continue;
         }
-        if (battle::loader::loadAbilityDefinition(*abilityId, bossAbility) && !bossAbility.instructionHint.empty()) {
+        if (!battle::loader::loadAbilityDefinition(*abilityId, bossAbility)) {
+            continue;
+        }
+        if (!bossAbility.description.empty()) {
+            bossDescription_ = bossAbility.description;
+            break;
+        }
+        if (!bossAbility.instructionHint.empty()) {
             bossDescription_ = bossAbility.instructionHint;
             break;
         }

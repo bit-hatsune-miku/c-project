@@ -95,6 +95,7 @@ void HuafeiBossPresentation::start() {
     failureElapsed_ = 0.0f;
     phase_ = Phase::Opening;
     validPressCount_ = 0;
+    lastAcceptedPressTimeSeconds_ = -1000.0f;
     failureHitReady_ = false;
     hitDispatched_ = false;
     recentKeys_.clear();
@@ -247,14 +248,20 @@ bool HuafeiBossPresentation::onKeyPressed(SDL_Keycode key) {
         return true;
     }
 
-    const bool isRecent = std::find(recentKeys_.begin(), recentKeys_.end(), key) != recentKeys_.end();
-    recentKeys_.push_back(key);
-    while (recentKeys_.size() > 5) {
-        recentKeys_.pop_front();
+    const float currentTimeSeconds = openingElapsed_;
+    if ((currentTimeSeconds - lastAcceptedPressTimeSeconds_) < minValidSpacingSeconds_) {
+        return true;
     }
 
+    const bool isRecent = std::find(recentKeys_.begin(), recentKeys_.end(), key) != recentKeys_.end();
     if (isRecent) {
         return true;
+    }
+
+    lastAcceptedPressTimeSeconds_ = currentTimeSeconds;
+    recentKeys_.push_back(key);
+    while (static_cast<int>(recentKeys_.size()) > std::max(1, recentKeyWindow_)) {
+        recentKeys_.pop_front();
     }
 
     ++validPressCount_;
@@ -275,6 +282,12 @@ bool HuafeiBossPresentation::onKeyPressed(SDL_Keycode key) {
 void HuafeiBossPresentation::setTuningProfile(const PresentationTuningProfile& profile) {
     if (const auto it = profile.intParams.find("spamQuota"); it != profile.intParams.end()) {
         quota_ = std::max(1, it->second);
+    }
+    if (const auto it = profile.intParams.find("recentKeyWindow"); it != profile.intParams.end()) {
+        recentKeyWindow_ = std::max(1, it->second);
+    }
+    if (const auto it = profile.floatParams.find("minValidSpacingSeconds"); it != profile.floatParams.end()) {
+        minValidSpacingSeconds_ = std::max(0.01f, it->second);
     }
 }
 

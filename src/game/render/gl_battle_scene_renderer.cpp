@@ -1174,18 +1174,6 @@ void GlBattleSceneRenderer::renderWorld(const battle::BattleSessionCore::BattleF
             drawTexturedTriangles(ensureSolidWhiteTexture().id, fallback, screenWidth, screenHeight);
         }
 
-        if (isFocused) {
-            std::vector<Vertex> focusVertices;
-            focusVertices.reserve(24);
-            appendOutlineRect(focusVertices,
-                              x - 6.0f,
-                              y - 6.0f,
-                              drawWidth + 12.0f,
-                              drawHeight + 12.0f,
-                              2.0f,
-                              SDL_Color{250, 230, 96, static_cast<Uint8>(alpha * 255.0f)});
-            drawTexturedTriangles(ensureSolidWhiteTexture().id, focusVertices, screenWidth, screenHeight);
-        }
     }
 }
 

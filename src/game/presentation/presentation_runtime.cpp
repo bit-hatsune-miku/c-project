@@ -542,6 +542,12 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
             const bool wasVisible = entityIndex < previousEntities.size()
                 ? previousEntities[entityIndex].visible
                 : entity.visible;
+            const bool focusedBossTargetCanReappear =
+                context.isBoss &&
+                hideNonCasterCharacters &&
+                focusedPartyIndex >= 0 &&
+                !entity.isBoss &&
+                entity.partyIndex == focusedPartyIndex;
 
             if (entity.isBoss) {
                 if (context.isBoss) {
@@ -552,7 +558,7 @@ PlaybackResult runAbilityPresentation(SDL_Renderer* renderer,
                 continue;
             }
 
-            if (!wasVisible) {
+            if (!wasVisible && !focusedBossTargetCanReappear) {
                 entity.visible = false;
                 continue;
             }

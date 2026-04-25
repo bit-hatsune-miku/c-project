@@ -1,0 +1,124 @@
+{
+    "entries": {
+        "lyoo_intro_1": {
+            "speaker": "Lyoo",
+            "voiceSpeakerId": "lyoo",
+            "voice": "assets/vn/voices/demo/presspace.opus",
+            "icon": "assets/combat/icons/lyoo.png",
+            "text": "To use your ability, press SPACE. Each character has a unique ability and there will be a \"Bonus Input\" you can perform to make your ability more effective."
+        },
+        "lyoo_intro_2": {
+            "speaker": "Lyoo",
+            "voiceSpeakerId": "lyoo",
+            "voice": "assets/vn/voices/demo/mikubonus.opus",
+            "icon": "assets/combat/icons/lyoo.png",
+            "text": "For example, Miku's \"Bonus Input\" is a small rythm game, the more accurate you press, the more damage she will deal!"
+        },
+        "miku_intro_1": {
+            "speaker": "Miku",
+            "voiceSpeakerId": "miku",
+            "voice": "assets/vn/voices/demo/ican.opus",
+            "icon": "assets/combat/icons/miku.png",
+            "text": "I don't need someone to tell me what I can or can't do."
+        },
+        "lyoo_intro_3": {
+            "speaker": "Lyoo",
+            "voiceSpeakerId": "lyoo",
+            "voice": "assets/vn/voices/demo/clanker.opus",
+            "icon": "assets/combat/icons/lyoo.png",
+            "text": "Then go ahead and try clanker"
+        },
+        "miku_intro_2": {
+            "speaker": "Miku",
+            "voiceSpeakerId": "miku",
+            "voice": "assets/vn/voices/demo/what.opus",
+            "icon": "assets/combat/icons/miku.png",
+            "text": "WHAT DID YOU JUST CALL ME-"
+        },
+        "lyoo_cupcakke_intro": {
+            "speaker": "Lyoo",
+            "voiceSpeakerId": "lyoo",
+            "icon": "assets/combat/icons/lyoo.png",
+            "text": "Now try {character}'s {skill_name}. Different input, same idea. {skill_description} Input: {skill_input} Keep it alive and don't make me explain this twice."
+        },
+        "lyoo_ultimate_intro": {
+            "speaker": "Lyoo",
+            "voiceSpeakerId": "lyoo",
+            "icon": "assets/combat/icons/lyoo.png",
+            "text": "When an ultimate is ready, do not panic and do not freestyle. Look at the glowing circle, read the callout, and cast it on command."
+        },
+        "lyoo_ultimate_ready": {
+            "speaker": "Lyoo",
+            "voiceSpeakerId": "lyoo",
+            "icon": "assets/combat/icons/lyoo.png",
+            "text": "Those are your \"Ultimate Points\". {character} is full, so press {manual_ultimate_hotkey} to queue {ultimate_name}. And since you clearly need guardrails, that's the only button I'm letting you touch right now."
+        },
+        "lyoo_boss_intro": {
+            "speaker": "Lyoo",
+            "voiceSpeakerId": "lyoo",
+            "icon": "assets/combat/icons/lyoo.png",
+            "text": "And before you ask, yes, bosses have gimmicks too. Mine is {boss_skill_name}. {boss_skill_description} Input: {boss_input} Read the warning, answer it properly, and try not to flop."
+        },
+        "lyoo_miku_retry": {
+            "speaker": "Lyoo",
+            "voiceSpeakerId": "lyoo",
+            "icon": "assets/combat/icons/lyoo.png",
+            "text": "Nope. That was not clean enough. Your damage is gone, your turn is back, and you're doing it again. Watch the lane and land the notes properly this time."
+        },
+        "lyoo_cupcakke_retry": {
+            "speaker": "Lyoo",
+            "voiceSpeakerId": "lyoo",
+            "icon": "assets/combat/icons/lyoo.png",
+            "text": "You dropped the input. Run {skill_name} again and keep the sequence alive this time."
+        },
+        "lyoo_boss_retry": {
+            "speaker": "Lyoo",
+            "voiceSpeakerId": "lyoo",
+            "icon": "assets/combat/icons/lyoo.png",
+            "text": "That was not the counter. I'm doing the attack again, so pay attention this time."
+        },
+        "lyoo_outro": {
+            "speaker": "Lyoo",
+            "voiceSpeakerId": "lyoo",
+            "voice": "assets/vn/voices/demo/now.opus",
+            "icon": "assets/combat/icons/lyoo.png",
+            "text": "Now, let's see if you're worthy of participating in the BIT Underground Idol Competition~"
+        },
+        "coach_unlock_intro": {
+            "speaker": "Training Console",
+            "text": "{character} just joined your roster. Run the onboarding drill now: learn the kit, clear the checks, and finish the field test before story resumes."
+        },
+        "coach_skill_intro": {
+            "speaker": "Training Console",
+            "text": "Skill check: {skill_name}. {skill_description} Input: {skill_input}"
+        },
+        "coach_skill_retry": {
+            "speaker": "Training Console",
+            "text": "Requirement not met. Re-run {skill_name} and clear the input check before the drill advances."
+        },
+        "coach_ultimate_intro": {
+            "speaker": "Training Console",
+            "text": "Ultimate preview: {ultimate_name}. {ultimate_description} Input: {ultimate_input}"
+        },
+        "coach_shifted_skill_intro": {
+            "speaker": "Training Console",
+            "text": "Kit shift detected. {ultimate_name} changed the move list. New skill check: {skill_name}. {skill_description} Input: {skill_input}"
+        },
+        "coach_boss_intro": {
+            "speaker": "Training Console",
+            "text": "Boss preview: {boss_skill_name}. {boss_skill_description} Input: {boss_input} Clear the mechanic here before the live encounter starts."
+        },
+        "coach_boss_retry": {
+            "speaker": "Training Console",
+            "text": "Boss preview requirement failed. Run the boss mechanic again and hit the minimum performance threshold."
+        },
+        "coach_boss_complete": {
+            "speaker": "Training Console",
+            "text": "Boss preview complete. Mechanic registered. Launching the live encounter."
+        },
+        "coach_complete": {
+            "speaker": "Training Console",
+            "text": "Drill complete. {character} is registered and ready for live deployment. Story flow can resume."
+        }
+    }
+}

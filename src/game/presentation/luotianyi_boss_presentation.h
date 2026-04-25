@@ -34,6 +34,7 @@ public:
     std::vector<PresentationFeedbackEvent> consumeFeedbackEvents() override;
     float consumeHitDamageMultiplier() override;
     int consumeHitEvents() override;
+    int getCorrectToneCount() const override;
     int getDamageLabelHitCount() const override;
     std::string getInputResultText() const override;
     std::vector<PresentationAudioCommand> consumeAudioCommands() override;

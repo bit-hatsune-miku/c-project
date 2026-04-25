@@ -86,7 +86,7 @@ private:
     float phaseElapsed_ = 0.0f;
     float currentWaitDuration_ = 0.0f;
     bool attackInputCaptured_ = false;
-    float attackReactionSeconds_ = 0.0f;
+    float attackReactionOffsetSeconds_ = 0.0f;
     bool attackFeedbackQueued_ = false;
 
     std::vector<float> resolvedHitDamageMultipliers_;
@@ -97,8 +97,9 @@ private:
     int attackCount_ = 3;
     float waitDurationMinSeconds_ = 1.0f;
     float waitDurationMaxSeconds_ = 2.5f;
-    float perfectReactionWindowSeconds_ = 0.12f;
-    float lateReactionStartSeconds_ = 0.40f;
+    float reactionCueSeconds_ = 0.46f;
+    float perfectWindowSeconds_ = 0.10f;
+    float maxReactionOffsetSeconds_ = 0.24f;
 };
 
 } // namespace battle

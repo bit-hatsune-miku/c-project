@@ -127,6 +127,7 @@ public:
     bool exitedToMainMenu() const;
     BattleOutcome outcome() const;
     const std::vector<std::string>& currentPartyLineup() const;
+    const std::string& completedTutorialKey() const;
     const battle::postbattle::Summary& postBattleSummary() const;
 
 private:

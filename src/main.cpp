@@ -26,6 +26,7 @@
 #include "Settings/settings.h"
 #include "window.h"
 #include "game/core/battle_loader.h"
+#include "game/core/tutorial_scenarios.h"
 #ifdef RMLUI_SDL_VERSION_MAJOR
 #include "game/boss_selector_session.h"
 #include "game/party_loader_session.h"
@@ -59,6 +60,7 @@ constexpr float kLoadingFadeOutSeconds = 0.44f;
 constexpr float kLoadingLogoBounceAmplitude = 8.0f;
 constexpr float kLoadingLogoBounceSpeed = 2.4f;
 constexpr float kPi = 3.14159265358979323846f;
+constexpr const char* kUnlockDrillBattleKey = "test_ground";
 
 std::string resolvePath(const std::string& relativePath) {
     const std::array<std::string, 3> candidates = {
@@ -1881,6 +1883,20 @@ int main(int argc, char** argv) {
         std::string battleSourceStoryScript;
     };
     std::optional<PendingPostBattleContext> pendingPostBattleContext;
+    struct PendingTutorialDrillContext {
+        PendingPostBattleContext resumeContext;
+    };
+    std::optional<PendingTutorialDrillContext> pendingTutorialDrillContext;
+    struct PendingBossPreviewContext {
+        std::string battleKey;
+        std::vector<std::string> partyLineup;
+        BattleFlowMode battleFlowMode = BattleFlowMode::Direct;
+        ScreenState battleReturnScreen = ScreenState::MainMenu;
+        std::string battleWinScript;
+        std::string battleLoseScript;
+        std::string battleNextStoryScript;
+    };
+    std::optional<PendingBossPreviewContext> pendingBossPreviewContext;
 
     bool rendererUiReady = false;
     (void)uiMusic.initialize();
@@ -2010,17 +2026,87 @@ int main(int argc, char** argv) {
         return true;
     };
 
-    const auto routeResolvedBattleOutcome = [&](const PendingPostBattleContext& context) -> bool {
-        if (!context.currentPartyLineup.empty()) {
-            state.progression.currentPartyLineup = context.currentPartyLineup;
-            battle::normalizePlayerProgression(state.progression);
+    const auto buildTutorialDrillLineup = [&](const std::string& focusCharacterKey,
+                                              const std::vector<std::string>& baseLineup) {
+        battle::TutorialScenarioDefinition scenario;
+        if (battle::tutorial::loadUnlockDrillScenario(focusCharacterKey, scenario) &&
+            !scenario.lineup.empty()) {
+            return scenario.lineup;
         }
-        if (context.outcome == battle::app::BattleOutcome::Victory && !context.battleDefinition.key.empty()) {
-            state.progression.clearedBattleKeys.push_back(context.battleDefinition.key);
-            battle::normalizePlayerProgression(state.progression);
-        }
-        (void)save::writeProfileProgression(state.progression);
 
+        std::vector<std::string> lineup;
+        lineup.reserve(std::max<std::size_t>(1, baseLineup.size() + 1));
+
+        const auto appendUnique = [](std::vector<std::string>& out, const std::string& key) {
+            if (key.empty() || std::find(out.begin(), out.end(), key) != out.end()) {
+                return;
+            }
+            out.push_back(key);
+        };
+
+        appendUnique(lineup, focusCharacterKey);
+        for (const std::string& key : baseLineup) {
+            appendUnique(lineup, key);
+        }
+        for (const std::string& key : state.progression.currentPartyLineup) {
+            appendUnique(lineup, key);
+        }
+        if (lineup.empty()) {
+            appendUnique(lineup, "miku");
+        }
+
+        return lineup;
+    };
+
+    const auto buildBossPreviewLineup = [&](const battle::BattleDefinition& battleDefinition) {
+        battle::TutorialScenarioDefinition scenario;
+        if (battle::tutorial::loadBossPreviewScenario(battleDefinition.key, scenario) &&
+            scenario.enabled &&
+            !scenario.lineup.empty()) {
+            return scenario.lineup;
+        }
+
+        return std::vector<std::string>{"miku"};
+    };
+
+    const auto shouldLaunchBossPreview = [&](const std::string& battleKey) {
+        return state.pendingBattleFlowMode == BattleFlowMode::CampaignStory &&
+               !battleKey.empty() &&
+               battleKey != "tutorial_vs_lyoo" &&
+               battle::tutorial::hasEnabledBossPreviewScenario(battleKey) &&
+               !battle::hasCompletedTutorial(state.progression, "boss_preview_" + battleKey);
+    };
+
+    const auto restoreBossPreviewBattleContext = [&](const PendingBossPreviewContext& context) {
+        state.pendingBattleKey = context.battleKey;
+        state.pendingBattlePartyLineup = context.partyLineup;
+        state.pendingBattleFlowMode = context.battleFlowMode;
+        state.pendingBattleReturnScreen = context.battleReturnScreen;
+        state.pendingBattleWinScript = context.battleWinScript;
+        state.pendingBattleLoseScript = context.battleLoseScript;
+        state.pendingBattleNextStoryScript = context.battleNextStoryScript;
+    };
+
+    const auto beginBossPreview = [&](const battle::BattleDefinition& battleDefinition) {
+        pendingBossPreviewContext = PendingBossPreviewContext{
+            battleDefinition.key,
+            {},
+            state.pendingBattleFlowMode,
+            state.pendingBattleReturnScreen,
+            state.pendingBattleWinScript,
+            state.pendingBattleLoseScript,
+            state.pendingBattleNextStoryScript,
+        };
+        state.pendingBattleKey = battleDefinition.key;
+        state.pendingBattlePartyLineup = buildBossPreviewLineup(battleDefinition);
+        state.pendingBattleFlowMode = BattleFlowMode::BossPreview;
+        state.pendingBattleWinScript.clear();
+        state.pendingBattleLoseScript.clear();
+        state.pendingBattleNextStoryScript.clear();
+        beginBattleDemo(state);
+    };
+
+    const auto closeResolvedBattleUi = [&]() {
         if (battleSession != nullptr) {
             battleSession->shutdown();
             battleSession.reset();
@@ -2031,8 +2117,14 @@ int main(int argc, char** argv) {
             postBattleSession.reset();
         }
 #endif
-
         clearPendingBattleState(state);
+    };
+
+    const auto routeResolvedBattleOutcomeContinuation = [&](const PendingPostBattleContext& context) -> bool {
+        closeResolvedBattleUi();
+
+        pendingTutorialDrillContext.reset();
+        pendingBossPreviewContext.reset();
 
         const auto enterLoadedStory = [&](const std::string& scriptRef,
                                           const char* failureNotice,
@@ -2121,6 +2213,51 @@ int main(int argc, char** argv) {
         }
 
         return true;
+    };
+
+    const auto routeResolvedBattleOutcome = [&](const PendingPostBattleContext& context) -> bool {
+        std::string tutorialDrillCharacterKey;
+        if (context.outcome == battle::app::BattleOutcome::Victory &&
+            context.battleFlowMode == BattleFlowMode::CampaignStory &&
+            !context.battleDefinition.key.empty() &&
+            !battle::hasClearedBattle(state.progression, context.battleDefinition.key)) {
+            tutorialDrillCharacterKey =
+                battle::resolveUnlockCharacterKeyForBattle(context.battleDefinition.key);
+            if (!tutorialDrillCharacterKey.empty() &&
+                battle::hasCompletedTutorial(
+                    state.progression,
+                    "unlock_drill_" + tutorialDrillCharacterKey)) {
+                tutorialDrillCharacterKey.clear();
+            }
+        }
+
+        if (!context.currentPartyLineup.empty()) {
+            state.progression.currentPartyLineup = context.currentPartyLineup;
+            battle::normalizePlayerProgression(state.progression);
+        }
+        if (context.outcome == battle::app::BattleOutcome::Victory && !context.battleDefinition.key.empty()) {
+            state.progression.clearedBattleKeys.push_back(context.battleDefinition.key);
+            battle::normalizePlayerProgression(state.progression);
+        }
+        (void)save::writeProfileProgression(state.progression);
+
+        if (!tutorialDrillCharacterKey.empty()) {
+            closeResolvedBattleUi();
+
+            pendingTutorialDrillContext = PendingTutorialDrillContext{context};
+            state.pendingBattleKey = kUnlockDrillBattleKey;
+            state.pendingBattlePartyLineup =
+                buildTutorialDrillLineup(tutorialDrillCharacterKey, context.currentPartyLineup);
+            state.pendingBattleFlowMode = BattleFlowMode::UnlockCharacterDrill;
+            state.pendingBattleReturnScreen = context.battleReturnScreen;
+            state.pendingBattleWinScript.clear();
+            state.pendingBattleLoseScript.clear();
+            state.pendingBattleNextStoryScript.clear();
+            beginBattleDemo(state);
+            return true;
+        }
+
+        return routeResolvedBattleOutcomeContinuation(context);
     };
 
     Uint64 lastCounter = SDL_GetPerformanceCounter();
@@ -2381,6 +2518,20 @@ int main(int argc, char** argv) {
                                 partyLoaderSession->shutdown();
                                 partyLoaderSession.reset();
                             }
+                            battle::BattleDefinition battleDefinition;
+                            const std::string battleKey =
+                                state.pendingBattleKey.empty() ? "tutorial_vs_lyoo" : state.pendingBattleKey;
+                            if (!battle::loader::loadBattleDefinition(battleKey, battleDefinition)) {
+                                clearPendingBattleState(state);
+                                pendingBossPreviewContext.reset();
+                                state.screen = ScreenState::MainMenu;
+                                state.mainSelection = MainMenuAction::Battle;
+                                state.noticeText = "Battle not found: " + battleKey;
+                                state.noticeTimer = 2.6f;
+                                return false;
+                            }
+
+                            pendingBossPreviewContext.reset();
                             state.pendingBattlePartyLineup = partyLoaderRequest.partyKeys;
                             beginBattleDemo(state);
                             return true;
@@ -2456,6 +2607,7 @@ int main(int argc, char** argv) {
 
                         destroyLoadingLogoTexture();
                         clearPendingBattleState(state, ScreenState::BossSelector);
+                        pendingBossPreviewContext.reset();
                         state.pendingBattleFlowMode = BattleFlowMode::Direct;
                         beginBattle(state, launchRequest.reference);
                         return true;
@@ -2773,6 +2925,8 @@ int main(int argc, char** argv) {
             battleSession->shutdown();
             battleSession.reset();
             pendingPostBattleContext.reset();
+            pendingTutorialDrillContext.reset();
+            pendingBossPreviewContext.reset();
             state.pauseContext = PauseContext::Story;
             clearPendingBattleState(state);
         }
@@ -2806,8 +2960,14 @@ int main(int argc, char** argv) {
                 if (battleSession->isFinished() && !loadingTransition.active) {
                     const battle::app::BattleOutcome outcome = battleSession->outcome();
                     const bool exitedToMainMenu = battleSession->exitedToMainMenu();
+                    const std::string completedTutorialKey = battleSession->completedTutorialKey();
                     const std::string completedBattleKey = state.pendingBattleKey;
                     const std::vector<std::string> currentPartyLineup = battleSession->currentPartyLineup();
+
+                    if (!completedTutorialKey.empty()) {
+                        battle::markCompletedTutorial(state.progression, completedTutorialKey);
+                        battle::normalizePlayerProgression(state.progression);
+                    }
 
                     if (exitedToMainMenu) {
                         if (!currentPartyLineup.empty()) {
@@ -2818,6 +2978,8 @@ int main(int argc, char** argv) {
                         battleSession->shutdown();
                         battleSession.reset();
                         clearPendingBattleState(state);
+                        pendingTutorialDrillContext.reset();
+                        pendingBossPreviewContext.reset();
                         state.requestStoryExitToMainMenu = false;
                         state.requestStoryReturnToBossSelector = false;
                         vn::setPaused(false);
@@ -2842,6 +3004,83 @@ int main(int argc, char** argv) {
                         battleFlowMode == BattleFlowMode::CampaignStory && state.story.loaded
                         ? save::chapterIdFromScript(state.story.script)
                         : std::string();
+
+                    if (battleFlowMode == BattleFlowMode::UnlockCharacterDrill) {
+                        (void)save::writeProfileProgression(state.progression);
+
+                        if (pendingTutorialDrillContext.has_value()) {
+                            const PendingPostBattleContext resumeContext =
+                                pendingTutorialDrillContext->resumeContext;
+                            startLoadingTransition(
+                                loadingTransition,
+                                LoadingTransitionPresentation::RmlUi,
+                                std::function<bool()>{},
+                                [&, resumeContext]() -> bool {
+                                    const bool result =
+                                        routeResolvedBattleOutcomeContinuation(resumeContext);
+                                    pendingTutorialDrillContext.reset();
+                                    return result;
+                                });
+                        } else {
+                            startLoadingTransition(
+                                loadingTransition,
+                                LoadingTransitionPresentation::RmlUi,
+                                std::function<bool()>{},
+                                [&]() -> bool {
+                                    if (battleSession != nullptr) {
+                                        battleSession->shutdown();
+                                        battleSession.reset();
+                                    }
+                                    clearPendingBattleState(state);
+                                    state.screen = ScreenState::MainMenu;
+                                    state.pauseContext = PauseContext::Story;
+                                    state.mainSelection = MainMenuAction::Start;
+                                    return true;
+                                });
+                        }
+                        continue;
+                    }
+
+                    if (battleFlowMode == BattleFlowMode::BossPreview) {
+                        (void)save::writeProfileProgression(state.progression);
+
+                        if (pendingBossPreviewContext.has_value()) {
+                            const PendingBossPreviewContext previewContext =
+                                *pendingBossPreviewContext;
+                            startLoadingTransition(
+                                loadingTransition,
+                                LoadingTransitionPresentation::RmlUi,
+                                std::function<bool()>{},
+                                [&, previewContext]() -> bool {
+                                    if (battleSession != nullptr) {
+                                        battleSession->shutdown();
+                                        battleSession.reset();
+                                    }
+                                    restoreBossPreviewBattleContext(previewContext);
+                                    pendingBossPreviewContext.reset();
+                                    beginBattle(state, previewContext.battleKey);
+                                    return true;
+                                });
+                        } else {
+                            startLoadingTransition(
+                                loadingTransition,
+                                LoadingTransitionPresentation::RmlUi,
+                                std::function<bool()>{},
+                                [&]() -> bool {
+                                    if (battleSession != nullptr) {
+                                        battleSession->shutdown();
+                                        battleSession.reset();
+                                    }
+                                    clearPendingBattleState(state);
+                                    state.screen = ScreenState::MainMenu;
+                                    state.pauseContext = PauseContext::Story;
+                                    state.mainSelection = MainMenuAction::Start;
+                                    return true;
+                                });
+                        }
+                        continue;
+                    }
+
                     battle::BattleDefinition completedBattleDefinition;
                     if (!completedBattleKey.empty() &&
                         !battle::loader::loadBattleDefinition(completedBattleKey, completedBattleDefinition)) {
@@ -2958,8 +3197,13 @@ int main(int argc, char** argv) {
                             loadingTransition,
                             LoadingTransitionPresentation::RmlUi,
                             std::function<bool()>{},
-                            [&, pendingBattleKey]() -> bool {
-                                beginBattle(state, pendingBattleKey);
+                            [&, battleDefinition]() -> bool {
+                                if (shouldLaunchBossPreview(battleDefinition.key)) {
+                                    beginBossPreview(battleDefinition);
+                                } else {
+                                    pendingBossPreviewContext.reset();
+                                    beginBattle(state, battleDefinition.key);
+                                }
                                 return true;
                             });
                     }
@@ -2979,7 +3223,6 @@ int main(int argc, char** argv) {
                         state.noticeTimer = 2.6f;
                         state.screen = ScreenState::MainMenu;
                     } else {
-                        const std::string routedBattleKey = battleDefinition.key;
                         state.pendingStoryNextScript = state.storyFlowMode == StoryFlowMode::Campaign
                             ? battleDefinition.nextStoryScript
                             : std::string();
@@ -2987,8 +3230,13 @@ int main(int argc, char** argv) {
                             loadingTransition,
                             LoadingTransitionPresentation::RmlUi,
                             std::function<bool()>{},
-                            [&, routedBattleKey]() -> bool {
-                                beginBattle(state, routedBattleKey);
+                            [&, battleDefinition]() -> bool {
+                                if (shouldLaunchBossPreview(battleDefinition.key)) {
+                                    beginBossPreview(battleDefinition);
+                                } else {
+                                    pendingBossPreviewContext.reset();
+                                    beginBattle(state, battleDefinition.key);
+                                }
                                 return true;
                             });
                     }
