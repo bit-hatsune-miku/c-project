@@ -117,10 +117,17 @@ constexpr std::array<const char*, 5> kBattleResultLetterSfxPaths{
 };
 constexpr const char* kBattleResultVictoryRevealSfxPath = "assets/ui/sfx/Selection_roulette-result.wav";
 constexpr const char* kBattleResultDefeatRevealSfxPath = "assets/ui/sfx/Results_rank-impact-fail.wav";
+constexpr const char* kBattleResultDefeatReverseSfxPath = "assets/ui/sfx/Results_rank-impact-fail-reverse.wav";
 constexpr const char* kBattleResultVictoryApplauseSfxPath = "assets/ui/sfx/Results_applause-s.wav";
 constexpr const char* kBattleResultButtonHoverSfxPath = "assets/ui/sfx/UI_button-hover.wav";
 constexpr const char* kBattleResultButtonSelectSfxPath = "assets/ui/sfx/UI_button-select.wav";
 constexpr float kBattleResultMaxPresentationStepSeconds = 0.05f;
+constexpr float kLyooComebackFailedHoldSeconds = 0.70f;
+constexpr float kLyooComebackWhiteBlankSeconds = 2.30f;
+constexpr float kLyooComebackWhiteFadeSeconds = 1.40f;
+constexpr float kLyooComebackWhiteMessageHoldSeconds = 0.45f;
+constexpr float kLyooComebackWhiteFadeOutSeconds = 0.60f;
+constexpr int kLyooComebackWipeAtkBonusPercent = 2400;
 constexpr const char* kBattleVsIntroLineDropSfxPath = "assets/ui/sfx/Matchmaking_enqueue.wav";
 constexpr const char* kBattleVsIntroLineTiltSfxPath = "assets/ui/sfx/Matchmaking_match-found.wav";
 constexpr const char* kBattleVsIntroLeftCardSfxPath = "assets/ui/sfx/Menu_button-default-select.wav";
@@ -219,6 +226,10 @@ int manualUltimatePartyIndexFromKey(SDL_Keycode key,
         return (mod & KMOD_SHIFT) != 0 ? digitIndex + 10 : digitIndex;
     }
 
+    if (battleDefinition.key == "lyoo_plot_twist") {
+        return digitIndex < 5 ? digitIndex : -1;
+    }
+
     return digitIndex < 4 ? digitIndex : -1;
 }
 
@@ -249,6 +260,27 @@ struct ScriptedBattleSequenceState {
     std::vector<vn::ScriptEntry> lines;
     size_t currentLineIndex = 0;
     std::string currentBattleFocus;
+};
+
+struct LyooComebackState {
+    enum class ReversalStage {
+        None,
+        FailedReveal,
+        FailedHold,
+        FailedReverse,
+        WhiteBlank,
+        WhiteFadeIn,
+        WhiteHold,
+        WhiteFadeOut
+    };
+
+    bool comebackModeActive = false;
+    bool defeatReversalActive = false;
+    ReversalStage reversalStage = ReversalStage::None;
+    Uint64 reversalStageStartedMs = 0;
+    bool pendingRescue = false;
+    bool rescueRunning = false;
+    int youngLyooPartyIndex = -1;
 };
 
 struct TutorialPromptLibrary {
@@ -1216,6 +1248,19 @@ void showJudgement(HudFeedbackState& feedback,
     feedback.judgementText = battle::combatJudgementLabel(judgement);
     feedback.judgementRewardText = std::move(rewardText);
     feedback.judgementClassName = battle::combatJudgementClassName(judgement);
+    feedback.judgementStartedMs = nowMs;
+    feedback.judgementUntilMs = nowMs + durationMs;
+}
+
+void showCustomJudgement(HudFeedbackState& feedback,
+                         std::string judgementText,
+                         std::string judgementClassName,
+                         std::string rewardText,
+                         Uint64 nowMs,
+                         Uint64 durationMs = kJudgementPopupDurationMs) {
+    feedback.judgementText = std::move(judgementText);
+    feedback.judgementRewardText = std::move(rewardText);
+    feedback.judgementClassName = std::move(judgementClassName);
     feedback.judgementStartedMs = nowMs;
     feedback.judgementUntilMs = nowMs + durationMs;
 }
@@ -2480,6 +2525,7 @@ public:
         narrativeEnabled_ = false;
         narrativeInitialized_ = false;
         lyooPhase3Sequence_ = ScriptedBattleSequenceState{};
+        lyooComeback_ = LyooComebackState{};
         battleNarrativePrompt_ = BattleNarrativePromptState{};
         tutorialOverlay_ = TutorialOverlayState{};
         tutorialLibrary_ = TutorialScriptLibrary{};
@@ -2852,7 +2898,20 @@ public:
         }
 
         if (resultOverlay_.active) {
-            updateBattleResultOverlay(deltaSeconds);
+            if (lyooComeback_.defeatReversalActive) {
+                updateBattleResultOverlay(deltaSeconds);
+                updateLyooComebackDefeatReversal(nowMs);
+            } else {
+                updateBattleResultOverlay(deltaSeconds);
+            }
+            refreshBattleInputPromptPreview(nowMs);
+            updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
+            syncHudDocument(nowMs);
+            return;
+        }
+
+        if (lyooComeback_.defeatReversalActive) {
+            updateLyooComebackDefeatReversal(nowMs);
             refreshBattleInputPromptPreview(nowMs);
             updateHudAnimationState(hudAnimationState_, manager_, hudFeedback_, deltaSeconds, nowMs);
             syncHudDocument(nowMs);
@@ -2882,7 +2941,7 @@ public:
                     }
                 }
             }
-            if (isLyooPlotTwistBattle() && transition->toPhaseIndex == 2) {
+            if (isLyooPlotTwistBattle() && transition->toPhaseIndex == 1) {
                 startLyooPhase3Sequence();
             }
         }
@@ -2948,6 +3007,10 @@ public:
         }
 
         consumeBattleActionEvents(nowMs, &cameraStaging_);
+        if (hasDefeatedComebackPartyMember()) {
+            lyooComeback_.pendingRescue = true;
+        }
+        (void)maybeResolveLyooDreamRescue(nowMs);
         feedback_.syncFromManager(manager_, presentationPlaybackActive_);
         feedback_.update(deltaSeconds);
         maybeExpireLiveUltimateGuide();
@@ -3269,6 +3332,9 @@ public:
         if (!initialized_) {
             return BattleOutcome::None;
         }
+        if (lyooComeback_.defeatReversalActive) {
+            return BattleOutcome::None;
+        }
 
         switch (manager_.outcome()) {
             case battle::BattleResolvedOutcome::Victory:
@@ -3334,6 +3400,9 @@ private:
      * currently playing, `false` otherwise.
      */
     bool isBattleFinishBlocked() const {
+        if (lyooComeback_.defeatReversalActive || lyooComeback_.pendingRescue || lyooComeback_.rescueRunning) {
+            return true;
+        }
         if (manager_.getBossCurrentHp() > 0) {
             return false;
         }
@@ -5008,6 +5077,257 @@ private:
         }
     }
 
+    void setCharacterToFullUltimate(int partyIndex) {
+        if (partyIndex < 0) {
+            return;
+        }
+        (void)manager_.setCharacterTutorialVitals(
+            partyIndex,
+            manager_.getCharacterMaxHp(partyIndex),
+            manager_.getCharacterShield(partyIndex),
+            manager_.getCharacterUltimateRequired(partyIndex));
+    }
+
+    void showLyooComebackResultOverlay(const std::string& word,
+                                       battle::app::ui::BattleResultOverlayOutcome outcome,
+                                       Uint64 nowMs,
+                                       bool whiteout) {
+        resultOverlay_ = BattleResultOverlayState{};
+        resultOverlay_.active = true;
+        resultOverlay_.startedMs = nowMs;
+        resultOverlay_.outcome = outcome;
+        resultOverlay_.action = BattleResultOverlayAction::Continue;
+        resultOverlay_.word = word;
+        resultOverlay_.hideButton = true;
+        resultOverlay_.whiteout = whiteout;
+        resultOverlay_.kickerText = whiteout ? std::string{} : "BATTLE RESOLVED";
+    }
+
+    void startLyooComebackDefeatReversal(Uint64 nowMs) {
+        lyooComeback_.defeatReversalActive = true;
+        lyooComeback_.reversalStage = LyooComebackState::ReversalStage::FailedReveal;
+        lyooComeback_.reversalStageStartedMs = nowMs;
+        showLyooComebackResultOverlay("FAILED", battle::app::ui::BattleResultOverlayOutcome::Defeat, nowMs, false);
+    }
+
+    bool hasDefeatedComebackPartyMember() const {
+        if (!lyooComeback_.comebackModeActive) {
+            return false;
+        }
+
+        const battle::BattleState& battleState = manager_.getBattleState();
+        for (size_t i = 0; i < battleState.party.size(); ++i) {
+            if (manager_.getCharacterCurrentHp(static_cast<int>(i)) <= 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool activateLyooComebackBattle() {
+        if (lyooComeback_.comebackModeActive) {
+            return true;
+        }
+
+        if (!addRuntimePartyMemberToScene("youngLyoo")) {
+            return false;
+        }
+
+        lyooComeback_.youngLyooPartyIndex = findPartyIndexByKey("youngLyoo");
+        const int mikuPartyIndex = findPartyIndexByKey("miku");
+        if (mikuPartyIndex >= 0) {
+            (void)manager_.setCharacterAbilityKit(mikuPartyIndex, "dreamerSynergy");
+            setCharacterToFullUltimate(mikuPartyIndex);
+        }
+        if (lyooComeback_.youngLyooPartyIndex >= 0) {
+            setCharacterToFullUltimate(lyooComeback_.youngLyooPartyIndex);
+        }
+
+        reviveEntirePartyToFull();
+        manager_.clearForcedOutcome();
+        manager_.setBossRuntimeState(99999, 99999, 1, true);
+        lyooComeback_.comebackModeActive = true;
+        syncBattlePresentationState();
+        return true;
+    }
+
+    void updateLyooComebackDefeatReversal(Uint64 nowMs) {
+        if (!lyooComeback_.defeatReversalActive) {
+            return;
+        }
+
+        const float elapsedSeconds =
+            static_cast<float>(nowMs > lyooComeback_.reversalStageStartedMs
+                                   ? nowMs - lyooComeback_.reversalStageStartedMs
+                                   : 0) /
+            1000.0f;
+
+        if (lyooComeback_.reversalStage == LyooComebackState::ReversalStage::FailedReveal) {
+            const float entryCompleteSeconds =
+                battle::app::ui::battleResultSettleStartSeconds(resultOverlay_) +
+                battle::app::ui::kBattleResultSettleDurationSeconds;
+            if (elapsedSeconds < entryCompleteSeconds) {
+                return;
+            }
+
+            lyooComeback_.reversalStage = LyooComebackState::ReversalStage::FailedHold;
+            lyooComeback_.reversalStageStartedMs = nowMs;
+            resultOverlay_.presentationElapsedSeconds =
+                battle::app::ui::battleResultSettleStartSeconds(resultOverlay_) +
+                battle::app::ui::kBattleResultSettleDurationSeconds +
+                0.01f;
+            return;
+        }
+
+        if (lyooComeback_.reversalStage == LyooComebackState::ReversalStage::FailedHold) {
+            resultOverlay_.forcedVisibleLetterCount = -1;
+            resultOverlay_.presentationElapsedSeconds =
+                battle::app::ui::battleResultSettleStartSeconds(resultOverlay_) +
+                battle::app::ui::kBattleResultSettleDurationSeconds +
+                0.01f;
+            if (elapsedSeconds < kLyooComebackFailedHoldSeconds) {
+                return;
+            }
+
+            if (!playResolvedOneShot(gPresentationSfxAudio, kBattleResultDefeatReverseSfxPath, 0.9f, false)) {
+                (void)playResolvedOneShot(gPresentationSfxAudio, kBattleResultDefeatRevealSfxPath, 0.9f, false);
+            }
+            lyooComeback_.reversalStage = LyooComebackState::ReversalStage::FailedReverse;
+            lyooComeback_.reversalStageStartedMs = nowMs;
+            resultOverlay_.forcedVisibleLetterCount = -1;
+            resultOverlay_.reverseReveal = true;
+            resultOverlay_.reverseAnimatingLetterElapsedSeconds = 0.0f;
+            return;
+        }
+
+        if (lyooComeback_.reversalStage == LyooComebackState::ReversalStage::FailedReverse) {
+            const float reverseDurationSeconds = battle::app::ui::battleResultRevealImpactSeconds(resultOverlay_);
+            resultOverlay_.reverseAnimatingLetterElapsedSeconds =
+                std::min(elapsedSeconds, reverseDurationSeconds);
+            resultOverlay_.presentationElapsedSeconds =
+                battle::app::ui::battleResultSettleStartSeconds(resultOverlay_) +
+                battle::app::ui::kBattleResultSettleDurationSeconds +
+                0.01f;
+            if (elapsedSeconds < reverseDurationSeconds) {
+                return;
+            }
+
+            lyooComeback_.reversalStage = LyooComebackState::ReversalStage::WhiteBlank;
+            lyooComeback_.reversalStageStartedMs = nowMs;
+            showLyooComebackResultOverlay(
+                "",
+                battle::app::ui::BattleResultOverlayOutcome::Victory,
+                nowMs,
+                true);
+            resultOverlay_.plainWordText.clear();
+            resultOverlay_.plainWordOpacity = 0.0f;
+            return;
+        }
+
+        if (lyooComeback_.reversalStage == LyooComebackState::ReversalStage::WhiteBlank) {
+            resultOverlay_.plainWordText.clear();
+            resultOverlay_.plainWordOpacity = 0.0f;
+            resultOverlay_.dimOpacityOverride = -1.0f;
+            if (elapsedSeconds < kLyooComebackWhiteBlankSeconds) {
+                return;
+            }
+
+            lyooComeback_.reversalStage = LyooComebackState::ReversalStage::WhiteFadeIn;
+            lyooComeback_.reversalStageStartedMs = nowMs;
+            resultOverlay_.plainWordText = "HOLD ONTO YOUR DREAMS";
+            resultOverlay_.plainWordOpacity = 0.0f;
+            return;
+        }
+
+        if (lyooComeback_.reversalStage == LyooComebackState::ReversalStage::WhiteFadeIn) {
+            resultOverlay_.plainWordText = "HOLD ONTO YOUR DREAMS";
+            resultOverlay_.plainWordOpacity = std::clamp(
+                elapsedSeconds / kLyooComebackWhiteFadeSeconds,
+                0.0f,
+                1.0f);
+            resultOverlay_.dimOpacityOverride = -1.0f;
+            if (resultOverlay_.plainWordOpacity < 1.0f) {
+                return;
+            }
+
+            lyooComeback_.reversalStage = LyooComebackState::ReversalStage::WhiteHold;
+            lyooComeback_.reversalStageStartedMs = nowMs;
+            resultOverlay_.plainWordOpacity = 1.0f;
+            return;
+        }
+
+        if (lyooComeback_.reversalStage == LyooComebackState::ReversalStage::WhiteHold) {
+            resultOverlay_.plainWordText = "HOLD ONTO YOUR DREAMS";
+            resultOverlay_.plainWordOpacity = 1.0f;
+            resultOverlay_.dimOpacityOverride = 1.0f;
+            if (elapsedSeconds < kLyooComebackWhiteMessageHoldSeconds) {
+                return;
+            }
+
+            lyooComeback_.reversalStage = LyooComebackState::ReversalStage::WhiteFadeOut;
+            lyooComeback_.reversalStageStartedMs = nowMs;
+            return;
+        }
+
+        const float fadeProgress = std::clamp(
+            elapsedSeconds / kLyooComebackWhiteFadeOutSeconds,
+            0.0f,
+            1.0f);
+        resultOverlay_.plainWordText = "HOLD ONTO YOUR DREAMS";
+        resultOverlay_.plainWordOpacity = 1.0f - fadeProgress;
+        resultOverlay_.dimOpacityOverride = 1.0f - fadeProgress;
+        if (fadeProgress < 1.0f) {
+            return;
+        }
+
+        lyooComeback_.defeatReversalActive = false;
+        lyooComeback_.reversalStage = LyooComebackState::ReversalStage::None;
+        resultOverlay_ = BattleResultOverlayState{};
+        if (!activateLyooComebackBattle()) {
+            finished_ = true;
+            return;
+        }
+        advanceLyooPhase3SequenceLine();
+    }
+
+    bool maybeResolveLyooDreamRescue(Uint64 nowMs) {
+        if (!lyooComeback_.comebackModeActive ||
+            !lyooComeback_.pendingRescue ||
+            lyooComeback_.rescueRunning ||
+            lyooComeback_.youngLyooPartyIndex < 0 ||
+            presentationPlaybackActive_ ||
+            isDialogueInProgress() ||
+            resultOverlay_.active) {
+            return false;
+        }
+
+        lyooComeback_.pendingRescue = false;
+        lyooComeback_.rescueRunning = true;
+        startAutoActionIndicator(manager_.resolveCharacterAssetId(lyooComeback_.youngLyooPartyIndex),
+                                 "DREAM RESCUE",
+                                 false,
+                                 nowMs);
+
+        battle::PresentationContext context;
+        context.abilityId = "DreamRescue";
+        context.abilityName = "Dream Rescue";
+        context.presentationId = "i_want_it_i_got_it";
+        context.casterIndex = lyooComeback_.youngLyooPartyIndex;
+        context.isUltimate = false;
+        context.suppressPrompt = true;
+        context.suppressHint = true;
+        (void)runPresentationInteraction(context);
+        (void)manager_.applyDreamRescue(
+            lyooComeback_.youngLyooPartyIndex,
+            500,
+            "DreamRescue",
+            findPartyIndexByKey("miku"));
+        manager_.clearForcedOutcome();
+        syncBattlePresentationState();
+        lyooComeback_.rescueRunning = false;
+        return true;
+    }
+
     void finishLyooPhase3Sequence() {
         lyooPhase3Sequence_.active = false;
         lyooPhase3Sequence_.showingLine = false;
@@ -5035,8 +5355,9 @@ private:
         (void)presentNextLyooPhase3Entry();
     }
 
-    void applyLyooPhase3ScriptedAction(const std::string& actionId) {
+    bool applyLyooPhase3ScriptedAction(const std::string& actionId) {
         if (actionId == "lyoo_phase3_attack") {
+            manager_.setBossRuntimeAttackBonusPercent(kLyooComebackWipeAtkBonusPercent);
             battle::PresentationContext context;
             context.abilityId = "IfICantHaveWingsThenIllJustLetTheSkyFall";
             context.presentationId = "lyoo_phase3_wipe";
@@ -5045,8 +5366,17 @@ private:
             context.suppressHint = true;
             context.suppressBossWarning = true;
             (void)runPresentationInteraction(context);
-            reviveEntirePartyToFull();
-            return;
+            const battle::BattleState& battleState = manager_.getBattleState();
+            for (size_t i = 0; i < battleState.party.size(); ++i) {
+                (void)manager_.setCharacterTutorialVitals(
+                    static_cast<int>(i),
+                    0,
+                    0,
+                    manager_.getCharacterUltimateCharge(static_cast<int>(i)));
+            }
+            syncBattlePresentationState();
+            startLyooComebackDefeatReversal(SDL_GetTicks64());
+            return false;
         }
 
         if (actionId == "miku_phase3_finisher") {
@@ -5070,7 +5400,10 @@ private:
                 true,
                 mikuPartyIndex
             );
+            return true;
         }
+
+        return true;
     }
 
     bool presentNextLyooPhase3Entry() {
@@ -5090,8 +5423,11 @@ private:
                 if (line.clearBackground) {
                     vn::setBackground("");
                 }
-                applyLyooPhase3ScriptedAction(line.scriptedAction);
+                const bool continueSequence = applyLyooPhase3ScriptedAction(line.scriptedAction);
                 lyooPhase3Sequence_.runningScriptedAction = false;
+                if (!continueSequence) {
+                    return true;
+                }
                 ++lyooPhase3Sequence_.currentLineIndex;
                 continue;
             }
@@ -5112,6 +5448,7 @@ private:
         }
 
         lyooPhase3Sequence_.phase3Triggered = true;
+        lyooComeback_ = LyooComebackState{};
         lyooPhase3Sequence_.active = true;
         lyooPhase3Sequence_.showingLine = false;
         lyooPhase3Sequence_.runningScriptedAction = false;
@@ -5322,10 +5659,16 @@ private:
 
                 if (hpAfter < hpBefore) {
                     if (event.hitVoicesHandledDuringPresentation) {
+                        if (lyooComeback_.comebackModeActive && hpBefore > 0 && hpAfter <= 0) {
+                            lyooComeback_.pendingRescue = true;
+                        }
                         continue;
                     }
 
                     markUnitHit(hudFeedback_, partyIndex, nowMs);
+                    if (lyooComeback_.comebackModeActive && hpBefore > 0 && hpAfter <= 0) {
+                        lyooComeback_.pendingRescue = true;
+                    }
                     if (hpBefore > 0 && hpAfter <= 0) {
                         if (!playPartyVoiceClip(partyIndex, game::audio::BattleVoiceKind::Dead, voiceVolume, {"dead"})) {
                             (void)lockPartySpeakerState(partyIndex, game::audio::BattleVoiceKind::Dead);
@@ -6023,10 +6366,21 @@ private:
         }
 
         const battle::CombatJudgement judgement = battle::classifyCombatJudgement(feedback.signal);
-        const std::string rewardText = resolvePresentationRewardText(context, abilityDef, feedback);
+        std::string rewardText = resolvePresentationRewardText(context, abilityDef, feedback);
         manager_.applyPresentationFeedback(context.isBoss, feedback);
+        const bool dreamyJudgement =
+            lyooComeback_.comebackModeActive &&
+            judgement != battle::CombatJudgement::Flop;
+        if (dreamyJudgement) {
+            manager_.addComboCount(98);
+            rewardText = "+99 COMBO";
+        }
         syncHudFeedbackState(hudFeedback_, manager_);
-        showJudgement(hudFeedback_, judgement, rewardText, SDL_GetTicks64());
+        if (dreamyJudgement) {
+            showCustomJudgement(hudFeedback_, "DREAMY", "dreamy", rewardText, SDL_GetTicks64());
+        } else {
+            showJudgement(hudFeedback_, judgement, rewardText, SDL_GetTicks64());
+        }
         playJudgementSfx(judgement);
     }
 
@@ -6898,6 +7252,32 @@ private:
         return true;
     }
 
+    void syncBattlePresentationState(bool resetHudAnimation = true) {
+        feedback_.syncFromManager(manager_, presentationPlaybackActive_);
+        syncHudFeedbackState(hudFeedback_, manager_);
+        if (resetHudAnimation) {
+            resetHudAnimationState(hudAnimationState_, manager_);
+        }
+        updateSceneEntities(0.0f, false, -1);
+        syncHudDocument(SDL_GetTicks64());
+    }
+
+    bool addRuntimePartyMemberToScene(const std::string& characterKey) {
+        if (!manager_.appendRuntimePartyMember(characterKey)) {
+            return false;
+        }
+
+        const int partyIndex = static_cast<int>(manager_.getBattleState().party.size()) - 1;
+        const std::string assetId = manager_.resolveCharacterAssetId(partyIndex);
+        if (!assetId.empty() && !ensureWorldAssetAvailable(assetId)) {
+            return false;
+        }
+
+        initializeWorldEntities();
+        syncBattlePresentationState();
+        return true;
+    }
+
     void initializeWorldEntities() {
         const battle::BattleState& state = manager_.getBattleState();
 
@@ -7111,12 +7491,15 @@ private:
         resultOverlay_.outcome = outcome == BattleOutcome::Victory
             ? BattleResultOverlayOutcome::Victory
             : BattleResultOverlayOutcome::Defeat;
+        resultOverlay_.hideButton = false;
+        resultOverlay_.whiteout = false;
         resultOverlay_.action =
             outcome == BattleOutcome::Defeat &&
             resultPresentationConfig_.defeatAction == BattleDefeatResultAction::RestartStory
                 ? BattleResultOverlayAction::RestartStory
                 : BattleResultOverlayAction::Continue;
         resultOverlay_.word = outcome == BattleOutcome::Victory ? "VICTORY" : "FAILED";
+        resultOverlay_.kickerText = "BATTLE RESOLVED";
         resultOverlay_.buttonLabel =
             resultOverlay_.action == BattleResultOverlayAction::RestartStory ? "RESTART STORY" : "CONTINUE";
         if (outcome == BattleOutcome::Victory) {
@@ -7152,7 +7535,7 @@ private:
 
         const float elapsedSeconds = battle::app::ui::battleResultElapsedSeconds(resultOverlay_);
         const int visibleLetters = battle::app::ui::battleResultVisibleLetterCount(resultOverlay_);
-        while (resultOverlay_.nextLetterSfxIndex < visibleLetters) {
+        while (!resultOverlay_.reverseReveal && resultOverlay_.nextLetterSfxIndex < visibleLetters) {
             const std::size_t soundIndex =
                 static_cast<std::size_t>(resultOverlay_.nextLetterSfxIndex) % kBattleResultLetterSfxPaths.size();
             (void)playResolvedOneShot(
@@ -7164,7 +7547,9 @@ private:
         }
 
         const float revealSeconds = battle::app::ui::battleResultRevealImpactSeconds(resultOverlay_);
-        if (!resultOverlay_.revealSfxPlayed && elapsedSeconds >= revealSeconds) {
+        if (!resultOverlay_.whiteout &&
+            !resultOverlay_.revealSfxPlayed &&
+            elapsedSeconds >= revealSeconds) {
             const char* revealPath = resultOverlay_.outcome == BattleResultOverlayOutcome::Victory
                 ? kBattleResultVictoryRevealSfxPath
                 : kBattleResultDefeatRevealSfxPath;
@@ -7174,12 +7559,15 @@ private:
 
         if (!resultOverlay_.applausePlayed &&
             resultOverlay_.outcome == BattleResultOverlayOutcome::Victory &&
+            !resultOverlay_.hideButton &&
             elapsedSeconds >= revealSeconds) {
             (void)playResolvedOneShot(gPresentationSfxAudio, kBattleResultVictoryApplauseSfxPath, 0.82f, false);
             resultOverlay_.applausePlayed = true;
         }
 
-        if (!resultOverlay_.inputEnabled && elapsedSeconds >= battleResultButtonInteractiveTimeSeconds()) {
+        if (!resultOverlay_.hideButton &&
+            !resultOverlay_.inputEnabled &&
+            elapsedSeconds >= battleResultButtonInteractiveTimeSeconds()) {
             resultOverlay_.inputEnabled = true;
         }
     }
@@ -7191,7 +7579,10 @@ private:
      * this function triggers the configured hover SFX; otherwise it has no effect.
      */
     void handleBattleResultButtonHover() {
-        if (!resultOverlay_.active || !resultOverlay_.inputEnabled || resultOverlay_.acknowledged) {
+        if (!resultOverlay_.active ||
+            resultOverlay_.hideButton ||
+            !resultOverlay_.inputEnabled ||
+            resultOverlay_.acknowledged) {
             return;
         }
 
@@ -7206,7 +7597,10 @@ private:
      * and marks the session as finished.
      */
     void confirmBattleResultOverlay() {
-        if (!resultOverlay_.active || !resultOverlay_.inputEnabled || resultOverlay_.acknowledged) {
+        if (!resultOverlay_.active ||
+            resultOverlay_.hideButton ||
+            !resultOverlay_.inputEnabled ||
+            resultOverlay_.acknowledged) {
             return;
         }
 
@@ -8100,6 +8494,7 @@ private:
     battle::postbattle::Summary postBattleSummaryCache_{};
     battle::demo::DemoNarrativeFlow narrative_;
     ScriptedBattleSequenceState lyooPhase3Sequence_;
+    LyooComebackState lyooComeback_;
     TutorialScriptLibrary tutorialLibrary_;
     TutorialPromptLibrary tutorialPromptLibrary_;
     ScriptedTutorialState scriptedTutorial_;

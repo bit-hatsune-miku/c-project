@@ -236,12 +236,21 @@ struct BattleResultOverlayState {
     bool acknowledged = false;
     bool revealSfxPlayed = false;
     bool applausePlayed = false;
+    bool hideButton = false;
+    bool whiteout = false;
+    bool reverseReveal = false;
     int nextLetterSfxIndex = 0;
+    int forcedVisibleLetterCount = -1;
+    float reverseAnimatingLetterElapsedSeconds = 0.0f;
+    float dimOpacityOverride = -1.0f;
     BattleResultOverlayOutcome outcome = BattleResultOverlayOutcome::None;
     BattleResultOverlayAction action = BattleResultOverlayAction::Continue;
     Uint64 startedMs = 0;
     float presentationElapsedSeconds = 0.0f;
     std::string word;
+    std::string plainWordText;
+    float plainWordOpacity = 1.0f;
+    std::string kickerText;
     std::string buttonLabel;
     std::string buttonSubcopy;
 };
@@ -272,6 +281,10 @@ inline constexpr float kBattleResultKickerDurationSeconds = 0.22f;
 inline constexpr float kBattleResultIntroDelaySeconds = 0.18f;
 inline constexpr float kBattleResultLetterIntervalSeconds = 0.068f;
 inline constexpr float kBattleResultLetterDurationSeconds = 0.52f;
+inline constexpr float kBattleResultWhiteoutIntroDelaySeconds = 2.00f;
+inline constexpr float kBattleResultWhiteoutLetterIntervalSeconds = 0.09f;
+inline constexpr float kBattleResultWhiteoutLetterDurationSeconds = 0.72f;
+inline constexpr float kBattleResultWhiteoutDimFadeDurationSeconds = 0.55f;
 inline constexpr float kBattleResultSettleDelaySeconds = 0.04f;
 inline constexpr float kBattleResultSettleDurationSeconds = 0.32f;
 inline constexpr float kBattleResultButtonDelaySeconds = 0.08f;
@@ -303,12 +316,24 @@ inline float battleResultElapsedSeconds(const BattleResultOverlayState& overlay)
     return std::max(overlay.presentationElapsedSeconds, 0.0f);
 }
 
+inline float battleResultIntroDelaySeconds(const BattleResultOverlayState& overlay) {
+    return overlay.whiteout ? kBattleResultWhiteoutIntroDelaySeconds : kBattleResultIntroDelaySeconds;
+}
+
+inline float battleResultLetterIntervalSeconds(const BattleResultOverlayState& overlay) {
+    return overlay.whiteout ? kBattleResultWhiteoutLetterIntervalSeconds : kBattleResultLetterIntervalSeconds;
+}
+
+inline float battleResultLetterDurationSeconds(const BattleResultOverlayState& overlay) {
+    return overlay.whiteout ? kBattleResultWhiteoutLetterDurationSeconds : kBattleResultLetterDurationSeconds;
+}
+
 inline float battleResultRevealImpactSeconds(const BattleResultOverlayState& overlay) {
     const float visibleLetters =
         static_cast<float>(std::max<std::size_t>(battleResultVisibleGlyphCount(overlay.word), 1));
-    return kBattleResultIntroDelaySeconds +
-        ((visibleLetters - 1.0f) * kBattleResultLetterIntervalSeconds) +
-        kBattleResultLetterDurationSeconds;
+    return battleResultIntroDelaySeconds(overlay) +
+        ((visibleLetters - 1.0f) * battleResultLetterIntervalSeconds(overlay)) +
+        battleResultLetterDurationSeconds(overlay);
 }
 
 inline float battleResultSettleStartSeconds(const BattleResultOverlayState& overlay) {
@@ -331,14 +356,30 @@ inline int battleResultVisibleLetterCount(const BattleResultOverlayState& overla
         return 0;
     }
 
+    if (overlay.forcedVisibleLetterCount >= 0) {
+        return std::clamp(overlay.forcedVisibleLetterCount, 0, totalLetters);
+    }
+
     const float elapsedSeconds = battleResultElapsedSeconds(overlay);
-    const float revealElapsedSeconds = elapsedSeconds - kBattleResultIntroDelaySeconds;
+    if (overlay.reverseReveal) {
+        const int hiddenLetters =
+            static_cast<int>(std::floor(elapsedSeconds / battleResultLetterIntervalSeconds(overlay)));
+        return std::clamp(totalLetters - hiddenLetters, 1, totalLetters);
+    }
+
+    const float revealElapsedSeconds = elapsedSeconds - battleResultIntroDelaySeconds(overlay);
     if (revealElapsedSeconds < 0.0f) {
         return 0;
     }
 
-    const int visibleLetters = static_cast<int>(std::floor(revealElapsedSeconds / kBattleResultLetterIntervalSeconds)) + 1;
+    const int visibleLetters = static_cast<int>(
+        std::floor(revealElapsedSeconds / battleResultLetterIntervalSeconds(overlay))) + 1;
     return std::clamp(visibleLetters, 0, totalLetters);
+}
+
+inline float battleResultReverseCompletionSeconds(const BattleResultOverlayState& overlay) {
+    const int totalLetters = static_cast<int>(battleResultVisibleGlyphCount(overlay.word));
+    return std::max(0, totalLetters - 1) * battleResultLetterIntervalSeconds(overlay);
 }
 
 inline float battleVsIntroElapsedSeconds(const BattleVsIntroOverlayState& overlay) {

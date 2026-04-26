@@ -339,6 +339,12 @@
         "atk": 0,
         "spd": 0
       },
+      "specialRules": {
+        "forceSequentialBossPhases": true
+      },
+      "lockedLineup": [
+        "miku"
+      ],
       "lineup": [
         "miku",
         "cupcakke",

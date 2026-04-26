@@ -427,7 +427,9 @@ int resolveBattlePartySize(const json& battleJson, const BattleDefinition& battl
         return std::max(1, static_cast<int>(merged.size()));
     }
     if (!battle.lockedLineup.empty()) {
-        return std::max(1, static_cast<int>(battle.lockedLineup.size()));
+        // Locked lineup members are required participants, not the full team cap.
+        // Keep the default open-party size unless the number of required members exceeds it.
+        return std::max(4, static_cast<int>(battle.lockedLineup.size()));
     }
 
     return 4;
@@ -514,6 +516,8 @@ bool fillBattleDefinitionFromJson(const std::string& battleKey,
             specialRulesJson.value("revivePartyToFull", false);
         battle.specialRules.bossSelfKnockoutIsDefeat =
             specialRulesJson.value("bossSelfKnockoutIsDefeat", false);
+        battle.specialRules.forceSequentialBossPhases =
+            specialRulesJson.value("forceSequentialBossPhases", false);
         battle.specialRules.practiceBossHpFloor =
             std::max(0, specialRulesJson.value("practiceBossHpFloor", 0));
     }

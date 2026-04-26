@@ -345,6 +345,10 @@ body {
     font-effect: outline(2dp #6a1621), shadow(0 10dp rgba(106, 22, 33, 132));
 }
 
+.battle-judgement.dreamy .battle-judgement-letter {
+    font-effect: outline(2dp #4e2b6b), shadow(0 12dp rgba(135, 92, 215, 142));
+}
+
 .battle-judgement.perfect .battle-judgement-reward {
     font-effect: outline(1dp #541237);
 }
@@ -359,6 +363,11 @@ body {
 
 .battle-judgement.flop .battle-judgement-reward {
     font-effect: outline(1dp #6a1621);
+}
+
+.battle-judgement.dreamy .battle-judgement-reward {
+    color: rgba(255, 244, 252, 238);
+    font-effect: outline(1dp #4e2b6b), shadow(0 8dp rgba(135, 92, 215, 120));
 }
 
 @keyframes active-turn-bounce {
@@ -1697,6 +1706,22 @@ body {
     white-space: nowrap;
 }
 
+.battle-result-plain-word {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 224dp;
+    font-size: 92dp;
+    line-height: 1.08;
+    font-weight: bold;
+    text-align: center;
+    letter-spacing: 4dp;
+    color: rgba(28, 22, 36, 238);
+    font-effect: outline(3dp rgba(255, 255, 255, 210)), shadow(0 10dp rgba(0, 0, 0, 18));
+    opacity: 0;
+    transform: translateY(6dp) scale(0.98);
+}
+
 .battle-result-letter {
     display: inline-block;
     margin-left: 10dp;
@@ -1718,6 +1743,30 @@ body {
 
 .battle-result.defeat .battle-result-letter {
     font-effect: outline(4dp #6a1621), shadow(0 16dp rgba(106, 22, 33, 146));
+}
+
+.battle-result.whiteout .battle-result-dim {
+    background-color: rgba(255, 255, 255, 255);
+}
+
+.battle-result.whiteout .battle-result-kicker {
+    color: rgba(38, 30, 45, 118);
+}
+
+.battle-result.whiteout .battle-result-letter {
+    font-size: 92dp;
+    line-height: 102dp;
+    color: rgba(28, 22, 36, 238);
+    font-effect: outline(3dp rgba(255, 255, 255, 210)), shadow(0 10dp rgba(0, 0, 0, 18));
+}
+
+.battle-result.whiteout .battle-result-word-shell {
+    top: 212dp;
+    height: 116dp;
+}
+
+.battle-result.whiteout .battle-result-word {
+    display: inline-block;
 }
 
 .battle-result-button {

@@ -325,6 +325,7 @@
                     <div class="battle-result-word-shell" id="battle-result-word-shell">
                         <div class="battle-result-word" id="battle-result-word"></div>
                     </div>
+                    <div class="battle-result-plain-word" id="battle-result-plain-word"></div>
                     <button class="battle-result-button" id="battle-result-button">
                         <div class="battle-result-button-stage" id="battle-result-button-stage">
                             <div class="battle-result-button-shell"></div>

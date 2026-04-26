@@ -9,7 +9,7 @@
       "text": "I know now!",
       "type": "dialogue",
       "voice": "assets/vn/voices/finale_phase3/1.opus",
-      "icon": "assets/combat/icons/miku.png",
+      "icon": "assets/combat/icons/lyoo.png",
       "battleFocus": "miku"
     },
     {
@@ -140,18 +140,41 @@
       "clearBackground": true
     },
     {
+      "speaker": "Young Lyoo",
+      "voiceSpeakerId": "youngLyoo",
+      "text": "I'll help you!",
+      "type": "dialogue",
+      "voice": "assets/vn/voices/finale_phase3/14.opus",
+      "icon": "assets/combat/icons/lyoo.png",
+      "battleFocus": "youngLyoo"
+    },
+    {
       "speaker": "Miku",
       "voiceSpeakerId": "miku",
-      "text": "He's vulnerable, now!",
+      "text": "You're... the part of him that still believed.",
+      "type": "dialogue",
+      "voice": "assets/vn/voices/finale_phase3/15.opus",
+      "icon": "assets/combat/icons/miku.png",
+      "battleFocus": "miku"
+    },
+    {
+      "speaker": "Cupcakke",
+      "voiceSpeakerId": "cupcakke",
+      "text": "Then let's stop the part that gave up.",
+      "type": "dialogue",
+      "voice": "assets/vn/voices/finale_phase3/16.opus",
+      "icon": "assets/combat/icons/cupcakke.png",
+      "battleFocus": "cupcakke"
+    },
+    {
+      "speaker": "Miku",
+      "voiceSpeakerId": "miku",
+      "text": "For every dream he tried to bury.",
       "type": "dialogue",
       "voice": "assets/vn/voices/finale_phase3/17.opus",
       "autoAdvanceOnVoiceEnd": true,
       "icon": "assets/combat/icons/miku.png",
       "battleFocus": "miku"
-    },
-    {
-      "type": "dialogue",
-      "scriptedAction": "miku_phase3_finisher"
     }
   ]
 }

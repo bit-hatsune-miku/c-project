@@ -12,6 +12,7 @@
 #include "combat_feedback.h"
 #include "player_progression.h"
 #include "presentation_tuning_profile.h"
+#include "synergy_pairs.h"
 
 namespace battle {
 
@@ -83,6 +84,7 @@ struct BattleSpecialRules {
     bool autoRevivePartyOnBossDamage = false;
     bool revivePartyToFull = false;
     bool bossSelfKnockoutIsDefeat = false;
+    bool forceSequentialBossPhases = false;
     int practiceBossHpFloor = 0;
 };
 
@@ -593,6 +595,8 @@ public:
     float getCharacterDamageBuffMultiplier(int partyIndex) const;
     bool isCharacterAlive(int partyIndex) const;
     bool reviveCharacter(int partyIndex, int amount);
+    bool appendRuntimePartyMember(const std::string& characterKey,
+                                  const PlayerProgression& progression = {});
     ManualUltimateRequestResult previewManualUltimateTurnRequest(int partyIndex) const;
     ManualUltimateRequestResult requestManualUltimateTurn(int partyIndex);
     int getCharacterUltimateCharge(int partyIndex) const;
@@ -647,6 +651,16 @@ public:
                                            int sourcePartyIndex = -1);
     int getTetoHealingTally() const;
     int consumeTetoHealingTally();
+    void addComboCount(int amount);
+    void setBossRuntimeState(int maxHp,
+                             int currentHp,
+                             int phaseIndex,
+                             bool suppressPhaseTransitions);
+    void setBossRuntimeAttackBonusPercent(int atkBonusPercent);
+    bool applyDreamRescue(int sourcePartyIndex,
+                          int damageBuffPercent,
+                          const std::string& buffAbilityId,
+                          int actionAdvanceTargetPartyIndex);
     bool consumePresentationHitDamageApplied();
     bool consumePresentationHealingApplied();
     void markPresentationAbilityAudioPlayed();
@@ -693,6 +707,14 @@ private:
         int atkPercent = 0;
         int damageTakenPercent = 0;
         int bossTurnsRemaining = 0;
+    };
+
+    struct ActiveSynergyPair {
+        std::string key;
+        std::string combinedUltimateAbilityId;
+        int firstPartyIndex = -1;
+        int secondPartyIndex = -1;
+        int designatedCasterPartyIndex = -1;
     };
 
     bool buildInitialTurnState();
@@ -812,6 +834,11 @@ private:
     void tickPomPomBuffsForTurnStart(int partyIndex, bool isExtraTurn);
     void removePomPomBuffsFromDefeatedCharacters();
     int pomPomDamageBuffTotalForTarget(int targetPartyIndex) const;
+    void refreshActiveSynergyPairs();
+    const ActiveSynergyPair* findActiveSynergyPairByPartyIndex(int partyIndex) const;
+    int synergyPartnerPartyIndex(const ActiveSynergyPair& pair, int partyIndex) const;
+    bool canUseSynergyUltimate(const ActiveSynergyPair& pair) const;
+    void mirrorSynergyUltimateGain(int sourcePartyIndex, int amount);
 
     BattleState state_;
     BattleDefinition battleDefinition_{};
@@ -832,10 +859,13 @@ private:
     bool presentationAbilityAudioPlayed_ = false;
     bool presentationHitAudioPlayed_ = false;
     std::optional<BattleResolvedOutcome> forcedOutcome_;
+    bool bossPhaseTransitionsSuppressed_ = false;
     int luotianyiCorrectTones_ = 0;
     BattleComboState comboState_{};
     std::vector<ActivePartyBuff> activePartyBuffs_;
     std::vector<ActiveBossDebuff> activeBossDebuffs_;
+    std::vector<SynergyPairDefinition> synergyPairDefinitions_;
+    std::vector<ActiveSynergyPair> activeSynergyPairs_;
     std::vector<std::string> activeCharacterAbilityKits_;
     std::unordered_map<std::string, int> bossAbilityUseCounts_;
     int nextManualUltimatePriority_ = 1000;

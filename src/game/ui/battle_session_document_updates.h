@@ -275,7 +275,8 @@ inline bool useCompactPartyRackLayout(const battle::BattleDefinition& battleDefi
 }
 
 inline bool shouldShowManualUltimateHotkeyBadges(const battle::BattleDefinition& battleDefinition) {
-    return battleDefinition.key == "miku_plot_twist";
+    return battleDefinition.key == "miku_plot_twist" ||
+           battleDefinition.key == "lyoo_plot_twist";
 }
 
 inline std::string manualUltimateHotkeyBadgeLabel(std::size_t partyIndex) {
@@ -1397,6 +1398,14 @@ inline const JudgementPalette& judgementPalette(const std::string& judgementClas
         {106, 22, 33},
         {255, 193, 197}
     };
+    static const JudgementPalette dreamy{
+        {76, 47, 110},
+        {255, 242, 251},
+        {255, 248, 253},
+        {255, 252, 254},
+        {78, 43, 107},
+        {255, 220, 246}
+    };
 
     if (judgementClassName == "perfect") {
         return perfect;
@@ -1406,6 +1415,9 @@ inline const JudgementPalette& judgementPalette(const std::string& judgementClas
     }
     if (judgementClassName == "okay") {
         return okay;
+    }
+    if (judgementClassName == "dreamy") {
+        return dreamy;
     }
     return flop;
 }
@@ -1475,7 +1487,32 @@ inline std::string judgementMarkup(const HudFeedbackState& feedback, Uint64 nowM
         }
 
         markup += "<span class=\"battle-judgement-letter\" style=\"";
-        markup += judgementLetterStyle(palette, letterElapsedSeconds);
+        if (feedback.judgementClassName == "dreamy") {
+            static constexpr std::array<JudgementColor, 6> kDreamyColors{{
+                {255, 96, 141},
+                {255, 170, 84},
+                {255, 230, 92},
+                {119, 239, 149},
+                {104, 198, 255},
+                {199, 132, 255}
+            }};
+            std::string style = judgementLetterStyle(palette, letterElapsedSeconds);
+            const std::string needle = "color: ";
+            const std::size_t colorStart = style.find(needle);
+            if (colorStart != std::string::npos) {
+                const std::size_t valueStart = colorStart + needle.size();
+                const std::size_t valueEnd = style.find(';', valueStart);
+                if (valueEnd != std::string::npos) {
+                    style.replace(
+                        valueStart,
+                        valueEnd - valueStart,
+                        rgbaText(kDreamyColors[static_cast<std::size_t>(visibleLetterIndex) % kDreamyColors.size()], 1.0f));
+                }
+            }
+            markup += style;
+        } else {
+            markup += judgementLetterStyle(palette, letterElapsedSeconds);
+        }
         markup += "\">";
         markup.push_back(glyph);
         markup += "</span>";
@@ -1931,8 +1968,42 @@ inline const JudgementPalette& battleResultPalette(BattleResultOverlayOutcome ou
     return outcome == BattleResultOverlayOutcome::Victory ? victory : defeat;
 }
 
-inline std::string battleResultLetterStyle(const JudgementPalette& palette, float elapsedSeconds) {
-    const float progress = std::clamp(elapsedSeconds / kBattleResultLetterDurationSeconds, 0.0f, 1.0f);
+inline const JudgementPalette& battleResultWhiteoutPalette() {
+    static const JudgementPalette whiteout{
+        {120, 120, 120},
+        {32, 28, 38},
+        {28, 24, 34},
+        {24, 21, 31},
+        {148, 148, 148},
+        {24, 21, 31}
+    };
+    return whiteout;
+}
+
+inline std::string battleResultLetterStyle(const JudgementPalette& palette,
+                                           float elapsedSeconds,
+                                           bool whiteoutMode) {
+    const float durationSeconds = whiteoutMode
+        ? kBattleResultWhiteoutLetterDurationSeconds
+        : kBattleResultLetterDurationSeconds;
+    const float progress = std::clamp(elapsedSeconds / durationSeconds, 0.0f, 1.0f);
+
+    if (whiteoutMode) {
+        const float t = easeOutCubic(progress);
+        const float opacity = t;
+        const float translateYDp = lerpValue(10.0f, 0.0f, t);
+        const float scale = lerpValue(0.965f, 1.0f, t);
+        std::string style = "opacity: ";
+        style += decimalText(opacity);
+        style += "; transform: translateY(";
+        style += decimalText(translateYDp);
+        style += "dp) scale(";
+        style += decimalText(scale);
+        style += "); color: ";
+        style += rgbaText(palette.final, 1.0f);
+        style += ";";
+        return style;
+    }
 
     float opacity = 1.0f;
     float translateYDp = 0.0f;
@@ -1971,8 +2042,16 @@ inline std::string battleResultLetterStyle(const JudgementPalette& palette, floa
     return style;
 }
 
-inline std::string battleResultHiddenLetterStyle(const JudgementPalette& palette) {
-    std::string style = "opacity: 0; transform: translateY(-154.000dp) scale(1.880); color: ";
+inline std::string battleResultHiddenLetterStyle(const JudgementPalette& palette, bool whiteoutMode) {
+    std::string style;
+    if (whiteoutMode) {
+        style = "opacity: 0; transform: translateY(10.000dp) scale(0.965); color: ";
+        style += rgbaText(palette.final, 1.0f);
+        style += ";";
+        return style;
+    }
+
+    style = "opacity: 0; transform: translateY(-154.000dp) scale(1.880); color: ";
     style += rgbaText(palette.dark, 1.0f);
     style += ";";
     return style;
@@ -1991,6 +2070,10 @@ inline std::string buildBattleResultWordMarkup(const BattleResultOverlayState& o
 
         markup += "<span class=\"battle-result-letter\" id=\"battle-result-letter-";
         markup += std::to_string(visibleLetterIndex);
+        markup += "\"";
+        if (visibleLetterIndex == 0) {
+            markup += " style=\"margin-left: 0dp;\"";
+        }
         markup += "\">";
         markup.push_back(glyph);
         markup += "</span>";
@@ -2022,9 +2105,12 @@ inline void updateBattleResultLetterElements(Rml::ElementDocument* document,
         return;
     }
 
-    const JudgementPalette& palette = battleResultPalette(overlay.outcome);
-    const std::string hiddenStyle = battleResultHiddenLetterStyle(palette);
+    const JudgementPalette& palette = overlay.whiteout
+        ? battleResultWhiteoutPalette()
+        : battleResultPalette(overlay.outcome);
+    const std::string hiddenStyle = battleResultHiddenLetterStyle(palette, overlay.whiteout);
     const float elapsedSeconds = battleResultElapsedSeconds(overlay);
+    const int visibleLetters = battleResultVisibleLetterCount(overlay);
     const int totalLetters = static_cast<int>(battleResultVisibleGlyphCount(overlay.word));
     for (int letterIndex = 0; letterIndex < totalLetters; ++letterIndex) {
         Rml::Element* letter = document->GetElementById("battle-result-letter-" + std::to_string(letterIndex));
@@ -2036,14 +2122,30 @@ inline void updateBattleResultLetterElements(Rml::ElementDocument* document,
             if (!overlay.active) {
                 return hiddenStyle;
             }
+            if (overlay.reverseReveal) {
+                const float reverseSourceElapsed = std::max(
+                    0.0f,
+                    battle::app::ui::battleResultRevealImpactSeconds(overlay) -
+                        overlay.reverseAnimatingLetterElapsedSeconds);
+                const float letterElapsedSeconds =
+                    reverseSourceElapsed - battleResultIntroDelaySeconds(overlay) -
+                    (static_cast<float>(letterIndex) * battleResultLetterIntervalSeconds(overlay));
+                if (letterElapsedSeconds < 0.0f) {
+                    return hiddenStyle;
+                }
+                return battleResultLetterStyle(palette, letterElapsedSeconds, overlay.whiteout);
+            }
+            if (letterIndex >= visibleLetters) {
+                return hiddenStyle;
+            }
 
             const float letterElapsedSeconds =
-                elapsedSeconds - kBattleResultIntroDelaySeconds -
-                (static_cast<float>(letterIndex) * kBattleResultLetterIntervalSeconds);
+                elapsedSeconds - battleResultIntroDelaySeconds(overlay) -
+                (static_cast<float>(letterIndex) * battleResultLetterIntervalSeconds(overlay));
             if (letterElapsedSeconds < 0.0f) {
                 return hiddenStyle;
             }
-            return battleResultLetterStyle(palette, letterElapsedSeconds);
+            return battleResultLetterStyle(palette, letterElapsedSeconds, overlay.whiteout);
         }();
 
         letter->SetAttribute("style", style);
@@ -2051,6 +2153,17 @@ inline void updateBattleResultLetterElements(Rml::ElementDocument* document,
 }
 
 inline float battleResultDimOpacity(const BattleResultOverlayState& overlay, Uint64 nowMs) {
+    if (overlay.dimOpacityOverride >= 0.0f) {
+        return std::clamp(overlay.dimOpacityOverride, 0.0f, 1.0f);
+    }
+    if (overlay.whiteout) {
+        (void)nowMs;
+        const float elapsedSeconds = battleResultElapsedSeconds(overlay);
+        return easeOutCubic(std::clamp(
+            elapsedSeconds / kBattleResultWhiteoutDimFadeDurationSeconds,
+            0.0f,
+            1.0f));
+    }
     (void)nowMs;
     const float elapsedSeconds = battleResultElapsedSeconds(overlay);
     return easeOutCubic(std::clamp(elapsedSeconds / kBattleResultDimFadeDurationSeconds, 0.0f, 1.0f));
@@ -2074,6 +2187,12 @@ inline std::string battleResultKickerTransform(const BattleResultOverlayState& o
 }
 
 inline std::string battleResultWordTransform(const BattleResultOverlayState& overlay, Uint64 nowMs) {
+    if (overlay.whiteout) {
+        return "translateY(0dp) scale(0.76)";
+    }
+    if (overlay.reverseReveal) {
+        return "translateY(-54.000dp) scale(0.760)";
+    }
     (void)nowMs;
     const float elapsedSeconds = battleResultElapsedSeconds(overlay);
     const float settleStartSeconds = battleResultSettleStartSeconds(overlay);
@@ -2111,8 +2230,10 @@ inline void applyBattleResultOverlayDocumentState(Rml::ElementDocument* document
     setElementClass(document, "battle-result", "active", active);
     setElementClass(document, "battle-result", "victory", overlay.outcome == BattleResultOverlayOutcome::Victory);
     setElementClass(document, "battle-result", "defeat", overlay.outcome == BattleResultOverlayOutcome::Defeat);
+    setElementClass(document, "battle-result", "whiteout", overlay.whiteout);
     setElementDisplay(document, "battle-result", active);
-    setElementText(document, "battle-result-kicker", active ? "BATTLE RESOLVED" : "");
+    setElementText(document, "battle-result-kicker", active ? overlay.kickerText : "");
+    setElementEscapedText(document, "battle-result-plain-word", active ? overlay.plainWordText : "");
     setElementText(document, "battle-result-button-label", active ? overlay.buttonLabel : "");
     setElementText(document, "battle-result-button-sub", active ? overlay.buttonSubcopy : "");
     ensureBattleResultWordDocument(document, overlay);
@@ -2120,12 +2241,24 @@ inline void applyBattleResultOverlayDocumentState(Rml::ElementDocument* document
 
     if (Rml::Element* wordShell = document->GetElementById("battle-result-word-shell")) {
         wordShell->SetProperty("transform", active ? battleResultWordTransform(overlay, nowMs) : "translateY(0dp) scale(1)");
+        wordShell->SetProperty("display", (!active || !overlay.plainWordText.empty()) ? "none" : "block");
     }
     if (Rml::Element* dim = document->GetElementById("battle-result-dim")) {
         dim->SetProperty("opacity", active ? decimalText(battleResultDimOpacity(overlay, nowMs)) : "0");
     }
+    if (Rml::Element* plainWord = document->GetElementById("battle-result-plain-word")) {
+        const bool showPlainWord = active && !overlay.plainWordText.empty();
+        plainWord->SetProperty("display", showPlainWord ? "block" : "none");
+        plainWord->SetProperty("opacity", showPlainWord ? decimalText(std::clamp(overlay.plainWordOpacity, 0.0f, 1.0f)) : "0");
+        plainWord->SetProperty(
+            "transform",
+            showPlainWord
+                ? ("translateY(" + decimalText(lerpValue(6.0f, 0.0f, std::clamp(overlay.plainWordOpacity, 0.0f, 1.0f))) +
+                   "dp) scale(" + decimalText(lerpValue(0.98f, 1.0f, std::clamp(overlay.plainWordOpacity, 0.0f, 1.0f))) + ")")
+                : "translateY(6dp) scale(0.98)");
+    }
     if (Rml::Element* kicker = document->GetElementById("battle-result-kicker")) {
-        if (!active) {
+        if (!active || overlay.kickerText.empty()) {
             kicker->SetProperty("opacity", "0");
             kicker->SetProperty("transform", "translateY(22dp) scale(0.96)");
         } else {
@@ -2134,7 +2267,7 @@ inline void applyBattleResultOverlayDocumentState(Rml::ElementDocument* document
         }
     }
     if (Rml::Element* buttonStage = document->GetElementById("battle-result-button-stage")) {
-        if (!active) {
+        if (!active || overlay.hideButton) {
             buttonStage->SetProperty("opacity", "0");
             buttonStage->SetProperty("transform", "translateY(42dp) scale(0.88)");
         } else {
@@ -2235,6 +2368,7 @@ inline void updateJudgementDocument(Rml::ElementDocument* document, const HudFee
     setElementClass(document, "battle-judgement", "good", feedback.judgementClassName == "good");
     setElementClass(document, "battle-judgement", "okay", feedback.judgementClassName == "okay");
     setElementClass(document, "battle-judgement", "flop", feedback.judgementClassName == "flop");
+    setElementClass(document, "battle-judgement", "dreamy", feedback.judgementClassName == "dreamy");
 
     if (Rml::Element* judgement = document->GetElementById("battle-judgement")) {
         if (!visible) {

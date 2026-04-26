@@ -52,6 +52,36 @@ namespace {
 
 constexpr float kActionValueEpsilon = 0.0001f;
 
+int bossPhaseIndexForHp(int bossMaxHp, int hp) {
+    if (bossMaxHp <= 0) {
+        return 0;
+    }
+
+    const long long hpScaled = static_cast<long long>(std::max(0, hp)) * 100LL;
+    const long long maxScaled = static_cast<long long>(bossMaxHp);
+    if (hpScaled <= maxScaled * 33LL) {
+        return 2;
+    }
+    if (hpScaled <= maxScaled * 66LL) {
+        return 1;
+    }
+    return 0;
+}
+
+int bossHpThresholdForPhase(int bossMaxHp, int phaseIndex) {
+    if (bossMaxHp <= 0) {
+        return 1;
+    }
+
+    if (phaseIndex >= 2) {
+        return std::max(1, static_cast<int>((static_cast<long long>(bossMaxHp) * 33LL) / 100LL));
+    }
+    if (phaseIndex == 1) {
+        return std::max(1, static_cast<int>((static_cast<long long>(bossMaxHp) * 66LL) / 100LL));
+    }
+    return bossMaxHp;
+}
+
 std::string getCharacterStandardAbilityId(const CharacterDefinition& definition) {
     if (!definition.standardAbility.empty()) {
         return definition.standardAbility;
@@ -168,6 +198,7 @@ TurnActor makePrimaryCharacterTurnActor(const BattleCharacter& character) {
     actor.partyIndex = character.partyIndex();
     actor.priority = 0;
     actor.isExtraTurn = false;
+    actor.autoExecute = definition.key == "youngLyoo";
     actor.spd = character.effectiveSpd();
     actor.baseActionValue = turn::actionValueFromSpeed(actor.spd);
     actor.currentActionValue = actor.baseActionValue;
@@ -371,11 +402,14 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     luotianyiCorrectTones_ = 0;
     comboState_ = BattleComboState{};
     forcedOutcome_.reset();
+    bossPhaseTransitionsSuppressed_ = false;
     currentActionOutgoingDamage_ = 0;
     pendingSplitAttackActorKey_.clear();
     tetoHealingTally_ = 0;
     pomPomState_ = PomPomState{};
     sailorVenusState_ = SailorVenusState{};
+    synergyPairDefinitions_.clear();
+    activeSynergyPairs_.clear();
 
     if (battleDefinition_.bossKey.empty()) {
         std::cerr << "[Battle] Missing boss key.\n";
@@ -420,6 +454,11 @@ bool BattleManager::initialize(const BattleDefinition& battleDefinition,
     if (!loader::loadAllAbilities(abilities_)) {
         std::cerr << "[Battle] Warning: Failed to load abilities.\n";
     }
+    if (!synergy::loadAllPairDefinitions(synergyPairDefinitions_)) {
+        std::cerr << "[Battle] Warning: Failed to load synergy pairs.\n";
+        synergyPairDefinitions_.clear();
+    }
+    refreshActiveSynergyPairs();
 
     registerAllPresentations();
 
@@ -663,6 +702,37 @@ bool BattleManager::reviveCharacter(int partyIndex, int amount) {
     return true;
 }
 
+bool BattleManager::appendRuntimePartyMember(const std::string& characterKey,
+                                             const PlayerProgression& progression) {
+    if (characterKey.empty()) {
+        return false;
+    }
+
+    CharacterDefinition character;
+    if (!loader::loadCharacterDefinition(characterKey, character)) {
+        return false;
+    }
+    applyCharacterProgressionBonuses(character, progression);
+
+    const int partyIndex = static_cast<int>(state_.party.size());
+    state_.party.push_back(character);
+    characters_.emplace_back(state_.party.back(), partyIndex);
+    activeCharacterAbilityKits_.push_back("");
+
+    if (character.key == "pompom") {
+        pomPomState_.partyIndex = partyIndex;
+    }
+    if (character.key == "sailorVenus") {
+        sailorVenusState_.partyIndex = partyIndex;
+    }
+
+    syncCharacterTurnParticipation(partyIndex);
+    syncCharacterUltimateTurn(partyIndex);
+    refreshTurnActorAssets(partyIndex);
+    refreshActiveSynergyPairs();
+    return true;
+}
+
 /**
  * @brief Determines whether a manual ultimate turn can be queued for the specified party member.
  *
@@ -683,6 +753,26 @@ ManualUltimateRequestResult BattleManager::previewManualUltimateTurnRequest(int 
     }
 
     const BattleCharacter& character = characters_[static_cast<size_t>(partyIndex)];
+    if (const ActiveSynergyPair* pair = findActiveSynergyPairByPartyIndex(partyIndex); pair != nullptr) {
+        if (!character.isAlive() || pair->designatedCasterPartyIndex < 0) {
+            return ManualUltimateRequestResult::Unavailable;
+        }
+
+        const BattleCharacter& designatedCaster =
+            characters_[static_cast<size_t>(pair->designatedCasterPartyIndex)];
+        if (!designatedCaster.isAlive() || pair->combinedUltimateAbilityId.empty()) {
+            return ManualUltimateRequestResult::Unavailable;
+        }
+
+        if (hasQueuedExtraTurn(pair->designatedCasterPartyIndex, BattleAction::Ultimate, false)) {
+            return ManualUltimateRequestResult::AlreadyQueued;
+        }
+
+        return canUseSynergyUltimate(*pair)
+            ? ManualUltimateRequestResult::Queued
+            : ManualUltimateRequestResult::MeterNotReady;
+    }
+
     if (!character.isAlive() ||
         resolveCharacterAbilityId(partyIndex, BattleAction::Ultimate).empty()) {
         return ManualUltimateRequestResult::Unavailable;
@@ -714,6 +804,11 @@ ManualUltimateRequestResult BattleManager::requestManualUltimateTurn(int partyIn
     const ManualUltimateRequestResult result = previewManualUltimateTurnRequest(partyIndex);
     if (result != ManualUltimateRequestResult::Queued) {
         return result;
+    }
+
+    if (const ActiveSynergyPair* pair = findActiveSynergyPairByPartyIndex(partyIndex); pair != nullptr) {
+        queueExtraTurnForCharacter(pair->designatedCasterPartyIndex);
+        return ManualUltimateRequestResult::Queued;
     }
 
     queueExtraTurnForCharacter(partyIndex);
@@ -1061,7 +1156,11 @@ bool BattleManager::applyResolvedTutorialAction(const TutorialResolvedAction& ac
     }
 
     if (action.action != BattleAction::Ultimate) {
+        const int ultimateChargeBefore = character.ultimateCharge();
         grantUltimatePointForAction(character, abilityDef, true);
+        mirrorSynergyUltimateGain(
+            character.partyIndex(),
+            character.ultimateCharge() - ultimateChargeBefore);
     }
 
     BattleActionEvent actionEvent;
@@ -1109,6 +1208,14 @@ bool BattleManager::applyResolvedTutorialAction(const TutorialResolvedAction& ac
         execContext.damageBuffMultiplier = character.damageBuffMultiplier();
         execContext.bossMaxHp = state_.boss.hp;
         executeAbilityEffect(execContext);
+    }
+
+    if (abilityDef->id == "DreamRescue") {
+        (void)applyDreamRescue(
+            character.partyIndex(),
+            500,
+            abilityDef->id,
+            findCharacterPartyIndexByKey("miku"));
     }
 
     actionEvent.bossHpAfter = bossCurrentHp_;
@@ -1171,6 +1278,18 @@ bool BattleManager::applyResolvedTutorialAction(const TutorialResolvedAction& ac
             abilityDef->bossDamageTakenBuff,
             abilityDef->bossTurnDuration
         );
+    }
+
+    if (action.action == BattleAction::Ultimate) {
+        if (const ActiveSynergyPair* pair = findActiveSynergyPairByPartyIndex(character.partyIndex());
+            pair != nullptr && pair->combinedUltimateAbilityId == abilityDef->id) {
+            const int partnerPartyIndex = synergyPartnerPartyIndex(*pair, character.partyIndex());
+            if (partnerPartyIndex >= 0 &&
+                static_cast<size_t>(partnerPartyIndex) < characters_.size()) {
+                characters_[static_cast<size_t>(partnerPartyIndex)].consumeUltimate();
+                syncCharacterUltimateTurn(partnerPartyIndex);
+            }
+        }
     }
 
     syncCharacterTurnParticipation(character.partyIndex());
@@ -1304,7 +1423,21 @@ void BattleManager::applyBossDamage(int amount) {
     if (amount <= 0 || bossCurrentHp_ <= 0) {
         return;
     }
-    bossCurrentHp_ = std::max(0, bossCurrentHp_ - amount);
+
+    int nextHp = std::max(0, bossCurrentHp_ - amount);
+    if (battleDefinition_.specialRules.forceSequentialBossPhases &&
+        state_.boss.hasPhaseData &&
+        !bossPhaseTransitionsSuppressed_ &&
+        state_.boss.hp > 0 &&
+        bossPhaseIndex_ < static_cast<int>(state_.boss.phases.size()) - 1) {
+        const int nextPhaseIndex = bossPhaseIndex_ + 1;
+        const int projectedPhaseIndex = bossPhaseIndexForHp(state_.boss.hp, nextHp);
+        if (nextHp <= 0 || projectedPhaseIndex > nextPhaseIndex) {
+            nextHp = bossHpThresholdForPhase(state_.boss.hp, nextPhaseIndex);
+        }
+    }
+
+    bossCurrentHp_ = nextHp;
     applyBossPhaseTransitionIfNeeded();
 }
 
@@ -1541,6 +1674,93 @@ int BattleManager::consumeTetoHealingTally() {
     const int tally = getTetoHealingTally();
     tetoHealingTally_ = 0;
     return tally;
+}
+
+void BattleManager::addComboCount(int amount) {
+    if (amount <= 0) {
+        return;
+    }
+    comboState_.comboCount += amount;
+    refreshComboState();
+}
+
+void BattleManager::setBossRuntimeState(int maxHp,
+                                        int currentHp,
+                                        int phaseIndex,
+                                        bool suppressPhaseTransitions) {
+    state_.boss.hp = std::max(1, maxHp);
+    bossCurrentHp_ = std::clamp(currentHp, 0, state_.boss.hp);
+    bossPhaseIndex_ = state_.boss.hasPhaseData
+        ? std::clamp(phaseIndex, 0, static_cast<int>(state_.boss.phases.size()) - 1)
+        : 0;
+    bossAtkBuffBonus_ = currentBossPhaseDefinition().atkBonusPercent;
+    bossPhaseTransitionsSuppressed_ = suppressPhaseTransitions;
+    pendingBossPhaseTransition_.reset();
+}
+
+void BattleManager::setBossRuntimeAttackBonusPercent(int atkBonusPercent) {
+    bossAtkBuffBonus_ = atkBonusPercent;
+}
+
+bool BattleManager::applyDreamRescue(int sourcePartyIndex,
+                                     int damageBuffPercent,
+                                     const std::string& buffAbilityId,
+                                     int actionAdvanceTargetPartyIndex) {
+    if (sourcePartyIndex < 0 || static_cast<size_t>(sourcePartyIndex) >= characters_.size()) {
+        return false;
+    }
+
+    bool anyChange = false;
+    for (BattleCharacter& character : characters_) {
+        if (!character.isAlive()) {
+            character.revive(character.maxHp());
+            anyChange = true;
+        } else if (character.hp() < character.maxHp()) {
+            character.receiveHealing(character.maxHp());
+            anyChange = true;
+        }
+        character.setShield(0);
+    }
+    syncAllCharacterTurnParticipation();
+    for (const BattleCharacter& character : characters_) {
+        syncCharacterUltimateTurn(character.partyIndex());
+    }
+
+    if (!buffAbilityId.empty()) {
+        activePartyBuffs_.erase(
+            std::remove_if(
+                activePartyBuffs_.begin(),
+                activePartyBuffs_.end(),
+                [&buffAbilityId](const ActivePartyBuff& buff) {
+                    return buff.abilityId == buffAbilityId;
+                }),
+            activePartyBuffs_.end());
+
+        for (const BattleCharacter& target : characters_) {
+            if (!target.isAlive()) {
+                continue;
+            }
+            activePartyBuffs_.push_back(ActivePartyBuff{
+                buffAbilityId,
+                sourcePartyIndex,
+                target.partyIndex(),
+                0,
+                0,
+                damageBuffPercent,
+                99
+            });
+        }
+        refreshCharacterBuffBonuses();
+    }
+
+    if (actionAdvanceTargetPartyIndex >= 0) {
+        applyCharacterActionAdvance(
+            actionAdvanceTargetPartyIndex,
+            1.0f,
+            ActionAdvanceMode::RemainingFraction);
+    }
+
+    return anyChange;
 }
 
 /**
@@ -2686,8 +2906,12 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
         }
     }
 
+    const int ultimateChargeBefore = character.ultimateCharge();
     grantUltimatePointForAction(character, abilityDef, grantsUltimatePointOnAction);
     if (grantsUltimatePointOnAction) {
+        mirrorSynergyUltimateGain(
+            character.partyIndex(),
+            character.ultimateCharge() - ultimateChargeBefore);
         syncCharacterUltimateTurn(character.partyIndex());
     }
 
@@ -2759,6 +2983,13 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
         bossCurrentHp_ > 0) {
         applyJiafeiUltimateDebuff(character.partyIndex(), *abilityDef);
     }
+    if (abilityDef != nullptr && abilityDef->id == "DreamRescue") {
+        (void)applyDreamRescue(
+            character.partyIndex(),
+            500,
+            abilityDef->id,
+            findCharacterPartyIndexByKey("miku"));
+    }
 
     if (!supportHpBefore.empty()) {
         for (int targetPartyIndex : supportTargetPartyIndices) {
@@ -2777,6 +3008,17 @@ bool BattleManager::executeCharacterAction(size_t actorIndex,
 
     if (action == BattleAction::Ultimate) {
         character.consumeUltimate();
+        if (abilityDef != nullptr) {
+            if (const ActiveSynergyPair* pair = findActiveSynergyPairByPartyIndex(character.partyIndex());
+                pair != nullptr && pair->combinedUltimateAbilityId == abilityDef->id) {
+                const int partnerPartyIndex = synergyPartnerPartyIndex(*pair, character.partyIndex());
+                if (partnerPartyIndex >= 0 &&
+                    static_cast<size_t>(partnerPartyIndex) < characters_.size()) {
+                    characters_[static_cast<size_t>(partnerPartyIndex)].consumeUltimate();
+                    syncCharacterUltimateTurn(partnerPartyIndex);
+                }
+            }
+        }
     }
 
     if (wasExtraTurn) {
@@ -3677,17 +3919,16 @@ const BossDefinition::PhaseDefinition& BattleManager::currentBossPhaseDefinition
  * and queues a boss phase-introduction turn.
  */
 void BattleManager::applyBossPhaseTransitionIfNeeded() {
-    if (!state_.boss.hasPhaseData || bossCurrentHp_ <= 0 || state_.boss.hp <= 0) {
+    if (!state_.boss.hasPhaseData ||
+        bossCurrentHp_ <= 0 ||
+        state_.boss.hp <= 0 ||
+        bossPhaseTransitionsSuppressed_) {
         return;
     }
 
-    int targetPhaseIndex = 0;
-    const long long hpScaled = static_cast<long long>(bossCurrentHp_) * 100LL;
-    const long long maxScaled = static_cast<long long>(state_.boss.hp);
-    if (hpScaled <= maxScaled * 33LL) {
-        targetPhaseIndex = 2;
-    } else if (hpScaled <= maxScaled * 66LL) {
-        targetPhaseIndex = 1;
+    int targetPhaseIndex = bossPhaseIndexForHp(state_.boss.hp, bossCurrentHp_);
+    if (battleDefinition_.specialRules.forceSequentialBossPhases) {
+        targetPhaseIndex = std::min(targetPhaseIndex, bossPhaseIndex_ + 1);
     }
 
     if (targetPhaseIndex <= bossPhaseIndex_) {
@@ -3826,6 +4067,91 @@ int BattleManager::findCharacterPartyIndexByKey(const std::string& characterKey)
         }
     }
     return -1;
+}
+
+void BattleManager::refreshActiveSynergyPairs() {
+    activeSynergyPairs_.clear();
+    activeSynergyPairs_.reserve(synergyPairDefinitions_.size());
+
+    for (const SynergyPairDefinition& definition : synergyPairDefinitions_) {
+        if (definition.members.size() != 2) {
+            continue;
+        }
+
+        const int firstPartyIndex = findCharacterPartyIndexByKey(definition.members[0]);
+        const int secondPartyIndex = findCharacterPartyIndexByKey(definition.members[1]);
+        const int designatedCasterPartyIndex = findCharacterPartyIndexByKey(definition.designatedCasterKey);
+        if (firstPartyIndex < 0 || secondPartyIndex < 0 || designatedCasterPartyIndex < 0) {
+            continue;
+        }
+
+        activeSynergyPairs_.push_back(ActiveSynergyPair{
+            definition.key,
+            definition.combinedUltimateAbilityId,
+            firstPartyIndex,
+            secondPartyIndex,
+            designatedCasterPartyIndex
+        });
+    }
+}
+
+const BattleManager::ActiveSynergyPair* BattleManager::findActiveSynergyPairByPartyIndex(int partyIndex) const {
+    for (const ActiveSynergyPair& pair : activeSynergyPairs_) {
+        if (pair.firstPartyIndex == partyIndex || pair.secondPartyIndex == partyIndex) {
+            return &pair;
+        }
+    }
+    return nullptr;
+}
+
+int BattleManager::synergyPartnerPartyIndex(const ActiveSynergyPair& pair, int partyIndex) const {
+    if (pair.firstPartyIndex == partyIndex) {
+        return pair.secondPartyIndex;
+    }
+    if (pair.secondPartyIndex == partyIndex) {
+        return pair.firstPartyIndex;
+    }
+    return -1;
+}
+
+bool BattleManager::canUseSynergyUltimate(const ActiveSynergyPair& pair) const {
+    if (pair.firstPartyIndex < 0 ||
+        pair.secondPartyIndex < 0 ||
+        static_cast<size_t>(pair.firstPartyIndex) >= characters_.size() ||
+        static_cast<size_t>(pair.secondPartyIndex) >= characters_.size()) {
+        return false;
+    }
+
+    const BattleCharacter& first = characters_[static_cast<size_t>(pair.firstPartyIndex)];
+    const BattleCharacter& second = characters_[static_cast<size_t>(pair.secondPartyIndex)];
+    return first.isAlive() &&
+        second.isAlive() &&
+        first.canUseUltimate() &&
+        second.canUseUltimate();
+}
+
+void BattleManager::mirrorSynergyUltimateGain(int sourcePartyIndex, int amount) {
+    if (amount <= 0) {
+        return;
+    }
+
+    const ActiveSynergyPair* pair = findActiveSynergyPairByPartyIndex(sourcePartyIndex);
+    if (pair == nullptr) {
+        return;
+    }
+
+    const int partnerPartyIndex = synergyPartnerPartyIndex(*pair, sourcePartyIndex);
+    if (partnerPartyIndex < 0 || static_cast<size_t>(partnerPartyIndex) >= characters_.size()) {
+        return;
+    }
+
+    BattleCharacter& partner = characters_[static_cast<size_t>(partnerPartyIndex)];
+    if (!partner.isAlive()) {
+        return;
+    }
+
+    partner.gainUltimatePoint(amount);
+    syncCharacterUltimateTurn(partnerPartyIndex);
 }
 
 bool BattleManager::isSingerPartyMember(int partyIndex) const {

@@ -100,6 +100,78 @@
         "tutorial": {
           "requirement": "observe_only"
         }
+      },
+      "dreamerUltimate": {
+        "id": "MikuMikuBeam",
+        "name": "Miku Miku Beam",
+        "type": "attack",
+        "targetRule": "single_enemy",
+        "multiplier": 120.0,
+        "interactionType": "none",
+        "presentationId": "miku_phase3_finisher",
+        "inputPromptType": "space",
+        "instructionHint": "No extra input. Miku fires the dream-forged finishing beam once the cut-in begins.",
+        "description": "Combined dream finisher used with Young Lyoo. Fires a devastating beam at the boss with no extra minigame.",
+        "tutorial": {
+          "requirement": "observe_only"
+        }
+      }
+    },
+    "abilityKits": {
+      "dreamerSynergy": {
+        "standardAbility": "BasicAttack",
+        "skillAbility": "LetsSing",
+        "ultimate": "MikuMikuBeam"
+      }
+    },
+    "ultimatePoints": 3,
+    "startingOrbs": 0
+  },
+  "youngLyoo": {
+    "isSinger": false,
+    "title": "Young Lyoo",
+    "assets": "lyoo",
+    "voiceAssetId": "youngLyoo",
+    "voiceSpeakerId": "youngLyoo",
+    "class": "Dreamer",
+    "spd": 1,
+    "atk": 0,
+    "hp": 60,
+    "standardAbility": "DreamRescue",
+    "skillAbility": "DreamRescue",
+    "ability": "DreamRescue",
+    "ultimate": "MikuMikuBeam",
+    "abilities": {
+      "skill": {
+        "id": "DreamRescue",
+        "name": "Dream Rescue",
+        "statusName": "Dream Blessing",
+        "type": "buff",
+        "targetRule": "all_allies",
+        "multiplier": 0.0,
+        "interactionType": "none",
+        "presentationId": "i_want_it_i_got_it",
+        "inputPromptType": "none",
+        "instructionHint": "No extra input. Young Lyoo restores the team and reignites their resolve.",
+        "description": "Revives fallen allies, restores the team to full, empowers their damage, and rushes Miku back into action.",
+        "tutorial": {
+          "requirement": "observe_only"
+        }
+      },
+      "ultimate": {
+        "id": "MikuMikuBeam",
+        "name": "Miku Miku Beam",
+        "type": "attack",
+        "targetRule": "single_enemy",
+        "multiplier": 120.0,
+        "interactionType": "none",
+        "presentationId": "miku_phase3_finisher",
+        "inputPromptType": "space",
+        "instructionHint": "No extra input. Young Lyoo channels the shared finisher with Miku.",
+        "description": "Shared synergy finisher with Miku. The dream-forged beam only fires when both ultimates are ready.",
+        "tutorial": {
+          "requirement": "observe_only"
+        }
       }
     },
     "ultimatePoints": 3,
