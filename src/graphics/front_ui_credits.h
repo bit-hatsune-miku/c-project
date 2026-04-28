@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 
+#include "../game/audio/bgm_player.h"
 #include "../game/credits/credits_data.h"
 #include "front_ui_document.h"
 
@@ -43,23 +44,30 @@ private:
     void updateOpening(float deltaSeconds);
     void updateScroll(float deltaSeconds);
     void updatePresentation(float deltaSeconds, bool snap = false);
+    void updateSubtitle();
     void initializeScrollMetrics();
     void setScrollTop(float top);
     void setChromeOpacity(float opacity);
     void setTitleCardOpacity(float opacity);
+    void setSubtitleText(const std::string& text);
     void syncPrompt() const;
     void requestReturn();
+    bool startCreditsMusic(const AppState& state);
+    float currentSongPlaybackSeconds() const;
+    float currentSongDurationSeconds() const;
 
     Rml::ElementDocument* document_ = nullptr;
     std::vector<EventListenerBinding> listeners_;
     std::vector<VisualTrack> visualTracks_;
     game::credits::CreditsData creditsData_;
+    game::audio::BgmPlayer musicPlayer_;
     bool creditsLoaded_ = false;
     bool pendingReturn_ = false;
     bool scrollMetricsReady_ = false;
     bool rollFinished_ = false;
     bool speedupHeld_ = false;
     bool openingFinished_ = false;
+    bool syncedPlaybackActive_ = false;
     float arrowSpeedMultiplier_ = 1.0f;
     float currentTop_ = 0.0f;
     float startTop_ = 0.0f;
@@ -67,6 +75,9 @@ private:
     float viewportHeight_ = 0.0f;
     float openingElapsed_ = 0.0f;
     float layoutScale_ = 1.0f;
+    float songDurationSeconds_ = 0.0f;
+    float songBaseVolume_ = 1.0f;
+    std::string currentSubtitleText_;
 };
 
 }  // namespace graphics::frontui

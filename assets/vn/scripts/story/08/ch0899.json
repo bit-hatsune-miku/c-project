@@ -1,12 +1,130 @@
 {
   "chapter": 8,
+  "title": "Zhao Laoshi Victory",
   "scriptId": "ch0899",
   "endReturnScreen": "selector",
   "entries": [
     {
       "speaker": "Zhao Laoshi",
-      "text": "Accepted. Do not miss the next deadline.",
-      "type": "dialogue"
+      "text": "Despite your low grades and poor attendance, you actually do have interest in computer science.",
+      "type": "dialogue",
+      "background": "assets/vn/backgrounds/deadline/zhao_story.png",
+      "voice": "assets/combat/voices/randy/ability.opus",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/combat/bgm/randyStory.wav",
+      "bgmVolume": 0.3
+    },
+    {
+      "speaker": "Miku",
+      "text": "That almost sounded like praise...?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Zhao Laoshi",
+      "text": "Do not get excited.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/combat/voices/randy/ability.opus",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Zhao Laoshi",
+      "text": "Interest is valuable only if you nurture it. Do not use AI dumbly. Think. Build. Practice.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/combat/voices/randy/ability.opus",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "...Okay.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Zhao Laoshi",
+      "text": "You can improve.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/combat/voices/randy/ability.opus",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Even me?!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Zhao Laoshi",
+      "text": "Especially you.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/combat/voices/randy/ability.opus",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Zhao Laoshi",
+      "text": "And do NOT skip class ever again.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "assets/combat/voices/randy/ability.opus",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Yes, Zhao Laoshi...",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
     }
   ]
 }

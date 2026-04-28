@@ -1,12 +1,142 @@
 {
   "chapter": 9,
+  "title": "Sailor Venus Victory",
   "scriptId": "ch0999",
   "endReturnScreen": "selector",
   "entries": [
     {
       "speaker": "Sailor Venus",
-      "text": "You are actually quite lovely...",
-      "type": "dialogue"
+      "text": "My, my. You are actually quite lovely.",
+      "type": "dialogue",
+      "background": "assets/vn/backgrounds/deadline/sailorvenus_story.png",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/combat/bgm/sailorVenusStory.wav",
+      "bgmVolume": 0.3
+    },
+    {
+      "speaker": "Miku",
+      "text": "\"Actually\" is such a backhanded compliment.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "CupcakKe",
+      "text": "Take the win, diva.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Sailor Venus",
+      "text": "You have charm, but charm alone is lazy. Beauty on stage is an active choice.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Meaning?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Sailor Venus",
+      "text": "Meaning elegance. Grace. The discipline to make every gesture look effortless even when your heart is racing.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "So being lovely is work too.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Sailor Venus",
+      "text": "Of course. Fans fall in love with what you make them feel.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Sailor Venus",
+      "text": "If you wish to capture hearts, then shine on purpose. Love them back with every step you take.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "...I think I understand.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Sailor Venus",
+      "text": "Good. Stay lovely, stay brave, and never walk onto a stage looking like you have already surrendered.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
     }
   ]
 }

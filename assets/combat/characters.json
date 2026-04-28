@@ -130,7 +130,7 @@
   "youngLyoo": {
     "isSinger": false,
     "title": "Young Lyoo",
-    "assets": "lyoo",
+    "assets": "younglyoo",
     "voiceAssetId": "youngLyoo",
     "voiceSpeakerId": "youngLyoo",
     "class": "Dreamer",
@@ -478,7 +478,7 @@
         "name": "8888",
         "type": "attack",
         "targetRule": "single_enemy",
-        "multiplier": 1.6,
+      "multiplier": 1.2,
         "interactionType": "none",
         "presentationId": "wechatalipay_ultimate",
         "inputPromptType": "space",
@@ -489,7 +489,7 @@
         }
       }
     },
-    "ultimatePoints": 4,
+    "ultimatePoints": 5,
     "startingOrbs": 0
   },
   "ari": {

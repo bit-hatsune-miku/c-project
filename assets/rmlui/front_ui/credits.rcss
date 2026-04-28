@@ -38,6 +38,7 @@ body {
 #credits-grid,
 #credits-disc-layer,
 #credits-topline,
+#credits-subtitle,
 #credits-roll-viewport,
 #credits-return-prompt {
     position: absolute;
@@ -156,8 +157,22 @@ body {
     left: 72dp;
     right: 72dp;
     top: 128dp;
-    bottom: 72dp;
+    bottom: 146dp;
     overflow: hidden;
+}
+
+#credits-subtitle {
+    left: 140dp;
+    right: 140dp;
+    bottom: 46dp;
+    font-size: 15dp;
+    font-weight: bold;
+    line-height: 24dp;
+    letter-spacing: 0.2dp;
+    text-align: center;
+    color: rgba(246, 247, 251, 244);
+    text-shadow: 0dp 2dp 8dp rgba(0, 0, 0, 200);
+    font-family: "Space Mono", "DejaVu Sans";
 }
 
 #credits-roll-content {
@@ -388,7 +403,7 @@ body {
 
 #credits-return-prompt {
     right: 72dp;
-    bottom: 30dp;
+    bottom: 18dp;
     font-size: 11dp;
     font-weight: bold;
     letter-spacing: 3dp;

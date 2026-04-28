@@ -6,7 +6,9 @@
     {
       "speaker": "Disciple",
       "text": "You endured the dark. The final trial is waiting.",
-      "type": "dialogue"
+      "type": "dialogue",
+      "bgm": "assets/vn/bgm/finale/lyooPlotTwistReveal.opus",
+      "bgmVolume": 0.25
     }
   ]
 }

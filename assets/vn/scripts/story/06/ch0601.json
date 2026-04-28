@@ -1,1 +1,167 @@
-{"chapter": 6, "scriptId": "ch0601", "endReturnScreen": "selector", "entries": [{"speaker": "PomPom", "text": "Tickets, please. If you want to reach the final stop, jump.", "type": "dialogue", "battleKey": "pompom"}]}
+{
+  "chapter": 6,
+  "title": "PomPom Intro",
+  "scriptId": "ch0601",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "speaker": "PomPom",
+      "text": "Late passenger detected, pa.",
+      "type": "dialogue",
+      "background": "assets/vn/backgrounds/deadline/pompom_story.png",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/combat/bgm/pompomStory.wav",
+      "bgmVolume": 0.3
+    },
+    {
+      "speaker": "Miku",
+      "text": "Huh?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "PomPom",
+      "text": "Your duel slot began three minutes ago, pa. A conductor notices these things, pa.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Three minutes is not late, it's fashionably delayed!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "PomPom",
+      "text": "That sentence alone should get you removed from the train, pa.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "CupcakKe",
+      "text": "Damn. He's tiny but he's strict.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "PomPom",
+      "text": "Strict schedules keep entire systems alive, pa. One selfish delay becomes ten delays, then twenty angry passengers, then chaos, pa.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "I was preparing mentally!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "PomPom",
+      "text": "You prepare before departure, not after the doors close, pa.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Why does everyone in this competition turn life lessons into attempted murder?!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "PomPom",
+      "text": "Because you clearly remember them better that way, pa.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "PomPom",
+      "text": "If you want fans someday, do not keep them waiting in the rain, pa.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "PomPom",
+      "text": "Then get aboard, and travel until your last breath, pa!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
+      "battleKey": "pompom"
+    }
+  ]
+}

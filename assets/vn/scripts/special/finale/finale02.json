@@ -101,7 +101,7 @@
       "text": "Are you serious? Is this how you want to end the story?",
       "type": "dialogue",
       "background": "#000000",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/11.wav",
       "autoAdvanceOnVoiceEnd": false
     },
     {
@@ -109,7 +109,7 @@
       "text": "That’s such a shitty ending bro",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/12.wav",
       "autoAdvanceOnVoiceEnd": false
     },
     {
@@ -117,23 +117,23 @@
       "text": "Yeah like, what kind of best friend does that??",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/13.wav",
       "autoAdvanceOnVoiceEnd": false       
     },
     {
        "speaker": "Russel",
       "text": "It's not that serious",
       "type": "dialogue",
-      "background": "",
+      "background": "assets/vn/voices/finale2/Russels.wav",
       "voice": "",
       "autoAdvanceOnVoiceEnd": false       
     }, 
     {
         "speaker": "Jaden",
-      "text": "",
+      "text": "Oh my god guys! Just ship it now before the compiler changes its mind!",
       "type": "dialogue",
       "background": "",
-      "voice": "",
+      "voice": "assets/vn/voices/finale2/jaden.wav",
       "autoAdvanceOnVoiceEnd": false          
     },
     {
@@ -151,14 +151,6 @@
       "background": "",
       "voice": "assets/vn/voices/finale2/16.opus",
       "autoAdvanceOnVoiceEnd": false
-    },
-    {
-      "speaker": "Lyoo",
-      "text": "Roll in the credits!",
-      "type": "dialogue",
-      "background": "",
-      "voice": "",
-      "autoAdvanceOnVoiceEnd": true
     }
   ]
 }

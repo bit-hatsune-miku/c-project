@@ -2461,7 +2461,7 @@ bool BattleManager::processNextAutomaticTurn() {
         return resolveBossAction();
     }
 
-    if (!(nextActor.isExtraTurn && nextActor.autoExecute)) {
+    if (!nextActor.autoExecute) {
         return false;
     }
 
@@ -2479,9 +2479,11 @@ bool BattleManager::processNextAutomaticTurn() {
         return false;
     }
 
+    const BattleAction action =
+        nextActor.isExtraTurn ? nextActor.extraTurnAction : BattleAction::Skill;
     return executeCharacterAction(event.actingActorIndex,
                                   character,
-                                  nextActor.extraTurnAction,
+                                  action,
                                   event.consumedActionValue);
 }
 

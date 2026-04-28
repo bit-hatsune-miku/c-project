@@ -117,7 +117,7 @@
         "atkBonusPercent": 0
       },
       "phase2": {
-        "bgm": "lyooPlotTwist",
+        "bgm": "lyooPlotTwist2",
         "bgmVolume": 0.14,
         "atkBonusPercent": 25
       },
@@ -287,6 +287,7 @@
     "bgmVolume": 0.2,
     "phases": {
       "phase1": {
+        "bgm": "luotianyiBoss1",
         "atkBonusPercent": 0,
         "presentation": {
           "intParams": {
@@ -300,6 +301,7 @@
         }
       },
       "phase2": {
+        "bgm": "luotianyiBoss2",
         "atkBonusPercent": 15,
         "presentation": {
           "intParams": {
@@ -313,6 +315,7 @@
         }
       },
       "phase3": {
+        "bgm": "sunquantianxia",
         "atkBonusPercent": 30,
         "presentation": {
           "intParams": {
@@ -358,6 +361,8 @@
     },
     "ultimatePoints": 6,
     "startingOrbs": 1,
+    "bgm": "weizhi",
+    "bgmVolume": 0.3,
     "phases": {
       "phase1": {
         "atkBonusPercent": 0,
@@ -378,6 +383,7 @@
         }
       },
       "phase2": {
+        "bgm": "wechatalipayBoss2",
         "atkBonusPercent": 10,
         "presentation": {
           "intParams": {
@@ -395,6 +401,7 @@
       },
       "phase3": {
         "atkBonusPercent": 20,
+        "bgm": "wechatalipayBoss3",
         "presentation": {
           "intParams": {
             "initialSpawnCount": 2
@@ -446,6 +453,7 @@
     "bgmVolume": 0.4,
     "phases": {
       "phase1": {
+        "bgm": "ariBoss1",
         "atkBonusPercent": 0,
         "presentation": {
           "intParams": {
@@ -455,12 +463,13 @@
             "waitDurationMinSeconds": 1.0,
             "waitDurationMaxSeconds": 2.5,
             "reactionCueSeconds": 0.46,
-            "perfectWindowSeconds": 0.10,
-            "maxReactionOffsetSeconds": 0.24
+            "perfectWindowSeconds": 0.14,
+            "maxReactionOffsetSeconds": 0.28
           }
         }
       },
       "phase2": {
+        "bgm": "ariBoss2",
         "atkBonusPercent": 15,
         "presentation": {
           "intParams": {
@@ -470,12 +479,13 @@
             "waitDurationMinSeconds": 0.70,
             "waitDurationMaxSeconds": 1.80,
             "reactionCueSeconds": 0.44,
-            "perfectWindowSeconds": 0.085,
-            "maxReactionOffsetSeconds": 0.20
+            "perfectWindowSeconds": 0.125,
+            "maxReactionOffsetSeconds": 0.24
           }
         }
       },
       "phase3": {
+        "bgm": "ari",
         "atkBonusPercent": 30,
         "presentation": {
           "intParams": {
@@ -485,8 +495,8 @@
             "waitDurationMinSeconds": 0.50,
             "waitDurationMaxSeconds": 1.30,
             "reactionCueSeconds": 0.42,
-            "perfectWindowSeconds": 0.07,
-            "maxReactionOffsetSeconds": 0.17
+            "perfectWindowSeconds": 0.11,
+            "maxReactionOffsetSeconds": 0.21
           }
         }
       }
@@ -588,10 +598,11 @@
     },
     "ultimatePoints": 6,
     "startingOrbs": 1,
-    "bgm": "tetoBoss",
+    "bgm": "yehuaxiang",
     "bgmVolume": 0.4,
     "phases": {
       "phase1": {
+        "bgm": "tetoBoss2",
         "atkBonusPercent": 0,
         "presentation": {
           "floatParams": {
@@ -602,6 +613,7 @@
         }
       },
       "phase2": {
+        "bgm": "tetoBoss1",
         "atkBonusPercent": 8,
         "presentation": {
           "floatParams": {
@@ -612,6 +624,7 @@
         }
       },
       "phase3": {
+        "bgm": "tetoBoss3",
         "atkBonusPercent": 15,
         "presentation": {
           "floatParams": {
@@ -653,10 +666,11 @@
     },
     "ultimatePoints": 6,
     "startingOrbs": 1,
-    "bgm": "tetoBoss",
+    "bgm": "yehuaxiang",
     "bgmVolume": 0.4,
     "phases": {
       "phase1": {
+        "bgm": "pompomBoss1",
         "atkBonusPercent": 0,
         "presentation": {
           "floatParams": {
@@ -671,6 +685,7 @@
         }
       },
       "phase2": {
+        "bgm": "pompomBoss2",
         "atkBonusPercent": 10,
         "presentation": {
           "floatParams": {
@@ -685,6 +700,7 @@
         }
       },
       "phase3": {
+        "bgm": "pompomBoss3",
         "atkBonusPercent": 18,
         "presentation": {
           "floatParams": {
@@ -701,7 +717,7 @@
     }
   },
   "huafeiBoss": {
-    "title": "Huafei",
+    "title": "Consort Hua",
     "assets": "huafei",
     "spd": 155,
     "atk": 16,
@@ -730,11 +746,12 @@
     },
     "ultimatePoints": 6,
     "startingOrbs": 1,
-    "bgm": "tetoBoss",
+    "bgm": "mikuBoss",
     "bgmVolume": 0.4,
     "phases": {
       "phase1": {
         "atkBonusPercent": 0,
+        "bgm": "huafeiBoss1",
         "presentation": {
           "intParams": {
             "spamQuota": 34,
@@ -747,6 +764,7 @@
       },
       "phase2": {
         "atkBonusPercent": 15,
+        "bgm": "huafeiBoss2",
         "presentation": {
           "intParams": {
             "spamQuota": 50,
@@ -759,6 +777,7 @@
       },
       "phase3": {
         "atkBonusPercent": 30,
+        "bgm": "huafeiBoss3",
         "presentation": {
           "intParams": {
             "spamQuota": 68,
@@ -801,10 +820,11 @@
     },
     "ultimatePoints": 6,
     "startingOrbs": 1,
-    "bgm": "tetoBoss",
+    "bgm": "lyooBoss2",
     "bgmVolume": 0.4,
     "phases": {
       "phase1": {
+        "bgm": "randyBoss1",
         "atkBonusPercent": 0,
         "presentation": {
           "intParams": {
@@ -816,6 +836,7 @@
         }
       },
       "phase2": {
+        "bgm": "randyBoss2",
         "atkBonusPercent": 15,
         "presentation": {
           "intParams": {
@@ -827,6 +848,7 @@
         }
       },
       "phase3": {
+        "bgm": "randyBoss3",
         "atkBonusPercent": 30,
         "presentation": {
           "intParams": {
@@ -868,10 +890,11 @@
     },
     "ultimatePoints": 6,
     "startingOrbs": 1,
-    "bgm": "tetoBoss",
+    "bgm": "lyooPlotTwist",
     "bgmVolume": 0.4,
     "phases": {
       "phase1": {
+        "bgm": "discipleBoss1",
         "presentation": {
           "intParams": {
             "hitCount": 3
@@ -880,6 +903,7 @@
       },
       "phase2": {
         "atkBonusPercent": 15,
+        "bgm": "discipleBoss2",
         "presentation": {
           "intParams": {
             "hitCount": 5
@@ -888,6 +912,7 @@
       },
       "phase3": {
         "atkBonusPercent": 30,
+        "bgm": "discipleBoss3",
         "presentation": {
           "intParams": {
             "hitCount": 7
@@ -927,8 +952,11 @@
     },
     "ultimatePoints": 6,
     "startingOrbs": 1,
+    "bgm": "lyooBoss",
+    "bgmVolume": 0.4,
     "phases": {
       "phase1": {
+        "bgm": "sailorVenusBoss1",
         "presentation": {
           "intParams": {
             "spamQuota": 24
@@ -936,6 +964,7 @@
         }
       },
       "phase2": {
+        "bgm": "sailorVenusBoss2",
         "presentation": {
           "intParams": {
             "spamQuota": 36
@@ -943,6 +972,7 @@
         }
       },
       "phase3": {
+        "bgm": "sailorVenusBoss3",
         "presentation": {
           "intParams": {
             "spamQuota": 48
@@ -990,10 +1020,11 @@
     },
     "ultimatePoints": 6,
     "startingOrbs": 1,
-    "bgm": "zhoushenBoss",
+    "bgm": "sunquantianxia",
     "bgmVolume": 0.4,
     "phases": {
       "phase1": {
+        "bgm": "zhouShenBoss1",
         "presentation": {
           "floatParams": {
             "speed": 10,
@@ -1006,6 +1037,7 @@
         }
       },
       "phase2": {
+        "bgm": "zhouShenBoss2",
         "presentation": {
           "floatParams": {
             "speed": 15,
@@ -1018,6 +1050,7 @@
         }
       },
       "phase3": {
+        "bgm": "zhouShenBoss3",
         "presentation": {
           "floatParams": {
             "speed": 30,

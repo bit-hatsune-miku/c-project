@@ -233,6 +233,25 @@ int manualUltimatePartyIndexFromKey(SDL_Keycode key,
     return digitIndex < 4 ? digitIndex : -1;
 }
 
+std::string manualUltimateHotkeyLabelForPartyIndex(std::size_t partyIndex) {
+    const std::size_t oneBasedIndex = partyIndex + 1;
+    if (oneBasedIndex <= 9) {
+        return std::to_string(oneBasedIndex);
+    }
+    if (oneBasedIndex == 10) {
+        return "0";
+    }
+
+    const std::size_t shiftedIndex = oneBasedIndex - 10;
+    if (shiftedIndex <= 9) {
+        return "SHIFT+" + std::to_string(shiftedIndex);
+    }
+    if (shiftedIndex == 10) {
+        return "SHIFT+0";
+    }
+    return "?";
+}
+
 struct CameraIntroAnimation {
     bool active = false;
     float elapsed = 0.0f;
@@ -389,6 +408,11 @@ struct LiveUltimateGuideState {
     bool completedCupcakke = false;
     int activePartyIndex = -1;
     std::string activeCharacterKey;
+};
+
+struct ManualUltimateReadyHintState {
+    std::vector<bool> lastReadyByPartyIndex;
+    bool lastMikuYoungLyooSynergyReady = false;
 };
 
 struct LyooTutorialBanterState {
@@ -711,6 +735,32 @@ bool playResolvedLoop(game::audio::BgmPlayer& player, const std::string& path, f
     }
 
     return player.play(*resolved, volume);
+}
+
+void preloadBattleBossBgmTracks(game::audio::BattleBgmController& controller,
+                                const battle::BattleState& battleState) {
+    controller.clearPreloadedTracks();
+
+    std::vector<std::string> resolvedPaths;
+    auto appendResolved = [&](const std::string& bgmName) {
+        if (bgmName.empty()) {
+            return;
+        }
+        if (const auto bgmPath = platform::path::resolveCombatBgmPath(bgmName); bgmPath.has_value()) {
+            if (std::find(resolvedPaths.begin(), resolvedPaths.end(), *bgmPath) == resolvedPaths.end()) {
+                resolvedPaths.push_back(*bgmPath);
+            }
+        }
+    };
+
+    appendResolved(battleState.boss.bgm);
+    for (const battle::BossDefinition::PhaseDefinition& phase : battleState.boss.phases) {
+        appendResolved(phase.bgm);
+    }
+
+    for (const std::string& resolvedPath : resolvedPaths) {
+        (void)controller.preloadTrack(resolvedPath);
+    }
 }
 
 /**
@@ -2229,6 +2279,8 @@ public:
         gBattleBgmController.setMasterVolume(currentMusicMasterVolume());
 
         const battle::BattleState& state = manager_.getBattleState();
+        preloadBattleBossBgmTracks(gBattleBgmController, state);
+        resetManualUltimateReadyHintState();
         battleBgmBaseVolume_ = std::clamp(manager_.getCurrentBossBgmVolume(), 0.0f, 1.0f);
         initialBattleBgmPath_.clear();
         const std::string initialBgmName = manager_.getCurrentBossBgm();
@@ -2499,6 +2551,7 @@ public:
         stopPresentationAudioPlayback(false);
         gPresentationSfxAudio.shutdown();
         gBattleBgmController.stop();
+        gBattleBgmController.clearPreloadedTracks();
         gBattleBgmController.detach();
         gOneShotAudio.shutdown();
         gOneShotAudio.cleanupFinishedPlayback();
@@ -2533,6 +2586,7 @@ public:
         scriptedTutorial_ = ScriptedTutorialState{};
         scriptedTutorialScenario_.reset();
         liveUltimateGuide_ = LiveUltimateGuideState{};
+        manualUltimateReadyHint_ = ManualUltimateReadyHintState{};
         lastTutorialPlaybackMetrics_ = TutorialPlaybackMetrics{};
         hudFeedback_ = HudFeedbackState{};
         hudAnimationState_ = HudAnimationState{};
@@ -2920,15 +2974,19 @@ public:
 
         while (const std::optional<battle::BossPhaseTransition> transition = manager_.consumeBossPhaseTransition()) {
             const bool suppressLyooPhasePresentation = isLyooPlotTwistBattle();
+            const bool suppressLyooPhaseBgmSwap =
+                isLyooPlotTwistBattle() && transition->toPhaseIndex == 1;
             if (!suppressLyooPhasePresentation) {
                 startBossPhaseIntro(*transition);
                 startBossPhaseAutoActionIndicator(*transition, nowMs);
             }
-            battleBgmBaseVolume_ = std::clamp(manager_.getCurrentBossBgmVolume(), 0.0f, 1.0f);
-            const std::string bgmName = manager_.getCurrentBossBgm();
-            if (!bgmName.empty()) {
-                if (const auto bgmPath = platform::path::resolveCombatBgmPath(bgmName); bgmPath.has_value()) {
-                    gBattleBgmController.requestTrack(*bgmPath, battleBgmBaseVolume_);
+            if (!suppressLyooPhaseBgmSwap) {
+                battleBgmBaseVolume_ = std::clamp(manager_.getCurrentBossBgmVolume(), 0.0f, 1.0f);
+                const std::string bgmName = manager_.getCurrentBossBgm();
+                if (!bgmName.empty()) {
+                    if (const auto bgmPath = platform::path::resolveCombatBgmPath(bgmName); bgmPath.has_value()) {
+                        gBattleBgmController.requestTrack(*bgmPath, battleBgmBaseVolume_);
+                    }
                 }
             }
             if (!suppressLyooPhasePresentation) {
@@ -3016,6 +3074,7 @@ public:
         maybeExpireLiveUltimateGuide();
         maybeStartTutorial(nowMs);
         maybeStartLiveUltimateGuide();
+        updateManualUltimateReadyHints(nowMs);
         if (tutorialOverlay_.step != TutorialStep::None &&
             !tutorialOverlay_.audioPlayed && !tutorialOverlay_.entry.voice.empty()) {
             const std::string speakerKey = resolveScriptVoiceSpeakerKey(tutorialOverlay_.entry);
@@ -3738,9 +3797,8 @@ private:
         const battle::flow::PreviewActorContext preview = battle::flow::inspectPreviewActor(manager_);
         if (!preview.valid ||
             preview.type != battle::ParticipantType::Character ||
-            !preview.isExtraTurn ||
             !preview.autoExecute ||
-            preview.extraTurnAction == battle::BattleAction::Ultimate) {
+            (preview.isExtraTurn && preview.extraTurnAction == battle::BattleAction::Ultimate)) {
             return false;
         }
 
@@ -5077,6 +5135,36 @@ private:
         }
     }
 
+    void clearPartySpeakerDeathLock(int partyIndex) {
+        const battle::BattleState& battleState = manager_.getBattleState();
+        if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= battleState.party.size()) {
+            return;
+        }
+
+        const std::string speakerKey =
+            combatVoiceSpeakerKey(battleState.party[static_cast<size_t>(partyIndex)]);
+        if (speakerKey.empty()) {
+            return;
+        }
+
+        voiceArbiter_.stopSpeaker(
+            speakerKey,
+            [this](const game::audio::BattleVoicePlayback& playback) {
+                stopBattleVoicePlayback(playback);
+            },
+            true);
+    }
+
+    void clearRevivedPartySpeakerLocks() {
+        const battle::BattleState& battleState = manager_.getBattleState();
+        for (size_t i = 0; i < battleState.party.size(); ++i) {
+            const int partyIndex = static_cast<int>(i);
+            if (manager_.getCharacterCurrentHp(partyIndex) > 0) {
+                clearPartySpeakerDeathLock(partyIndex);
+            }
+        }
+    }
+
     void setCharacterToFullUltimate(int partyIndex) {
         if (partyIndex < 0) {
             return;
@@ -5144,11 +5232,23 @@ private:
         }
 
         reviveEntirePartyToFull();
+        clearRevivedPartySpeakerLocks();
         manager_.clearForcedOutcome();
         manager_.setBossRuntimeState(99999, 99999, 1, true);
         lyooComeback_.comebackModeActive = true;
         syncBattlePresentationState();
         return true;
+    }
+
+    void startLyooComebackBattleBgmFromZero() {
+        battleBgmBaseVolume_ = std::clamp(manager_.getCurrentBossBgmVolume(), 0.0f, 1.0f);
+        const std::string bgmName = manager_.getCurrentBossBgm();
+        if (bgmName.empty()) {
+            return;
+        }
+        if (const auto bgmPath = platform::path::resolveCombatBgmPath(bgmName); bgmPath.has_value()) {
+            gBattleBgmController.playWithFadeIn(*bgmPath, battleBgmBaseVolume_, kBattleVsIntroBgmFadeInSeconds);
+        }
     }
 
     void updateLyooComebackDefeatReversal(Uint64 nowMs) {
@@ -5250,6 +5350,14 @@ private:
                 return;
             }
 
+            if (!activateLyooComebackBattle()) {
+                lyooComeback_.defeatReversalActive = false;
+                lyooComeback_.reversalStage = LyooComebackState::ReversalStage::None;
+                resultOverlay_ = BattleResultOverlayState{};
+                finished_ = true;
+                return;
+            }
+            startLyooComebackBattleBgmFromZero();
             lyooComeback_.reversalStage = LyooComebackState::ReversalStage::WhiteHold;
             lyooComeback_.reversalStageStartedMs = nowMs;
             resultOverlay_.plainWordOpacity = 1.0f;
@@ -5322,6 +5430,7 @@ private:
             500,
             "DreamRescue",
             findPartyIndexByKey("miku"));
+        clearRevivedPartySpeakerLocks();
         manager_.clearForcedOutcome();
         syncBattlePresentationState();
         lyooComeback_.rescueRunning = false;
@@ -5810,6 +5919,98 @@ private:
         enqueueBattleHint(std::move(request));
     }
 
+    void resetManualUltimateReadyHintState() {
+        manualUltimateReadyHint_ = ManualUltimateReadyHintState{};
+        manualUltimateReadyHint_.lastReadyByPartyIndex.assign(
+            manager_.getBattleState().party.size(),
+            false);
+    }
+
+    void showManualUltimateReadyHint(const std::string& stableKey,
+                                     const std::string& sourceTag,
+                                     const std::string& badgeText,
+                                     const std::string& message) {
+        BattleHintRequest request;
+        request.stableKey = stableKey;
+        request.family = BattleHintFamily::Info;
+        request.kicker = "ULTIMATE READY";
+        request.sourceTag = sourceTag;
+        request.badgeText = badgeText;
+        request.message = message;
+        request.resolveRule.kind = BattleHintResolveKind::Timeout;
+        request.resolveRule.durationMs = 2400;
+        enqueueBattleHint(std::move(request), false);
+    }
+
+    void updateManualUltimateReadyHints(Uint64 nowMs) {
+        (void)nowMs;
+        if (manager_.isBattleOver() ||
+            isDialogueInProgress() ||
+            tutorialOverlay_.step != TutorialStep::None ||
+            liveUltimateGuide_.activePartyIndex >= 0 ||
+            lyooComeback_.defeatReversalActive) {
+            return;
+        }
+
+        const battle::BattleState& battleState = manager_.getBattleState();
+        if (manualUltimateReadyHint_.lastReadyByPartyIndex.size() != battleState.party.size()) {
+            manualUltimateReadyHint_.lastReadyByPartyIndex.assign(battleState.party.size(), false);
+            manualUltimateReadyHint_.lastMikuYoungLyooSynergyReady = false;
+        }
+
+        const int mikuIndex = findPartyIndexByKey("miku");
+        const int youngLyooIndex = findPartyIndexByKey("youngLyoo");
+        const bool hasSynergyPair = mikuIndex >= 0 && youngLyooIndex >= 0;
+        bool synergyReady = false;
+        if (hasSynergyPair) {
+            const auto memberReady = [&](int partyIndex) {
+                if (partyIndex < 0 || static_cast<size_t>(partyIndex) >= battleState.party.size()) {
+                    return false;
+                }
+                return manager_.isCharacterAlive(partyIndex) &&
+                    manager_.getCharacterUltimateCharge(partyIndex) >=
+                        manager_.getCharacterUltimateRequired(partyIndex);
+            };
+            synergyReady = memberReady(mikuIndex) && memberReady(youngLyooIndex);
+        }
+
+        if (synergyReady && !manualUltimateReadyHint_.lastMikuYoungLyooSynergyReady) {
+            showManualUltimateReadyHint(
+                "manual_ultimate_ready_synergy_miku_younglyoo",
+                "PAIR FINISHER",
+                "DUO",
+                "Miku + Young Lyoo Ultimate is ready. Press " +
+                    manualUltimateHotkeyLabelForPartyIndex(static_cast<std::size_t>(mikuIndex)) +
+                    " or " +
+                    manualUltimateHotkeyLabelForPartyIndex(static_cast<std::size_t>(youngLyooIndex)) +
+                    " to cast.");
+        }
+        manualUltimateReadyHint_.lastMikuYoungLyooSynergyReady = synergyReady;
+
+        for (std::size_t i = 0; i < battleState.party.size(); ++i) {
+            const battle::CharacterDefinition& character = battleState.party[i];
+            bool ready = manager_.isCharacterAlive(static_cast<int>(i)) &&
+                manager_.getCharacterUltimateCharge(static_cast<int>(i)) >=
+                    manager_.getCharacterUltimateRequired(static_cast<int>(i));
+
+            if (hasSynergyPair &&
+                (static_cast<int>(i) == mikuIndex || static_cast<int>(i) == youngLyooIndex)) {
+                ready = false;
+            }
+
+            if (ready && !manualUltimateReadyHint_.lastReadyByPartyIndex[i]) {
+                showManualUltimateReadyHint(
+                    "manual_ultimate_ready_" + std::to_string(i),
+                    "ALLY " + std::to_string(i + 1),
+                    "CAST",
+                    character.title + " Ultimate is ready. Press " +
+                        manualUltimateHotkeyLabelForPartyIndex(i) + " to cast.");
+            }
+
+            manualUltimateReadyHint_.lastReadyByPartyIndex[i] = ready;
+        }
+    }
+
     void dismissTutorialHint(bool immediate = false) {
         dismissBattleHintByKey(hudFeedback_, kBattleHintKeyTutorialOverlay, immediate);
     }
@@ -6114,8 +6315,20 @@ private:
                 presentationAudioCueIndex_ = 0;
             }
 
+            const bool useLyooPlotTwistPhase2AbilityVoice =
+                battleState.boss.key == "lyooPlotTwist" &&
+                (context.presentationId == "boss_attack_lyoo_plot_twist" ||
+                 context.presentationId == "lyoo_phase3_wipe") &&
+                manager_.getBossPhaseIndex() >= 1;
+
             for (int i = 0; i < cueCount; ++i) {
                 ++presentationAudioCueIndex_;
+                if (useLyooPlotTwistPhase2AbilityVoice &&
+                    playResolvedVoicePath(
+                        "assets/combat/voices/lyooPlotTwist/phase3/1.opus",
+                        voiceVolume)) {
+                    continue;
+                }
                 if (requestCombatVoiceClip(speakerKey,
                                            battleState.boss.key,
                                            game::audio::BattleVoiceKind::Ability,
@@ -8501,6 +8714,7 @@ private:
     std::optional<battle::TutorialScenarioDefinition> scriptedTutorialScenario_;
     BattleNarrativePromptState battleNarrativePrompt_;
     LiveUltimateGuideState liveUltimateGuide_;
+    ManualUltimateReadyHintState manualUltimateReadyHint_;
     LyooTutorialBanterState lyooTutorialBanter_;
     TutorialPlaybackMetrics lastTutorialPlaybackMetrics_{};
     HudFeedbackState hudFeedback_;

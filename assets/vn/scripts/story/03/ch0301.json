@@ -14,7 +14,9 @@
       "icon": "",
       "iconFrameCount": 1,
       "iconFps": 8.0,
-      "autoAdvanceOnVoiceEnd": false
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/combat/bgm/wechatalipayStory.wav",
+      "bgmVolume": 0.3
     },
     {
       "speaker": "CupcakKe",

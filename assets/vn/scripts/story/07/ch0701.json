@@ -1,13 +1,155 @@
 {
-    "chapter": 7,
-    "scriptId": "ch0701",
-    "endReturnScreen": "selector",
-    "entries": [
-        {
-            "speaker": "Huafei",
-            "text": "RongMoMo, hold them still. Let's see if they can break free.",
-            "type": "dialogue",
-            "battleKey": "huafei"
-        }
-    ]
+  "chapter": 7,
+  "title": "Huafei Intro",
+  "scriptId": "ch0701",
+  "endReturnScreen": "selector",
+  "entries": [
+    {
+      "speaker": "Huafei",
+      "text": "RongMoMo, look closely. This little thing is the contestant people keep fussing over?",
+      "type": "dialogue",
+      "background": "assets/vn/backgrounds/deadline/huafei_story.png",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/combat/bgm/huafeiStory.wav",
+      "bgmVolume": 0.3
+    },
+    {
+      "speaker": "Miku",
+      "text": "Little thing?!",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Huafei",
+      "text": "Mm. Bright hair, loud clothes, common manners. How tiresome.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "CupcakKe",
+      "text": "Oh brother, here comes Princess Judgmental.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Huafei",
+      "text": "Princess? How vulgar. If you must compare me to anything, compare me to the moon above the stagnant pond. Untouchable. Refined. Worshipped from a distance.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Why are all the mean people in this school so poetic?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Huafei",
+      "text": "Because unlike you, I do not throw myself at the public like a discount flyer. Tell me, why do people praise such noisy little toys?",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "Because I'm an idol, not a museum exhibit.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Huafei",
+      "text": "Hm. And yet an idol without dignity is only a clown with followers.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Miku",
+      "text": "You know what? Keep insulting me. I'm still getting on that stage.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Huafei",
+      "text": "Good. Then try to stand before me without shrinking.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Huafei",
+      "text": "Then ascend the stage, and reign until your last breath.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
+      "battleKey": "huafei"
+    }
+  ]
 }

@@ -22,6 +22,7 @@
 
                 <div id="credits-topline">ENDING SIGNAL / STAFF ROLL</div>
 
+                <div id="credits-subtitle" class="is-hidden"></div>
                 <div id="credits-return-prompt" class="is-hidden">PRESS ANY KEY OR CLICK TO RETURN TO MAIN MENU</div>
             </div>
 

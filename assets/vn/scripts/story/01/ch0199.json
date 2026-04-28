@@ -15,7 +15,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -29,7 +29,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -43,7 +43,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -57,7 +57,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -71,7 +71,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -85,7 +85,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -99,7 +99,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -113,7 +113,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -127,7 +127,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -141,7 +141,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -155,7 +155,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -169,7 +169,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -183,7 +183,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -197,7 +197,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     },
     {
@@ -211,7 +211,7 @@
       "iconFrameCount": 1,
       "iconFps": 8.0,
       "autoAdvanceOnVoiceEnd": false,
-      "bgm": "",
+      "bgm": "assets/combat/bgm/yehuaxiang.opus",
       "bgmVolume": 0.3
     }
   ]

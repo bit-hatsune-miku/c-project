@@ -2,6 +2,7 @@
 
 #include <array>
 #include <string>
+#include <unordered_map>
 
 #include "bgm_player.h"
 
@@ -86,6 +87,8 @@ public:
 
     void stop();
     void fadeOutAndStop(float fadeDurationSeconds = 1.2f);
+    bool preloadTrack(const std::string& trackPath);
+    void clearPreloadedTracks();
     void playImmediate(const std::string& trackPath, float baseVolume);
     void playWithFadeIn(const std::string& trackPath, float baseVolume, float fadeDurationSeconds = 0.35f);
     void requestTrack(const std::string& trackPath, float baseVolume);
@@ -123,6 +126,7 @@ private:
                    float baseVolume,
                    float initialGain,
                    float startSeconds = 0.0f);
+    const DecodedAudioClip* findPreloadedClip(const std::string& trackPath) const;
     bool anySlotPlaying() const;
     int inactiveSlotIndex() const;
 
@@ -136,6 +140,7 @@ private:
     float incomingStartGain_ = 0.0f;
     bool paused_ = false;
     TransitionState transitionState_ = TransitionState::Idle;
+    std::unordered_map<std::string, DecodedAudioClip> preloadedClips_;
 };
 
 } // namespace game::audio

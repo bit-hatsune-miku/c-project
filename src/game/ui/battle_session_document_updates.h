@@ -275,8 +275,8 @@ inline bool useCompactPartyRackLayout(const battle::BattleDefinition& battleDefi
 }
 
 inline bool shouldShowManualUltimateHotkeyBadges(const battle::BattleDefinition& battleDefinition) {
-    return battleDefinition.key == "miku_plot_twist" ||
-           battleDefinition.key == "lyoo_plot_twist";
+    (void)battleDefinition;
+    return true;
 }
 
 inline std::string manualUltimateHotkeyBadgeLabel(std::size_t partyIndex) {

@@ -611,7 +611,8 @@
       "background": "",
       "voice": "assets/vn/voices/finale1/70.opus",
       "autoAdvanceOnVoiceEnd": false,
-      "battleKey": "miku_plot_twist"
+      "battleKey": "miku_plot_twist",
+      "battleWinScript": "finale02"
     }
   ]
 }

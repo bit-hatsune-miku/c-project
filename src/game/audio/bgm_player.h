@@ -14,8 +14,9 @@
 #include "audio_clip_loader.h"
 
 /**
- * Looping background-music player that feeds audio to SDL2 via an audio callback.
- * Loads an entire WAV into memory when playback starts and continuously loops it until stopped.
+ * Background-music player that feeds audio to SDL2 via an audio callback.
+ * Loads an entire decoded clip into memory when playback starts and can either
+ * loop continuously or stop at the end of the clip.
  */
 
 /**
@@ -23,7 +24,7 @@
  */
 
 /**
- * Load the audio clip at wavPath, begin looping playback, and initialize playback state.
+ * Load the audio clip at wavPath, begin playback, and initialize playback state.
  *
  * @param wavPath Path to the WAV file to load.
  * @param volume Initial playback volume, clamped to the range [0, 1].
@@ -32,7 +33,7 @@
  */
 
 /**
- * Load the audio clip at wavPath, begin looping playback, and initialize playback state.
+ * Load the audio clip at wavPath, begin playback, and initialize playback state.
  *
  * @param wavPath Path to the WAV file to load.
  * @param volume Initial playback volume, clamped to the range [0, 1].
@@ -100,7 +101,7 @@
  */
 
 /**
- * Fill SDL's output buffer by mixing and looping the loaded audio data into stream.
+ * Fill SDL's output buffer by mixing the loaded audio data into stream.
  * Updates the internal play position and current frame as audio is consumed.
  *
  * @param stream Destination audio buffer provided by SDL.
@@ -108,9 +109,9 @@
  */
 namespace game::audio {
 
-// Looping BGM player backed by SDL2's audio callback.
-// Loads the full decoded clip into memory once, then loops it forever via the
-// audio callback until stop() is called.
+// BGM player backed by SDL2's audio callback.
+// Loads the full decoded clip into memory once, then either loops it forever
+// or stops at the end of the clip until stop() is called.
 // setVolume() is thread-safe and can be called while playing.
 class BgmPlayer {
 public:
@@ -118,8 +119,11 @@ public:
         stop();
     }
 
-    // Load wavPath and begin looping immediately at volume [0, 1].
-    bool play(const std::string& wavPath, float volume = 1.0f, float startFraction = 0.0f) {
+    // Load wavPath and begin playback immediately at volume [0, 1].
+    bool play(const std::string& wavPath,
+              float volume = 1.0f,
+              float startFraction = 0.0f,
+              bool loop = true) {
         stop();
 
         DecodedAudioClip clip;
@@ -135,10 +139,10 @@ public:
             startFrame = 0;
         }
 
-        return startClipPlayback(std::move(clip), volume, startFrame);
+        return startClipPlayback(std::move(clip), volume, startFrame, loop);
     }
 
-    bool playAtTime(const std::string& wavPath, float volume, float startSeconds) {
+    bool playAtTime(const std::string& wavPath, float volume, float startSeconds, bool loop = true) {
         stop();
 
         DecodedAudioClip clip;
@@ -156,7 +160,56 @@ public:
             }
         }
 
-        return startClipPlayback(std::move(clip), volume, startFrame);
+        return startClipPlayback(std::move(clip), volume, startFrame, loop);
+    }
+
+    bool playClip(const DecodedAudioClip& clip,
+                  float volume = 1.0f,
+                  float startFraction = 0.0f,
+                  bool loop = true) {
+        stop();
+
+        if (!clip.valid()) {
+            return false;
+        }
+
+        const float clampedStartFraction = std::clamp(startFraction, 0.0f, 1.0f);
+        std::size_t startFrame = static_cast<std::size_t>(
+            std::floor(clampedStartFraction * static_cast<float>(clip.frameCount)));
+        if (clip.frameCount > 0) {
+            startFrame = std::min(startFrame, clip.frameCount - 1);
+        } else {
+            startFrame = 0;
+        }
+
+        DecodedAudioClip copy = clip;
+        return startClipPlayback(std::move(copy), volume, startFrame, loop);
+    }
+
+    bool playClipAtTime(const DecodedAudioClip& clip,
+                        float volume,
+                        float startSeconds,
+                        bool loop = true) {
+        stop();
+
+        if (!clip.valid()) {
+            return false;
+        }
+
+        const float clampedStartSeconds = std::max(0.0f, startSeconds);
+        std::size_t startFrame = 0;
+        if (clip.frameCount > 0 && clip.sampleRate > 0) {
+            const float durationSeconds =
+                static_cast<float>(clip.frameCount) / static_cast<float>(clip.sampleRate);
+            if (clampedStartSeconds > 0.0f && clampedStartSeconds < durationSeconds) {
+                startFrame = static_cast<std::size_t>(
+                    std::floor(clampedStartSeconds * static_cast<float>(clip.sampleRate)));
+                startFrame = std::min(startFrame, clip.frameCount - 1);
+            }
+        }
+
+        DecodedAudioClip copy = clip;
+        return startClipPlayback(std::move(copy), volume, startFrame, loop);
     }
 
     // Stop playback and release audio data.
@@ -177,6 +230,8 @@ public:
         channels_ = 0;
         bytesPerFrame_ = 0;
         currentFrame_.store(0, std::memory_order_relaxed);
+        finished_.store(false, std::memory_order_relaxed);
+        loop_ = true;
     }
 
     // Change volume [0, 1] while playing. Thread-safe.
@@ -208,9 +263,22 @@ public:
     int channelCount() const { return channels_; }
     const std::vector<float>& monoSamples() const { return monoSamples_; }
     bool hasDecodedSamples() const { return !monoSamples_.empty() && frameCount_ > 0 && sampleRate_ > 0; }
+    bool isFinished() const { return finished_.load(std::memory_order_relaxed); }
+    float durationSeconds() const {
+        if (sampleRate_ <= 0 || frameCount_ == 0) {
+            return 0.0f;
+        }
+        return static_cast<float>(frameCount_) / static_cast<float>(sampleRate_);
+    }
+    float playbackSeconds() const {
+        if (sampleRate_ <= 0) {
+            return 0.0f;
+        }
+        return static_cast<float>(std::min(currentFrame(), frameCount_)) / static_cast<float>(sampleRate_);
+    }
 
 private:
-    bool startClipPlayback(DecodedAudioClip&& clip, float volume, std::size_t startFrame) {
+    bool startClipPlayback(DecodedAudioClip&& clip, float volume, std::size_t startFrame, bool loop) {
         if (!clip.valid()) {
             return false;
         }
@@ -226,6 +294,8 @@ private:
         playPos_ = static_cast<Uint32>(startFrame * bytesPerFrame_);
         currentFrame_.store(startFrame, std::memory_order_relaxed);
         volume_.store(std::clamp(volume, 0.0f, 1.0f), std::memory_order_relaxed);
+        finished_.store(false, std::memory_order_relaxed);
+        loop_ = loop;
 
         SDL_AudioSpec desired = spec_;
         desired.callback = &BgmPlayer::audioCallback;
@@ -260,6 +330,12 @@ private:
         Uint8* dst = stream;
 
         while (remaining > 0) {
+            if (!loop_ && playPos_ >= dataSize) {
+                finished_.store(true, std::memory_order_relaxed);
+                currentFrame_.store(frameCount_, std::memory_order_relaxed);
+                break;
+            }
+
             const Uint32 available = dataSize - playPos_;
             const Uint32 toCopy = std::min(remaining, available);
             SDL_MixAudioFormat(dst, audioData_.data() + playPos_, spec_.format, toCopy, mixVol);
@@ -267,7 +343,13 @@ private:
             playPos_ += toCopy;
             remaining -= toCopy;
             if (playPos_ >= dataSize) {
-                playPos_ = 0; // loop
+                if (loop_) {
+                    playPos_ = 0;
+                } else {
+                    finished_.store(true, std::memory_order_relaxed);
+                    currentFrame_.store(frameCount_, std::memory_order_relaxed);
+                    break;
+                }
             }
             if (bytesPerFrame_ != 0 && frameCount_ != 0) {
                 currentFrame_.store(
@@ -284,7 +366,9 @@ private:
     Uint32 playPos_ = 0;           // written only by the audio callback thread
     std::atomic<float> volume_{1.0f};
     std::atomic<std::size_t> currentFrame_{0};
+    std::atomic<bool> finished_{false};
     bool paused_ = false;
+    bool loop_ = true;
     std::size_t frameCount_ = 0;
     std::size_t bytesPerFrame_ = 0;
     int sampleRate_ = 0;

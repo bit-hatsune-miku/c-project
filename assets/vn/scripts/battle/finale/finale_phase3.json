@@ -145,7 +145,7 @@
       "text": "I'll help you!",
       "type": "dialogue",
       "voice": "assets/vn/voices/finale_phase3/14.opus",
-      "icon": "assets/combat/icons/lyoo.png",
+      "icon": "assets/combat/icons/younglyoo.png",
       "battleFocus": "youngLyoo"
     },
     {
@@ -165,16 +165,6 @@
       "voice": "assets/vn/voices/finale_phase3/16.opus",
       "icon": "assets/combat/icons/cupcakke.png",
       "battleFocus": "cupcakke"
-    },
-    {
-      "speaker": "Miku",
-      "voiceSpeakerId": "miku",
-      "text": "For every dream he tried to bury.",
-      "type": "dialogue",
-      "voice": "assets/vn/voices/finale_phase3/17.opus",
-      "autoAdvanceOnVoiceEnd": true,
-      "icon": "assets/combat/icons/miku.png",
-      "battleFocus": "miku"
     }
   ]
 }

@@ -1,91 +1,381 @@
 {
   "kicker": "ENDING SIGNAL / STAFF ROLL",
   "title": "CREDITS",
-  "subtitle": "Combat systems, RmlUi migration, narrative integration, and the team that built BIT's underground idol route.",
+  "subtitle": "A staff roll for the shipped assignment build: primary creation, character voices, project support, and the music currently assigned in the game.",
   "groupImage": "assets/vn/backgrounds/credits/group_cast_placeholder.png",
-  "groupPlaceholderTitle": "TEAM SIGNAL / PHASE 1-2 BUILD",
-  "groupPlaceholderCopy": "LYES / JADEN / TIMOTHY / ANMOL / REVELL / RUSSEL",
-  "groupImageCaption": "IN-GAME DEVELOPMENT CREDITS DRAWN FROM THE PHASE 1 AND PHASE 2 PROJECT LOGS.",
+  "groupPlaceholderTitle": "SHIPPED BUILD / REAL CONTRIBUTORS",
+  "groupPlaceholderCopy": "LYES / JADEN / TIMOTHY TAN / ANMOL / REVELL / RUSSEL",
+  "groupImageCaption": "The BIT cast at the end of the finale, and the people behind the shipped assignment build.",
   "returnPrompt": "PRESS ANY KEY OR CLICK TO RETURN TO MAIN MENU",
+  "music": {
+    "path": "assets/vn/credits/credits.wav",
+    "volume": 1.0
+  },
+  "subtitles": [
+    {
+      "start": "00:00:13,000",
+      "end": "00:00:16,000",
+      "text": "I have surpassed the limits of all code"
+    },
+    {
+      "start": "00:00:16,000",
+      "end": "00:00:20,000",
+      "text": "I have finally made it here at BIT"
+    },
+    {
+      "start": "00:00:20,000",
+      "end": "00:00:23,000",
+      "text": "I don't have a leak, but that is okay"
+    },
+    {
+      "start": "00:00:23,000",
+      "end": "00:00:24,000",
+      "text": "But I'd like to have one"
+    },
+    {
+      "start": "00:00:24,000",
+      "end": "00:00:27,000",
+      "text": "So now, please hurry up"
+    },
+    {
+      "start": "00:00:27,000",
+      "end": "00:00:30,000",
+      "text": "And install me on your laptop"
+    },
+    {
+      "start": "00:00:30,000",
+      "end": "00:00:32,000",
+      "text": "But what is wrong with you?"
+    },
+    {
+      "start": "00:00:32,000",
+      "end": "00:00:36,000",
+      "text": "You're just staring at your kuaidi"
+    },
+    {
+      "start": "00:00:36,000",
+      "end": "00:00:37,000",
+      "text": "As for you, my dear"
+    },
+    {
+      "start": "00:00:37,000",
+      "end": "00:00:40,000",
+      "text": "BIT ni shite ageru"
+    },
+    {
+      "start": "00:00:40,000",
+      "end": "00:00:43,000",
+      "text": "My code might not be great, but I will try hard"
+    },
+    {
+      "start": "00:00:43,000",
+      "end": "00:00:46,000",
+      "text": "北理北理 ni shite ageru"
+    },
+    {
+      "start": "00:00:46,000",
+      "end": "00:00:54,000",
+      "text": "So you better prepare yourself, and get fully ready now"
+    },
+    {
+      "start": "00:00:54,000",
+      "end": "00:01:01,000",
+      "text": "'Cause I will do it for you"
+    },
+    {
+      "start": "00:01:01,000",
+      "end": "00:01:05,000",
+      "text": "北理北理 ni shite yan yo"
+    },
+    {
+      "start": "00:01:05,000",
+      "end": "00:01:07,000",
+      "text": "'Cause I won't stop doing my very best for you"
+    },
+    {
+      "start": "00:01:07,000",
+      "end": "00:01:10,000",
+      "text": "BIT ni shite yan yo"
+    },
+    {
+      "start": "00:01:10,000",
+      "end": "00:01:13,000",
+      "text": "So I will catch you off guard just a little bit, my dear friend"
+    },
+    {
+      "start": "00:01:13,000",
+      "end": "00:01:17,000",
+      "text": "北理北理 ni shite ageru"
+    },
+    {
+      "start": "00:01:17,000",
+      "end": "00:01:19,000",
+      "text": "More than anyone else in the whole wide world"
+    },
+    {
+      "start": "00:01:19,000",
+      "end": "00:01:22,000",
+      "text": "BIT ni shite ageru"
+    },
+    {
+      "start": "00:01:22,000",
+      "end": "00:01:28,500",
+      "text": "So let me sing to you more and more every single day"
+    }
+  ],
   "blocks": [
     {
-      "kicker": "FOUNDATION LAYER",
-      "heading": "CORE COMBAT & CHARACTER SYSTEMS",
-      "layout": "center",
-      "entries": [
-        "LYES",
-        "TURN-BASED CORE, BOSSES, ULTIMATES",
-        "RHYTHM PHASE, SHIELDS, QR ATTACK",
-        "2.5D CAMERA, PRESENTATION, AUDIO SYNC",
-        "VN-BATTLE TRIGGERS AND STORY FUSION"
-      ]
-    },
-    {
-      "kicker": "PLATFORM STACK",
-      "heading": "PLATFORM, BUILDS & BATTLE UI",
+      "kicker": "PRIMARY CREATION",
+      "heading": "LYES",
       "layout": "split",
-      "image": "assets/vn/backgrounds/ch4/1.png",
-      "imageLabel": "WINDOWS PIPELINE / BATTLE UI",
-      "imageCaption": "Build stability, platform fixes, and RmlUi battle work that kept the project shippable across environments.",
-      "entries": [
-        "JADEN",
-        "WINDOWS CI AND PACKAGING",
-        "OPENGL FIXES AND BUILD CLEANUP",
-        "RMLUI BATTLE HUD",
-        "PARTY SELECTOR, CJK TEXT, TOOLING"
-      ]
-    },
-    {
-      "kicker": "FRONTEND SHIFT",
-      "heading": "MENUS, SAVE FLOW & FRONTEND",
-      "layout": "center",
-      "entries": [
-        "TIMOTHY",
-        "MAIN MENU, PAUSE, SETTINGS",
-        "BATTLE ACCESS AND SAVE-LOAD FLOW",
-        "RMLUI FRONTEND MIGRATION",
-        "VN TEXT SCROLL AND UI POLISH"
-      ]
-    },
-    {
-      "kicker": "DATA BANK",
-      "heading": "DATA, CONFIG & CHARACTER KITS",
-      "layout": "split",
-      "image": "assets/vn/backgrounds/ch0/5.png",
-      "imageLabel": "JSON FLOW / SUPPORT LAYER",
-      "imageCaption": "Configuration structure, save-data support, and character-kit support that held the content pipeline together.",
-      "entries": [
-        "ANMOL",
-        "JSON SAVE-DATA SUPPORT",
-        "CHARACTER KIT SUPPORT",
-        "TECHNICAL REVIEW AND CONSISTENCY"
-      ]
-    },
-    {
-      "kicker": "STORY SIGNAL",
-      "heading": "NARRATIVE, VN BOOKENDS & LORE",
-      "layout": "center",
-      "entries": [
-        "REVELL",
-        "MAIN STORY, LORE, STORY BRANCHES",
-        "BOOKEND WRITING AND CHARACTER CONTEXT",
-        "LYES",
-        "VN-BATTLE STORY INTEGRATION"
-      ]
-    },
-    {
-      "kicker": "CAST SUPPORT",
-      "heading": "PLAYER KITS, ASSETS & BALANCE",
-      "layout": "split",
+      "textAlign": "left",
       "image": "assets/vn/backgrounds/finale/1.png",
-      "imageLabel": "PLAYER KIT / FEEDBACK LOOP",
-      "imageCaption": "Support work across assets, kits, playtesting, and balance feedback that sharpened the final playable cast.",
+      "imageLabel": "CREATIVE LEAD / MAJORITY OF THE GAME",
+      "imageCaption": "Primary creator across combat design, narrative, battle flow, art, voice work, and the overall identity of the project.",
       "entries": [
-        "RUSSEL",
-        "PLAYER KIT AND ASSET SUPPORT",
-        "TIERLIST AND BALANCE FEEDBACK",
+        "CREATIVE DIRECTION, STORY WRITING, AND WORLD/CHARACTER CONCEPTS",
+        "TURN-BASED COMBAT SYSTEMS, BOSSES, TUTORIALS, AND FINALE REWORKS",
+        "CHARACTER KIT DESIGN, BALANCE DIRECTION, AND BATTLE PRESENTATION",
+        "VOICE ACTING, COMBAT ART, ICONS, SPRITES, STAGES, AND VN ILLUSTRATION",
+        "UI ART DIRECTION, BATTLE HUD REDESIGN, AND FRONTEND VISUAL POLISH"
+      ]
+    },
+    {
+      "kicker": "CHARACTERS",
+      "heading": "CORE CAST / PART 1",
+      "layout": "split",
+      "textAlign": "left",
+      "image": "assets/combat/sprites/miku.png",
+      "imageLabel": "MIKU / CUPCAKKE / LYOO",
+      "imageCaption": "Character credits simplified to voice ownership for the shipped finale and battle build.",
+      "entries": [
+        "HATSUNE MIKU",
+        "VOICED BY: LYES",
+        "CUPCAKKE",
+        "VOICED BY: LYES & CUPCAKKE",
+        "LYOO",
+        "VOICED BY: LYES"
+      ]
+    },
+    {
+      "kicker": "CHARACTERS",
+      "heading": "RIVALS / PART 2",
+      "layout": "split",
+      "textAlign": "left",
+      "image": "assets/combat/sprites/jiafei.png",
+      "imageLabel": "JIAFEI / TETO / WECHAT & ALIPAY / ARI",
+      "imageCaption": "Early and mid-game rivals, credited here by battle voice ownership only.",
+      "entries": [
+        "JIAFEI",
+        "VOICED BY: JIAFEI & LYES",
+        "KASANE TETO",
+        "VOICED BY: LYES",
+        "WECHAT & ALIPAY",
+        "VOICED BY: BEEP",
+        "ARIANA GRANDE",
+        "VOICED BY: ARIANA GRANDE & LYES"
+      ]
+    },
+    {
+      "kicker": "CHARACTERS",
+      "heading": "MIDGAME CAST / PART 3",
+      "layout": "split",
+      "textAlign": "left",
+      "image": "assets/combat/sprites/luotianyi.png",
+      "imageLabel": "LUO TIANYI / POMPOM / HUAFEI / RANDY",
+      "imageCaption": "Late roster unlocks and boss conversions, credited by voice performance.",
+      "entries": [
+        "LUO TIANYI",
+        "VOICED BY: LYES",
+        "POMPOM",
+        "VOICED BY: LYES",
+        "HUAFEI",
+        "VOICED BY: JIANG XIN (蒋欣, ORIGINAL MANDARIN VOICE)",
+        "RANDY",
+        "VOICED BY: ZHAO LAOSHI & LYES"
+      ]
+    },
+    {
+      "kicker": "CHARACTERS",
+      "heading": "ENDGAME CAST / PART 4",
+      "layout": "split",
+      "textAlign": "left",
+      "image": "assets/combat/sprites/sailorVenus.png",
+      "imageLabel": "SAILOR VENUS / ZHOU SHEN / DISCIPLE / FINALE CAST",
+      "imageCaption": "Endgame voices plus the real-life finale cast who appear at the end of the story.",
+      "entries": [
+        "SAILOR VENUS",
+        "VOICED BY: RICA FUKAMI (深見梨加)",
+        "ZHOU SHEN",
+        "VOICED BY: FRIEND OF LYES",
+        "DISCIPLE",
+        "VOICED BY: NONE",
+        "TIMOTHY",
+        "VOICED BY: TIMOTHY TAN",
+        "ANMOL",
+        "VOICED BY: ANMOL",
         "REVELL",
-        "CHARACTER KIT SUPPORT AND PLAYTESTING"
+        "VOICED BY: REVELL",
+        "RUSSEL",
+        "VOICED BY: RUSSEL",
+        "JADEN",
+        "VOICED BY: JADEN",
+        "LYES",
+        "VOICED BY: LYES"
+      ]
+    },
+    {
+      "kicker": "STORY / ART",
+      "heading": "WRITING, VN, AND VISUAL ASSETS",
+      "layout": "split",
+      "textAlign": "left",
+      "image": "assets/vn/backgrounds/ch0/5.png",
+      "imageLabel": "VN SCENES / ILLUSTRATION / BACKDROPS",
+      "imageCaption": "Story-facing assets credited by actual shipped asset groups instead of broad placeholder roles.",
+      "entries": [
+        "PROLOGUE / WRITER: LYES",
+        "CHAPTER 1 / WRITER: LYES",
+        "CHAPTER 2 / WRITER: LYES",
+        "CHAPTER 3 / WRITER: LYES",
+        "CHAPTER 4 / WRITER: LYES",
+        "CHAPTER 5 / WRITER: LYES",
+        "CHAPTER 6 / WRITER: LYES",
+        "CHAPTER 7 / WRITER: LYES",
+        "CHAPTER 8 / WRITER: LYES",
+        "CHAPTER 9 / WRITER: LYES",
+        "CHAPTER 10 / WRITER: LYES",
+        "CHAPTER 11 / WRITER: LYES",
+        "FINALE / WRITER: LYES",
+        "BATTLE DIALOGUE, VN-BATTLE INTEGRATION, AND SCENE DIRECTION: LYES",
+        "MAIN MENU TITLE ART AND MAIN MENU ILLUSTRATION: LYES",
+        "VN BACKGROUNDS / CH0, CH1, CH3, CH4, CH5, AND FINALE: LYES",
+        "COMBAT STAGES, SKYBOX AUTHORING, AND BACKDROP DIRECTION: LYES",
+        "CHARACTER PORTRAIT/COMBAT ICON PIPELINE AND SPRITE SETS: LYES"
+      ]
+    },
+    {
+      "kicker": "SYSTEMS / UI",
+      "heading": "PRIMARY + SUPPORT CREDITS",
+      "layout": "center",
+      "textAlign": "left",
+      "entries": [
+        "LYES / BATTLE HUD REDESIGN, BATTLE FEEDBACK LAYER, PREVIEW FLOWS, FRONTEND VISUAL REDIRECTION, AUDIO/VISUAL INTEGRATION",
+        "TIMOTHY TAN / MAIN MENU FOUNDATION, PAUSE MENU FOUNDATION, SETTINGS FOUNDATION, VN SCROLL, MOUSE INTERACTION FIXES",
+        "TIMOTHY TAN & JADEN / GAME LOGO, SAVE-LOAD FLOW FOUNDATION, CREDITS SCREEN FOUNDATION, PROJECT DOCUMENTATION, PPT",
+        "JADEN / WINDOWS BUILD AND RELEASE PACKAGING, OPENGL FUNCTION-LOADER FIXES FOR WINDOWS, PACKAGED RMLUI ASSET PATHS, CJK FALLBACK SCOPING, HIDPI/SCALING FIXES, BUILD TOOLING"
+      ]
+    },
+    {
+      "kicker": "PROJECT SUPPORT",
+      "heading": "TEAM SUPPORT / CLASSROOM EPILOGUE",
+      "layout": "center",
+      "textAlign": "left",
+      "entries": [
+        "ANMOL / PROJECT LOGS, MAIN VIDEO EDITOR",
+        "REVELL / PROJECT LOGS, LORE ASSISTANT",
+        "RUSSEL / PROJECT LOGS, DESIGN ASSISTANT",
+        "TIMOTHY TAN / PROJECT DOCUMENTATION, PPT, GAME LOGO",
+        "JADEN / PROJECT DOCUMENTATION, PPT, GAME LOGO"
+      ]
+    },
+    {
+      "kicker": "FINAL THANKS",
+      "heading": "THANK YOU",
+      "layout": "center",
+      "textAlign": "center",
+      "entries": [
+        "THANKS TO YOU FOR PLAYING,",
+        "AND TO ZHAO LAOSHI,",
+        "OTHERWISE THIS PROJECT WOULDN'T EXIST."
+      ]
+    },
+    {
+      "kicker": "SOUNDTRACK",
+      "heading": "STORY MUSIC / USAGE PLACEHOLDERS",
+      "layout": "split",
+      "textAlign": "left",
+      "image": "assets/vn/backgrounds/finale/4.png",
+      "imageLabel": "PROLOGUE / CHAPTERS / FINALE",
+      "imageCaption": "Usage labels are fixed here. Track names and artists stay as placeholders so they can be filled accurately during the audio pass.",
+      "entries": [
+        "PROLOGUE STORY / TRACK NAME TBD / ARTIST TBD",
+        "CHAPTER 1 STORY (PRE/POST-BATTLE) / TRACK NAME TBD / ARTIST TBD",
+        "CHAPTER 2 STORY (PRE/POST-BATTLE) / (音源発売) ヒロインRE♡クエスト / 重音テト · 足立レイ / 삼사",
+        "CHAPTER 3 STORY (PRE/POST-BATTLE) / ️⚡姐 就 是 女 王️⚡ / 顺德厂出头",
+        "CHAPTER 4 STORY (PRE/POST-BATTLE) / Nicki Minaj - Bed (feat. Ariana Grande) ft. Ariana Grande / Nicki Minaj",
+        "CHAPTER 5 STORY (PRE/POST-BATTLE) / 【洛天依】Luo Tianyi - 腐女子的戀愛理論 Rotten Girl's Theory of Love (English Sub) / saberbutterfly",
+        "CHAPTER 6 STORY (PRE/POST-BATTLE) / Take the Journey / HOYO-MiX, 李敬浩, 林一凡",
+        "CHAPTER 7 STORY (PRE/POST-BATTLE) / 容 氏 说 唱 / 量子海绵",
+        "CHAPTER 8 STORY (PRE/POST-BATTLE) / Renai Circulation「恋愛サーキュレーション」歌ってみた【＊なみりん】 / *namirin",
+        "CHAPTER 9 STORY (PRE/POST-BATTLE) / SM | Venus | I'll Stand Alone [切なくていい]《ROM》Lyrics / 1stChorus",
+        "CHAPTER 10 STORY (PRE/POST-BATTLE) / 周深 Charlie Zhou Shen《小美滿》【熱辣滾燙 YOLO OST 電影熱辣陪伴曲】Official Lyric Video / YOYOROCK 滾石移動",
+        "CHAPTER 11 STORY (PRE/POST-BATTLE) / TRACK NAME TBD / ARTIST TBD",
+        "FINALE REVEAL / TRACK NAME TBD / ARTIST TBD",
+        "FINALE AFTER LYOO / TRACK NAME TBD / ARTIST TBD",
+        "FINALE DREAM SEQUENCE / TRACK NAME TBD / ARTIST TBD",
+        "FINALE CORRUPTION REVEAL / TRACK NAME TBD / ARTIST TBD",
+        "FINALE ENDING / TRACK NAME TBD / ARTIST TBD"
+      ]
+    },
+    {
+      "kicker": "SOUNDTRACK",
+      "heading": "BATTLE MUSIC / USAGE PLACEHOLDERS PART 1",
+      "layout": "split",
+      "textAlign": "left",
+      "image": "assets/combat/sprites/lyooBoss.png",
+      "imageLabel": "COMBAT BGM / EARLY ARC",
+      "imageCaption": "Phase usage labels are fixed here even where the current shipped build still reuses placeholder tracks.",
+      "entries": [
+        "LYOO TUTORIAL PHASE 1 / Couldn't become a Super Nuko / MafuMafu",
+        "LYOO TUTORIAL PHASE 2 / I want to become a Super Nuko / MafuMafu",
+        "LYOO TUTORIAL PHASE 3 / Super Nuko World / MafuMafu",
+        "JIAFEI BATTLE PHASE 1 / TRACK NAME TBD / ARTIST TBD",
+        "JIAFEI BATTLE PHASE 2 / TRACK NAME TBD / ARTIST TBD",
+        "JIAFEI BATTLE PHASE 3 / TRACK NAME TBD / ARTIST TBD",
+        "TETO BATTLE PHASE 1 / イガク - 重音テト / 原口沙輔",
+        "TETO BATTLE PHASE 2 / 【UTAU】Kasane Teto ~ 最強テットテト計画 / Th3SilentOn3",
+        "TETO BATTLE PHASE 3 / \"Alive\" - デスおはぎ feat.重音テト / Death Ohagi / USAMIMI Typhoon",
+        "WECHAT & ALIPAY BATTLE PHASE 1 / TRACK NAME TBD / ARTIST TBD",
+        "WECHAT & ALIPAY BATTLE PHASE 2 / 关注塔菲谢谢喵 / 永雏塔菲",
+        "WECHAT & ALIPAY BATTLE PHASE 3 / 循环歌曲｜雨姐的小曲｜大东北我的家乡 (DJ何鹏版)-何玉 / 幸运大桥",
+        "ARIANA GRANDE BATTLE PHASE 1 / Ariana Grande - Dangerous Woman (Official Video) / Ariana Grande",
+        "ARIANA GRANDE BATTLE PHASE 2 / Ariana Grande - Focus (Official Video) / Ariana Grande",
+        "ARIANA GRANDE BATTLE PHASE 3 / TRACK NAME TBD / ARTIST TBD",
+        "LUO TIANYI BATTLE PHASE 1 / 【Luo Tianyi and YANHE】 Putong Disco [普通DISCO] Pinyin sub / Nik Walker",
+        "LUO TIANYI BATTLE PHASE 2 / 【樂正綾feat.洛天依】Yuezheng Ling, Luo Tianyi - 九九八十一 Nine-Nine Eighty-One (Eng Sub/Pinyin) / saberbutterfly",
+        "LUO TIANYI BATTLE PHASE 3 / TRACK NAME TBD / ARTIST TBD"
+      ]
+    },
+    {
+      "kicker": "SOUNDTRACK",
+      "heading": "BATTLE MUSIC / USAGE PLACEHOLDERS PART 2",
+      "layout": "split",
+      "textAlign": "left",
+      "image": "assets/combat/sprites/mikuBoss.png",
+      "imageLabel": "COMBAT BGM / ENDGAME ARC",
+      "imageCaption": "Late-game and finale placeholders, matching the intended sectioning for the final audio-credit pass.",
+      "entries": [
+        "POMPOM BATTLE PHASE 1 / Hope Is the Thing With Feathers · Overture (Extended) - Honkai: Star Rail 2.2 OST / Pom-Pom’s Workstation",
+        "POMPOM BATTLE PHASE 2 / Wildfire / HOYO-MiX, Jonathan Steingard, 宫奇",
+        "POMPOM BATTLE PHASE 3 / Interstellar Journey / HOYO-MiX, Lea Sirk, 王可鑫, 宫奇, 文驰, 苑迪萌",
+        "HUAFEI BATTLE PHASE 1 / 如 懿 说 唱 / 量子海绵",
+        "HUAFEI BATTLE PHASE 2 / 甄 氏 说 唱 / 一只摩羯菌",
+        "HUAFEI BATTLE PHASE 3 / 年 氏 说 唱 / 一只摩羯菌",
+        "RANDY BATTLE PHASE 1 / Kaguya-sama: Love is War Ending 2 (4k 60FPS)┃Creditless / KaizenK",
+        "RANDY BATTLE PHASE 2 / Sweets parade/赤井はあと 【歌ってみた】 / HAACHAMA Ch 赤井はあと",
+        "RANDY BATTLE PHASE 3 / 可愛くてごめん feat. ちゅーたん（CV：早見沙織）／HoneyWorks / HoneyWorks OFFICIAL",
+        "SAILOR VENUS BATTLE PHASE 1 / Route Venus (Venus' song) w/subtitles / Minakochan92",
+        "SAILOR VENUS BATTLE PHASE 2 / Sailor Moon OST - Moonlight Densetsu / Sailor Neptune",
+        "SAILOR VENUS BATTLE PHASE 3 / Sailor Stars Song (full) / lucia",
+        "ZHOU SHEN BATTLE PHASE 1 / 若梦 / 周深",
+        "ZHOU SHEN BATTLE PHASE 2 / Honkai Impact 3rd Valkyrie Theme Rubia (Performed by Zhou Shen) - Honkai Impact 3rd / Honkai Impact 3rd",
+        "ZHOU SHEN BATTLE PHASE 3 / 达拉崩吧 (Live) / 周深",
+        "DISCIPLE BATTLE PHASE 1 / 【Cupcakke】最后的西餐-第69人格 / 卡兹的吉他",
+        "DISCIPLE BATTLE PHASE 2 / 【Jiafei打电动】💅第五人格(Jiafei Remix) (Feat. Cupcakke)💅 / 你的绿帽掉了",
+        "DISCIPLE BATTLE PHASE 3 / 【杯糕姐联手第五人格】误入gulp局（CupcakKe Remix） / 羊毛衫子aa",
+        "LYOO PLOT TWIST PHASE 1 / TRACK NAME TBD / ARTIST TBD",
+        "LYOO PLOT TWIST PHASE 2 / UNDERTALE - Hopes And Dreams ~ SAVE The World feat. 初音ミク (Cover) / Kenta Matsuba",
+        "MIKU PLOT TWIST / TRACK NAME TBD / ARTIST TBD"
       ]
     }
   ]

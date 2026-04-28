@@ -13,6 +13,7 @@
 #include <RmlUi/Core/Event.h>
 
 #include "../platform/path_resolution.h"
+#include "../game/vn/vn_system.h"
 #include "../game/vn/vn_script_catalog.h"
 
 namespace graphics::frontui {
@@ -36,6 +37,8 @@ constexpr float kOpeningTitleFadeInSeconds = 0.55f;
 constexpr float kOpeningTitleHoldSeconds = 2.0f;
 constexpr float kOpeningChromeFadeInSeconds = 0.65f;
 constexpr float kTitleBodyStartGapDp = 36.0f;
+constexpr float kOpeningSequenceSeconds =
+    kOpeningBlackSeconds + kOpeningTitleFadeInSeconds + kOpeningTitleHoldSeconds;
 
 class CallbackEventListener final : public Rml::EventListener {
 public:
@@ -311,7 +314,6 @@ game::credits::CreditsData fallbackCreditsData() {
 }  // namespace
 
 bool CreditsDocumentController::bind(Rml::ElementDocument& document, const AppState& state) {
-    (void)state;
     document_ = &document;
     detachEventListeners(listeners_);
     creditsLoaded_ = game::credits::loadCreditsData(vn::creditsDataPath(), creditsData_);
@@ -331,22 +333,33 @@ bool CreditsDocumentController::bind(Rml::ElementDocument& document, const AppSt
     viewportHeight_ = 0.0f;
     openingElapsed_ = 0.0f;
     layoutScale_ = resolveLayoutScale(document_);
+    songDurationSeconds_ = 0.0f;
+    songBaseVolume_ = 1.0f;
+    syncedPlaybackActive_ = false;
+    currentSubtitleText_ = "\x01";
     visualTracks_.clear();
 
     if (Rml::Element* element = document_->GetElementById("credits-return-prompt")) {
         element->SetInnerRML(escapeRmlText(creditsData_.returnPrompt));
     }
+    setSubtitleText("");
 
     attachListeners();
     populateContent();
     setChromeOpacity(0.0f);
     setTitleCardOpacity(0.0f);
+    vn::stopBgmPlayback();
+    syncedPlaybackActive_ = startCreditsMusic(state);
     syncPrompt();
     return true;
 }
 
 void CreditsDocumentController::unbind() {
     detachEventListeners(listeners_);
+    musicPlayer_.stop();
+    syncedPlaybackActive_ = false;
+    songDurationSeconds_ = 0.0f;
+    currentSubtitleText_.clear();
     document_ = nullptr;
 }
 
@@ -355,9 +368,12 @@ void CreditsDocumentController::sync(const AppState& state) {
 }
 
 void CreditsDocumentController::update(const AppState& state, float deltaSeconds) {
-    (void)state;
     if (document_ == nullptr) {
         return;
+    }
+
+    if (syncedPlaybackActive_) {
+        musicPlayer_.setVolume(songBaseVolume_ * std::clamp(state.settings.musicVolume, 0.0f, 1.0f));
     }
 
     if (!scrollMetricsReady_) {
@@ -369,6 +385,7 @@ void CreditsDocumentController::update(const AppState& state, float deltaSeconds
         updateScroll(deltaSeconds);
     }
     updatePresentation(deltaSeconds);
+    updateSubtitle();
 }
 
 void CreditsDocumentController::moveSelection(int delta) {
@@ -384,6 +401,13 @@ void CreditsDocumentController::activateSelection() {
 void CreditsDocumentController::handleKeyDown(const SDL_KeyboardEvent& event) {
     if ((event.keysym.mod & KMOD_CTRL) != 0 && event.keysym.sym == SDLK_p) {
         requestReturn();
+        return;
+    }
+
+    if (syncedPlaybackActive_) {
+        if (rollFinished_) {
+            requestReturn();
+        }
         return;
     }
 
@@ -412,6 +436,9 @@ void CreditsDocumentController::handleKeyDown(const SDL_KeyboardEvent& event) {
 }
 
 void CreditsDocumentController::handleKeyUp(const SDL_KeyboardEvent& event) {
+    if (syncedPlaybackActive_) {
+        return;
+    }
     if (event.keysym.sym == SDLK_SPACE) {
         speedupHeld_ = false;
     }
@@ -477,6 +504,29 @@ void CreditsDocumentController::updateScroll(float deltaSeconds) {
         return;
     }
 
+    if (syncedPlaybackActive_) {
+        const float songDuration = currentSongDurationSeconds();
+        const float scrollDuration = songDuration - kOpeningSequenceSeconds;
+        if (scrollDuration <= 0.0f) {
+            currentTop_ = endTop_;
+            setScrollTop(currentTop_);
+            rollFinished_ = true;
+            syncPrompt();
+            return;
+        }
+
+        const float progress = clamp01((currentSongPlaybackSeconds() - kOpeningSequenceSeconds) / scrollDuration);
+        currentTop_ = lerp(startTop_, endTop_, progress);
+        setScrollTop(currentTop_);
+        if (progress >= 1.0f || musicPlayer_.isFinished()) {
+            currentTop_ = endTop_;
+            setScrollTop(currentTop_);
+            rollFinished_ = true;
+            syncPrompt();
+        }
+        return;
+    }
+
     const float speedMultiplier =
         arrowSpeedMultiplier_ *
         (speedupHeld_ ? kCreditsSpeedupMultiplier : 1.0f);
@@ -493,12 +543,14 @@ void CreditsDocumentController::updateScroll(float deltaSeconds) {
 }
 
 void CreditsDocumentController::updateOpening(float deltaSeconds) {
-    openingElapsed_ += deltaSeconds;
+    if (syncedPlaybackActive_) {
+        openingElapsed_ = currentSongPlaybackSeconds();
+    } else {
+        openingElapsed_ += deltaSeconds;
+    }
 
     if (openingFinished_) {
-        const float chromeFadeT = clamp01(
-            (openingElapsed_ - (kOpeningBlackSeconds + kOpeningTitleFadeInSeconds + kOpeningTitleHoldSeconds)) /
-            kOpeningChromeFadeInSeconds);
+        const float chromeFadeT = clamp01((openingElapsed_ - kOpeningSequenceSeconds) / kOpeningChromeFadeInSeconds);
         setChromeOpacity(smoothstep01(chromeFadeT));
         return;
     }
@@ -507,7 +559,7 @@ void CreditsDocumentController::updateOpening(float deltaSeconds) {
     setTitleCardOpacity(titleOpacity);
     setChromeOpacity(0.0f);
 
-    if (openingElapsed_ >= kOpeningBlackSeconds + kOpeningTitleFadeInSeconds + kOpeningTitleHoldSeconds) {
+    if (openingElapsed_ >= kOpeningSequenceSeconds) {
         openingFinished_ = true;
         setTitleCardOpacity(1.0f);
     }
@@ -645,6 +697,27 @@ void CreditsDocumentController::initializeScrollMetrics() {
     updatePresentation(0.0f, true);
 }
 
+void CreditsDocumentController::updateSubtitle() {
+    if (document_ == nullptr) {
+        return;
+    }
+
+    if (!syncedPlaybackActive_ || creditsData_.subtitles.empty()) {
+        setSubtitleText("");
+        return;
+    }
+
+    const float playbackSeconds = currentSongPlaybackSeconds();
+    for (const auto& cue : creditsData_.subtitles) {
+        if (playbackSeconds >= cue.startSeconds && playbackSeconds < cue.endSeconds) {
+            setSubtitleText(cue.text);
+            return;
+        }
+    }
+
+    setSubtitleText("");
+}
+
 void CreditsDocumentController::setScrollTop(float top) {
     if (document_ == nullptr) {
         return;
@@ -652,6 +725,18 @@ void CreditsDocumentController::setScrollTop(float top) {
 
     if (Rml::Element* element = document_->GetElementById("credits-roll-content")) {
         element->SetProperty("top", formatPx(top));
+    }
+}
+
+void CreditsDocumentController::setSubtitleText(const std::string& text) {
+    if (document_ == nullptr || text == currentSubtitleText_) {
+        return;
+    }
+
+    currentSubtitleText_ = text;
+    if (Rml::Element* element = document_->GetElementById("credits-subtitle")) {
+        element->SetInnerRML(escapeRmlText(text));
+        element->SetClass("is-hidden", text.empty());
     }
 }
 
@@ -762,6 +847,46 @@ void CreditsDocumentController::syncPrompt() const {
 
 void CreditsDocumentController::requestReturn() {
     pendingReturn_ = true;
+}
+
+bool CreditsDocumentController::startCreditsMusic(const AppState& state) {
+    songBaseVolume_ = std::clamp(creditsData_.music.volume, 0.0f, 1.0f);
+    if (creditsData_.music.path.empty()) {
+        return false;
+    }
+
+    const std::string resolvedPath = platform::path::resolvePath(creditsData_.music.path);
+    if (resolvedPath.empty() || !std::filesystem::exists(resolvedPath)) {
+        return false;
+    }
+
+    const float masterVolume = std::clamp(state.settings.musicVolume, 0.0f, 1.0f);
+    if (!musicPlayer_.play(resolvedPath, songBaseVolume_ * masterVolume, 0.0f, false)) {
+        return false;
+    }
+
+    songDurationSeconds_ = musicPlayer_.durationSeconds();
+    if (songDurationSeconds_ <= kOpeningSequenceSeconds) {
+        musicPlayer_.stop();
+        songDurationSeconds_ = 0.0f;
+        return false;
+    }
+
+    return true;
+}
+
+float CreditsDocumentController::currentSongPlaybackSeconds() const {
+    if (!syncedPlaybackActive_) {
+        return openingElapsed_;
+    }
+    return musicPlayer_.playbackSeconds();
+}
+
+float CreditsDocumentController::currentSongDurationSeconds() const {
+    if (syncedPlaybackActive_) {
+        return musicPlayer_.durationSeconds();
+    }
+    return songDurationSeconds_;
 }
 
 }  // namespace graphics::frontui

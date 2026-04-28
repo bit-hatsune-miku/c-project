@@ -79,6 +79,27 @@ void BattleBgmController::stop() {
     transitionState_ = TransitionState::Idle;
 }
 
+bool BattleBgmController::preloadTrack(const std::string& trackPath) {
+    if (trackPath.empty()) {
+        return false;
+    }
+    if (preloadedClips_.find(trackPath) != preloadedClips_.end()) {
+        return true;
+    }
+
+    DecodedAudioClip clip;
+    if (!loadDecodedAudioClip(trackPath, clip)) {
+        return false;
+    }
+
+    preloadedClips_.emplace(trackPath, std::move(clip));
+    return true;
+}
+
+void BattleBgmController::clearPreloadedTracks() {
+    preloadedClips_.clear();
+}
+
 /**
  * @brief Initiates a fade-out of the current track and then stops playback.
  *
@@ -562,9 +583,13 @@ bool BattleBgmController::startSlot(PlaybackSlot& slot,
 
     const float clampedBaseVolume = std::clamp(baseVolume, 0.0f, 1.0f);
     const float clampedInitialGain = std::clamp(initialGain, 0.0f, 1.0f);
-    if (!slot.player->playAtTime(trackPath,
-                                 clampedBaseVolume * clampedInitialGain * masterVolume_,
-                                 startSeconds)) {
+    const float effectiveVolume = clampedBaseVolume * clampedInitialGain * masterVolume_;
+    if (const DecodedAudioClip* preloadedClip = findPreloadedClip(trackPath); preloadedClip != nullptr) {
+        if (!slot.player->playClipAtTime(*preloadedClip, effectiveVolume, startSeconds)) {
+            stopSlot(slot);
+            return false;
+        }
+    } else if (!slot.player->playAtTime(trackPath, effectiveVolume, startSeconds)) {
         stopSlot(slot);
         return false;
     }
@@ -576,6 +601,14 @@ bool BattleBgmController::startSlot(PlaybackSlot& slot,
         slot.player->pause();
     }
     return true;
+}
+
+const DecodedAudioClip* BattleBgmController::findPreloadedClip(const std::string& trackPath) const {
+    const auto it = preloadedClips_.find(trackPath);
+    if (it == preloadedClips_.end()) {
+        return nullptr;
+    }
+    return &it->second;
 }
 
 bool BattleBgmController::anySlotPlaying() const {

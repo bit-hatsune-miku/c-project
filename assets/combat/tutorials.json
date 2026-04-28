@@ -39,43 +39,50 @@
             "speaker": "Lyoo",
             "voiceSpeakerId": "lyoo",
             "icon": "assets/combat/icons/lyoo.png",
-            "text": "Now try {character}'s {skill_name}. Different input, same idea. {skill_description} Input: {skill_input} Keep it alive and don't make me explain this twice."
+            "text": "Now try {character}'s {skill_name}. Different input, same idea. {skill_description} Input: {skill_input} Keep it alive and don't make me explain this twice.",
+            "voice": "assets/vn/voices/demo/cupbonus.wav"
         },
         "lyoo_ultimate_intro": {
             "speaker": "Lyoo",
             "voiceSpeakerId": "lyoo",
             "icon": "assets/combat/icons/lyoo.png",
-            "text": "When an ultimate is ready, do not panic and do not freestyle. Look at the glowing circle, read the callout, and cast it on command."
+            "text": "When an ultimate is ready, do not panic and do not freestyle. Look at the glowing circle, read the callout, and cast it on command.",
+            "voice": "assets/vn/voices/demo/ultimate.wav"
         },
         "lyoo_ultimate_ready": {
             "speaker": "Lyoo",
             "voiceSpeakerId": "lyoo",
             "icon": "assets/combat/icons/lyoo.png",
-            "text": "Those are your \"Ultimate Points\". {character} is full, so press {manual_ultimate_hotkey} to queue {ultimate_name}. And since you clearly need guardrails, that's the only button I'm letting you touch right now."
+            "text": "Those are your \"Ultimate Points\". {character} is full, so press {manual_ultimate_hotkey} to queue {ultimate_name}. And since you clearly need guardrails, that's the only button I'm letting you touch right now.",
+            "voice": "assets/vn/voices/demo/ultimate_ready.wav"
         },
         "lyoo_boss_intro": {
             "speaker": "Lyoo",
             "voiceSpeakerId": "lyoo",
             "icon": "assets/combat/icons/lyoo.png",
-            "text": "And before you ask, yes, bosses have gimmicks too. Mine is {boss_skill_name}. {boss_skill_description} Input: {boss_input} Read the warning, answer it properly, and try not to flop."
+            "text": "And before you ask, yes, bosses have gimmicks too. Mine is {boss_skill_name}. {boss_skill_description} Input: {boss_input} Read the warning, answer it properly, and try not to flop.",
+            "voice": "assets/vn/voices/demo/boss.wav"
         },
         "lyoo_miku_retry": {
             "speaker": "Lyoo",
             "voiceSpeakerId": "lyoo",
             "icon": "assets/combat/icons/lyoo.png",
-            "text": "Nope. That was not clean enough. Your damage is gone, your turn is back, and you're doing it again. Watch the lane and land the notes properly this time."
+            "text": "Nope. That was not clean enough. Your damage is gone, your turn is back, and you're doing it again. Watch the lane and land the notes properly this time.",
+            "voice": "assets/vn/voices/demo/mikuretry.wav"
         },
         "lyoo_cupcakke_retry": {
             "speaker": "Lyoo",
             "voiceSpeakerId": "lyoo",
             "icon": "assets/combat/icons/lyoo.png",
-            "text": "You dropped the input. Run {skill_name} again and keep the sequence alive this time."
+            "text": "You dropped the input. Run {skill_name} again and keep the sequence alive this time.",
+            "voice": "assets/vn/voices/demo/cupretry.wav"
         },
         "lyoo_boss_retry": {
             "speaker": "Lyoo",
             "voiceSpeakerId": "lyoo",
             "icon": "assets/combat/icons/lyoo.png",
-            "text": "That was not the counter. I'm doing the attack again, so pay attention this time."
+            "text": "That was not the counter. I'm doing the attack again, so pay attention this time.",
+            "voice": "assets/vn/voices/demo/bossretry.wav"
         },
         "lyoo_outro": {
             "speaker": "Lyoo",

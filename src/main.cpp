@@ -2120,6 +2120,15 @@ int main(int argc, char** argv) {
         clearPendingBattleState(state);
     };
 
+    const auto countsAsBattleClear = [&](const PendingPostBattleContext& context) {
+        if (context.outcome == battle::app::BattleOutcome::Victory) {
+            return true;
+        }
+
+        return context.battleDefinition.key == "miku_plot_twist" &&
+               context.outcome == battle::app::BattleOutcome::Defeat;
+    };
+
     const auto routeResolvedBattleOutcomeContinuation = [&](const PendingPostBattleContext& context) -> bool {
         closeResolvedBattleUi();
 
@@ -2198,9 +2207,28 @@ int main(int argc, char** argv) {
                 state.pauseContext = PauseContext::Story;
                 state.mainSelection = MainMenuAction::Battle;
             }
-        } else if (context.battleFlowMode == BattleFlowMode::CampaignStory &&
+        } else if (context.battleDefinition.key == "miku_plot_twist" &&
+                   context.outcome == battle::app::BattleOutcome::Defeat &&
+                   !context.battleWinScript.empty() &&
+                   (context.battleFlowMode == BattleFlowMode::CampaignStory ||
+                    context.battleFlowMode == BattleFlowMode::PracticeReplayStory)) {
+            const StoryFlowMode resumedStoryFlow =
+                storyFlowModeForBattleFlow(context.battleFlowMode);
+            beginStory(state,
+                       context.battleWinScript,
+                       context.battleReturnScreen,
+                       true,
+                       resumedStoryFlow);
+        } else if ((context.battleFlowMode == BattleFlowMode::CampaignStory ||
+                    context.battleFlowMode == BattleFlowMode::PracticeReplayStory) &&
                    !context.battleLoseScript.empty()) {
-            beginStory(state, context.battleLoseScript, context.battleReturnScreen);
+            const StoryFlowMode resumedStoryFlow =
+                storyFlowModeForBattleFlow(context.battleFlowMode);
+            beginStory(state,
+                       context.battleLoseScript,
+                       context.battleReturnScreen,
+                       true,
+                       resumedStoryFlow);
         } else if (context.battleFlowMode == BattleFlowMode::CampaignStory &&
                    !context.battleSourceStoryScript.empty()) {
             beginStory(state, context.battleSourceStoryScript, context.battleReturnScreen);
@@ -2217,7 +2245,7 @@ int main(int argc, char** argv) {
 
     const auto routeResolvedBattleOutcome = [&](const PendingPostBattleContext& context) -> bool {
         std::string tutorialDrillCharacterKey;
-        if (context.outcome == battle::app::BattleOutcome::Victory &&
+        if (countsAsBattleClear(context) &&
             context.battleFlowMode == BattleFlowMode::CampaignStory &&
             !context.battleDefinition.key.empty() &&
             !battle::hasClearedBattle(state.progression, context.battleDefinition.key)) {
@@ -2235,7 +2263,7 @@ int main(int argc, char** argv) {
             state.progression.currentPartyLineup = context.currentPartyLineup;
             battle::normalizePlayerProgression(state.progression);
         }
-        if (context.outcome == battle::app::BattleOutcome::Victory && !context.battleDefinition.key.empty()) {
+        if (countsAsBattleClear(context) && !context.battleDefinition.key.empty()) {
             state.progression.clearedBattleKeys.push_back(context.battleDefinition.key);
             battle::normalizePlayerProgression(state.progression);
         }

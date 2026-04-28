@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdio>
 #include <fstream>
 #include <initializer_list>
 #include <iostream>
@@ -85,6 +86,23 @@ std::string normalizeTextAlign(const std::string& requestedAlign) {
     return "center";
 }
 
+float parseCueTimeSeconds(const std::string& value) {
+    int hours = 0;
+    int minutes = 0;
+    int seconds = 0;
+    int milliseconds = 0;
+    if (std::sscanf(value.c_str(), "%d:%d:%d,%d", &hours, &minutes, &seconds, &milliseconds) != 4) {
+        return -1.0f;
+    }
+
+    if (hours < 0 || minutes < 0 || seconds < 0 || milliseconds < 0) {
+        return -1.0f;
+    }
+
+    return static_cast<float>((hours * 3600) + (minutes * 60) + seconds) +
+           (static_cast<float>(milliseconds) / 1000.0f);
+}
+
 }  // namespace
 
 bool loadCreditsData(const std::string& jsonPath, CreditsData& outData) {
@@ -114,6 +132,35 @@ bool loadCreditsData(const std::string& jsonPath, CreditsData& outData) {
             "Miku centered, full cast grouped around her. Slot reserved for Lyes' final art once the roster is complete.");
         outData.groupImageCaption = root.value("groupImageCaption", "");
         outData.returnPrompt = root.value("returnPrompt", "PRESS ANY KEY OR CLICK TO RETURN TO MAIN MENU");
+        outData.music = CreditsMusic{};
+        if (const auto musicIt = root.find("music"); musicIt != root.end() && musicIt->is_object()) {
+            outData.music.path = musicIt->value("path", "");
+            outData.music.volume = std::clamp(musicIt->value("volume", 1.0f), 0.0f, 1.0f);
+        }
+        outData.subtitles.clear();
+        if (const auto subtitlesIt = root.find("subtitles"); subtitlesIt != root.end() && subtitlesIt->is_array()) {
+            outData.subtitles.reserve(subtitlesIt->size());
+            for (const auto& cueJson : *subtitlesIt) {
+                if (!cueJson.is_object()) {
+                    continue;
+                }
+
+                const std::string startText = cueJson.value("start", "");
+                const std::string endText = cueJson.value("end", "");
+                const std::string text = cueJson.value("text", "");
+                if (startText.empty() || endText.empty() || text.empty()) {
+                    continue;
+                }
+
+                const float startSeconds = parseCueTimeSeconds(startText);
+                const float endSeconds = parseCueTimeSeconds(endText);
+                if (startSeconds < 0.0f || endSeconds <= startSeconds) {
+                    continue;
+                }
+
+                outData.subtitles.push_back(CreditsSubtitleCue{startSeconds, endSeconds, text});
+            }
+        }
 
         const auto blocksIt = root.find("blocks");
         if (blocksIt == root.end() || !blocksIt->is_array()) {

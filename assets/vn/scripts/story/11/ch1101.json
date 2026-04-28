@@ -1,12 +1,58 @@
 {
   "chapter": 11,
+  "title": "Finals Notice",
   "scriptId": "ch1101",
   "endReturnScreen": "selector",
   "entries": [
     {
+      "speaker": "Lyoo",
+      "text": "Congratulations, Miku. You made it to the finals.",
+      "type": "dialogue",
+      "background": "assets/combat/skies/twilight.png",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
+      "bgm": "assets/vn/bgm/finale/lyooPlotTwistReveal.opus",
+      "bgmVolume": 0.25
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "From here on out, button-mashing panic won't save you. The next trials care more about how well you built your team than how fast your fingers flail.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
+      "speaker": "Lyoo",
+      "text": "Prepare extra hard... or don't. Watching you fail here would still be funny.",
+      "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false
+    },
+    {
       "speaker": "Disciple",
       "text": "When the light goes out, only your preparation remains.",
       "type": "dialogue",
+      "background": "",
+      "voice": "",
+      "fontPath": "",
+      "icon": "",
+      "iconFrameCount": 1,
+      "iconFps": 8.0,
+      "autoAdvanceOnVoiceEnd": false,
       "battleKey": "disciple"
     }
   ]

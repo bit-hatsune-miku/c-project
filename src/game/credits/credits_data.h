@@ -16,6 +16,17 @@ struct CreditsBlock {
     std::vector<std::string> entries;
 };
 
+struct CreditsMusic {
+    std::string path;
+    float volume = 1.0f;
+};
+
+struct CreditsSubtitleCue {
+    float startSeconds = 0.0f;
+    float endSeconds = 0.0f;
+    std::string text;
+};
+
 struct CreditsData {
     std::string kicker;
     std::string title;
@@ -25,6 +36,8 @@ struct CreditsData {
     std::string groupPlaceholderCopy;
     std::string groupImageCaption;
     std::string returnPrompt;
+    CreditsMusic music;
+    std::vector<CreditsSubtitleCue> subtitles;
     std::vector<CreditsBlock> blocks;
 };
 
