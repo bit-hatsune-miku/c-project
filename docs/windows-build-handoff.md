@@ -13,7 +13,7 @@ Windows-runnable submission package.
 
 ## Start Clean
 
-Use a **fresh clone** on Windows.
+Use a **fresh terminal clone** on Windows.
 
 Do **not** reuse the old Windows worktree that created replica branches and
 stash confusion.
@@ -23,12 +23,15 @@ Do **not** restore old stashes.
 Do **not** create a side branch unless the build fails and isolation becomes
 necessary.
 
+Do **not** rely on the old GitHub Desktop checkout for the final submission
+build.
+
 Current required commit:
 
 ```text
 branch: main
-commit: 31da764
-message: docs: prep submission comments and windows staging
+commit: cc3ff48
+message: docs: add windows build handoff
 ```
 
 Recommended clone flow:
@@ -37,14 +40,20 @@ Recommended clone flow:
 git clone git@github.com:bit-hatsune-miku/c-project.git
 cd c-project
 git checkout main
+git lfs install
+git lfs pull
+git lfs ls-files
 git log -1
 git status
 ```
 
 Expected:
 
-- `git log -1` shows `31da764`
+- `git log -1` shows `cc3ff48`
 - `git status` is clean
+- `git lfs ls-files` lists the tracked large audio files
+- missing `.wav` assets are now present as real media files instead of small
+  pointer text files
 
 ## Toolchain
 
@@ -54,6 +63,7 @@ Install:
 - workload: `Desktop development with C++`
 - CMake
 - vcpkg
+- Git LFS
 
 Install the static dependencies:
 
@@ -140,6 +150,7 @@ Do not cut major assets unless the teacher explicitly refuses the Netdisk path.
 
 - Do not reuse old stashes
 - Do not let the agent create a replica branch of `main`
+- Do not use the old GitHub Desktop checkout as the submission worktree
 - Do not switch to gameplay/content work
 - Do not waste time on new features
 - Do not ship preview/demo executables with the final package
@@ -149,5 +160,5 @@ Do not cut major assets unless the teacher explicitly refuses the Netdisk path.
 Use this directly if needed:
 
 ```text
-Work from a fresh clone of org/main at commit 31da764. Do not reuse stashes or create a replica branch unless the build fails. Build a Windows Release package with MSVC + vcpkg static using the stage_submission target. Verify the packaged exe runs from build-win/submission with assets beside it. If build issues appear, fix only Windows build/package blockers, not gameplay features.
+Work from a fresh terminal clone of org/main. Do not reuse stashes, do not use the old GitHub Desktop checkout, and do not create a replica branch unless the build fails. Run git lfs install and git lfs pull before building so the large audio assets are actually present. Then build a Windows Release package with MSVC + vcpkg static using the stage_submission target. Verify the packaged exe runs from build-win/submission with assets beside it. If build issues appear, fix only Windows build/package blockers, not gameplay features.
 ```

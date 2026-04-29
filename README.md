@@ -125,19 +125,45 @@ cmake --build build
 The intended submission path is a **Release** build with **static** vcpkg
 dependencies so the packaged game does not rely on copied third-party DLLs.
 
+Important:
+
+- use a **fresh terminal clone**
+- do **not** rely on an old GitHub Desktop checkout for the submission build
+- install and pull **Git LFS** before building, or many large audio assets may
+  be missing
+
 ### 1. Install tools
 
 - Visual Studio 2022 with `Desktop development with C++`
 - CMake
 - vcpkg
+- Git LFS
 
-### 2. Install dependencies with the static triplet
+### 2. Clone and fetch LFS content
+
+```powershell
+git clone git@github.com:bit-hatsune-miku/c-project.git
+cd c-project
+git checkout main
+git lfs install
+git lfs pull
+git log -1
+git status
+```
+
+Expected:
+
+- `git log -1` shows the current `org/main` tip
+- `git status` is clean
+- large audio assets are present as real files, not tiny pointer text files
+
+### 3. Install dependencies with the static triplet
 
 ```powershell
 vcpkg install sdl2:x64-windows-static sdl2-image:x64-windows-static sdl2-ttf:x64-windows-static opusfile:x64-windows-static
 ```
 
-### 3. Configure a Release build
+### 4. Configure a Release build
 
 ```powershell
 cmake -S . -B build-win ^
@@ -146,13 +172,13 @@ cmake -S . -B build-win ^
   -DVCPKG_TARGET_TRIPLET=x64-windows-static
 ```
 
-### 4. Build the shipped executable
+### 5. Build the shipped executable
 
 ```powershell
 cmake --build build-win --config Release --target OurUndergroundBITIdol
 ```
 
-### 5. Stage the portable package
+### 6. Stage the portable package
 
 ```powershell
 cmake --build build-win --config Release --target stage_submission
@@ -167,7 +193,7 @@ build-win/submission/
 └── assets/
 ```
 
-### 6. Run
+### 7. Run
 
 Launch:
 
