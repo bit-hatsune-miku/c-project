@@ -1,5 +1,9 @@
 #pragma once
 
+// Code updated by Lyes, 10:10AM 2026/4/29.
+// Revision details: documented the cross-platform asset lookup layer that lets
+// the final packaged game run from a portable folder on Linux or Windows.
+
 #include <array>
 #include <algorithm>
 #include <cctype>
@@ -76,6 +80,9 @@ inline std::string resolvePath(const std::string& relativePath) {
         return portablePathString(input);
     }
 
+    // Search order matters for packaging. The executable-side checks are what
+    // allow the final Windows build to run from a staged folder where assets/
+    // sits next to the .exe.
     std::vector<fs::path> roots;
     roots.reserve(12);
 
@@ -238,6 +245,8 @@ inline std::optional<std::string> resolveAudioPath(const std::string& assetPath)
     const fs::path input(assetPath);
     const std::string extension = lowercaseExtension(input);
 
+    // Authoring still sometimes points at .wav paths even after an .opus pass,
+    // so audio resolution tries both containers while preserving the same stem.
     std::vector<fs::path> candidates;
     candidates.reserve(3);
     if (extension == ".wav" || extension == ".opus") {

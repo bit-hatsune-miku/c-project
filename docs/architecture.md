@@ -11,6 +11,21 @@ It focuses on:
 
 It is not a design pitch. It is a description of the code as it exists now, with a clearer target direction.
 
+## Submission Note
+
+For the final assignment, the code is being presented as a **readable systems map**
+rather than a full engine textbook. The most important files for grading are:
+
+- `CMakeLists.txt` for build/package structure
+- `src/main.cpp` for overall game flow
+- `src/game/core/*` for battle data loading and combat logic
+- `src/game/app_battle_session.*` for the shipped battle runtime
+- `src/game/vn/*` for story presentation
+- `src/platform/path_resolution.h` for cross-platform asset lookup
+
+If a reviewer wants a fast understanding of the current game, they should read
+those files first and then use this document as a guide to the rest of the tree.
+
 ## 1. Big Picture
 
 The project currently has two rendering worlds:
@@ -150,6 +165,29 @@ These files are important because the menu system is not a separate UI framework
 These presentation files are still mostly SDL-rendered overlays even when the base battle path is different.
 
 ## 3. How Rendering Currently Works
+
+## 3.0 Runtime Flow Summary
+
+The easiest way to understand the code is to follow the runtime in this order:
+
+```text
+main.cpp
+  -> initialize window / audio / save systems
+  -> load story or menu state
+  -> route to VN, battle, selector, post-battle, or credits
+  -> persist progression and settings
+
+vn_system.cpp
+  -> present dialogue scenes
+  -> request story transitions or battle launches
+
+battle_loader.cpp + battle_manager.cpp
+  -> load authored combat data
+  -> execute turn-based battle rules
+
+app_battle_session.cpp
+  -> bind battle rules to rendering, audio, HUD, and scripted presentations
+```
 
 ## 3.1 Window / backend ownership
 

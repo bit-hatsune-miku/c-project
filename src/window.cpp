@@ -2,6 +2,11 @@
 #include <SDL2/SDL_opengl.h>
 #include <iostream>
 
+// Code updated by Lyes, 10:01AM 2026/4/29.
+// Revision details: clarified backend-management responsibilities for the final
+// submission review. This file owns SDL window recreation, GL context setup,
+// and the fallback chain for renderer creation.
+
 Window::Window(const std::string& title, int windowWidth, int windowHeight, bool windowResizable)
     : title(title),
       width(windowWidth),
@@ -110,6 +115,9 @@ bool Window::recreateWindow(bool enableOpenGLFlag) {
     }
 
     if (enableOpenGLFlag) {
+        // The front-end and shipped battle HUD use RmlUi on top of an OpenGL
+        // context, so the window is recreated with a core GL profile when this
+        // branch is taken.
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
         SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -190,6 +198,9 @@ bool Window::enableRenderer() {
     }
 
     if (renderer == nullptr) {
+        // Prefer hardware acceleration + vsync, then gracefully step down to a
+        // simpler renderer so the game still runs on weaker or misconfigured
+        // machines.
         renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
         if (!renderer) {
             renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);

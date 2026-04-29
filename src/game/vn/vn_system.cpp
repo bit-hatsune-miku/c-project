@@ -1,5 +1,10 @@
 #include "vn_system.h"
 
+// Code updated by Lyes, 10:33AM 2026/4/29.
+// Revision details: clarified the purpose of the VN renderer for the final
+// submission. This file owns the live dialogue presentation state used by both
+// story playback and battle-integrated cutscenes.
+
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -22,6 +27,9 @@
 namespace vn {
 namespace {
 
+// The VN system is stateful by design: main.cpp advances script entries while
+// this module retains the currently visible speaker, background, portrait, text,
+// and audio playback state across frames.
 SDL_Renderer* gRenderer = nullptr;
 int gWindowW = 1280;
 int gWindowH = 720;

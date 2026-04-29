@@ -1,185 +1,203 @@
-# SDL2 Beginner Project (C++)
+# Hatsune Miku: Our Underground BIT Idol
 
-A simple C++ SDL2 application that opens a graphical window with an interactive interface.
+This repository contains the final course-project code and assets for a story-heavy
+rhythm/RPG built in C++ with SDL2, OpenGL, and RmlUi.
 
-If CMake reports that `build/CMakeCache.txt` was created in a different directory, remove the generated build folder and configure again:
+The project is meant to demonstrate three things clearly:
 
-```bash
-rm -rf build
-cmake -S . -B build
-cmake --build build
+1. What the game is.
+2. How the runtime systems are organized.
+3. How to build and run the final Windows deliverable.
+
+## Game Summary
+
+`Hatsune Miku: Our Underground BIT Idol` is a campus-themed boss-rush game with a
+visual-novel story layer. The player follows Miku through an underground idol
+competition, recruits allies, fights themed boss encounters, and reaches a finale
+that turns the comedy-heavy early game into a more explicit story about ambition,
+identity, and following one's dreams.
+
+Core deliverable features:
+
+- main menu, settings, save/load, and pause flows
+- visual-novel story chapters with battle handoff
+- turn-based boss battles with interactive attack prompts
+- finale route with `lyoo_plot_twist`, `miku_plot_twist`, and credits
+
+## Runtime Structure
+
+High-level gameplay flow:
+
+```text
+Main menu
+  -> story chapter
+  -> pre-battle VN scene
+  -> battle / boss presentation
+  -> post-battle VN scene
+  -> next story chapter
+  -> finale route
+  -> credits
 ```
 
-## Linux setup (Debian/Ubuntu)
+High-level system flow:
 
-1. Install tools and SDL2:
+```text
+src/main.cpp
+  -> owns app state, screen routing, saves, story progression
+  -> launches VN scenes or battle sessions
 
-sudo apt update
-sudo apt install build-essential cmake libsdl2-dev
+src/game/vn/*
+  -> loads JSON script entries
+  -> renders dialogue / portraits / backgrounds
+  -> plays voice + BGM
 
-For Opus audio playback support, also install the opusfile development package:
+src/game/core/*
+  -> loads battle data from JSON
+  -> resolves turn order, actions, buffs, boss phases, and battle outcomes
 
-sudo apt install libopusfile-dev
+src/game/app_battle_session.*
+  -> runs the main RmlUi/OpenGL battle experience used by the shipped app
 
-2. Configure + build:
+assets/*
+  -> stores story scripts, battle data, art, UI, music, and voice assets
+```
 
-cmake -S . -B build
-cmake --build build
+## Important Source Files
 
-3. Run:
+- `CMakeLists.txt`
+  Main build configuration, dependency wiring, and submission install layout.
+- `src/main.cpp`
+  Top-level application loop, story progression, screen switching, and battle
+  handoff.
+- `src/window.*`
+  SDL window ownership and backend switching between SDL renderer mode and
+  OpenGL mode.
+- `src/game/core/battle_loader.*`
+  JSON loading for battles, bosses, characters, and abilities.
+- `src/game/core/battle_manager.*`
+  Main combat state and action-resolution logic.
+- `src/game/app_battle_session.*`
+  Main battle session wrapper used by the shipped game.
+- `src/game/vn/*`
+  Visual-novel presentation system and story-script parsing.
+- `src/platform/path_resolution.h`
+  Cross-platform runtime asset lookup and font/audio path resolution.
 
-./build/bin/OurUndergroundBITIdol
-
-## Windows setup (recommended: vcpkg)
-
-1. Install Visual Studio (Desktop development with C++) and CMake.
-2. Install vcpkg and then SDL2:
-
-vcpkg install sdl2:x64-windows opusfile:x64-windows
-
-3. Configure + build from project folder:
-
-cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake
-cmake --build build --config Release
-
-4. Run:
-
-Run `OurUndergroundBITIdol.exe` from the generated build output directory.
-
-## macOS setup
-
-1. Install tools and SDL2:
-
-brew install cmake sdl2
-
-For Opus audio playback support, also install:
-
-brew install opusfile
-
-2. Configure + build:
-
-cmake -S . -B build
-cmake --build build
-
-3. Run:
-
-./build/bin/OurUndergroundBITIdol
+For a deeper explanation of the rendering split and file ownership, see
+[docs/architecture.md](docs/architecture.md).
 
 ## Controls
 
-- Mouse hover/click works across the main menu, pause menu, settings, and exit confirmation
+- Mouse hover/click works across menu, pause, settings, load, and credits flows
 - `W` / `S` or arrow keys move through menu items
 - `Enter` / `Space` confirms the current selection
-- `Escape` opens the pause menu during story playback and backs out of the exit confirmation
+- `Escape` opens pause during story/battle and backs out of confirmation flows
 - `F11` toggles fullscreen
-- Close window button quits the app
 
-## Features
+## Build Requirements
 
-- Front-end shell for main menu, story, pause, load, and settings flows
-- Scripted story playback with typewriter text plus voice-volume and text-speed settings
-- Mouse and keyboard driven navigation across both the modern front-end UI and legacy SDL flows
-- Manual save slots plus autosave support for story progress and player settings
-- Mixed rendering stack: RmlUi on SDL2/OpenGL GL3 for the front-end shell, with some gameplay and legacy screens still using SDL2 renderer graphics
-- Separate executable targets for the main app, the default RmlUi battle test, the legacy SDL battle test, and the scripted demo wrapper
-- Modular folder layout that keeps platform glue, UI shell code, runtime systems, and content data separate
+Common requirements:
 
-## Project Structure / Architecture
+- CMake `3.16+`
+- C++17 compiler
+- SDL2
+- SDL2_image
+- SDL2_ttf
+- opusfile
 
-The codebase is split by responsibility so platform glue, UI shell code, runtime systems, and content can evolve separately without exposing all game-specific details in one place.
+If CMake reports that `build/CMakeCache.txt` was created in a different source
+directory, delete the generated build folder and configure again.
 
-High-level layout:
+## Linux Build
 
-- `src/` contains the application entry points, rendering integration, front-end UI controllers, gameplay runtime, and persistence code
-- `assets/` stores data-driven content, UI markup/styles, art, audio, and other runtime resources
-- `docs/` holds internal design notes and architecture references
-- `build/` is the generated output directory created by CMake
+Debian/Ubuntu example:
 
-### Rendering model
-
-The project currently uses a mixed UI/rendering stack:
-
-- The modern front-end shell uses **RmlUi** rendered through **SDL2 + OpenGL GL3**
-- That integration lives in `src/graphics/`, where the front-end session manages document stacks and `rmlui_sdl_gl_renderer.*` bridges RmlUi to the SDL/OpenGL window
-- Some gameplay paths and older screens still render through the **SDL2 renderer** directly
-- In practice, the app switches between the RmlUi/OpenGL front-end path and SDL-rendered gameplay/legacy paths depending on screen state
-
-### Source layout
-
-- `src/main.cpp` wires together the main app flow, including front-end UI, story progression, save/load transitions, and battle handoff
-- `src/window.*` wraps SDL window creation plus renderer/OpenGL mode switching
-- `src/graphics/` contains the RmlUi front-end layer:
-  - document/controller interfaces
-  - front-end screen controllers for menu, story, pause, load, and settings
-  - the front-end session stack manager
-  - the SDL2/OpenGL GL3 render bridge used by RmlUi
-- `src/GameMenu/` holds SDL-rendered menu and overlay flows still used by legacy or non-Rml paths
-- `src/Settings/` keeps the older standalone settings controller used by SDL-rendered flows
-- `src/platform/` contains platform-facing helpers such as asset-path resolution and mixed-font text fallback rules
-- `src/game/` contains the runtime systems:
-  - `vn/` for script parsing and visual novel presentation state
-  - `save/` for save-file serialization and slot discovery
-  - `core/` for battle rules, flow, loading, and shared combat state
-  - `render/` for battle scene rendering, HUD, camera, feedback, and asset-loading helpers
-  - `presentation/` for specialized battle presentation sequences and supporting runtime logic
-  - `demo/` plus shared session files for scripted demo/tutorial flows
-  - `audio/` for lightweight playback helpers
-  - `ui/` for battle-session UI state and document binding helpers
-- Top-level battle/demo entry files such as `battle_main.cpp`, `rmlui_battle_main.cpp`, `rmlui_battle_smoke.cpp`, and `demo.cpp` package the shared systems into different executables
-
-### Public-facing file map
-
-This is an intentionally broad map of the repository, meant to show ownership and integration points without documenting every game-specific implementation detail.
-
-```text
-├── CMakeLists.txt                - Cross-platform build configuration and executable target setup
-├── src/
-│   ├── main.cpp                  - Main application loop and screen-to-screen coordination
-│   ├── demo.cpp                  - Standalone wrapper for the shared demo flow
-│   ├── battle_main.cpp           - Legacy SDL battle test entry point
-│   ├── rmlui_battle_main.cpp     - Default RmlUi battle entry point
-│   ├── rmlui_battle_smoke.cpp    - Lightweight RmlUi smoke-test entry point
-│   ├── window.cpp
-│   ├── window.h                  - SDL window plus renderer/OpenGL mode management
-│   ├── GameMenu/                 - SDL-rendered menu, pause, load, and confirmation flows
-│   ├── Settings/                 - Legacy settings controller and related UI plumbing
-│   ├── graphics/                 - RmlUi front-end controllers, session stack, and SDL2_GL3 integration
-│   ├── platform/                 - Asset path and text/font fallback helpers
-│   └── game/
-│       ├── app_battle_session.*  - App-facing battle session for the RmlUi/main-app path
-│       ├── battle_session_core.* - Shared battle runtime shell
-│       ├── demo_battle_session.* - Shared demo battle session used by multiple entry points
-│       ├── audio/                - Lightweight audio playback helpers
-│       ├── core/                 - Combat rules, flow control, loading, and shared state
-│       ├── demo/                 - Scripted demo/tutorial wrappers around combat
-│       ├── presentation/         - Battle presentation sequences and supporting runtime pieces
-│       ├── render/               - Battle rendering, HUD, camera, feedback, and asset helpers
-│       ├── save/                 - Save data models, serialization, and slot/file management
-│       ├── ui/                   - Battle-session UI state and document-binding helpers
-│       └── vn/                   - Story script loading and VN presentation runtime
-├── assets/
-│   ├── combat/                   - Combat-facing data, sprites, icons, and audio resources
-│   ├── rmlui/                    - RmlUi markup, stylesheets, fonts, and shared UI assets
-│   │   └── front_ui/             - Front-end menu/story/pause/load/settings documents and shared styles
-│   └── vn/                       - Story JSON, backgrounds, portraits, UI art, and voice assets
-├── docs/                         - Internal design notes and architecture writeups
-└── build/                        - Build output directory (generated)
+```bash
+sudo apt update
+sudo apt install build-essential cmake libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libopusfile-dev
+cmake -S . -B build
+cmake --build build
+./build/bin/OurUndergroundBITIdol
 ```
 
-## What This Project Demonstrates
+## Windows Build (Final Submission Path)
 
-- SDL2 initialization and window creation
-- Event handling (quit events, keyboard input)
-- Rendering with hardware acceleration
-- Proper resource cleanup
-- CMake for cross-platform builds
+The intended submission path is a **Release** build with **static** vcpkg
+dependencies so the packaged game does not rely on copied third-party DLLs.
 
-## Battle Entry Points
+### 1. Install tools
 
-- `./build/bin/battle_testing` launches the default RmlUi battle experience.
-- `./build/bin/battle_testing_legacy` launches the old SDL battle test directly.
-- `./build/bin/OurUndergroundBITIdol battle mode` forwards into the default battle executable.
+- Visual Studio 2022 with `Desktop development with C++`
+- CMake
+- vcpkg
+
+### 2. Install dependencies with the static triplet
+
+```powershell
+vcpkg install sdl2:x64-windows-static sdl2-image:x64-windows-static sdl2-ttf:x64-windows-static opusfile:x64-windows-static
+```
+
+### 3. Configure a Release build
+
+```powershell
+cmake -S . -B build-win ^
+  -G "Visual Studio 17 2022" -A x64 ^
+  -DCMAKE_TOOLCHAIN_FILE=<path-to-vcpkg>/scripts/buildsystems/vcpkg.cmake ^
+  -DVCPKG_TARGET_TRIPLET=x64-windows-static
+```
+
+### 4. Build the shipped executable
+
+```powershell
+cmake --build build-win --config Release --target OurUndergroundBITIdol
+```
+
+### 5. Stage the portable package
+
+```powershell
+cmake --build build-win --config Release --target stage_submission
+```
+
+The staged folder should contain:
+
+```text
+build-win/submission/
+├── OurUndergroundBITIdol.exe
+├── README.md
+└── assets/
+```
+
+### 6. Run
+
+Launch:
+
+```powershell
+build-win/submission/OurUndergroundBITIdol.exe
+```
+
+## Packaging Notes For Submission
+
+- The portable Windows package should contain only:
+  - `OurUndergroundBITIdol.exe`
+  - `assets/`
+  - short run instructions / README
+- Preview, test, and demo executables are development tools and are not part of
+  the submission package.
+- If the full-fidelity package exceeds `250 MB`, upload it to **Baidu Netdisk**
+  and submit the permanent link together with the source zip.
+
+## What To Smoke-Test Before Submission
+
+Release build only:
+
+1. Main menu and front-end UI
+2. One ordinary battle
+3. Finale route through credits
+4. Chinese font fallback and mixed-language rendering
+5. Battle voice, BGM, and credits song playback
+6. Fullscreen/windowed behavior and general frame pacing on Windows
 
 ## Additional Documentation
 
-- [docs/combat-input-design.md](docs/combat-input-design.md) documents the planned Cupcakke and Lyoo input timing, scoring formulas, and balancing knobs.
+- [docs/architecture.md](docs/architecture.md)
+- [docs/combat-input-design.md](docs/combat-input-design.md)

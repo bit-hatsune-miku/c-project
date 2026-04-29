@@ -1,5 +1,9 @@
 #include "battle_loader.h"
 
+// Code updated by Lyes, 10:31AM 2026/4/29.
+// Revision details: documented the authored battle-data loading layer for the
+// final submission. This file converts JSON content into runtime battle structs.
+
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -16,6 +20,8 @@ bool loadCharacterDefinition(const std::string& characterKey, CharacterDefinitio
 
 namespace {
 
+// Parses the authored prompt type strings used by rhythm / interaction-driven
+// abilities into the enum consumed by the battle runtime.
 InputPromptType parseInputPromptType(const std::string& promptType) {
     if (promptType == "space") {
         return InputPromptType::Space;

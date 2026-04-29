@@ -1,5 +1,11 @@
 #define GL_GLEXT_PROTOTYPES
 
+// Code updated by Lyes, 10:18AM 2026/4/29.
+// Revision details: added teacher-facing comments for the final submission.
+// This file hosts the shipped battle runtime used by the main application:
+// battle rules, HUD, audio, presentations, and scripted finale behavior are
+// coordinated here around the RmlUi/OpenGL battle shell.
+
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -739,6 +745,9 @@ bool playResolvedLoop(game::audio::BgmPlayer& player, const std::string& path, f
 
 void preloadBattleBossBgmTracks(game::audio::BattleBgmController& controller,
                                 const battle::BattleState& battleState) {
+    // Preloading phase tracks removes the most obvious hitch source during boss
+    // transitions. This matters most for story-critical battles where a stall
+    // would undercut the presentation.
     controller.clearPreloadedTracks();
 
     std::vector<std::string> resolvedPaths;
@@ -8818,6 +8827,9 @@ bool Session::initialize(Window& window,
                          const battle::PlayerProgression& progression,
                          std::optional<std::vector<std::string>> initialPartyLineup,
                          BattleResultPresentationConfig resultPresentation) {
+    // Session is a thin public wrapper; the heavy battle setup stays inside the
+    // implementation object so main.cpp does not need to understand renderer,
+    // HUD, voice-arbiter, or presentation details.
     return impl_->initialize(
         window,
         settings,

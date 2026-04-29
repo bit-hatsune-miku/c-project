@@ -1,6 +1,11 @@
 #include "battle_manager.h"
 #include <cstddef>
 
+// Code updated by Lyes, 10:32AM 2026/4/29.
+// Revision details: added teacher-facing notes to the combat implementation.
+// This file owns turn order, orb consumption, buffs/debuffs, boss phases, and
+// action resolution after data has already been loaded.
+
 namespace battle {
 // Returns the shield value for a party member at the given index, or 0 if out of range.
 int BattleManager::getCharacterShield(int partyIndex) const {
@@ -52,6 +57,9 @@ namespace {
 
 constexpr float kActionValueEpsilon = 0.0001f;
 
+// Boss phases are currently derived from HP thirds unless a story battle adds
+// extra script-level behavior on top. The helper keeps that threshold logic in
+// one place instead of scattering it across damage resolution code.
 int bossPhaseIndexForHp(int bossMaxHp, int hp) {
     if (bossMaxHp <= 0) {
         return 0;

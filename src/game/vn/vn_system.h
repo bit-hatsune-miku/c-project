@@ -1,6 +1,11 @@
 #ifndef VN_SYSTEM_H
 #define VN_SYSTEM_H
 
+// Code updated by Lyes, 10:08AM 2026/4/29.
+// Revision details: clarified the public interface of the story presentation
+// system for the final submission. This namespace is the bridge between VN JSON
+// script entries and the live rendered dialogue state.
+
 #include <SDL2/SDL.h>
 #include <optional>
 #include <string>
@@ -216,6 +221,8 @@
  */
 namespace vn {
 
+// Snapshot of the currently displayed VN line. Front-end and battle-integrated
+// story UIs read this to mirror the same speaker/text/background state.
 struct PresentationState {
     std::string speakerName;
     std::string accentColor;
@@ -255,6 +262,9 @@ float getBgmVolume();
 void setText(const std::string& text);
 
 void startLine();
+// High-level convenience entry point used by story playback. It applies the
+// supplied media overrides, starts voice/BGM changes, and resets the typewriter
+// state for the next line.
 void showLine(
     const std::string& text,
     const std::string& speakerName = "",

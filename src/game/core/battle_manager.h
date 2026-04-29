@@ -1,6 +1,11 @@
 #ifndef BATTLE_MANAGER_H
 #define BATTLE_MANAGER_H
 
+// Code updated by Lyes, 10:05AM 2026/4/29.
+// Revision details: added submission-facing structure notes for the central
+// combat runtime. This header is the main data contract between authored battle
+// JSON, the turn system, and the battle presentation/session layers.
+
 #include <string>
 #include <iostream>
 #include <array>
@@ -18,6 +23,7 @@ namespace battle {
 
 using namespace std;
 
+// Static boss data loaded from assets/combat/boss.json plus phase overrides.
 struct BossDefinition {
     struct PhaseDefinition {
         bool configured = false;
@@ -48,6 +54,8 @@ struct BossDefinition {
     bool hasPhaseData = false;
 };
 
+// Optional alternate kits let a single character swap to another authored move
+// set during special story moments without requiring a second character record.
 struct CharacterAbilityKitDefinition {
     std::string standardAbility;
     std::string skillAbility;
@@ -79,6 +87,8 @@ struct CharacterDefinition {
 std::string getCharacterRegularAbilityId(const CharacterDefinition& definition);
 std::string getBossNormalAbilityId(const BossDefinition& definition);
 
+// Special rules keep unusual story battles data-driven instead of pushing every
+// twist into hard-coded one-off checks inside the generic combat loop.
 struct BattleSpecialRules {
     bool playerDamageHealsBoss = false;
     bool autoRevivePartyOnBossDamage = false;

@@ -1,5 +1,11 @@
 #define GL_GLEXT_PROTOTYPES
 
+// Code updated by Lyes, 10:14AM 2026/4/29.
+// Revision details: teacher-facing comments added for the final submission.
+// This file is the top-level application coordinator: it owns startup,
+// save/load restoration, story progression, battle launch routing, and the main
+// event/update/render loop.
+
 #include <algorithm>
 #include <array>
 #include <cctype>
@@ -1113,6 +1119,9 @@ void beginStory(AppState& state,
                 ScreenState endReturnScreen,
                 bool autosaveOnStart,
                 StoryFlowMode flowMode) {
+    // Story startup is separated from script loading so practice-mode replays,
+    // campaign story, and resumed saves can all feed into the same playback
+    // setup path.
     state.pendingStoryNextScript.clear();
     const bool loaded = scriptRef.empty()
         ? ensureStoryLoaded(state.story)
@@ -1195,6 +1204,9 @@ void beginBattleDemo(AppState& state) {
 }
 
 void beginBattle(AppState& state, const std::string& battleKey) {
+    // Battle launch resolves the authored battle definition first, then decides
+    // whether to go straight into combat or detour through the party loader for
+    // fights with flexible lineups.
     if (battleKey.empty()) {
         clearPendingBattleState(state);
         state.noticeText = "Battle key missing.";
@@ -1846,6 +1858,8 @@ int main(int argc, char** argv) {
         }
     }
 
+    // The main executable supports a few startup shortcuts for testing, but the
+    // normal submission path still enters through the full app shell below.
     Window window("Hatsune Miku: Our Underground BIT Idol", kStartupWindowWidth, kStartupWindowHeight, false);
     if (!window.isOpen()) {
         std::cerr << "Failed to initialize window\n";

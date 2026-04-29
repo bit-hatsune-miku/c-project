@@ -1,11 +1,22 @@
 cmake_minimum_required(VERSION 3.16)
 project(OurUndergroundBITIdol CXX)
 
+# Code updated by Lyes, 09:45AM 2026/4/29.
+# Revision details: clarified build ownership for the final submission, added
+# Windows static-runtime defaults, and defined a minimal install layout for the
+# packaged executable plus runtime assets.
+
 # Generate compile_commands.json for clangd / VS Code IntelliSense.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+if(MSVC)
+    # Teacher requirement: the Windows submission should prefer a self-contained
+    # executable over one that depends on the Visual C++ redistributable.
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif()
 
 option(ENABLE_RMLUI "Fetch and build the default RmlUi battle experience." ON)
 
@@ -990,3 +1001,28 @@ if (TARGET party_loader_preview)
         RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin"
     )
 endif()
+
+if(MSVC)
+    set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT OurUndergroundBITIdol)
+endif()
+
+# Submission packaging keeps only the main executable and runtime assets. A
+# dedicated staging target is used instead of "cmake --install" so fetched
+# dependencies such as RmlUi do not pollute the final student-facing package
+# with SDK headers and helper libraries.
+set(SUBMISSION_STAGE_DIR "${CMAKE_BINARY_DIR}/submission")
+add_custom_target(stage_submission
+    COMMAND ${CMAKE_COMMAND} -E remove_directory "${SUBMISSION_STAGE_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E make_directory "${SUBMISSION_STAGE_DIR}"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:OurUndergroundBITIdol>"
+        "${SUBMISSION_STAGE_DIR}/"
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "${CMAKE_SOURCE_DIR}/README.md"
+        "${SUBMISSION_STAGE_DIR}/README.md"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        "${CMAKE_SOURCE_DIR}/assets"
+        "${SUBMISSION_STAGE_DIR}/assets"
+    DEPENDS OurUndergroundBITIdol
+    COMMENT "Staging the final submission package"
+)
