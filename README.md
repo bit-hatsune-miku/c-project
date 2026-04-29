@@ -201,3 +201,4 @@ Release build only:
 
 - [docs/architecture.md](docs/architecture.md)
 - [docs/combat-input-design.md](docs/combat-input-design.md)
+- [docs/windows-build-handoff.md](docs/windows-build-handoff.md)
